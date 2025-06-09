@@ -4,7 +4,7 @@
       <i class="fa fa-home" aria-hidden="true"><</i>
       <span>Вернуться в лобби</span>
     </div>
-    <GameLobby v-if="showLobby" :game="gameState" :games-list="games" :players="playersList" :current-game="currentGame" @gameStarted="onGameStart" @rejoinGame="rejoinGame" @joinGame="joinGame" @leaveGame="leaveGame" @createGame="createGame" @updateGamesList="getGamesList"/>
+    <GameLobby v-if="showLobby" :game="gameState" :games-list="games" :players="playersList" :current-game="currentGame" @startGame="showLobby = false" @gameStarted="onGameStart" @rejoinGame="rejoinGame" @joinGame="joinGame" @leaveGame="leaveGame" @createGame="createGame" @updateGamesList="getGamesList"/>
     <GameControls :game-board="gameState" />
     <GameActionsHistory
       :game-board="gameState"
