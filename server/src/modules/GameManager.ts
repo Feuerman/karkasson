@@ -4,7 +4,6 @@
 import tiles from '../data/tiles.ts'
 import { deepClone } from '../utils/common.ts'
 import { GameSimulatorModule } from './GameSimulatorModule'
-import LZString from 'lz-string'
 import type {
   BaseObject,
   Player,
@@ -71,10 +70,6 @@ export interface IGameBoard {
     initiator?: Player | null
   }[]
   moveCounter: number
-  getSavedGames(): GameManager[]
-  saveGame(name: string): void
-  loadGame(id: number): void
-  deleteGame(id: number): void
   startGame(): void
   autoPlay(): void
   placeFollower(availablePlace: {
@@ -238,80 +233,6 @@ export class GameManager implements IGameBoard {
 
     this.currentPlayer = this.players[0]
     this.currentPlayerIndex = 0
-  }
-
-  saveGame(name) {
-    const gameStates = this.getSavedGames()
-    const gameState = {
-      gridSize: this.gridSize,
-      gameIsStarted: this.gameIsStarted,
-      gameIsEnded: this.gameIsEnded,
-      tilesList: this.tilesList,
-      currentTile: this.currentTile,
-      players: this.players,
-      currentPlayer: this.currentPlayer,
-      playersFollowers: this.playersFollowers,
-      temporaryObjects: this.temporaryObjects,
-      completedObjects: this.completedObjects,
-      scores: this.scores,
-      availableFollowersPlaces: this.availableFollowersPlaces,
-      isPlacingFollower: this.isPlacingFollower,
-      placedFollowers: this.placedFollowers,
-      tilePlacesStats: this.tilePlacesStats,
-      lastPlacement: this.lastPlacement,
-      availablePlacesTiles: this.availablePlacesTiles,
-      tileHistory: this.tileHistory,
-    }
-
-    gameStates.push({
-      ...gameState,
-      name,
-      id: Date.now(),
-    })
-
-    localStorage.setItem(
-      'savedGames',
-      LZString.compressToEncodedURIComponent(JSON.stringify(gameStates) || '[]')
-    )
-  }
-
-  getSavedGames() {
-    const savedGames = localStorage.getItem('savedGames') || '[]'
-    return JSON.parse(
-      LZString.decompressFromEncodedURIComponent(savedGames) || '[]'
-    )
-  }
-
-  loadGame(id) {
-    const gameStates = this.getSavedGames()
-    const gameState = gameStates.find((item) => item.id === id)
-
-    this.gridSize = gameState.gridSize
-    this.gameIsStarted = gameState.gameIsStarted
-    this.gameIsEnded = gameState.gameIsEnded
-    this.tilesList = gameState.tilesList
-    this.currentTile = gameState.currentTile
-    this.players = gameState.players
-    this.currentPlayer = gameState.currentPlayer
-    this.playersFollowers = gameState.playersFollowers
-    this.temporaryObjects = gameState.temporaryObjects
-    this.completedObjects = gameState.completedObjects
-    this.scores = gameState.scores
-    this.availableFollowersPlaces = gameState.availableFollowersPlaces
-    this.isPlacingFollower = gameState.isPlacingFollower
-    this.placedFollowers = gameState.placedFollowers
-    this.tilePlacesStats = gameState.tilePlacesStats
-    this.lastPlacement = gameState.lastPlacement
-    this.tileHistory = gameState.tileHistory
-  }
-
-  deleteGame(id) {
-    const gameStates = this.getSavedGames()
-    const newGameStates = gameStates.filter((item) => item.id !== id)
-    localStorage.setItem(
-      'savedGames',
-      JSON.stringify(LZString.compressToEncodedURIComponent(newGameStates))
-    )
   }
 
   zoomToObject(objectId: string) {
@@ -1241,68 +1162,6 @@ export class GameManager implements IGameBoard {
 
     console.log('Игра завершена!')
     console.log('Результаты:')
-
-    const statsInStorage =
-      JSON.parse(
-        LZString.decompressFromEncodedURIComponent(
-          localStorage.getItem('game-stats') || '[]'
-        )
-      ) || []
-
-    statsInStorage.push({
-      date: new Date().toLocaleString(),
-      cities: this.completedObjects.cities,
-      roads: this.completedObjects.roads,
-      monasteries: this.completedObjects.monasteries,
-      score: {
-        cities: Object.values(this.completedObjects.cities).reduce(
-          (acc, city) => acc + city.score.total,
-          0
-        ),
-        roads: Object.values(this.completedObjects.roads).reduce(
-          (acc, road) => acc + road.score.total,
-          0
-        ),
-      },
-      temporaryScore: {
-        cities: Object.values(this.temporaryObjects.cities).reduce(
-          (acc, city) => acc + city.score.total,
-          0
-        ),
-        roads: Object.values(this.temporaryObjects.roads).reduce(
-          (acc, road) => acc + road.score.total,
-          0
-        ),
-      },
-    })
-
-    this.saveGame(
-      'auto-play ' +
-        Object.values(this.completedObjects.cities).reduce(
-          (acc, city) => acc + city.score.total,
-          0
-        ) +
-        ' ' +
-        Object.values(this.completedObjects.roads).reduce(
-          (acc, road) => acc + road.score.total,
-          0
-        ) +
-        ' ' +
-        Object.values(this.temporaryObjects.cities).reduce(
-          (acc, city) => acc + city.score.total,
-          0
-        ) +
-        ' ' +
-        Object.values(this.temporaryObjects.roads).reduce(
-          (acc, road) => acc + road.score.total,
-          0
-        )
-    )
-
-    localStorage.setItem(
-      'game-stats',
-      LZString.compressToEncodedURIComponent(JSON.stringify(statsInStorage))
-    )
     // window.location.reload();
   }
 
