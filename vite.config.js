@@ -16,49 +16,10 @@ export default defineConfig({
       },
     }),
     vueDevTools(),
-    {
-      name: 'copy-tiles',
-      closeBundle: async () => {
-        const sourceDir = resolve(__dirname, 'src/assets/tiles/')
-        const targetDir = resolve(__dirname, 'dist/src/assets/tiles/')
-        
-        // Ensure target directory exists
-        await fs.ensureDir(targetDir)
-        
-        // Copy all PNG files
-        const files = await fs.readdir(sourceDir)
-        for (const file of files) {
-          if (file.endsWith('.png')) {
-            await fs.copy(
-              resolve(sourceDir, file),
-              resolve(targetDir, file)
-            )
-          }
-        }
-      }
-    }
   ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
-  },
-  build: {
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-      },
-      output: {
-        assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith('.png')) {
-            return 'src/assets/tiles/[name][extname]'
-          }
-          return 'assets/[name]-[hash][extname]'
-        }
-      }
-    },
-    copyPublicDir: true,
-    assetsDir: 'src/assets/tiles/',
-    outDir: './dist',
   },
 })
