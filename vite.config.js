@@ -20,7 +20,7 @@ export default defineConfig({
       name: 'copy-tiles',
       closeBundle: async () => {
         const sourceDir = resolve(__dirname, 'src/assets/tiles/')
-        const targetDir = resolve(__dirname, 'dist/src/assets/tiles')
+        const targetDir = resolve(__dirname, 'dist/src/assets/tiles/')
         
         // Ensure target directory exists
         await fs.ensureDir(targetDir)
@@ -48,9 +48,17 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
       },
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name.endsWith('.png')) {
+            return 'src/assets/tiles/[name][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
+        }
+      }
     },
     copyPublicDir: true,
-    assetsDir: './src/assets/tiles/',
+    assetsDir: 'src/assets/tiles/',
     outDir: './dist',
   },
 })
