@@ -23,7 +23,7 @@
             <span>
               <template v-if="game.gameIsStarted">
                 <span v-for="(value, key, index) in game.scores" :key="key">
-                  {{ game.players[index].name }} - {{ value }}{{ index !== game.players.length - 1 ? ', ' : '' }}
+                  {{ game.players[index]?.name }} - {{ value }}{{ index !== game.players.length - 1 ? ', ' : '' }}
                 </span>
               </template>
             </span>

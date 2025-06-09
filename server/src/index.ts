@@ -114,10 +114,10 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
 }
 
 // Загрузка сохраненных игр при запуске сервера
-function loadSavedGames() {
+async function loadSavedGames() {
   console.log('Loading saved games...')
-  const savedGames = gameDatabase.getAllGames()
-  
+  const savedGames = await gameDatabase.getAllGames()
+
   savedGames.forEach(savedGame => {
     // Создаем новый экземпляр GameManager для каждой сохраненной игры
     const game = new GameManager({ players: savedGame.players })
@@ -132,12 +132,9 @@ function loadSavedGames() {
       }, 1000)
     }
   })
-  
+
   console.log(`Loaded ${savedGames.length} saved games`)
 }
-
-// Загружаем сохраненные игры
-loadSavedGames()
 
 function createAndStartGame() {
   const gameId = randomUUID()
@@ -288,12 +285,12 @@ io.on('connection', (socket) => {
     return PlayerColors[index + 1]
   }
 
-  socket.on('getGamesList', (callback) => {
+  socket.on('getGamesList', async (callback) => {
     const gamesList = Object.values(games)
     // Добавляем сохраненные игры, которых нет в памяти
-    const savedGames = gameDatabase.getAllGames()
+    const savedGames = await gameDatabase.getAllGames()
     const mergedGames = [...gamesList]
-    
+
     savedGames.forEach(savedGame => {
       if (!gamesList.find(g => g.id === savedGame.id)) {
         mergedGames.push(savedGame)
@@ -716,4 +713,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+
+  // Загружаем сохраненные игры
+  loadSavedGames()
 })

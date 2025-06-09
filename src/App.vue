@@ -17,7 +17,6 @@
       :initial-y="currentStatePosition.y"
       :disabled="!gameState.isMyTurn"
       draggable-id="tile-preview"
-      @drag="gameState.isMyTurn && handleDrag($event)"
     >
       <div class="game-preview-tile">
         <button
@@ -343,6 +342,11 @@ const rotateTile = (tile, direction) => {
 }
 
 const placeTile = async (tile, { rowIndex, tileIndex }) => {
+  if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
+    notificationService.error('Выберите клетку для размещения')
+    return
+  }
+
   try {
     await GameService.placeTile(tile, { rowIndex, tileIndex })
   } catch (e: unknown) {
