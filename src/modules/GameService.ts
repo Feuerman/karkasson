@@ -288,6 +288,10 @@ class GameService implements IGameService {
       )
     })
   }
+
+  leaveGame () {
+    this.socket?.emit('leaveGame', { gameId: this.gameId })
+  }
 }
 
 export default new GameService()

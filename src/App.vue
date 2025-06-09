@@ -1,6 +1,10 @@
 <template>
   <div class="game-wrapper">
-    <GameLobby v-if="showLobby" @gameStarted="onGameStart" />
+    <div v-if="!showLobby" class="back-to-lobby" @click="goInLobby">
+      <i class="fa fa-home" aria-hidden="true"><</i>
+      <span>Вернуться в лобби</span>
+    </div>
+    <GameLobby v-if="showLobby" :game="gameState" :games-list="games" :players="playersList" :current-game="currentGame" @gameStarted="onGameStart" @rejoinGame="rejoinGame" @joinGame="joinGame" @leaveGame="leaveGame" @createGame="createGame" @updateGamesList="getGamesList"/>
     <GameControls :game-board="gameState" />
     <GameActionsHistory
       :game-board="gameState"
@@ -53,13 +57,14 @@
           :key="tileIndex"
           class="game-tile"
           :class="[
-            hoveredTile.rowIndex === rowIndex &&
-            hoveredTile.tileIndex === tileIndex
+            hoveredTile?.rowIndex === rowIndex &&
+            hoveredTile?.tileIndex === tileIndex
               ? '--active'
               : '',
           ]"
           :data-row-index="rowIndex"
           :data-tile-index="tileIndex"
+          @click="handleTileClick(rowIndex, tileIndex)"
         >
           <TileView
             :tile="tile"
@@ -73,7 +78,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from '@/components/GameControls.vue'
 import GameActionsHistory from '@/components/GameActionsHistory.vue'
@@ -125,41 +130,17 @@ const updateCurrentTile = throttle(async (tile) => {
   await GameService.updateCurrentTile(tile)
 }, 300)
 
-const handleDrag = throttle(({ clientX, clientY }) => {
-  const cornerX = clientX + 55
-  const cornerY = clientY + 55
+const handleTileClick = (rowIndex, tileIndex) => {
+  if (gameState.value.isMyTurn) {
+    hoveredTile.value.rowIndex = rowIndex
+    hoveredTile.value.tileIndex = tileIndex
 
-  const el = document.elementFromPoint(cornerX, cornerY)
-
-  const rowIndex = Number(el?.dataset?.rowIndex)
-  const tileIndex = Number(el?.dataset?.tileIndex)
-
-  if (
-    hoveredTile.value.rowIndex === rowIndex &&
-    hoveredTile.value.tileIndex === tileIndex
-  ) {
-    return
+    updateSelectedPlacingPoint({
+      rowIndex,
+      tileIndex,
+    })
   }
-
-  hoveredTile.value = {
-    rowIndex: Number(el?.dataset?.rowIndex),
-    tileIndex: Number(el?.dataset?.tileIndex),
-  }
-}, 10)
-
-watch(
-  hoveredTile,
-  (value) => {
-    if (
-      gameState.value.gameIsStarted &&
-      gameState.value.isMyTurn &&
-      !gameState.value.gameIsEnded
-    ) {
-      updateSelectedPlacingPoint(value)
-    }
-  },
-  { immediate: true }
-)
+}
 
 watch(
   () => gameState.value.lastPlacement,
@@ -176,7 +157,10 @@ watch(
   { immediate: true, deep: true }
 )
 
-const zoomToTile = ({ rowIndex, tileIndex }) => {
+const zoomToTile = ({ rowIndex, tileIndex } = {}) => {
+  if (!rowIndex || !tileIndex) {
+    return
+  }
   const targetTile = document.querySelector(
     '.game-tile[data-row-index="' +
       rowIndex +
@@ -215,7 +199,10 @@ const onGameStart = (gameData) => {
     gameData.placingPoint?.rowIndex !== undefined &&
     gameData.placingPoint?.tileIndex !== undefined
   ) {
-    hoveredTile.value = gameData.placingPoint
+    hoveredTile.value = gameData.placingPoint || {
+      rowIndex: null,
+      tileIndex: null,
+    }
   }
 
   if (gameData.currentTile) {
@@ -240,7 +227,10 @@ const onGameStart = (gameData) => {
       (updatedGame.placingPoint?.rowIndex !== hoveredTile.value.rowIndex ||
         updatedGame.placingPoint?.tileIndex !== hoveredTile.value.tileIndex)
     ) {
-      hoveredTile.value = updatedGame.placingPoint
+      hoveredTile.value = updatedGame.placingPoint || {
+        rowIndex: null,
+        tileIndex: null,
+      }
 
       zoomToTile(hoveredTile.value)
 
@@ -359,6 +349,115 @@ const placeTile = async (tile, { rowIndex, tileIndex }) => {
     notificationService.error(e)
   }
 }
+
+const updateLocalGamesList = (gamesList) => {
+
+  const savedGameId = localStorage.getItem('lastGameId')
+
+  games.value = gamesList.map((game) => ({
+    ...game,
+    isLastGame: game.id === savedGameId,
+  }))
+}
+
+const getGamesList = async () => {
+  try {
+    const gamesList = await GameService.getGamesList()
+
+    updateLocalGamesList(gamesList)
+  } catch (error) {
+    notificationService.error(error)
+  }
+}
+
+const joinGame = async (gameId) => {
+  try {
+    const game = await GameService.joinGame(gameId)
+    if (!game.gameIsStarted) {
+      currentGame.value = game
+      playersList.value = game.players
+    } else {
+      showLobby.value = false
+    }
+  } catch (error) {
+    notificationService.error(error)
+  }
+}
+
+const leaveGame = async () => {
+  try {
+    await GameService.leaveGame()
+
+    playersList.value = []
+    currentGame.value = null
+
+    getGamesList()
+  } catch (error) {
+    notificationService.error(error)
+  }
+}
+
+const goInLobby = () => {
+  showLobby.value = true
+  currentGame.value = null
+  playersList.value = []
+
+  getGamesList()
+}
+
+const createGame = async () => {
+  try {
+    if (gameState.value.gameIsStarted) {
+      await GameService.leaveGame()
+    }
+    const game = await GameService.createGame()
+    currentGame.value = game
+    playersList.value = game.players
+  } catch (error) {
+    notificationService.error(error)
+  }
+}
+
+const rejoinGame = async (gameId) => {
+  try {
+    const game = await GameService.rejoinGame(gameId)
+    if (!game.gameIsStarted) {
+      currentGame.value = game
+      playersList.value = game.players
+    } else {
+      showLobby.value = false
+    }
+  } catch (error) {
+    notificationService.error(error)
+  }
+}
+
+const games = ref([])
+const playersList = ref([])
+const currentGame = ref(null)
+
+onMounted(async () => {
+  GameService.connect()
+
+  GameService.onGameUpdated((game) => {
+    playersList.value = game.players
+    if (game.gameIsStarted && !gameState.value.gameIsStarted) {
+      onGameStart(game)
+    }
+  })
+
+  GameService.socket.on('updateGamesList', (gamesList) => {
+    updateLocalGamesList(gamesList)
+  })
+
+  GameService.socket.on('connect', () => {
+    getGamesList()
+  })
+
+  GameService.onPlayerDisconnected(() => {
+    console.log('Player disconnected, resetting lobby state')
+  })
+})
 </script>
 
 <style lang="scss" scoped>
@@ -533,6 +632,44 @@ const placeTile = async (tile, { rowIndex, tileIndex }) => {
         background-color: #1565c0;
       }
     }
+  }
+}
+
+.back-to-lobby {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  z-index: 9999;
+  border: none;
+  background-color: rgba(76, 175, 80, 1);
+  padding: 5px 10px;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 16px;
+  transition: background-color 0.2s ease;
+
+  span {
+    display: block;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: width 0.2s ease;
+  }
+
+  &:hover {
+    background-color: rgba(76, 175, 80, 0.8);
+    span {
+      width: 145px;
+    }
+  }
+
+  &:active {
+    background-color: rgba(76, 175, 80, 0.6);
   }
 }
 </style>

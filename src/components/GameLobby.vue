@@ -1,25 +1,48 @@
 <template>
   <div class="game-lobby">
-    <div v-if="!isInGame" class="lobby-menu">
+    <div v-if="!currentGame?.id" class="lobby-menu">
       <h2>Каркассон Онлайн</h2>
       <div class="lobby-actions">
-        <button @click="createGame">Создать новую игру</button>
+        <button class="lobby-actions__create" @click="createGame">Создать новую игру</button>
         <div class="join-game">
-          <div v-for="game in gamesList" :key="game.id">
+          <div v-for="game in gamesList" :key="game.id" class="game-item">
+            <span>
+              id {{ game.id }}
+            </span>
+            <span>
+              Игроков {{ game.players?.length }}
+            </span>
+            <span>
+              <template v-if="game.gameIsStarted && !game.gameIsEnded">
+                Ход {{ game.moveCounter }}
+              </template>
+              <template v-else-if="game.gameIsEnded">
+                Окончена
+              </template>
+            </span>
+            <span>
+              <template v-if="game.gameIsStarted">
+                <span v-for="(value, key, index) in game.scores" :key="key">
+                  {{ game.players[index].name }} - {{ value }}{{ index !== game.players.length - 1 ? ', ' : '' }}
+                </span>
+              </template>
+            </span>
             <button
-              @click="game.isLastGame ? rejoinGame(game.id) : joinGame(game.id)"
+              v-if="!currentGame?.id"
+              @click="isRejoinable(game) ? rejoinGame(game.id) : joinGame(game.id)"
             >
-              {{ game.isLastGame ? 'Продолжить игру' : 'Присоединиться' }} к
-              игре {{ game.id }}
+              <template v-if="!game.gameIsStarted">Войти</template>
+              <template v-else-if="game.gameIsStarted && !game.gameIsEnded">Продолжить</template>
+              <template v-else>Загрузить</template>
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <div v-else class="game-info">
+    <div v-if="currentGame?.id" class="game-info">
       <div class="game-header">
-        <h3>ID игры: {{ currentGameId }}</h3>
+        <h3>ID игры: {{ currentGame?.id }}</h3>
         <div class="players-list">
           <div
             v-for="(player, index) in players"
@@ -37,94 +60,59 @@
             </button>
           </div>
         </div>
-        <button @click="leaveGameAndGoBack">К списку игр</button>
-        <button @click="startGame">Начать игру</button>
+        <button class="bottom-button" @click="leaveGameAndGoBack">Отключиться</button>
+        <button class="bottom-button" @click="startGame">Начать игру</button>
       </div>
     </div>
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import GameService from '@/modules/GameService'
 import notificationService from '@/plugins/notification'
+import { IGameBoard } from '../../server/src/modules/GameManager'
 
 export default {
   name: 'GameLobby',
-  data() {
-    return {
-      gameId: '',
-      showNameError: false,
-      showGameIdError: false,
-      isInGame: false,
-      currentGameId: null,
-      gameIsStarted: false,
-      players: [],
-      gamesList: [],
+  props: {
+    gameState: {
+      type: Object as () => IGameBoard,
+      default: () => ({}),
+    },
+    gamesList: {
+      type: Array,
+      default: () => [],
+    },
+    players: {
+      type: Array,
+      default: () => [],
+    },
+    currentGame: {
+      type: Object,
+      default: () => ({}),
     }
-  },
-  created() {
-    GameService.connect()
-
-    GameService.onGameUpdated((game) => {
-      this.players = game.players
-      if (game.gameIsStarted && !this.gameIsStarted) {
-        this.gameIsStarted = true
-        this.$emit('gameStarted', game)
-      }
-    })
-
-    GameService.socket.on('updateGamesList', (gamesList) => {
-      this.updateLocalGamesList(gamesList)
-    })
-
-    GameService.socket.on('connect', () => {
-      this.getGamesList()
-    })
-
-    GameService.onPlayerDisconnected(() => {
-      console.log('Player disconnected, resetting lobby state')
-    })
-  },
-  beforeUnmount() {
-    console.log('GameLobby component being unmounted')
-    // НЕ отключаем сокет при размонтировании компонента
-    // GameService.disconnect();
   },
   methods: {
     async createGame() {
       try {
-        const game = await GameService.createGame()
-        this.isInGame = true
-        this.currentGameId = game.id
-        this.players = game.players
+        this.$emit('createGame')
       } catch (error) {
         notificationService.error(error)
       }
     },
     leaveGameAndGoBack() {
-      this.isInGame = false
-      this.currentGameId = null
-      this.players = []
-      this.getGamesList()
+      this.$emit('leaveGame')
     },
     async joinGame(gameId) {
-      this.gameId = gameId
-
       try {
-        const game = await GameService.joinGame(this.gameId)
-        this.isInGame = true
-        this.currentGameId = game.id
-        this.players = game.players
+        this.$emit('joinGame', gameId)
       } catch (error) {
         notificationService.error(error)
       }
     },
     async rejoinGame(gameId) {
       try {
-        const game = await GameService.rejoinGame(gameId)
-        this.isInGame = true
-        this.currentGameId = gameId
-        this.players = game.players
+        this.$emit('rejoinGame', gameId)
       } catch (error) {
         notificationService.error(error)
       }
@@ -139,28 +127,20 @@ export default {
     startGame() {
       GameService.startGame()
     },
-    async getGamesList() {
-      try {
-        const gamesList = await GameService.getGamesList()
-
-        this.updateLocalGamesList(gamesList)
-      } catch (error) {
-        notificationService.error(error)
-      }
-    },
-    updateLocalGamesList(gamesList) {
-      const savedGameId = localStorage.getItem('lastGameId')
-
-      this.gamesList = gamesList.map((game) => ({
-        ...game,
-        isLastGame: game.id === savedGameId,
-      }))
-    },
+    isRejoinable(game) {
+      return game.players?.some((p) => p.deviceId === GameService.deviceId)
+    }
   },
 }
 </script>
 
 <style lang="scss" scoped>
+h2 {
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 2rem;
+  color: #333;
+}
 .game-lobby {
   z-index: 3000;
   position: absolute;
@@ -186,77 +166,97 @@ export default {
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
+}
 
-  &__title {
-    color: #2196f3;
-    font-size: 2.5rem;
-    text-align: center;
-    margin-bottom: 2rem;
-    font-weight: 600;
-  }
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 
-  &__players {
-    display: grid;
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
-
-  &__player {
-    background-color: #f8f9fa;
-    padding: 1rem 1.5rem;
+  .player-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 2px solid #333;
+    padding: 0.5rem;
     border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: all 0.2s ease;
-
-    &--ready {
-      border-left: 4px solid #4caf50;
-      background-color: #f1f8e9;
-    }
-
-    &--waiting {
-      border-left: 4px solid #ff9800;
-    }
   }
 
-  &__player-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  &__player-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #e3f2fd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #2196f3;
-    font-weight: 600;
-  }
-
-  &__player-name {
+  input {
+    border: none;
     font-size: 1.1rem;
     font-weight: 500;
     color: #333;
+    flex-grow: 1;
   }
 
-  &__player-status {
-    font-size: 0.9rem;
-    color: #666;
+  button {
+    border: none;
+    background-color: transparent;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+
+    &:hover {
+      color: #2196f3;
+    }
+
+    &:active {
+      transform: translateY(2px);
+    }
+  }
+}
+
+.bottom-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #f5f5f5;
+  color: #333;
+
+  &:hover {
+    background-color: #e0e0e0;
   }
 
-  &__controls {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-top: 2rem;
+  &:active {
+    transform: translateY(2px);
   }
+}
 
-  &__button {
+.join-game {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 700px;
+  overflow-y: scroll;
+}
+
+.game-item {
+  margin-bottom: 10px;
+  background-color: #89a1c5;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  transition: all 0.2s ease;
+
+span {
+  display: block;
+  width: 150px;
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: #fff;
+}
+  button {
+    width: 220px;
     padding: 0.75rem 2rem;
     border-radius: 8px;
     border: none;
@@ -264,82 +264,59 @@ export default {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    background-color: #f5f5f5;
+    color: #333;
 
-    &--primary {
-      background-color: #2196f3;
-      color: white;
-
-      &:hover {
-        background-color: #1976d2;
-        transform: translateY(-2px);
-      }
-
-      &:active {
-        transform: translateY(0);
-      }
+    &:hover {
+      background-color: #e0e0e0;
     }
 
-    &--secondary {
-      background-color: #f5f5f5;
-      color: #333;
-
-      &:hover {
-        background-color: #e0e0e0;
-      }
-    }
-
-    &:disabled {
-      background-color: #bdbdbd;
-      cursor: not-allowed;
-      transform: none;
+    &:active {
+      transform: translateY(2px);
     }
   }
+}
 
-  &__settings {
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid #e0e0e0;
+.lobby-actions {
+  &__create {
+    margin-top: 10px;
+    margin-bottom: 2rem;
+    padding:  1.2rem 2rem;
+    border-radius: 8px;
+    border: none;
+    font-size: 1.4rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #5a80aa;
+    color: #fff;
+
+    &:hover {
+      background-color: #4a6a8a;
+    }
+
+    &:active {
+      transform: translateY(2px);
+    }
   }
+}
 
-  &__setting-group {
-    margin-bottom: 1.5rem;
-  }
+.game-info {
+  margin-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
-  &__setting-label {
-    display: block;
-    margin-bottom: 0.5rem;
+  &__title {
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
     color: #333;
     font-weight: 500;
-  }
-
-  &__setting-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.2s ease;
-
-    &:focus {
-      border-color: #2196f3;
-      outline: none;
-    }
-  }
-
-  &__setting-select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 1rem;
-    background-color: white;
-    cursor: pointer;
-    transition: border-color 0.2s ease;
-
-    &:focus {
-      border-color: #2196f3;
-      outline: none;
-    }
   }
 }
 </style>
