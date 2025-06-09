@@ -95,7 +95,23 @@ const defaultGrid = ref([
     .fill(null)
     .map(() => Array(50).fill(null)),
 ])
-const currentGrid = computed(() => gameState.value.grid || defaultGrid.value)
+const currentGrid = computed(() => defaultGrid.value)
+
+watch(
+  () => gameState.value.tilePlacesStats,
+  () => {
+    nextTick(() => {
+      Object.keys(gameState.value.tilePlacesStats || {}).forEach((rowIndex) => {
+        Object.keys(gameState.value.tilePlacesStats[rowIndex]).forEach(
+          (tileIndex) => {
+            defaultGrid.value[rowIndex][tileIndex] = gameState.value.tilePlacesStats[rowIndex][tileIndex]
+          }
+        )
+      })
+    })
+  },
+  { deep: true, immediate: true }
+)
 
 const currentStatePosition = ref({
   x: window.innerWidth / 2,

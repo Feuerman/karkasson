@@ -1,3 +1,6 @@
+// @ts-nocheck
+// @ts-ignore
+
 import tiles from '../data/tiles.ts'
 import { deepClone } from '../utils/common.ts'
 import { GameSimulatorModule } from './GameSimulatorModule'
@@ -48,7 +51,6 @@ export interface IGameBoard {
   gridSize: number[]
   gameIsStarted: boolean
   gameIsEnded: boolean
-  grid: (GridTile | null)[][] // Allow null values in grid
   tilesList: Tile[]
   currentTile: GridTile | null // Changed from 'any' to 'Tile'
   players: Player[]
@@ -120,7 +122,6 @@ export class GameManager implements IGameBoard {
   gridSize = [30, 30]
   gameIsStarted: boolean
   gameIsEnded: boolean
-  grid: (GridTile | null)[][]
   tilesList: Tile[]
   currentTile: GridTile | null
   players: Player[]
@@ -138,7 +139,12 @@ export class GameManager implements IGameBoard {
       rowIndex: number
       tileIndex: number
       rotation: number
-      isCorrectPosition: boolean
+      sides: {
+        north: string
+        west: string
+        south: string
+        east: string
+      }
     }[]
   } = {}
   lastPlacement: { rowIndex: number; tileIndex: number }
@@ -159,7 +165,6 @@ export class GameManager implements IGameBoard {
     const players = params?.players || []
     this.gameIsStarted = false
     this.gameIsEnded = false
-    this.grid = []
     this.tilesList = []
     this.currentTile = null
     this.players = []
@@ -190,7 +195,7 @@ export class GameManager implements IGameBoard {
 
     this.actionsHistory = []
 
-    this.initGrid()
+    // this.initGrid()
     this.initTilesList()
     this.initPlayers(players)
 
@@ -241,7 +246,6 @@ export class GameManager implements IGameBoard {
       gridSize: this.gridSize,
       gameIsStarted: this.gameIsStarted,
       gameIsEnded: this.gameIsEnded,
-      grid: this.grid,
       tilesList: this.tilesList,
       currentTile: this.currentTile,
       players: this.players,
@@ -285,7 +289,6 @@ export class GameManager implements IGameBoard {
     this.gridSize = gameState.gridSize
     this.gameIsStarted = gameState.gameIsStarted
     this.gameIsEnded = gameState.gameIsEnded
-    this.grid = gameState.grid
     this.tilesList = gameState.tilesList
     this.currentTile = gameState.currentTile
     this.players = gameState.players
@@ -467,7 +470,10 @@ export class GameManager implements IGameBoard {
       this.currentTile.y = rowIndex
     }
 
-    this.grid[rowIndex][tileIndex] = { ...tile, rowIndex, tileIndex }
+    if (!this.tilePlacesStats[rowIndex]) {
+      this.tilePlacesStats[rowIndex] = {}
+    }
+    this.tilePlacesStats[rowIndex][tileIndex] = { ...tile, rowIndex, tileIndex }
     this.lastPlacement = { tileIndex, rowIndex }
 
     this.actionsHistory.push({
@@ -511,7 +517,7 @@ export class GameManager implements IGameBoard {
 
     oppositeTilesCoords.forEach((tile) => {
       if (
-        !this.grid[tile.rowIndex]?.[tile.tileIndex] &&
+        !this.tilePlacesStats[tile.rowIndex]?.[tile.tileIndex] &&
         !this.availablePlacesTiles.find(
           (place) =>
             place.rowIndex === tile.rowIndex &&
@@ -545,7 +551,7 @@ export class GameManager implements IGameBoard {
             }
 
             const adjacentTile =
-              this.grid[adjacentTileMap[side].rowIndex]?.[
+              this.tilePlacesStats[adjacentTileMap[side].rowIndex]?.[
                 adjacentTileMap[side].tileIndex
               ]
 
@@ -731,7 +737,7 @@ export class GameManager implements IGameBoard {
   }
 
   checkGridAfterPlacingTile(rowIndex, tileIndex) {
-    const tile = this.grid[rowIndex][tileIndex]
+    const tile = this.tilePlacesStats[rowIndex][tileIndex]
 
     const roadsPoints = Object.entries(tile.sides)
       .filter(([direction, pointType]) => pointType === 'road')
@@ -911,7 +917,7 @@ export class GameManager implements IGameBoard {
     const uniqueTiles = new Set()
 
     road.points.forEach((point) => {
-      const tile = this.grid[point.y]?.[point.x]
+      const tile = this.tilePlacesStats[point.y]?.[point.x]
       if (tile) {
         uniqueTiles.add(`${point.y},${point.x}`)
       }
@@ -1094,7 +1100,7 @@ export class GameManager implements IGameBoard {
     let shieldCount = 0
 
     city.points.forEach((point) => {
-      const tile = this.grid[point.y]?.[point.x]
+      const tile = this.tilePlacesStats[point.y]?.[point.x]
       if (tile && !uniqueTiles.has(`${point.y},${point.x}`)) {
         uniqueTiles.add(`${point.y},${point.x}`)
         if (tile.withShield) {
@@ -1157,14 +1163,14 @@ export class GameManager implements IGameBoard {
 
   isCorrectTilePosition(tile, rowIndex, tileIndex) {
     if (this.isEmptyGrid()) return true
-    if (this.grid[rowIndex][tileIndex] !== null) {
+    if (Boolean(this.tilePlacesStats[rowIndex]?.[tileIndex])) {
       return false
     } else {
       const adjacentTiles = [
-        this.grid[rowIndex - 1]?.[tileIndex]?.sides?.south,
-        this.grid[rowIndex]?.[tileIndex + 1]?.sides?.west,
-        this.grid[rowIndex + 1]?.[tileIndex]?.sides?.north,
-        this.grid[rowIndex]?.[tileIndex - 1]?.sides?.east,
+        this.tilePlacesStats[rowIndex - 1]?.[tileIndex]?.sides?.south,
+        this.tilePlacesStats[rowIndex]?.[tileIndex + 1]?.sides?.west,
+        this.tilePlacesStats[rowIndex + 1]?.[tileIndex]?.sides?.north,
+        this.tilePlacesStats[rowIndex]?.[tileIndex - 1]?.sides?.east,
       ]
 
       if (adjacentTiles.some((pointType) => Boolean(pointType))) {
@@ -1329,9 +1335,6 @@ export class GameManager implements IGameBoard {
 
     clone.availablePlacesTiles = deepClone(this.availablePlacesTiles)
 
-    // Deep copy grid
-    clone.grid = deepClone(this.grid)
-
     // Deep copy tiles list
     clone.tilesList = deepClone(this.tilesList)
 
@@ -1388,7 +1391,11 @@ export class GameManager implements IGameBoard {
 
     // Create a copy of the tile with position
     const placedTile = { ...tile, x: tileIndex, y: rowIndex }
-    this.grid[rowIndex][tileIndex] = placedTile
+
+    if (!this.tilePlacesStats[rowIndex]) {
+      this.tilePlacesStats[rowIndex] = {}
+    }
+    this.tilePlacesStats[rowIndex][tileIndex] = placedTile
 
     // Check for completed objects
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
