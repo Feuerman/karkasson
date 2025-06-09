@@ -30,7 +30,7 @@ class GameService implements IGameService {
       return
     }
 
-    this.socket = io('http://localhost:3001', {
+    this.socket = io('https://karkasson.onrender.com:10000', {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
