@@ -383,14 +383,6 @@ export class GameManager implements IGameBoard {
     this.currentPlayerIndex = this.players.findIndex(
       (player) => player.id === nextPlayer.id
     )
-    if (this.currentPlayerIndex > 0) {
-      console.log(
-        'Текущий ход: ' +
-          this.moveCounter +
-          '. Текущий индекс игрока: ' +
-          this.currentPlayerIndex
-      )
-    }
 
     this.getRandomTileFromList()
   }
@@ -473,7 +465,7 @@ export class GameManager implements IGameBoard {
     if (!this.tilePlacesStats[rowIndex]) {
       this.tilePlacesStats[rowIndex] = {}
     }
-    this.tilePlacesStats[rowIndex][tileIndex] = { ...tile, rowIndex, tileIndex }
+    this.tilePlacesStats[rowIndex][tileIndex] = { ...tile, rowIndex, tileIndex, x: tileIndex, y: rowIndex }
     this.lastPlacement = { tileIndex, rowIndex }
 
     this.actionsHistory.push({
@@ -586,7 +578,6 @@ export class GameManager implements IGameBoard {
 
     // Check if player has followers available
     if (!this.playersFollowers[this.currentPlayer.id]?.ordinaryFollowers) {
-      console.log(`Player ${this.currentPlayer.id} has no followers available`)
       this.skipFollower()
       return
     }
@@ -601,7 +592,6 @@ export class GameManager implements IGameBoard {
     )
 
     if (!temporaryObject) {
-      console.error('Temporary object not found for follower placement')
       this.skipFollower()
       return
     }
@@ -651,7 +641,6 @@ export class GameManager implements IGameBoard {
     if (!this.currentTile) {
       this.getRandomTileFromList()
       if (!this.currentTile) {
-        console.error('No tiles available for computer player')
         return
       }
     }
@@ -670,7 +659,6 @@ export class GameManager implements IGameBoard {
             move.tileIndex
           )
           if (!tilePlaced) {
-            console.error('Failed to place tile for computer player')
             return
           }
 
@@ -689,7 +677,6 @@ export class GameManager implements IGameBoard {
         }
       }
     } catch (error) {
-      console.error('Error in autoPlaceTile:', error)
       throw error
     }
   }
@@ -705,7 +692,6 @@ export class GameManager implements IGameBoard {
         this.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
         this.updateTileHistory(tile)
       } else {
-        console.log('getRandomTileFromList else')
         const listWithoutCurrentTile = this.tilesList.filter(
           (_, index) => index !== 0
         )
@@ -1374,6 +1360,8 @@ export class GameManager implements IGameBoard {
 
     // Deep copy last follower placement
     clone.tileHistory = deepClone(this.tileHistory)
+
+    clone.tilePlacesStats = deepClone(this.tilePlacesStats)
 
     return clone
   }
