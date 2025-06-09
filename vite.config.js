@@ -24,5 +24,6 @@ export default defineConfig({
   },
   build: {
     copyPublicDir: true,
+    publicDir: 'public',
   },
 })
