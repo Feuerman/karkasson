@@ -7,7 +7,7 @@ import fs from 'fs-extra'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/', // Имя вашего репозитория
+  base: '/karkasson/', // Имя вашего репозитория
   plugins: [
     vue({
       script: {
