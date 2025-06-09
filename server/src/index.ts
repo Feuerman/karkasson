@@ -28,6 +28,45 @@ const games: Record<string, IGameBoard> = {}
 // Хранение соответствия deviceId и socketId
 const deviceToSocketMap: Record<string, string> = {}
 
+// Helper function to format game data before sending
+function formatGameData(game: IGameBoard) {
+  // Create a copy of the game to avoid modifying the original
+  const formattedGame = {
+    tilePlacesStats: game.tilePlacesStats,
+    tilesList: game.tilesList,
+    currentTile: game.currentTile,
+    players: game.players,
+    currentPlayerIndex: game.currentPlayerIndex,
+    availableFollowersPlaces: game.availableFollowersPlaces,
+    gameIsEnded: game.gameIsEnded,
+    moveCounter: game.moveCounter,
+    id: game.id,
+    isPlacingFollower: game.isPlacingFollower,
+    scores: game.scores,
+    gameIsStarted: game.gameIsStarted,
+    gridSize: game.gridSize,
+    completedObjects: game.completedObjects,
+    temporaryObjects: game.temporaryObjects,
+    lastPlacement: game.lastPlacement,
+    availablePlacesTiles: game.availablePlacesTiles,
+    tileHistory: game.tileHistory,
+    playersFollowers: game.playersFollowers,
+    availableFollowersPlaces: game.availableFollowersPlaces,
+    actionsHistory: game.actionsHistory,
+    currentPlayer: game.currentPlayer,
+    placedFollowers: game.placedFollowers,
+  }
+  
+  // Add any additional formatting or data transformation here
+  // For example:
+  // - Remove sensitive data
+  // - Add computed properties
+  // - Format dates
+  // - Add metadata
+  
+  return formattedGame
+}
+
 // Helper function to handle computer player move
 async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
   console.log('=== Computer Move Start ===')
@@ -73,7 +112,7 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
     // Verify the move was successful and game state is still valid
     if (!games[gameId] || games[gameId].gameIsEnded) {
       console.log('Game ended or invalid after computer move')
-      io.to(gameId).emit('gameUpdated', games[gameId])
+      io.to(gameId).emit('gameUpdated', formatGameData(games[gameId]))
 
       if (games[gameId].gameIsEnded) {
         gameDatabase.saveGame(gameId, games[gameId])
@@ -82,7 +121,7 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
     }
 
     // Emit game update immediately after move
-    io.to(gameId).emit('gameUpdated', games[gameId])
+    io.to(gameId).emit('gameUpdated', formatGameData(games[gameId]))
 
     // Get the next player after the move
     const nextPlayer = games[gameId].getNextPlayer(currentPlayerId)
@@ -191,7 +230,7 @@ io.on('connection', (socket) => {
             gameDatabase.saveGame(gameId, game)
 
             // Обновляем список игроков в игре
-            io.to(gameId).emit('gameUpdated', game)
+            io.to(gameId).emit('gameUpdated', formatGameData(game))
           } else {
             game.players = game.players.map((p) => {
               if (p.socketId === socket.id) {
@@ -202,7 +241,7 @@ io.on('connection', (socket) => {
             })
 
             // Обновляем список игроков в игре
-            io.to(gameId).emit('gameUpdated', game)
+            io.to(gameId).emit('gameUpdated', formatGameData(game))
           }
 
           return
@@ -230,7 +269,7 @@ io.on('connection', (socket) => {
             })
 
             // Обновляем список игроков в игре
-            io.to(gameId).emit('gameUpdated', game)
+            io.to(gameId).emit('gameUpdated', formatGameData(game))
           } else {
             delete games[gameId]
             gameDatabase.deleteGame(gameId)
@@ -266,7 +305,7 @@ io.on('connection', (socket) => {
         }
       })
       socket.join(gameId)
-      io.to(gameId).emit('gameUpdated', game)
+      io.to(gameId).emit('gameUpdated', formatGameData(game))
     } else {
       socket.emit('error', 'Player not found in game')
     }
@@ -344,7 +383,7 @@ io.on('connection', (socket) => {
     }
 
     socket.leave(gameId)
-    io.to(gameId).emit('gameUpdated', game)
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
   })
 
   socket.on('addPlayer', ({ gameId, name, index }) => {
@@ -355,7 +394,7 @@ io.on('connection', (socket) => {
     game.players[index].name = name
     game.players[index].socketId = socket.id
     game.players[index].deviceId = deviceId
-    io.to(gameId).emit('gameUpdated', game)
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
   })
 
   socket.on('startGame', ({ gameId }) => {
@@ -364,7 +403,7 @@ io.on('connection', (socket) => {
     newGame.id = gameId
 
     games[gameId] = newGame
-    io.to(gameId).emit('gameUpdated', newGame)
+    io.to(gameId).emit('gameUpdated', formatGameData(newGame))
 
     if (game.players?.every((p) => !p.socketId && !p.deviceId)) {
       handleComputerPlayerMove(newGame, gameId)
@@ -385,7 +424,7 @@ io.on('connection', (socket) => {
     }
 
     socket.join(gameId)
-    io.to(gameId).emit('gameUpdated', game)
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
   })
 
   socket.on('selectPlacingPoint', ({ gameId, point }, callback) => {
@@ -408,7 +447,7 @@ io.on('connection', (socket) => {
     }
 
     game.placingPoint = { rowIndex: point.rowIndex, tileIndex: point.tileIndex }
-    io.to(gameId).emit('gameUpdated', game)
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
 
     callback && callback({ success: true, game })
   })
@@ -433,7 +472,7 @@ io.on('connection', (socket) => {
     }
 
     game.currentTile = tile
-    io.to(gameId).emit('gameUpdated', game)
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
 
     callback && callback({ success: true, game })
   })
@@ -493,7 +532,7 @@ io.on('connection', (socket) => {
           currentPlayer: game.currentPlayer?.id,
         })
 
-        io.to(gameId).emit('gameUpdated', game)
+        io.to(gameId).emit('gameUpdated', formatGameData(game))
         callback && callback({ success: true, game })
 
         // Get the next player after the move
@@ -563,7 +602,7 @@ io.on('connection', (socket) => {
         currentPlayer: game.currentPlayer?.id,
       })
 
-      io.to(gameId).emit('gameUpdated', game)
+      io.to(gameId).emit('gameUpdated', formatGameData(game))
       callback && callback({ success: true, game })
 
       // Get the next player after the move
@@ -689,7 +728,7 @@ io.on('connection', (socket) => {
         currentPlayer: game.currentPlayer?.id,
       })
 
-      io.to(gameId).emit('gameUpdated', game)
+      io.to(gameId).emit('gameUpdated', formatGameData(game))
       callback && callback({ success: true, game })
 
       // Get the next player after the move
