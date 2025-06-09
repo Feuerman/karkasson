@@ -226,7 +226,7 @@ const dragStyle = computed(() => ({
 <style scoped lang="scss">
 .draggable {
   position: absolute;
-  z-index: 9999;
+  z-index: 2000;
   touch-action: none;
   will-change: transform;
   max-height: 90vh;

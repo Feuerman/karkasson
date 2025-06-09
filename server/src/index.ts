@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { GameManager, type IGameBoard } from './modules/GameManager.ts'
 import { Player, PlayerColors } from './modules/types.ts'
 import { instrument } from '@socket.io/admin-ui'
+import { gameDatabase } from './modules/Database'
 
 const app = express()
 const server = http.createServer(app)
@@ -26,6 +27,125 @@ instrument(io, {
 const games: Record<string, IGameBoard> = {}
 // Хранение соответствия deviceId и socketId
 const deviceToSocketMap: Record<string, string> = {}
+
+// Helper function to handle computer player move
+async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
+  console.log('=== Computer Move Start ===')
+  console.log('Current game state:', {
+    gameId,
+    currentPlayer: game.currentPlayer?.id,
+    isComputer: !game.currentPlayer?.socketId,
+    gameIsEnded: game.gameIsEnded,
+    moveCounter: game.moveCounter,
+  })
+
+  // Skip if game is ended or it's not computer's turn
+  if (
+    game.gameIsEnded ||
+    !game.currentPlayer ||
+    game.currentPlayer.socketId
+  ) {
+    console.log('Skipping computer move:', {
+      gameIsEnded: game.gameIsEnded,
+      hasCurrentPlayer: !!game.currentPlayer,
+      isComputer: !game.currentPlayer?.socketId,
+    })
+    return
+  }
+
+  // Ensure we have a valid game state
+  if (!games[gameId] || games[gameId] !== game) {
+    console.error('Invalid game state in handleComputerPlayerMove', {
+      gameExists: !!games[gameId],
+      gameMatches: games[gameId] === game,
+    })
+    return
+  }
+
+  try {
+    // Store current player ID before move
+    const currentPlayerId = game.currentPlayer.id
+    console.log('Starting computer move for player:', currentPlayerId)
+
+    // Perform the computer move
+    await game.autoPlaceTile()
+
+    // Verify the move was successful and game state is still valid
+    if (!games[gameId] || games[gameId].gameIsEnded) {
+      console.log('Game ended or invalid after computer move')
+      io.to(gameId).emit('gameUpdated', games[gameId])
+
+      if (games[gameId].gameIsEnded) {
+        gameDatabase.saveGame(gameId, games[gameId])
+      }
+      return
+    }
+
+    // Emit game update immediately after move
+    io.to(gameId).emit('gameUpdated', games[gameId])
+
+    // Get the next player after the move
+    const nextPlayer = games[gameId].getNextPlayer(currentPlayerId)
+    console.log('Next player after computer move:', {
+      nextPlayerId: nextPlayer?.id,
+      isComputer: !nextPlayer?.socketId,
+      currentPlayerId: games[gameId].currentPlayer?.id,
+    })
+
+    gameDatabase.saveGame(gameId, games[gameId])
+
+    // Check if next player is also computer and game is still active
+    if (nextPlayer && !nextPlayer.socketId && !games[gameId].gameIsEnded) {
+      console.log('Scheduling next computer move')
+      // Add a small delay before next computer move to prevent rapid moves
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await handleComputerPlayerMove(games[gameId], gameId)
+    } else {
+      console.log('No more computer moves needed')
+    }
+  } catch (error) {
+    console.error('Error in handleComputerPlayerMove:', error)
+    // Emit error to clients if needed
+    io.to(gameId).emit('gameError', {
+      message: 'Error processing computer move',
+    })
+  }
+  console.log('=== Computer Move End ===')
+}
+
+// Загрузка сохраненных игр при запуске сервера
+function loadSavedGames() {
+  console.log('Loading saved games...')
+  const savedGames = gameDatabase.getAllGames()
+  
+  savedGames.forEach(savedGame => {
+    // Создаем новый экземпляр GameManager для каждой сохраненной игры
+    const game = new GameManager({ players: savedGame.players })
+    // Копируем все свойства из сохраненной игры
+    Object.assign(game, savedGame)
+    // Сохраняем игру в памяти
+    games[savedGame.id] = game
+
+    if (!game.gameIsEnded && game.players.every((p) => !p.socketId && !p.deviceId)) {
+      setTimeout(() => {
+        handleComputerPlayerMove(game, savedGame.id)
+      }, 1000)
+    }
+  })
+  
+  console.log(`Loaded ${savedGames.length} saved games`)
+}
+
+// Загружаем сохраненные игры
+loadSavedGames()
+
+function createAndStartGame() {
+  const gameId = randomUUID()
+  io.emit('createGame', { gameId })
+  io.emit('startGame', { gameId })
+}
+
+createAndStartGame()
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id)
@@ -67,6 +187,9 @@ io.on('connection', (socket) => {
               return p
             })
 
+            // Сохраняем состояние игры при отключении игрока
+            gameDatabase.saveGame(gameId, game)
+
             // Обновляем список игроков в игре
             io.to(gameId).emit('gameUpdated', game)
           } else {
@@ -91,6 +214,7 @@ io.on('connection', (socket) => {
         if (game.gameIsStarted) {
           if (game.players.some((p) => p.socketId === socket.id)) {
             delete games[gameId]
+            gameDatabase.deleteGame(gameId)
             io.to(gameId).emit('gameDeleted')
           }
         } else {
@@ -109,6 +233,7 @@ io.on('connection', (socket) => {
             io.to(gameId).emit('gameUpdated', game)
           } else {
             delete games[gameId]
+            gameDatabase.deleteGame(gameId)
             io.to(gameId).emit('gameDeleted')
             io.emit('updateGamesList', Object.values(games))
           }
@@ -135,12 +260,27 @@ io.on('connection', (socket) => {
       game.players.forEach((player) => {
         if (player.deviceId === deviceId) {
           player.socketId = socket.id
+          if (player.id === game.currentPlayer?.id) {
+            game.currentPlayer.socketId = socket.id
+          }
         }
       })
       socket.join(gameId)
       io.to(gameId).emit('gameUpdated', game)
     } else {
       socket.emit('error', 'Player not found in game')
+    }
+
+    if (game.gameIsStarted) {
+      const allPlayersConnected = game.players.every((p) => p.socketId !== null || !p.deviceId)
+      const isComputerMove = !game.currentPlayer?.socketId && !game.currentPlayer?.deviceId
+
+      console.log(allPlayersConnected, 'allPlayersConnected')
+      console.log(isComputerMove, 'isComputerMove')
+      console.log(game.players, 'game.players')
+      if (allPlayersConnected && isComputerMove) {
+        handleComputerPlayerMove(game, gameId)
+      }
     }
   })
 
@@ -150,8 +290,17 @@ io.on('connection', (socket) => {
 
   socket.on('getGamesList', (callback) => {
     const gamesList = Object.values(games)
+    // Добавляем сохраненные игры, которых нет в памяти
+    const savedGames = gameDatabase.getAllGames()
+    const mergedGames = [...gamesList]
+    
+    savedGames.forEach(savedGame => {
+      if (!gamesList.find(g => g.id === savedGame.id)) {
+        mergedGames.push(savedGame)
+      }
+    })
 
-    callback({ games: gamesList })
+    callback({ games: mergedGames })
   })
 
   // Создание новой игры
@@ -177,6 +326,27 @@ io.on('connection', (socket) => {
     socket.emit('gameCreated', { gameId, game: games[gameId] })
   })
 
+  socket.on('leaveGame', ({ gameId }) => {
+    const game = games[gameId]
+    if (!game) {
+      socket.emit('error', 'Game not found')
+      return
+    }
+
+    if (!game.gameIsStarted) {
+      game.players = game.players.map((p) => {
+        if (p.socketId === socket.id) {
+          p.socketId = null
+          p.deviceId = null
+        }
+        return p
+      })
+    }
+
+    socket.leave(gameId)
+    io.to(gameId).emit('gameUpdated', game)
+  })
+
   socket.on('addPlayer', ({ gameId, name, index }) => {
     const deviceId = Object.entries(deviceToSocketMap).find(
       ([_, sid]) => sid === socket.id
@@ -195,6 +365,10 @@ io.on('connection', (socket) => {
 
     games[gameId] = newGame
     io.to(gameId).emit('gameUpdated', newGame)
+
+    if (game.players?.every((p) => !p.socketId && !p.deviceId)) {
+      handleComputerPlayerMove(newGame, gameId)
+    }
   })
 
   // Присоединение к игре
@@ -264,85 +438,6 @@ io.on('connection', (socket) => {
     callback && callback({ success: true, game })
   })
 
-  // Helper function to handle computer player move
-  async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
-    console.log('=== Computer Move Start ===')
-    console.log('Current game state:', {
-      gameId,
-      currentPlayer: game.currentPlayer?.id,
-      isComputer: !game.currentPlayer?.socketId,
-      gameIsEnded: game.gameIsEnded,
-      moveCounter: game.moveCounter,
-    })
-
-    // Skip if game is ended or it's not computer's turn
-    if (
-      game.gameIsEnded ||
-      !game.currentPlayer ||
-      game.currentPlayer.socketId
-    ) {
-      console.log('Skipping computer move:', {
-        gameIsEnded: game.gameIsEnded,
-        hasCurrentPlayer: !!game.currentPlayer,
-        isComputer: !game.currentPlayer?.socketId,
-      })
-      return
-    }
-
-    // Ensure we have a valid game state
-    if (!games[gameId] || games[gameId] !== game) {
-      console.error('Invalid game state in handleComputerPlayerMove', {
-        gameExists: !!games[gameId],
-        gameMatches: games[gameId] === game,
-      })
-      return
-    }
-
-    try {
-      // Store current player ID before move
-      const currentPlayerId = game.currentPlayer.id
-      console.log('Starting computer move for player:', currentPlayerId)
-
-      // Perform the computer move
-      await game.autoPlaceTile()
-
-      // Verify the move was successful and game state is still valid
-      if (!games[gameId] || games[gameId].gameIsEnded) {
-        console.log('Game ended or invalid after computer move')
-        io.to(gameId).emit('gameUpdated', games[gameId])
-        return
-      }
-
-      // Emit game update immediately after move
-      io.to(gameId).emit('gameUpdated', games[gameId])
-
-      // Get the next player after the move
-      const nextPlayer = games[gameId].getNextPlayer(currentPlayerId)
-      console.log('Next player after computer move:', {
-        nextPlayerId: nextPlayer?.id,
-        isComputer: !nextPlayer?.socketId,
-        currentPlayerId: games[gameId].currentPlayer?.id,
-      })
-
-      // Check if next player is also computer and game is still active
-      if (nextPlayer && !nextPlayer.socketId && !games[gameId].gameIsEnded) {
-        console.log('Scheduling next computer move')
-        // Add a small delay before next computer move to prevent rapid moves
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-        await handleComputerPlayerMove(games[gameId], gameId)
-      } else {
-        console.log('No more computer moves needed')
-      }
-    } catch (error) {
-      console.error('Error in handleComputerPlayerMove:', error)
-      // Emit error to clients if needed
-      io.to(gameId).emit('gameError', {
-        message: 'Error processing computer move',
-      })
-    }
-    console.log('=== Computer Move End ===')
-  }
-
   // Обработка хода игрока
   socket.on('placeTile', ({ gameId, tile, position }, callback) => {
     console.log('=== Player Place Tile Start ===')
@@ -381,6 +476,9 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // Сохраняем состояние игры перед ходом игрока
+      gameDatabase.saveGame(gameId, game)
+
       const isValidMove = game.placeTile(
         tile,
         position.rowIndex,
@@ -407,7 +505,7 @@ io.on('connection', (socket) => {
         })
 
         // Check if next player is a computer player
-        if (nextPlayer && !nextPlayer.socketId) {
+        if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
           console.log('Scheduling computer move after player tile placement')
           setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
         }
@@ -456,6 +554,9 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // Сохраняем состояние игры перед ходом игрока
+      gameDatabase.saveGame(gameId, game)
+
       game.placeFollower(place)
       console.log('Follower placed successfully:', {
         place,
@@ -474,7 +575,7 @@ io.on('connection', (socket) => {
       })
 
       // Check if next player is a computer player
-      if (nextPlayer && !nextPlayer.socketId) {
+      if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
         console.log('Scheduling computer move after player follower placement')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
       }
@@ -580,6 +681,9 @@ io.on('connection', (socket) => {
     }
 
     try {
+      // Сохраняем состояние игры перед ходом игрока
+      gameDatabase.saveGame(gameId, game)
+
       game.skipFollower()
       console.log('Follower skipped successfully:', {
         currentPlayer: game.currentPlayer?.id,
@@ -597,7 +701,7 @@ io.on('connection', (socket) => {
       })
 
       // Check if next player is a computer player
-      if (nextPlayer && !nextPlayer.socketId) {
+      if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
         console.log('Scheduling computer move after player follower skip')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
       }
