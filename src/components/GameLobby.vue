@@ -43,6 +43,12 @@
     <div v-if="currentGame?.id" class="game-info">
       <div class="game-header">
         <h3>ID игры: {{ currentGame?.id }}</h3>
+        <div class="game-title">
+          <input
+            v-model="currentGame.name"
+            placeholder="Ваше имя"
+          />
+        </div>
         <div class="players-list">
           <div
             v-for="(player, index) in players"
@@ -193,41 +199,106 @@ h2 {
   }
 
   button {
-    border: none;
-    background-color: transparent;
-    font-size: 1.1rem;
-    font-weight: 500;
+    /* Основные стили */
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
     color: #333;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+
+    /* Форма и границы */
+    border-radius: 8px;
+    border: none;
+    outline: none;
     cursor: pointer;
+    position: relative;
+
+    /* Текстура камня */
+    background: linear-gradient(145deg, #a8a8a8, #8a8a8a);
+    box-shadow:
+      3px 3px 5px rgba(0, 0, 0, 0.3),
+      inset 1px 1px 3px rgba(255, 255, 255, 0.2),
+      inset -1px -1px 3px rgba(0, 0, 0, 0.2);
+
+    /* Эффект объема */
+    transform: translateY(0);
+    transition: all 0.2s ease;
+
+    /* Дополнительные детали для текстуры камня */
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 20%),
+      radial-gradient(circle at 80% 70%, rgba(0, 0, 0, 0.1) 0%, transparent 20%);
 
     &:hover {
-      color: #2196f3;
+      background: linear-gradient(145deg, #9a9a9a, #7c7c7c);
+      box-shadow:
+        4px 4px 6px rgba(0, 0, 0, 0.4),
+        inset 1px 1px 3px rgba(255, 255, 255, 0.2),
+        inset -1px -1px 3px rgba(0, 0, 0, 0.2);
+      transform: translateY(-2px);
+      color: #222;
     }
 
     &:active {
-      transform: translateY(2px);
+      background: linear-gradient(145deg, #7c7c7c, #6e6e6e);
+      box-shadow:
+        1px 1px 2px rgba(0, 0, 0, 0.3),
+        inset 2px 2px 4px rgba(0, 0, 0, 0.2),
+        inset -1px -1px 2px rgba(255, 255, 255, 0.1);
+      transform: translateY(1px);
     }
   }
 }
 
 .bottom-button {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
+  margin-right: 10px;
+  /* Основные стили */
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+
+  /* Форма и границы */
   border-radius: 8px;
   border: none;
-  font-size: 1.1rem;
-  font-weight: 500;
+  outline: none;
   cursor: pointer;
+  position: relative;
+
+  /* Текстура камня */
+  background: linear-gradient(145deg, #a8a8a8, #8a8a8a);
+  box-shadow:
+    3px 3px 5px rgba(0, 0, 0, 0.3),
+    inset 1px 1px 3px rgba(255, 255, 255, 0.2),
+    inset -1px -1px 3px rgba(0, 0, 0, 0.2);
+
+  /* Эффект объема */
+  transform: translateY(0);
   transition: all 0.2s ease;
-  background-color: #f5f5f5;
-  color: #333;
+
+  /* Дополнительные детали для текстуры камня */
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 80% 70%, rgba(0, 0, 0, 0.1) 0%, transparent 20%);
 
   &:hover {
-    background-color: #e0e0e0;
+    background: linear-gradient(145deg, #9a9a9a, #7c7c7c);
+    box-shadow:
+      4px 4px 6px rgba(0, 0, 0, 0.4),
+      inset 1px 1px 3px rgba(255, 255, 255, 0.2),
+      inset -1px -1px 3px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+    color: #222;
   }
 
   &:active {
-    transform: translateY(2px);
+    background: linear-gradient(145deg, #7c7c7c, #6e6e6e);
+    box-shadow:
+      1px 1px 2px rgba(0, 0, 0, 0.3),
+      inset 2px 2px 4px rgba(0, 0, 0, 0.2),
+      inset -1px -1px 2px rgba(255, 255, 255, 0.1);
+    transform: translateY(1px);
   }
 }
 
