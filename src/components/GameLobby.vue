@@ -126,6 +126,8 @@ export default {
     },
     startGame() {
       GameService.startGame()
+
+      this.$emit('startGame')
     },
     isRejoinable(game) {
       return game.players?.some((p) => p.deviceId === GameService.deviceId)

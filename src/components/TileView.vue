@@ -147,7 +147,6 @@ const drawTile = () => {
 watch(
   () => props.followers,
   (value) => {
-    if (!value) return
     nextTick(() => {
       drawTile()
     })
@@ -158,7 +157,6 @@ watch(
 watch(
   () => props.tile,
   (value) => {
-    if (!value) return
     nextTick(() => {
       drawTile()
     })
