@@ -119,8 +119,11 @@ async function loadSavedGames() {
   const savedGames = await gameDatabase.getAllGames()
 
   savedGames.forEach(savedGame => {
+    let game = {}
     // Создаем новый экземпляр GameManager для каждой сохраненной игры
-    const game = new GameManager({ players: savedGame.players })
+    if (!savedGame.gameIsEnded) {
+      game = new GameManager({ players: savedGame.players })
+    }
     // Копируем все свойства из сохраненной игры
     Object.assign(game, savedGame)
     // Сохраняем игру в памяти
