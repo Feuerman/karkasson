@@ -10,7 +10,7 @@ export const tiles = [
       west: 'field',
     },
     isMonastery: true,
-    imgUrl: '/karkasson/Base_Game_C3_Tile_A.png',
+    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_A.png',
   },
   {
     id: 'B',
@@ -23,7 +23,7 @@ export const tiles = [
       west: 'field',
     },
     isMonastery: true,
-    imgUrl: '/karkasson/Base_Game_C3_Tile_B.png',
+    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
   },
   {
     id: 'C',

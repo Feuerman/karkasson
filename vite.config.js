@@ -3,10 +3,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { resolve } from 'path'
+import fs from 'fs-extra'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/karkasson/', // Имя вашего репозитория
+  base: '/', // Имя вашего репозитория
   plugins: [
     vue({
       script: {
@@ -15,6 +16,27 @@ export default defineConfig({
       },
     }),
     vueDevTools(),
+    {
+      name: 'copy-tiles',
+      closeBundle: async () => {
+        const sourceDir = resolve(__dirname, 'src/assets/tiles')
+        const targetDir = resolve(__dirname, 'dist/src/assets/tiles')
+        
+        // Ensure target directory exists
+        await fs.ensureDir(targetDir)
+        
+        // Copy all PNG files
+        const files = await fs.readdir(sourceDir)
+        for (const file of files) {
+          if (file.endsWith('.png')) {
+            await fs.copy(
+              resolve(sourceDir, file),
+              resolve(targetDir, file)
+            )
+          }
+        }
+      }
+    }
   ],
   resolve: {
     alias: {
@@ -28,6 +50,7 @@ export default defineConfig({
       },
     },
     copyPublicDir: true,
+    assetsDir: 'src/assets/tiles',
+    outDir: 'dist',
   },
-  publicDir: 'src/assets/tiles',
 })
