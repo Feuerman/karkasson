@@ -31,14 +31,6 @@ function rotateSides(sides: Tile['sides'], times: number): Tile['sides'] {
 export interface IGameSimulator {
   gameState: IGameBoard
   originalState: IGameBoard
-  tilePlacesStats: {
-    [key: string]: {
-      rowIndex: number
-      tileIndex: number
-      rotation: number
-      resultWithoutFollower?: SimulationResult['score']
-    }[]
-  }
   simulateMove(
     tile: Tile,
     rowIndex: number,
@@ -54,14 +46,6 @@ export interface IGameSimulator {
 export class GameSimulatorModule {
   private gameState: IGameBoard
   private originalState: IGameBoard
-  private tilePlacesStats: {
-    [key: string]: {
-      rowIndex: number
-      tileIndex: number
-      rotation: number
-      resultWithoutFollower?: SimulationResult['score']
-    }
-  } = {}
 
   constructor(gameBoard: IGameBoard) {
     this.originalState = gameBoard
@@ -85,13 +69,6 @@ export class GameSimulatorModule {
       rowIndex,
       tileIndex
     )
-    if (tilePlaced) {
-      this.tilePlacesStats[`${rowIndex},${tileIndex}`] = {
-        tileIndex,
-        rowIndex,
-        rotation: tile.rotation,
-      }
-    }
     if (!tilePlaced) {
       return { score: -1, moves: [] }
     }
@@ -141,14 +118,6 @@ export class GameSimulatorModule {
           undefined,
           this.gameState
         )
-        if (resultWithoutFollower.score !== -1) {
-          this.tilePlacesStats[`${rowIndex},${tileIndex}.${rotation}`] = {
-            tileIndex,
-            rowIndex: rowIndex,
-            rotation: tile.rotation,
-            resultWithoutFollower: resultWithoutFollower.score,
-          }
-        }
         if (resultWithoutFollower.score > bestScore) {
           bestScore = resultWithoutFollower.score
           bestMoves = resultWithoutFollower.moves
