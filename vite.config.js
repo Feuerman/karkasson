@@ -19,8 +19,8 @@ export default defineConfig({
     {
       name: 'copy-tiles',
       closeBundle: async () => {
-        const sourceDir = resolve(__dirname, './src/assets/tiles')
-        const targetDir = resolve(__dirname, './dist/src/assets/tiles')
+        const sourceDir = resolve(__dirname, 'src/assets/tiles')
+        const targetDir = resolve(__dirname, 'dist/src/assets/tiles')
         
         // Ensure target directory exists
         await fs.ensureDir(targetDir)
