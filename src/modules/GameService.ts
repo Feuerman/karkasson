@@ -138,6 +138,26 @@ class GameService implements IGameService {
     })
   }
 
+  removePlayer(index: number, name = null) {
+    return new Promise((resolve, reject) => {
+      if (!this.socket?.connected) {
+        reject('Нет соединения с сервером')
+      } else {
+        this.socket.emit(
+          'removePlayer',
+          { gameId: this.gameId, index, name },
+          (response) => {
+            if (response.error) {
+              reject(response.error)
+            } else {
+              resolve(response)
+            }
+          }
+        )
+      }
+    })
+  }
+
   startGame() {
     this.socket.emit('startGame', { gameId: this.gameId })
   }
@@ -292,7 +312,7 @@ class GameService implements IGameService {
     })
   }
 
-  leaveGame () {
+  leaveGame() {
     this.socket?.emit('leaveGame', { gameId: this.gameId })
   }
 }
