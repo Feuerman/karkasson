@@ -17,48 +17,54 @@
           </button>
         </div>
         <div class="join-game">
-          <div
-            v-for="game in computedGamesList"
-            :key="game.id"
-            class="game-item"
-          >
-            <span> id {{ game.id }} </span>
-            <span> Игроков {{ game.players?.length }} </span>
-            <span>
-              <template v-if="game.gameIsStarted && !game.gameIsEnded">
-                Ход {{ game.moveCounter }}
-              </template>
-              <template v-else-if="game.gameIsEnded"> Окончена </template>
-            </span>
-            <span>
-              <template v-if="game.gameIsStarted">
-                <span v-for="(value, key, index) in game.scores" :key="key">
-                  <template
-                    v-if="
-                      !game.players[index].socketId && game.players[index].name
-                    "
-                    class="is-ai-player"
-                  >
-                    AI
-                  </template>
-                  {{ game.players[index]?.name }} - {{ value
-                  }}{{ index !== game.players.length - 1 ? ', ' : '' }}
-                </span>
-              </template>
-            </span>
-            <button
-              v-if="!currentGame?.id"
-              @click="
-                isRejoinable(game) ? rejoinGame(game.id) : joinGame(game.id)
-              "
+          <template v-if="computedGamesList.length === 0">
+            <div>Нет текущих игр</div>
+          </template>
+          <template v-else>
+            <div
+              v-for="game in computedGamesList"
+              :key="game.id"
+              class="game-item"
             >
-              <template v-if="!game.gameIsStarted">Войти</template>
-              <template v-else-if="game.gameIsStarted && !game.gameIsEnded"
-                >Продолжить</template
+              <span> id {{ game.id }} </span>
+              <span> Игроков {{ game.players?.length }} </span>
+              <span>
+                <template v-if="game.gameIsStarted && !game.gameIsEnded">
+                  Ход {{ game.moveCounter }}
+                </template>
+                <template v-else-if="game.gameIsEnded"> Окончена </template>
+              </span>
+              <span>
+                <template v-if="game.gameIsStarted">
+                  <span v-for="(value, key, index) in game.scores" :key="key">
+                    <template
+                      v-if="
+                        !game.players[index].socketId &&
+                        game.players[index].name
+                      "
+                      class="is-ai-player"
+                    >
+                      AI
+                    </template>
+                    {{ game.players[index]?.name }} - {{ value
+                    }}{{ index !== game.players.length - 1 ? ', ' : '' }}
+                  </span>
+                </template>
+              </span>
+              <button
+                v-if="!currentGame?.id"
+                @click="
+                  isRejoinable(game) ? rejoinGame(game.id) : joinGame(game.id)
+                "
               >
-              <template v-else>Загрузить</template>
-            </button>
-          </div>
+                <template v-if="!game.gameIsStarted">Войти</template>
+                <template v-else-if="game.gameIsStarted && !game.gameIsEnded"
+                  >Продолжить</template
+                >
+                <template v-else>Загрузить</template>
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -461,6 +467,7 @@ h3 {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.5rem;
+  gap: 100px;
   .lobby-actions__filter {
     display: flex;
     align-items: center;
