@@ -6,7 +6,7 @@ import http from 'http'
 import { Server } from 'socket.io'
 import { randomUUID } from 'node:crypto'
 import { GameManager, type IGameBoard } from './modules/GameManager.ts'
-import { Player, PlayerColors } from './modules/types.ts'
+import { Player, PlayerColors, PlayerNames } from './modules/types.ts'
 import { instrument } from '@socket.io/admin-ui'
 import { gameDatabase } from './modules/Database'
 
@@ -56,14 +56,14 @@ function formatGameData(game: IGameBoard) {
     currentPlayer: game.currentPlayer,
     placedFollowers: game.placedFollowers,
   }
-  
+
   // Add any additional formatting or data transformation here
   // For example:
   // - Remove sensitive data
   // - Add computed properties
   // - Format dates
   // - Add metadata
-  
+
   return formattedGame
 }
 
@@ -79,11 +79,7 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
   })
 
   // Skip if game is ended or it's not computer's turn
-  if (
-    game.gameIsEnded ||
-    !game.currentPlayer ||
-    game.currentPlayer.socketId
-  ) {
+  if (game.gameIsEnded || !game.currentPlayer || game.currentPlayer.socketId) {
     console.log('Skipping computer move:', {
       gameIsEnded: game.gameIsEnded,
       hasCurrentPlayer: !!game.currentPlayer,
@@ -157,7 +153,7 @@ async function loadSavedGames() {
   console.log('Loading saved games...')
   const savedGames = await gameDatabase.getAllGames()
 
-  savedGames.forEach(savedGame => {
+  savedGames.forEach((savedGame) => {
     let game = {}
     // Создаем новый экземпляр GameManager для каждой сохраненной игры
     if (!savedGame.gameIsEnded) {
@@ -168,7 +164,10 @@ async function loadSavedGames() {
     // Сохраняем игру в памяти
     games[savedGame.id] = game
 
-    if (!game.gameIsEnded && game.players.every((p) => !p.socketId && !p.deviceId)) {
+    if (
+      !game.gameIsEnded &&
+      game.players.every((p) => !p.socketId && !p.deviceId)
+    ) {
       setTimeout(() => {
         handleComputerPlayerMove(game, savedGame.id)
       }, 1000)
@@ -311,8 +310,11 @@ io.on('connection', (socket) => {
     }
 
     if (game.gameIsStarted) {
-      const allPlayersConnected = game.players.every((p) => p.socketId !== null || !p.deviceId)
-      const isComputerMove = !game.currentPlayer?.socketId && !game.currentPlayer?.deviceId
+      const allPlayersConnected = game.players.every(
+        (p) => p.socketId !== null || !p.deviceId
+      )
+      const isComputerMove =
+        !game.currentPlayer?.socketId && !game.currentPlayer?.deviceId
 
       console.log(allPlayersConnected, 'allPlayersConnected')
       console.log(isComputerMove, 'isComputerMove')
@@ -327,14 +329,18 @@ io.on('connection', (socket) => {
     return PlayerColors[index + 1]
   }
 
+  function getPlayerName(index) {
+    return PlayerNames[index + 1]
+  }
+
   socket.on('getGamesList', async (callback) => {
     const gamesList = Object.values(games)
     // Добавляем сохраненные игры, которых нет в памяти
     const savedGames = await gameDatabase.getAllGames()
     const mergedGames = [...gamesList]
 
-    savedGames.forEach(savedGame => {
-      if (!gamesList.find(g => g.id === savedGame.id)) {
+    savedGames.forEach((savedGame) => {
+      if (!gamesList.find((g) => g.id === savedGame.id)) {
         mergedGames.push(savedGame)
       }
     })
@@ -348,12 +354,12 @@ io.on('connection', (socket) => {
 
     games[gameId] = {
       id: gameId,
-      players: [...new Array(4)].map((_, i) => {
+      players: [...new Array(8)].map((_, i) => {
         return {
           id: i + 1,
           socketId: null,
           deviceId: null,
-          name: 'Player ' + (i + 1),
+          name: '',
           color: getPlayerColor(i),
           followers: 7,
           score: 0,
@@ -391,15 +397,40 @@ io.on('connection', (socket) => {
       ([_, sid]) => sid === socket.id
     )?.[0]
     const game = games[gameId]
-    game.players[index].name = name
-    game.players[index].socketId = socket.id
-    game.players[index].deviceId = deviceId
+
+    if (name) {
+      game.players[index].name = name
+      game.players[index].socketId = socket.id
+      game.players[index].deviceId = deviceId
+    } else {
+      game.players[index].name = getPlayerName(index)
+    }
+    io.to(gameId).emit('gameUpdated', formatGameData(game))
+  })
+
+  socket.on('removePlayer', ({ gameId, index, name }) => {
+    const deviceId = Object.entries(deviceToSocketMap).find(
+      ([_, sid]) => sid === socket.id
+    )?.[0]
+    const game = games[gameId]
+
+    if (name) {
+      game.players[index].name = getPlayerName(index)
+      game.players[index].socketId = null
+      game.players[index].deviceId = null
+    } else {
+      game.players[index].socketId = null
+      game.players[index].deviceId = null
+      game.players[index].name = ''
+    }
     io.to(gameId).emit('gameUpdated', formatGameData(game))
   })
 
   socket.on('startGame', ({ gameId }) => {
     const game = games[gameId]
-    const newGame = new GameManager({ players: game.players })
+    const newGame = new GameManager({
+      players: game.players.filter((p) => Boolean(p.name)),
+    })
     newGame.id = gameId
 
     games[gameId] = newGame
@@ -544,7 +575,10 @@ io.on('connection', (socket) => {
         })
 
         // Check if next player is a computer player
-        if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
+        if (
+          (nextPlayer && !nextPlayer.socketId) ||
+          !game.currentPlayer.socketId
+        ) {
           console.log('Scheduling computer move after player tile placement')
           setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
         }
@@ -614,7 +648,10 @@ io.on('connection', (socket) => {
       })
 
       // Check if next player is a computer player
-      if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
+      if (
+        (nextPlayer && !nextPlayer.socketId) ||
+        !game.currentPlayer.socketId
+      ) {
         console.log('Scheduling computer move after player follower placement')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
       }
@@ -740,7 +777,10 @@ io.on('connection', (socket) => {
       })
 
       // Check if next player is a computer player
-      if (nextPlayer && !nextPlayer.socketId || !game.currentPlayer.socketId) {
+      if (
+        (nextPlayer && !nextPlayer.socketId) ||
+        !game.currentPlayer.socketId
+      ) {
         console.log('Scheduling computer move after player follower skip')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
       }

@@ -9,7 +9,7 @@
       }"
     >
       <template v-if="gameBoard.gameIsEnded">
-        Победил {{ winnerPlayer.name }}
+        Победитель: {{ winnerPlayer.name }}
       </template>
       <template v-else> Ходит {{ gameBoard.currentPlayer.name }} </template>
     </div>
