@@ -3,11 +3,25 @@
     <div v-if="!currentGame?.id" class="lobby-menu">
       <h2>Каркассон Онлайн</h2>
       <div class="lobby-actions">
-        <button class="lobby-actions__create" @click="createGame">
-          Создать новую игру
-        </button>
+        <div class="list-header">
+          <div class="lobby-actions__filter">
+            <PlayersListInputCheckbox
+              id="show-ended-games"
+              :model-value="Boolean(showEndedGames)"
+              @change="showEndedGames = !showEndedGames"
+            />
+            <label for="show-ended-games">Показать оконченные</label>
+          </div>
+          <button class="lobby-actions__create" @click="createGame">
+            Создать новую игру
+          </button>
+        </div>
         <div class="join-game">
-          <div v-for="game in gamesList" :key="game.id" class="game-item">
+          <div
+            v-for="game in computedGamesList"
+            :key="game.id"
+            class="game-item"
+          >
             <span> id {{ game.id }} </span>
             <span> Игроков {{ game.players?.length }} </span>
             <span>
@@ -142,11 +156,17 @@ export default {
   data() {
     return {
       currentPlayerName: '',
+      showEndedGames: false,
     }
   },
   computed: {
     gameService() {
       return GameService
+    },
+    computedGamesList() {
+      return this.showEndedGames
+        ? this.gamesList
+        : this.gamesList.filter((g) => !g.gameIsEnded)
     },
   },
   methods: {
@@ -374,7 +394,7 @@ h3 {
 
 .game-item {
   margin-bottom: 10px;
-  background-color: #89a1c5;
+  background-color: #5a80aa;
   padding: 1rem 1.5rem;
   border-radius: 8px;
   display: flex;
@@ -393,10 +413,10 @@ h3 {
   }
   button {
     width: 220px;
-    padding: 0.75rem 2rem;
+    padding: 0.5rem 1rem;
     border-radius: 8px;
     border: none;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -416,11 +436,10 @@ h3 {
 .lobby-actions {
   &__create {
     margin-top: 10px;
-    margin-bottom: 2rem;
-    padding: 1.2rem 2rem;
+    padding: 0.75rem;
     border-radius: 8px;
     border: none;
-    font-size: 1.4rem;
+    font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -434,6 +453,21 @@ h3 {
     &:active {
       transform: translateY(2px);
     }
+  }
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  .lobby-actions__filter {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 1rem;
+    color: #333;
+    font-weight: 500;
   }
 }
 
