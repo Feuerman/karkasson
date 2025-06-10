@@ -165,10 +165,7 @@ export default {
     },
     async joinGame(gameId) {
       try {
-        this.$emit('leaveGame')
-        nextTick(() => {
-          this.$emit('joinGame', gameId)
-        })
+        this.$emit('joinGame', gameId)
       } catch (error) {
         notificationService.error(error)
       }
