@@ -1,6 +1,11 @@
 <template>
   <div class="checkbox-wrapper">
-    <input type="checkbox" :disabled="disabled" :checked="modelValue" />
+    <input
+      type="checkbox"
+      :disabled="disabled"
+      :checked="modelValue"
+      :id="id"
+    />
     <div class="checkbox"></div>
   </div>
 </template>
@@ -16,6 +21,10 @@ export default {
     disabled: {
       type: Boolean,
       default: false,
+    },
+    id: {
+      type: String,
+      default: '',
     },
   },
 }
