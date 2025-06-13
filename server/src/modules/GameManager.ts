@@ -70,6 +70,7 @@ export interface IGameBoard {
     initiator?: Player | null
   }[]
   moveCounter: number
+  lastUpdate: number
   startGame(): void
   autoPlay(): void
   placeFollower(availablePlace: {
@@ -155,6 +156,7 @@ export class GameManager implements IGameBoard {
     actionData: any
     initiator?: Player | null
   }[]
+  lastUpdate: number
 
   constructor(params?: Partial<{ players: any[] }>) {
     const players = params?.players || []
@@ -386,7 +388,13 @@ export class GameManager implements IGameBoard {
     if (!this.tilePlacesStats[rowIndex]) {
       this.tilePlacesStats[rowIndex] = {}
     }
-    this.tilePlacesStats[rowIndex][tileIndex] = { ...tile, rowIndex, tileIndex, x: tileIndex, y: rowIndex }
+    this.tilePlacesStats[rowIndex][tileIndex] = {
+      ...tile,
+      rowIndex,
+      tileIndex,
+      x: tileIndex,
+      y: rowIndex,
+    }
     this.lastPlacement = { tileIndex, rowIndex }
 
     this.actionsHistory.push({
@@ -1221,6 +1229,8 @@ export class GameManager implements IGameBoard {
     clone.tileHistory = deepClone(this.tileHistory)
 
     clone.tilePlacesStats = deepClone(this.tilePlacesStats)
+
+    clone.lastUpdate = this.lastUpdate
 
     return clone
   }

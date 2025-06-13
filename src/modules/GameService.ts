@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client'
+import { ref } from 'vue'
 
 export interface IGameService {
   socket: Socket | null
@@ -15,6 +16,8 @@ class GameService implements IGameService {
   gameId: string
   deviceId: string
   gamesList: any[] = []
+  isConnected = ref(false)
+
   constructor() {
     this.socket = null
     this.gameId = ''
@@ -45,10 +48,14 @@ class GameService implements IGameService {
     })
 
     this.socket.on('connect', () => {
+      console.log('Connected to server')
+      this.isConnected.value = true
       this.socket?.emit('registerDevice', { deviceId: this.deviceId })
     })
 
     this.socket.on('disconnect', (reason: string) => {
+      console.log('Disconnected from server:', reason)
+      this.isConnected.value = false
       if (
         reason === 'io server disconnect' ||
         reason === 'io client disconnect'
@@ -59,7 +66,8 @@ class GameService implements IGameService {
     })
 
     this.socket.on('connect_error', (error: Error) => {
-      console.error('Connection error:', error)
+      console.log('Connection error:', error)
+      this.isConnected.value = false
     })
 
     this.socket.on('reconnect_attempt', (attemptNumber: number) => {
@@ -68,14 +76,17 @@ class GameService implements IGameService {
 
     this.socket.on('reconnect', (attemptNumber: number) => {
       console.log('Successfully reconnected after', attemptNumber, 'attempts')
+      this.isConnected.value = true
     })
 
     this.socket.on('reconnect_error', (error: Error) => {
-      console.error('Reconnection error:', error)
+      console.log('Reconnection error:', error)
+      this.isConnected.value = false
     })
 
     this.socket.on('reconnect_failed', () => {
-      console.error('Failed to reconnect after all attempts')
+      console.log('Failed to reconnect after all attempts')
+      this.isConnected.value = false
     })
 
     this.socket.on('error', (error: Error) => {

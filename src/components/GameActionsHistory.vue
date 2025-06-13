@@ -103,8 +103,10 @@
                   v-for="(
                     count, playerId
                   ) in action.actionData.followers.reduce((acc, follower) => {
-                    if (!acc[follower.playerId]) acc[follower.playerId] = 0
-                    acc[follower.playerId] += 1
+                    if (!acc[follower.playerId]) {
+                      acc[follower.playerId] = 0
+                      acc[follower.playerId] += 1
+                    }
                     return acc
                   }, {})"
                   :key="playerId"
@@ -129,7 +131,7 @@ import {
   type IGameBoard,
   ObjectTypes,
 } from '../../server/src/modules/GameManager.ts'
-import { defineEmits, defineProps } from 'vue'
+import { defineEmits } from 'vue'
 import Draggable from '@/components/Draggable.vue'
 
 const props = defineProps({

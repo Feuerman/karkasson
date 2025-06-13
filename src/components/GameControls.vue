@@ -20,7 +20,6 @@
   </Draggable>
 </template>
 <script setup lang="ts">
-import { defineProps } from 'vue'
 import GameStats from '@/components/GameStats.vue'
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
 import { GameSimulatorModule } from '../../server/src/modules/GameSimulatorModule.ts'

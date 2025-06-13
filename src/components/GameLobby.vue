@@ -1,8 +1,25 @@
 <template>
   <div class="game-lobby">
+    <div
+      class="connection-status"
+      :class="{ 'is-connected': gameService.isConnected.value }"
+    >
+      <div class="status-dot"></div>
+      <span class="status-text"
+        >{{ gameService.isConnected.value ? 'Подключено' : 'Отключено' }}</span
+      >
+    </div>
     <div v-if="!currentGame?.id" class="lobby-menu">
       <h2>Каркассон Онлайн</h2>
-      <div class="lobby-actions">
+      <div v-if="!gameService.isConnected.value" class="connection-error">
+        <div class="loader-spinner"></div>
+        <p>Идет соединение с сервером...</p>
+      </div>
+      <div v-else-if="isLoadingGames" class="loading-games">
+        <div class="loader-spinner"></div>
+        <p>Загрузка списка игр...</p>
+      </div>
+      <div v-else class="lobby-actions">
         <div class="list-header">
           <div class="lobby-actions__filter">
             <PlayersListInputCheckbox
@@ -70,7 +87,11 @@
     </div>
 
     <div v-if="currentGame?.id" class="game-info">
-      <div class="game-header">
+      <div v-if="!gameService.isConnected.value" class="connection-error">
+        <div class="loader-spinner"></div>
+        <p>Идет соединение с сервером...</p>
+      </div>
+      <div v-else class="game-header">
         <h3>ID игры: {{ currentGame?.id }}</h3>
         <!--        <div class="game-title">-->
         <!--          <input v-model="currentGame.name" placeholder="Ваше имя" />-->
@@ -135,8 +156,6 @@ import GameService from '@/modules/GameService'
 import notificationService from '@/plugins/notification'
 import { IGameBoard } from '../../server/src/modules/GameManager'
 import PlayersListInputCheckbox from './../components/PlayersListInputCheckbox.vue'
-import gameService from '@/modules/GameService'
-import { nextTick } from 'vue'
 
 export default {
   name: 'GameLobby',
@@ -163,6 +182,7 @@ export default {
     return {
       currentPlayerName: '',
       showEndedGames: false,
+      isLoadingGames: true,
     }
   },
   computed: {
@@ -175,10 +195,13 @@ export default {
         : this.gamesList.filter((g) => !g.gameIsEnded)
     },
   },
+  mounted() {
+    // Simulate initial games loading
+    setTimeout(() => {
+      this.isLoadingGames = false
+    }, 1000)
+  },
   methods: {
-    gameService() {
-      return gameService
-    },
     async createGame() {
       try {
         this.$emit('createGame')
@@ -220,7 +243,6 @@ export default {
     },
     startGame() {
       GameService.startGame()
-
       this.$emit('startGame')
     },
     isRejoinable(game) {
@@ -494,6 +516,94 @@ h3 {
     font-size: 1.2rem;
     color: #333;
     font-weight: 500;
+  }
+}
+
+.connection-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 1.1rem;
+    text-align: center;
+  }
+}
+
+.loading-games {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 1.1rem;
+  }
+}
+
+.loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #5a80aa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.connection-status {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 3001;
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ff4444;
+    transition: background-color 0.3s ease;
+  }
+
+  .status-text {
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  &.is-connected {
+    .status-dot {
+      background-color: #44ff44;
+    }
   }
 }
 </style>

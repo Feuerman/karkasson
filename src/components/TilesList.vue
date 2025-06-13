@@ -22,7 +22,7 @@ import Draggable from '@/components/Draggable.vue'
 import tiles from '../../server/src/data/tiles.js'
 import TileView from '@/components/TileView.vue'
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
-import { computed, onMounted, reactive, watch } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   gameBoard: {
@@ -30,13 +30,6 @@ const props = defineProps({
     required: true,
   },
 })
-
-const initTilesCount = reactive(
-  tiles.reduce((acc, tile) => {
-    acc[tile.id] = tile.count
-    return acc
-  }, {})
-)
 
 const currentTilesCount = computed(() => {
   return (
