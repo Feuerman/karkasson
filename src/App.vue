@@ -419,6 +419,7 @@ const getGamesList = async () => {
 const joinGame = async (gameId: string) => {
   try {
     const game = (await GameService.joinGame(gameId)) as IGame
+    console.log(game, game.gameIsStarted)
     if (!game.gameIsStarted) {
       currentGame.value = game
       playersList.value = game.players
@@ -426,11 +427,7 @@ const joinGame = async (gameId: string) => {
       showLobby.value = false
     }
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Произошла ошибка при присоединении к игре')
-    }
+    notificationService.error(error || error.message)
   }
 }
 
@@ -441,11 +438,7 @@ const leaveGame = async () => {
     currentGame.value = null
     getGamesList()
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Произошла ошибка при выходе из игры')
-    }
+    notificationService.error(error || error.message)
   }
 }
 
@@ -459,11 +452,7 @@ const goInLobby = async () => {
     gameState.value = {}
     getGamesList()
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Действие не удалось, повторите попытку')
-    }
+    notificationService.error(error || error.message)
   }
 }
 
@@ -473,11 +462,7 @@ const createGame = async () => {
     currentGame.value = game
     playersList.value = game.players
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Произошла ошибка при создании игры')
-    }
+    notificationService.error(error || error.message)
   }
 }
 
@@ -491,11 +476,7 @@ const rejoinGame = async (gameId: string) => {
       showLobby.value = false
     }
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Произошла ошибка при переподключении к игре')
-    }
+    notificationService.error(error || error.message)
   }
 }
 

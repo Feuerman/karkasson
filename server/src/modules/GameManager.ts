@@ -1035,20 +1035,20 @@ export class GameManager implements IGameBoard {
             : 1
           return acc
         }, {})
-      const isOnePlayer = Object.keys(followersCountByPlayer).length === 1
 
-      const followersCount: number = Object.values(
-        followersCountByPlayer
-      ).reduce((acc, count) => acc + count, 0)
+      const maxCount = Object.values(followersCountByPlayer).reduce(
+        (acc, count) => Math.max(acc, count),
+        0
+      )
+
+      let total = 0
+
       const scores = Object.entries(followersCountByPlayer).reduce(
         (acc, [playerId, count]: [string, number]) => {
-          acc[playerId] = isOnePlayer
-            ? points
-            : Math.ceil(points / followersCount) * count
-          if (isCompleted) {
-            this.scores[playerId] += isOnePlayer
-              ? points
-              : Math.ceil(points / followersCount) * count
+          if (count === maxCount) {
+            total += points
+            acc[playerId] = points
+            this.scores[playerId] += points
           }
           return acc
         },
@@ -1056,9 +1056,7 @@ export class GameManager implements IGameBoard {
       )
 
       return {
-        total: isOnePlayer
-          ? points
-          : Math.ceil(points / followersCount) * followersCount,
+        total: total,
         players: scores,
         objectId: city.id,
       }

@@ -33,10 +33,7 @@ class GameService implements IGameService {
       return
     }
 
-    this.socket = io('https://karkasson.onrender.com', {
-      secure: true,
-      rejectUnauthorized: true,
-      port: 10000,
+    this.socket = io('http://localhost:3001', {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 10,

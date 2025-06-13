@@ -22,7 +22,12 @@
   },
   "dependencies": {
     "@socket.io/admin-ui": "^0.5.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
     "debug": "^4.4.1",
-    "firebase": "^11.9.0"
+    "firebase": "^11.9.0",
+    "jsonwebtoken": "^9.0.2"
   }
 }
