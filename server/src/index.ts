@@ -169,7 +169,7 @@ function checkGames() {
       if (!games[gameId].lastUpdate) {
         games[gameId].lastUpdate = Date.now()
       }
-      if (games[gameId].lastUpdate < Date.now() - 60000) {
+      if (games[gameId].lastUpdate < Date.now() - 60000 * 30) {
         delete games[gameId]
         gameDatabase.deleteGame(gameId)
         io.to(gameId).emit('gameDeleted')
