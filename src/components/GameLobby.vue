@@ -5,9 +5,9 @@
       :class="{ 'is-connected': gameService.isConnected.value }"
     >
       <div class="status-dot"></div>
-      <span class="status-text"
-        >{{ gameService.isConnected.value ? 'Подключено' : 'Отключено' }}</span
-      >
+      <span class="status-text">{{
+        gameService.isConnected.value ? 'Подключено' : 'Отключено'
+      }}</span>
     </div>
     <div v-if="!currentGame?.id" class="lobby-menu">
       <h2>Каркассон Онлайн</h2>
@@ -57,6 +57,7 @@
                     <template
                       v-if="
                         !game.players[index].socketId &&
+                        !game.players[index].deviceId &&
                         game.players[index].name
                       "
                       class="is-ai-player"
