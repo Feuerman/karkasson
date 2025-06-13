@@ -1,8 +1,23 @@
 <template>
   <div class="game-wrapper">
+    <div v-if="playersReconnectProcess" class="players-reconnect">
+      <div class="players-reconnect__title">
+        <div class="loader-spinner"></div>
+        <div>Ожидание подключения игроков</div>
+      </div>
+      <div class="players-reconnect__players">
+        <div
+          v-for="player in reconnectingPlayers"
+          :key="player.id"
+          class="players-reconnect__player"
+        >
+          {{ player.name }}
+        </div>
+      </div>
+    </div>
     <div v-if="!showLobby" class="back-to-lobby" @click="goInLobby">
       <i class="fa fa-home" aria-hidden="true">&lt;</i>
-      <span>Вернуться в лобби</span>
+      <span>Выйти из игры</span>
     </div>
     <GameLobby
       v-if="showLobby"
@@ -90,7 +105,7 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory.vue'
@@ -103,6 +118,7 @@ import notificationService from './plugins/notification'
 import type { IGame, IGameBoard, ITile } from './types/game'
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
+const gameServiceState = reactive(GameService)
 
 const defaultGrid = ref([
   ...Array(50)
@@ -433,18 +449,26 @@ const leaveGame = async () => {
   }
 }
 
-const goInLobby = () => {
-  showLobby.value = true
-  currentGame.value = null
-  playersList.value = []
-  getGamesList()
+const goInLobby = async () => {
+  try {
+    await GameService.leaveGame()
+
+    showLobby.value = true
+    currentGame.value = null
+    playersList.value = []
+    gameState.value = {}
+    getGamesList()
+  } catch (error) {
+    if (error instanceof Error) {
+      notificationService.error(error.message)
+    } else {
+      notificationService.error('Действие не удалось, повторите попытку')
+    }
+  }
 }
 
 const createGame = async () => {
   try {
-    if (gameState.value.gameIsStarted) {
-      await GameService.leaveGame()
-    }
     const game = (await GameService.createGame()) as IGame
     currentGame.value = game
     playersList.value = game.players
@@ -474,6 +498,16 @@ const rejoinGame = async (gameId: string) => {
     }
   }
 }
+
+const playersReconnectProcess = computed(() => {
+  return reconnectingPlayers.value?.length > 0
+})
+
+const reconnectingPlayers = computed(() => {
+  return gameState.value.players?.filter(
+    (player) => !player.socketId && player.deviceId
+  )
+})
 
 const games = ref<IGame[]>([])
 const playersList = ref<any[]>([])
@@ -715,6 +749,62 @@ onMounted(async () => {
 
   &:active {
     background-color: rgba(76, 175, 80, 0.6);
+  }
+}
+
+.players-reconnect {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 500;
+
+  &__title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__players {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  &__player {
+    padding: 5px 10px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.loader-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #5a80aa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 </style>

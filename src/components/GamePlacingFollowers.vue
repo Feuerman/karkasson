@@ -26,7 +26,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps } from 'vue'
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
 import Draggable from '@/components/Draggable.vue'
 import GameService from '@/modules/GameService.js'

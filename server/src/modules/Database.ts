@@ -32,6 +32,7 @@ class GameDatabase {
 
   // Сохранение состояния игры
   async saveGame(gameId: string, gameState: IGameBoard) {
+    gameState.lastUpdate = Date.now()
     // Firebase operation
     try {
       set(

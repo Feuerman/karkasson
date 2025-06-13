@@ -28,6 +28,8 @@ const games: Record<string, IGameBoard> = {}
 // Хранение соответствия deviceId и socketId
 const deviceToSocketMap: Record<string, string> = {}
 
+let checkGamesTimeout = null
+
 // Helper function to format game data before sending
 function formatGameData(game: IGameBoard) {
   // Create a copy of the game to avoid modifying the original
@@ -55,6 +57,7 @@ function formatGameData(game: IGameBoard) {
     actionsHistory: game.actionsHistory,
     currentPlayer: game.currentPlayer,
     placedFollowers: game.placedFollowers,
+    lastUpdate: game.lastUpdate,
   }
 
   // Add any additional formatting or data transformation here
@@ -79,7 +82,12 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
   })
 
   // Skip if game is ended or it's not computer's turn
-  if (game.gameIsEnded || !game.currentPlayer || game.currentPlayer.socketId) {
+  if (
+    game.gameIsEnded ||
+    !game.currentPlayer ||
+    game.currentPlayer.socketId ||
+    game.currentPlayer.deviceId
+  ) {
     console.log('Skipping computer move:', {
       gameIsEnded: game.gameIsEnded,
       hasCurrentPlayer: !!game.currentPlayer,
@@ -112,6 +120,7 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
 
       if (games[gameId].gameIsEnded) {
         gameDatabase.saveGame(gameId, games[gameId])
+        io.emit('updateGamesList', formatGamesList(games))
       }
       return
     }
@@ -129,11 +138,17 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
 
     gameDatabase.saveGame(gameId, games[gameId])
 
+    await new Promise((resolve) => setTimeout(resolve, 1000))
     // Check if next player is also computer and game is still active
-    if (nextPlayer && !nextPlayer.socketId && !games[gameId].gameIsEnded) {
+    if (
+      nextPlayer &&
+      !nextPlayer.socketId &&
+      !nextPlayer.deviceId &&
+      !games[gameId].gameIsEnded
+    ) {
       console.log('Scheduling next computer move')
       // Add a small delay before next computer move to prevent rapid moves
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+
       await handleComputerPlayerMove(games[gameId], gameId)
     } else {
       console.log('No more computer moves needed')
@@ -146,6 +161,23 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
     })
   }
   console.log('=== Computer Move End ===')
+}
+
+function checkGames() {
+  Object.keys(games).forEach((gameId) => {
+    if (games[gameId].gameIsStarted && !games[gameId].gameIsEnded) {
+      if (!games[gameId].lastUpdate) {
+        games[gameId].lastUpdate = Date.now()
+      }
+      if (games[gameId].lastUpdate < Date.now() - 60000) {
+        delete games[gameId]
+        gameDatabase.deleteGame(gameId)
+        io.to(gameId).emit('gameDeleted')
+      }
+    }
+  })
+  io.emit('updateGamesList', formatGamesList(games))
+  checkGamesTimeout = setTimeout(checkGames, 10000)
 }
 
 // Загрузка сохраненных игр при запуске сервера
@@ -163,18 +195,11 @@ async function loadSavedGames() {
     Object.assign(game, savedGame)
     // Сохраняем игру в памяти
     games[savedGame.id] = game
-
-    if (
-      !game.gameIsEnded &&
-      game.players.every((p) => !p.socketId && !p.deviceId)
-    ) {
-      setTimeout(() => {
-        handleComputerPlayerMove(game, savedGame.id)
-      }, 1000)
-    }
   })
 
   console.log(`Loaded ${savedGames.length} saved games`)
+
+  checkGamesTimeout = setTimeout(checkGames, 10000)
 }
 
 function createAndStartGame() {
@@ -204,6 +229,8 @@ io.on('connection', (socket) => {
     const deviceId = Object.entries(deviceToSocketMap).find(
       ([_, sid]) => sid === socket.id
     )?.[0]
+
+    console.log('Device disconnected:', reason)
 
     // Даем шанс на реконнект только если это не явное отключение
     if (reason === 'transport close' || reason === 'ping timeout') {
@@ -251,9 +278,14 @@ io.on('connection', (socket) => {
       for (const [gameId, game] of Object.entries(games)) {
         if (game.gameIsStarted) {
           if (game.players.some((p) => p.socketId === socket.id)) {
-            delete games[gameId]
-            gameDatabase.deleteGame(gameId)
-            io.to(gameId).emit('gameDeleted')
+            game.players = game.players.map((p) => {
+              if (p.socketId === socket.id) {
+                p.socketId = null
+              }
+              return p
+            })
+
+            io.to(gameId).emit('gameUpdated', formatGameData(game))
           }
         } else {
           if (
@@ -273,7 +305,7 @@ io.on('connection', (socket) => {
             delete games[gameId]
             gameDatabase.deleteGame(gameId)
             io.to(gameId).emit('gameDeleted')
-            io.emit('updateGamesList', Object.values(games))
+            io.emit('updateGamesList', formatGamesList(games))
           }
         }
       }
@@ -345,21 +377,24 @@ io.on('connection', (socket) => {
       }
     })
 
-    callback({ games: mergedGames })
+    callback({ games: formatGamesList(mergedGames) })
   })
 
   // Создание новой игры
   socket.on('createGame', () => {
     const gameId = Math.random().toString(36).substring(7)
+    const deviceId = Object.entries(deviceToSocketMap).find(
+      ([_, sid]) => sid === socket.id
+    )?.[0]
 
     games[gameId] = {
       id: gameId,
       players: [...new Array(8)].map((_, i) => {
         return {
           id: i + 1,
-          socketId: null,
-          deviceId: null,
-          name: '',
+          socketId: i == 0 ? socket.id : null,
+          deviceId: i == 0 ? deviceId : null,
+          name: i == 0 ? getPlayerName(i) : '',
           color: getPlayerColor(i),
           followers: 7,
           score: 0,
@@ -369,6 +404,7 @@ io.on('connection', (socket) => {
 
     socket.join(gameId)
     socket.emit('gameCreated', { gameId, game: games[gameId] })
+    io.emit('updateGamesList', formatGamesList(games))
   })
 
   socket.on('leaveGame', ({ gameId }) => {
@@ -386,6 +422,19 @@ io.on('connection', (socket) => {
         }
         return p
       })
+      if (game.players.every((p) => !p.socketId && !p.deviceId)) {
+        delete games[gameId]
+        gameDatabase.deleteGame(gameId)
+        io.to(gameId).emit('gameDeleted')
+        io.emit('updateGamesList', formatGamesList(games))
+      }
+    } else if (game.gameIsStarted && !game.gameIsEnded) {
+      game.players = game.players.map((p) => {
+        return {
+          ...p,
+          socketId: socket.id === p.socketId ? null : p.socketId,
+        }
+      })
     }
 
     socket.leave(gameId)
@@ -397,6 +446,8 @@ io.on('connection', (socket) => {
       ([_, sid]) => sid === socket.id
     )?.[0]
     const game = games[gameId]
+
+    console.log(game.players[index], 'game.players[index]')
 
     if (name) {
       game.players[index].name = name
@@ -455,7 +506,26 @@ io.on('connection', (socket) => {
     }
 
     socket.join(gameId)
-    io.to(gameId).emit('gameUpdated', formatGameData(game))
+
+    const firstFreePlayerIndex = game.players.findIndex(
+      (p) => !p.socketId && !p.deviceId
+    )
+    if (firstFreePlayerIndex === -1) {
+      socket.emit('error', 'Game is full')
+      return
+    } else {
+      const deviceId = Object.entries(deviceToSocketMap).find(
+        ([_, sid]) => sid === socket.id
+      )?.[0]
+      const game = games[gameId]
+
+      game.players[firstFreePlayerIndex].name =
+        getPlayerName(firstFreePlayerIndex)
+      game.players[firstFreePlayerIndex].socketId = socket.id
+      game.players[firstFreePlayerIndex].deviceId = deviceId
+
+      io.to(gameId).emit('gameUpdated', formatGameData(game))
+    }
   })
 
   socket.on('selectPlacingPoint', ({ gameId, point }, callback) => {
@@ -576,9 +646,10 @@ io.on('connection', (socket) => {
 
         // Check if next player is a computer player
         if (
-          (nextPlayer && !nextPlayer.socketId) ||
-          !game.currentPlayer.socketId
+          (nextPlayer && !nextPlayer.socketId && !nextPlayer.deviceId) ||
+          (!game.currentPlayer.socketId && !game.currentPlayer.deviceId)
         ) {
+          console.log(nextPlayer, game.currentPlayer)
           console.log('Scheduling computer move after player tile placement')
           setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
         }
@@ -649,8 +720,8 @@ io.on('connection', (socket) => {
 
       // Check if next player is a computer player
       if (
-        (nextPlayer && !nextPlayer.socketId) ||
-        !game.currentPlayer.socketId
+        (nextPlayer && !nextPlayer.socketId && !nextPlayer.deviceId) ||
+        (!game.currentPlayer.socketId && !game.currentPlayer.deviceId)
       ) {
         console.log('Scheduling computer move after player follower placement')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
@@ -778,8 +849,8 @@ io.on('connection', (socket) => {
 
       // Check if next player is a computer player
       if (
-        (nextPlayer && !nextPlayer.socketId) ||
-        !game.currentPlayer.socketId
+        (nextPlayer && !nextPlayer.socketId && !nextPlayer.deviceId) ||
+        (!game.currentPlayer.socketId && !game.currentPlayer.deviceId)
       ) {
         console.log('Scheduling computer move after player follower skip')
         setTimeout(() => handleComputerPlayerMove(game, gameId), 1000)
@@ -791,6 +862,22 @@ io.on('connection', (socket) => {
     console.log('=== Player Skip Follower End ===')
   })
 })
+
+function formatGamesList(games: IGameBoard[]) {
+  return Object.values(games).map((game) => ({
+    id: game.id,
+    players: game.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      color: player.color,
+    })),
+    currentPlayer: game.currentPlayer?.id,
+    gameIsEnded: game.gameIsEnded,
+    moveCounter: game.moveCounter,
+    scores: game.scores,
+    gameIsStarted: game.gameIsStarted,
+  }))
+}
 
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {

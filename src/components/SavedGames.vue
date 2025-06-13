@@ -11,11 +11,11 @@
   </Draggable>
 </template>
 <script setup lang="ts">
-import { defineProps, ref } from 'vue'
+import { ref } from 'vue'
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
 import Draggable from '@/components/Draggable.vue'
 
-const props = defineProps({
+defineProps({
   gameBoard: {
     type: Object as () => IGameBoard,
     required: true,

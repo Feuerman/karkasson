@@ -24,7 +24,6 @@ import {
   onMounted,
   onUnmounted,
   watch,
-  defineProps,
   defineEmits,
   nextTick,
 } from 'vue'

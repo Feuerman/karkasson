@@ -26,7 +26,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, defineProps, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { PlayerColors } from '../../server/src/modules/types.ts'
 
 const props = defineProps({
@@ -41,28 +41,28 @@ const props = defineProps({
 })
 
 const imagesMap = {
-  'A': new URL('../assets/tiles/Base_Game_C3_Tile_A.png', import.meta.url),
-  'B': new URL('../assets/tiles/Base_Game_C3_Tile_B.png', import.meta.url),
-  'C': new URL('../assets/tiles/Base_Game_C3_Tile_L.png', import.meta.url),
-  'D': new URL('../assets/tiles/Base_Game_C3_Tile_C.png', import.meta.url),
-  'E': new URL('../assets/tiles/Base_Game_C3_Tile_D.png', import.meta.url),
-  'F': new URL('../assets/tiles/Base_Game_C3_Tile_E.png', import.meta.url),
-  'G': new URL('../assets/tiles/Base_Game_C3_Tile_F.png', import.meta.url),
-  'H': new URL('../assets/tiles/Base_Game_C3_Tile_G.png', import.meta.url),
-  'I': new URL('../assets/tiles/Base_Game_C3_Tile_H.png', import.meta.url),
-  'J': new URL('../assets/tiles/Base_Game_C3_Tile_I.png', import.meta.url),
-  'K': new URL('../assets/tiles/Base_Game_C3_Tile_J.png', import.meta.url),
-  'L': new URL('../assets/tiles/Base_Game_C3_Tile_K.png', import.meta.url),
-  'M': new URL('../assets/tiles/Base_Game_C3_Tile_O.png', import.meta.url),
-  'N': new URL('../assets/tiles/Base_Game_C3_Tile_P.png', import.meta.url),
-  'O': new URL('../assets/tiles/Base_Game_C3_Tile_Q.png', import.meta.url),
-  'P': new URL('../assets/tiles/Base_Game_C3_Tile_R.png', import.meta.url),
-  'Q': new URL('../assets/tiles/Base_Game_C3_Tile_S.png', import.meta.url),
-  'R': new URL('../assets/tiles/Base_Game_C3_Tile_T.png', import.meta.url),
-  'S': new URL('../assets/tiles/Base_Game_C3_Tile_U.png', import.meta.url),
-  'T': new URL('../assets/tiles/Base_Game_C3_Tile_V.png', import.meta.url),
-  'U': new URL('../assets/tiles/Base_Game_C3_Tile_W.png', import.meta.url),
-  'V': new URL('../assets/tiles/Base_Game_C3_Tile_X.png', import.meta.url),
+  A: new URL('../assets/tiles/Base_Game_C3_Tile_A.png', import.meta.url),
+  B: new URL('../assets/tiles/Base_Game_C3_Tile_B.png', import.meta.url),
+  C: new URL('../assets/tiles/Base_Game_C3_Tile_L.png', import.meta.url),
+  D: new URL('../assets/tiles/Base_Game_C3_Tile_C.png', import.meta.url),
+  E: new URL('../assets/tiles/Base_Game_C3_Tile_D.png', import.meta.url),
+  F: new URL('../assets/tiles/Base_Game_C3_Tile_E.png', import.meta.url),
+  G: new URL('../assets/tiles/Base_Game_C3_Tile_F.png', import.meta.url),
+  H: new URL('../assets/tiles/Base_Game_C3_Tile_G.png', import.meta.url),
+  I: new URL('../assets/tiles/Base_Game_C3_Tile_H.png', import.meta.url),
+  J: new URL('../assets/tiles/Base_Game_C3_Tile_I.png', import.meta.url),
+  K: new URL('../assets/tiles/Base_Game_C3_Tile_J.png', import.meta.url),
+  L: new URL('../assets/tiles/Base_Game_C3_Tile_K.png', import.meta.url),
+  M: new URL('../assets/tiles/Base_Game_C3_Tile_O.png', import.meta.url),
+  N: new URL('../assets/tiles/Base_Game_C3_Tile_P.png', import.meta.url),
+  O: new URL('../assets/tiles/Base_Game_C3_Tile_Q.png', import.meta.url),
+  P: new URL('../assets/tiles/Base_Game_C3_Tile_R.png', import.meta.url),
+  Q: new URL('../assets/tiles/Base_Game_C3_Tile_S.png', import.meta.url),
+  R: new URL('../assets/tiles/Base_Game_C3_Tile_T.png', import.meta.url),
+  S: new URL('../assets/tiles/Base_Game_C3_Tile_U.png', import.meta.url),
+  T: new URL('../assets/tiles/Base_Game_C3_Tile_V.png', import.meta.url),
+  U: new URL('../assets/tiles/Base_Game_C3_Tile_W.png', import.meta.url),
+  V: new URL('../assets/tiles/Base_Game_C3_Tile_X.png', import.meta.url),
 }
 
 const tileImg = computed(() => {
