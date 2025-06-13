@@ -103,7 +103,7 @@ const drawTile = () => {
   highlightPoints.forEach((point) => {
     let x, y
     const center = props.size / 2
-    const offset = 10 // Отступ от края тайла
+    const offset = 20 // Отступ от края тайла
 
     // Определяем координаты точки в зависимости от направления
     switch (point.direction) {
@@ -134,12 +134,12 @@ const drawTile = () => {
 
     // Рисуем круг (точку)
     ctx.beginPath()
-    ctx.arc(x, y, 4, 0, Math.PI * 2)
+    ctx.arc(x, y, 10, 0, Math.PI * 2)
     ctx.fill()
 
     // Опционально: добавляем обводку для лучшей видимости
     ctx.beginPath()
-    ctx.arc(x, y, 4, 0, Math.PI * 2)
+    ctx.arc(x, y, 10, 0, Math.PI * 2)
     ctx.stroke()
   })
 }
