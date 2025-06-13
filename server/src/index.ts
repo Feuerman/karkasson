@@ -501,17 +501,15 @@ io.on('connection', (socket) => {
     }
 
     if (game.players?.every((p) => p.socketId)) {
-      socket.emit('error', 'Game is full')
+      socket.emit('error', 'Все слоты заняты')
       return
     }
-
-    socket.join(gameId)
 
     const firstFreePlayerIndex = game.players.findIndex(
       (p) => !p.socketId && !p.deviceId
     )
     if (firstFreePlayerIndex === -1) {
-      socket.emit('error', 'Game is full')
+      socket.emit('error', 'Все слоты заняты')
       return
     } else {
       const deviceId = Object.entries(deviceToSocketMap).find(
@@ -523,6 +521,8 @@ io.on('connection', (socket) => {
         getPlayerName(firstFreePlayerIndex)
       game.players[firstFreePlayerIndex].socketId = socket.id
       game.players[firstFreePlayerIndex].deviceId = deviceId
+
+      socket.join(gameId)
 
       io.to(gameId).emit('gameUpdated', formatGameData(game))
     }

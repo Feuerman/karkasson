@@ -98,15 +98,16 @@
           <template v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER">
             <div class="game-actions-history__item">
               <div class="game-actions-history__item-title">
-                <strong>Возврат подданных. </strong>
+                <strong>Возврат подданных.</strong>
                 <span
                   v-for="(
                     count, playerId
                   ) in action.actionData.followers.reduce((acc, follower) => {
                     if (!acc[follower.playerId]) {
                       acc[follower.playerId] = 0
-                      acc[follower.playerId] += 1
                     }
+
+                    acc[follower.playerId] += 1
                     return acc
                   }, {})"
                   :key="playerId"
@@ -114,7 +115,8 @@
                   <span
                     :style="{ color: gameBoard.players[playerId - 1].color }"
                   >
-                    {{ gameBoard.players[playerId - 1].name }} - {{ count }}
+                    {{ gameBoard.players[playerId - 1].name }} -
+                    {{ count }},&nbsp;
                   </span>
                 </span>
               </div>
@@ -190,6 +192,14 @@ const zoomToCoordinates = (rowIndex, tileIndex) => {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  &__item-title {
+    span + span {
+      margin-left: 0.2rem;
+    }
+    strong {
+      margin-right: 0.3rem;
+    }
+  }
   &__title {
     position: sticky;
     top: 0;
