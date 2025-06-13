@@ -169,7 +169,7 @@ function checkGames() {
       if (!games[gameId].lastUpdate) {
         games[gameId].lastUpdate = Date.now()
       }
-      if (games[gameId].lastUpdate < Date.now() - 60000 * 30) {
+      if (games[gameId].lastUpdate - Date.now() > 60000 * 30) {
         delete games[gameId]
         gameDatabase.deleteGame(gameId)
         io.to(gameId).emit('gameDeleted')
@@ -870,12 +870,15 @@ function formatGamesList(games: IGameBoard[]) {
       id: player.id,
       name: player.name,
       color: player.color,
+      socketId: player.socketId,
+      deviceId: player.deviceId,
     })),
     currentPlayer: game.currentPlayer?.id,
     gameIsEnded: game.gameIsEnded,
     moveCounter: game.moveCounter,
     scores: game.scores,
     gameIsStarted: game.gameIsStarted,
+    lastUpdate: game.lastUpdate,
   }))
 }
 
