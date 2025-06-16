@@ -351,13 +351,7 @@ export class GameManager implements IGameBoard {
         }
       })
       .filter((place) => {
-        return (
-          place.temporaryObject &&
-          (!place.temporaryObject.followers?.length ||
-            !place.temporaryObject.followers.find(
-              (follower) => follower.playerId !== this.currentPlayer.id
-            ))
-        )
+        return place.temporaryObject && !place.temporaryObject.followers?.length
       })
 
     if (this.availableFollowersPlaces.length) {
@@ -843,27 +837,35 @@ export class GameManager implements IGameBoard {
     if (road.followers.length) {
       points = uniqueTiles.size
 
-      const uniqueFollowers: Set<string> = new Set(
-        road.followers.map((follower) => follower.playerId)
+      const followersCountByPlayer: Record<string, number> =
+        road.followers.reduce((acc, follower) => {
+          acc[follower.playerId] = acc[follower.playerId]
+            ? acc[follower.playerId] + 1
+            : 1
+          return acc
+        }, {})
+
+      const maxCount = Object.values(followersCountByPlayer).reduce(
+        (acc, count) => Math.max(acc, count),
+        0
       )
-      const followersCount: number = uniqueFollowers.size
-      const isOnePlayer = followersCount === 1
-      const scores = Array.from(uniqueFollowers).reduce((acc, followerId) => {
-        acc[followerId] = isOnePlayer
-          ? points
-          : Math.ceil(points / followersCount)
-        if (isCompleted) {
-          this.scores[followerId] += isOnePlayer
-            ? points
-            : Math.ceil(points / followersCount)
-        }
-        return acc
-      }, {})
+
+      let total = 0
+
+      const scores = Object.entries(followersCountByPlayer).reduce(
+        (acc, [playerId, count]: [string, number]) => {
+          if (count === maxCount) {
+            total += points
+            acc[playerId] = points
+            this.scores[playerId] += points
+          }
+          return acc
+        },
+        {}
+      )
 
       return {
-        total: isOnePlayer
-          ? points
-          : Math.ceil(points / followersCount) * followersCount,
+        total,
         players: scores,
         objectId: road.id,
       }
