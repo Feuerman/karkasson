@@ -164,19 +164,26 @@ async function handleComputerPlayerMove(game: IGameBoard, gameId: string) {
 }
 
 function checkGames() {
+  let deletedGames = 0
   Object.keys(games).forEach((gameId) => {
     if (games[gameId].gameIsStarted && !games[gameId].gameIsEnded) {
       if (!games[gameId].lastUpdate) {
         games[gameId].lastUpdate = Date.now()
       }
       if (Date.now() - games[gameId].lastUpdate > 60000 * 30) {
+        console.log('Deleting game:', gameId)
+        deletedGames += 1
         delete games[gameId]
         gameDatabase.deleteGame(gameId)
         io.to(gameId).emit('gameDeleted')
       }
     }
   })
-  io.emit('updateGamesList', formatGamesList(games))
+
+  if (deletedGames > 0) {
+    io.emit('updateGamesList', formatGamesList(games))
+  }
+
   checkGamesTimeout = setTimeout(checkGames, 10000)
 }
 
@@ -196,8 +203,6 @@ async function loadSavedGames() {
     // Сохраняем игру в памяти
     games[savedGame.id] = game
   })
-
-  console.log(`Loaded ${savedGames.length} saved games`)
 
   checkGamesTimeout = setTimeout(checkGames, 10000)
 }
