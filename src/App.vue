@@ -584,7 +584,36 @@ onMounted(async () => {
     }
 
     &.--active {
-      box-shadow: 0 0 8px 8px rgba(76, 175, 80, 0.7);
+      //box-shadow: 0 0 8px 8px rgba(76, 175, 80, 0.7);
+      //border: 1px solid rgba(76, 175, 80, 0.7);
+      //background-color: rgba(76, 175, 80, 0.7);
+      animation: pulse 1s infinite ease-in-out;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 8px 8px rgba(76, 175, 80, 0.5);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+      background-color: rgba(76, 175, 80, 0.5);
+    }
+    25% {
+      box-shadow: 0 0 10px 10px rgba(76, 175, 80, 0.5);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+      background-color: rgba(76, 175, 80, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 12px 12px rgba(76, 175, 80, 0.6);
+      border: 1px solid rgba(76, 175, 80, 0.6);
+      background-color: rgba(76, 175, 80, 0.6);
+    }
+    75% {
+      box-shadow: 0 0 14px 14px rgba(76, 175, 80, 0.6);
+      border: 1px solid rgba(76, 175, 80, 0.6);
+      background-color: rgba(76, 175, 80, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 20px 20px rgba(76, 175, 80, 0.7);
       border: 1px solid rgba(76, 175, 80, 0.7);
       background-color: rgba(76, 175, 80, 0.7);
     }
