@@ -18,8 +18,11 @@
         :key="index"
         @click.stop="gameBoard.isMyTurn && GameService.placeFollower(place)"
       >
-        {{ pointTypeTitle(place.point.pointType) }}
-        {{ pointDirectionTitle(place.point.direction) }}
+        <template v-if="place.temporaryObject?.isMonastery">Монастырь</template>
+        <template v-else>
+          {{ pointTypeTitle(place.point.pointType) }}
+          {{ pointDirectionTitle(place.point.direction) }}
+        </template>
       </div>
     </template>
   </Draggable>
