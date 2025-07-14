@@ -334,13 +334,14 @@ export class GameManager implements IGameBoard {
       return
     }
     this.availableFollowersPlaces = Object.keys(this.currentTile?.sides)
+      .concat(this.currentTile.isMonastery ? [undefined] : [])
       .map((side) => {
         return {
           point: {
             x: this.currentTile.x,
             y: this.currentTile.y,
             direction: side,
-            pointType: this.currentTile.sides[side],
+            pointType: side && this.currentTile.sides[side],
           },
           temporaryObject: this.findObjectByPoint(
             this.temporaryObjects,
@@ -529,6 +530,7 @@ export class GameManager implements IGameBoard {
       playerId: this.currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
+      isMonastery: availablePlace.temporaryObject.isMonastery,
     })
 
     this.availableFollowersPlaces = []
@@ -548,11 +550,17 @@ export class GameManager implements IGameBoard {
   }
 
   findObjectByPoint(objects, x, y, direction) {
-    return [...objects.cities, ...objects.roads].find((object) => {
-      return object.points.some((point) => {
-        return point.x === x && point.y === y && point.direction === direction
-      })
-    })
+    return [...objects.cities, ...objects.roads, ...objects.monasteries].find(
+      (object) => {
+        return object.points.some((point) => {
+          return (
+            point.x === x &&
+            point.y === y &&
+            (!direction || point.direction === direction)
+          )
+        })
+      }
+    )
   }
 
   async autoPlaceTile() {
@@ -673,6 +681,105 @@ export class GameManager implements IGameBoard {
       })
 
     this.checkCities(citiesPoints, tile.isSolidCity)
+
+    this.checkMonasteries(tile)
+  }
+
+  checkMonasteries(tile) {
+    if (tile.isMonastery) {
+      this.temporaryObjects.monasteries.push({
+        followers: [],
+        id: 'id' + Math.random(),
+        isMonastery: true,
+        points: [{ x: tile.x, y: tile.y, rowIndex: tile.y, tileIndex: tile.x }],
+      })
+    }
+
+    this.checkCompletedMonasteries()
+  }
+
+  checkCompletedMonasteries() {
+    const completedMonasteries = this.temporaryObjects.monasteries.filter(
+      (monastery) => {
+        const monasteryPoint = monastery.points[0]
+        return [
+          [-1, -1],
+          [-1, 0],
+          [-1, 1],
+          [0, -1],
+          [0, 1],
+          [1, -1],
+          [1, 0],
+          [1, 1],
+        ].every((coordinates) => {
+          return (
+            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
+              monasteryPoint.x + coordinates[1]
+            ] &&
+            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
+              monasteryPoint.x + coordinates[1]
+            ] &&
+            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
+              monasteryPoint.x + coordinates[1]
+            ] &&
+            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
+              monasteryPoint.x + coordinates[1]
+            ]
+          )
+        })
+      }
+    )
+
+    this.temporaryObjects.monasteries =
+      this.temporaryObjects.monasteries.filter(
+        (monastery) => !completedMonasteries.find((m) => m.id === monastery.id)
+      )
+
+    this.completedObjects.monasteries = [
+      ...this.completedObjects.monasteries,
+      ...completedMonasteries,
+    ]
+
+    if (completedMonasteries.length) {
+      this.calcScoreForMonasteries(completedMonasteries)
+    }
+  }
+
+  calcScoreForMonasteries(monasteries) {
+    monasteries.forEach((monastery) => {
+      monastery.followers.forEach((follower) => {
+        this.scores[follower.playerId] += 9
+
+        this.actionsHistory.push({
+          actionType: ActionTypes.ADDING_SCORES,
+          actionData: {
+            objectType: ObjectTypes.MONASTERY,
+            objectData: monastery,
+            score: {
+              objectId: monastery.id,
+              players: {
+                [follower.playerId]: 9,
+              },
+              total: 9,
+            },
+          },
+        })
+        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+        this.placedFollowers.splice(
+          this.placedFollowers.findIndex(
+            (f) =>
+              f.playerId === follower.playerId && f.objectId === monastery.id
+          ),
+          1
+        )
+        this.actionsHistory.push({
+          actionType: ActionTypes.BACK_FOLLOWER,
+          actionData: {
+            followers: [follower],
+          },
+        })
+      })
+    })
   }
 
   checkRoads(roadsPoints) {
