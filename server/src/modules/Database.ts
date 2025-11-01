@@ -70,12 +70,15 @@ class GameDatabase {
         return Object.values(snapshot.val()).map((result) =>
           typeof result === 'string' ? JSON.parse(result) : result
         )
+      } else {
+        return []
       }
     } catch (error) {
       console.error('Error reading all games from Firebase:', error)
+      return []
     }
 
-    return results.map((result) => JSON.parse(result.gameState))
+    return []
   }
 
   async saveAllGames(games: IGameBoard[]) {
