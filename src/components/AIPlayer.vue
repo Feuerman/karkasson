@@ -1,6 +1,6 @@
 <template>
   <div class="ai-player">
-    <button @click="makeAIMove" :disabled="!canMakeMove">Make AI Move</button>
+    <button :disabled="!canMakeMove" @click="makeAIMove">Make AI Move</button>
   </div>
 </template>
 
