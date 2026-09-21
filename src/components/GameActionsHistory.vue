@@ -53,7 +53,7 @@
                     color: action.initiator?.color,
                   }"
                 >
-                  {{ action.initiator.name }}.
+                  {{ action.initiator?.name }}.
                 </span>
                 <span
                   >На клетку

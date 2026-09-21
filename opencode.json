@@ -1,0 +1,172 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "tecius/deepseek-v4.1-flash",
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "Внутренняя документация проекта: FSD-архитектура, auth, forms, UI kit, validation, http-client"
+    }
+  },
+  "mcp": {
+    "serena": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\Feuerman\\.local\\bin\\serena.exe",
+        "start-mcp-server",
+        "--context=ide",
+        "--project-from-cwd"
+      ],
+      "enabled": true
+    },
+    "wiki-rag": {
+      "type": "remote",
+      "url": "https://wiki-rag.tecius-soft.ru/mcp?project=telemedicina",
+      "enabled": true,
+      "timeout": 60000,
+      "oauth": {
+        "clientId": "wiki-rag-opencode",
+        "scope": "openid",
+        "redirectUri": "http://127.0.0.1:19876/callback"
+      }
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "{env:CONTEXT7_API_KEY}"
+      },
+      "enabled": false
+    },
+    "grep": {
+      "type": "remote",
+      "url": "https://mcp.grep.app",
+      "enabled": true
+    },
+    "nuxt": {
+      "type": "remote",
+      "url": "https://nuxt.com/mcp",
+      "enabled": true,
+      "oauth": false,
+      "timeout": 60000
+    },
+    "ref": {
+      "type": "remote",
+      "url": "https://api.ref.tools/mcp?apiKey=ref-048894f21bd09547417b",
+      "oauth": false,
+      "enabled": true
+    },
+    "web-search": {
+      "type": "local",
+      "command": ["uvx", "duckduckgo-mcp-server"],
+      "enabled": false
+    },
+    "figma": {
+      "type": "local",
+      "command": ["npx", "-y", "figma-developer-mcp", "--stdio"],
+      "enabled": false
+    },
+    "codebase-memory-mcp": {
+      "enabled": true,
+      "type": "local",
+      "command": ["C:\\Users\\Feuerman\\AppData\\Local\\codebase-memory-mcp\\package\\bin\\codebase-memory-mcp.exe"]
+    },
+    "gitlab": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "C:\\Users\\Feuerman\\AppData\\Roaming\\npm\\node_modules\\@zereight\\mcp-gitlab\\build\\index.js"
+      ],
+      "environment": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "{file:./.opencode/.secrets/gitlab-token}",
+        "GITLAB_API_URL": "https://tecius.gitlab.yandexcloud.net/api/v4"
+      }
+    },
+
+    "tecius-ycloud-tracker": {
+      "enabled": false,
+      "type": "local",
+      "command": [
+        "node",
+        "/home/aaksenov/Projects/tecius/yandex-resources/apps/tracker/dist/index.js"
+      ]
+    }
+  },
+  "provider": {
+    "opencode": {
+      "whitelist": ["union-alpha", "big-pickle"]
+    },
+    "tecius": {
+      "name": "Тециус",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://api.llm.tecius.ru/v1",
+        "apiKey": "{file:./.opencode/.secrets/tecius-api-key}"
+      },
+      "models": {
+        "deepseek-v4.1-flash": {
+          "name": "[Тециус] DeepSeek V4.1 Flash",
+          "modalities": { "input": ["text", "image"] },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 384000 },
+          "variants": {
+            "max": { "reasoningEffort": "max" },
+            "high": { "reasoningEffort": "high" },
+            "low": { "reasoningEffort": "low" },
+            "medium": { "disabled": true }
+          }
+        },
+        "deepseek-v4-pro": {
+          "name": "[Тециус] DeepSeek V4 Pro",
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 384000 }
+        },
+        "gpt-5.6-luna": {
+          "name": "[Тециус] GPT 5.6 Luna",
+          "modalities": { "input": ["text", "image"] },
+          "reasoning": true,
+          "tool_call": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 128000 }
+        },
+        "glm-5.3-flash": {
+          "name": "[Тециус] GLM 5.3 Flash",
+          "modalities": { "input": ["text", "image"] },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 131072 },
+          "variants": {
+            "max": { "reasoningEffort": "max" },
+            "high": { "reasoningEffort": "high" },
+            "low": { "reasoningEffort": "low" }
+          }
+        }
+      }
+    }
+  },
+  "agent": {
+    "tecius": {
+      "description": "Рабочий режим на моделях Тециус (код проекта, конфиденциальные данные)",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4.1-flash",
+      "color": "primary"
+    },
+    "tecius-pro": {
+      "description": "Сложные агентные задачи на модели Тециус DeepSeek V4 Pro",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4-pro",
+      "color": "accent"
+    },
+    "free": {
+      "description": "Черновые задачи на бесплатных моделях OpenCode Zen. Не использовать для кода проекта и конфиденциальных данных",
+      "mode": "primary",
+      "model": "opencode/union-alpha",
+      "color": "warning"
+    }
+  }
+}

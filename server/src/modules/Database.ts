@@ -1,29 +1,23 @@
-// @ts-nocheck
-// @ts-ignore
-
-import { IGameBoard } from './GameManager'
-
-// Import the functions you need from the SDKs you need
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, set, get, push, remove } from 'firebase/database'
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  remove,
+  type Database,
+} from 'firebase/database'
+import { firebaseConfig } from '../config'
+import type { IGameBoard } from './GameManager'
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: 'AIzaSyDyRbOXPz22xQVZndSmwwXWwfBXXQw-adw',
-  authDomain: 'karkassone-a5080.firebaseapp.com',
-  projectId: 'karkassone-a5080',
-  storageBucket: 'karkassone-a5080.firebasestorage.app',
-  messagingSenderId: '142905740344',
-  appId: '1:142905740344:web:4d9ea0c2ec278d3d92aacd',
-  measurementId: 'G-KYYJTPJXYH',
-  databaseURL: 'https://karkassone-a5080-default-rtdb.firebaseio.com/',
+function parseGame(raw: unknown): IGameBoard {
+  return typeof raw === 'string'
+    ? (JSON.parse(raw) as IGameBoard)
+    : (raw as IGameBoard)
 }
 
 class GameDatabase {
-  private firebaseDatabase
+  private firebaseDatabase: Database
 
   constructor() {
     const app = initializeApp(firebaseConfig)
@@ -31,11 +25,10 @@ class GameDatabase {
   }
 
   // Сохранение состояния игры
-  async saveGame(gameId: string, gameState: IGameBoard) {
+  async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
     gameState.lastUpdate = Date.now()
-    // Firebase operation
     try {
-      set(
+      await set(
         ref(this.firebaseDatabase, `games/${gameId}`),
         JSON.stringify(gameState)
       )
@@ -46,52 +39,44 @@ class GameDatabase {
 
   // Получение состояния игры
   async getGame(gameId: string): Promise<IGameBoard | null> {
-    // Firebase operation
     try {
       const snapshot = await get(ref(this.firebaseDatabase, `games/${gameId}`))
-      if (snapshot.exists()) {
-        console.log('Firebase game data:', JSON.parse(snapshot.val()))
-      } else {
+      if (!snapshot.exists()) {
         return null
       }
+      return parseGame(snapshot.val())
     } catch (error) {
       console.error('Error reading from Firebase:', error)
+      return null
     }
-
-    return JSON.parse(result.gameState)
   }
 
   // Получение всех сохраненных игр
   async getAllGames(): Promise<IGameBoard[]> {
-    // Firebase operation
     try {
       const snapshot = await get(ref(this.firebaseDatabase, 'games'))
-      if (snapshot.exists()) {
-        return Object.values(snapshot.val()).map((result) =>
-          typeof result === 'string' ? JSON.parse(result) : result
-        )
-      } else {
+      if (!snapshot.exists()) {
         return []
       }
+      return Object.values(snapshot.val() as Record<string, unknown>).map(
+        parseGame
+      )
     } catch (error) {
       console.error('Error reading all games from Firebase:', error)
       return []
     }
-
-    return []
   }
 
-  async saveAllGames(games: IGameBoard[]) {
+  async saveAllGames(games: IGameBoard[]): Promise<void> {
     try {
-      set(ref(this.firebaseDatabase, `games/`), games)
+      await set(ref(this.firebaseDatabase, 'games/'), games)
     } catch (error) {
       console.error('Error saving to Firebase:', error)
     }
   }
 
   // Удаление игры
-  async deleteGame(gameId: string) {
-    // Firebase operation
+  async deleteGame(gameId: string): Promise<void> {
     try {
       await remove(ref(this.firebaseDatabase, `games/${gameId}`))
     } catch (error) {
@@ -101,3 +86,4 @@ class GameDatabase {
 }
 
 export const gameDatabase = new GameDatabase()
+export type { GameDatabase }
