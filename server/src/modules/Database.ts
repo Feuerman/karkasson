@@ -16,7 +16,16 @@ function parseGame(raw: unknown): IGameBoard {
     : (raw as IGameBoard)
 }
 
-class GameDatabase {
+/** Абстракция хранилища игр, чтобы сервер можно было тестировать без Firebase */
+export interface IGameDatabase {
+  saveGame(gameId: string, gameState: IGameBoard): Promise<void>
+  getGame(gameId: string): Promise<IGameBoard | null>
+  getAllGames(): Promise<IGameBoard[]>
+  saveAllGames(games: IGameBoard[]): Promise<void>
+  deleteGame(gameId: string): Promise<void>
+}
+
+class GameDatabase implements IGameDatabase {
   private firebaseDatabase: Database
 
   constructor() {

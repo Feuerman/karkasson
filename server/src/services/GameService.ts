@@ -1,5 +1,5 @@
 import { GameManager, type IGameBoard } from '../modules/GameManager'
-import type { GameDatabase } from '../modules/Database'
+import type { IGameDatabase } from '../modules/Database'
 import {
   playerColorForIndex,
   playerNameForIndex,
@@ -65,7 +65,7 @@ export class GameService {
   private games: Record<string, IGameBoard> = {}
   private deviceToSocketMap: Record<string, string> = {}
 
-  constructor(private readonly db: GameDatabase) {}
+  constructor(private readonly db: IGameDatabase) {}
 
   // ------------------------------------------------------------------ devices
 
