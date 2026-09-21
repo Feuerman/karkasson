@@ -1,5 +1,9 @@
+export type PlayerId = string | number
+
+export type SideName = 'north' | 'west' | 'south' | 'east'
+
 export interface Player {
-  id: string | null
+  id: PlayerId
   name: string | null
   color: string | null
   score: number
@@ -10,61 +14,115 @@ export interface Player {
 export interface Point {
   x: number
   y: number
-  direction: string
-  pointType: string
+  direction?: string
+  pointType?: string
+  rowIndex?: number
+  tileIndex?: number
   precisionX?: number
   precisionY?: number
 }
 
-export interface Follower {
-  playerId: number
+export interface ObjectFollower {
+  playerId: PlayerId
+  objectId: string
   point: Point
+}
+
+export interface PlacedFollower {
+  playerId: PlayerId
+  objectId: string
+  point: Point
+  isMonastery?: boolean
 }
 
 export interface ScoreForObject {
   total: number
-  players: {
-    [playerId: Player['id']]: number
-  }
+  players: Partial<Record<PlayerId, number>>
+  objectId?: string
 }
 
-export interface Scores {
-  [playerId: Player['id']]: number
-}
+export type Scores = Record<PlayerId, number>
 
 export interface BaseObject {
   id: string
   points: Point[]
-  followers?: { playerId: Player['id']; objectId: string; point: Point }[]
+  followers: ObjectFollower[]
   score?: ScoreForObject
+  isMonastery?: boolean
 }
 
 export interface City extends BaseObject {
   isSolidCity?: boolean
 }
 
-export interface Road extends BaseObject {}
+export type Road = BaseObject
 
-export interface Monastery extends BaseObject {}
+export type Monastery = BaseObject
+
+export interface TileSides {
+  north: string
+  west: string
+  south: string
+  east: string
+}
 
 export interface Tile {
   id: string
-  imgUrl: string
+  imgUrl?: string
   rotation: number
   x?: number
   y?: number
-  sides: {
-    north: string
-    west: string
-    south: string
-    east: string
-  }
+  sides: TileSides
   isSolidCity?: boolean
+  withShield?: boolean
+  isMonastery?: boolean
 }
+
+export interface GridTile extends Tile {
+  x: number
+  y: number
+  rowIndex?: number
+  tileIndex?: number
+}
+
+export type TilePlacesStats = Record<number, Record<number, GridTile>>
 
 export interface FollowerCount {
   ordinaryFollowers: number
   monks: number
+}
+
+export interface TemporaryObjects {
+  cities: BaseObject[]
+  roads: BaseObject[]
+  monasteries: BaseObject[]
+}
+
+export type CompletedObjects = TemporaryObjects
+
+export type AvailableFollowerPlace = {
+  point: Point
+  temporaryObject: BaseObject
+}
+
+/** Слот будущего тайла: координаты и примыкающие к ним объекты */
+export interface AvailablePlace {
+  rowIndex: number
+  tileIndex: number
+  objects: (BaseObject | null)[]
+}
+
+export enum ActionTypes {
+  PLACE_TILE = 'PLACE_TILE',
+  PLACE_FOLLOWER = 'PLACE_FOLLOWER',
+  ADDING_SCORES = 'ADDING_SCORES',
+  BACK_FOLLOWER = 'BACK_FOLLOWER',
+}
+
+export enum ObjectTypes {
+  CITY = 'CITY',
+  ROAD = 'ROAD',
+  MONASTERY = 'MONASTERY',
 }
 
 export enum PlayerColors {
@@ -87,4 +145,12 @@ export enum PlayerNames {
   'Дмитрий',
   'Евгений',
   'Екатерина',
+}
+
+export function playerColorForIndex(index: number): string {
+  return PlayerColors[index + 1] ?? 'coral'
+}
+
+export function playerNameForIndex(index: number): string {
+  return PlayerNames[index + 1] ?? 'Игрок'
 }

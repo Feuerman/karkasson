@@ -16,7 +16,7 @@
     <!--        </div>-->
     <!--      </template>-->
     <!--    </div>-->
-    <GameStats :gameBoard="gameBoard" />
+    <GameStats :game-board="gameBoard" />
   </Draggable>
 </template>
 <script setup lang="ts">

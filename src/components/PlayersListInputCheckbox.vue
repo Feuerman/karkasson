@@ -1,10 +1,10 @@
 <template>
   <div class="checkbox-wrapper">
     <input
+      :id="id"
       type="checkbox"
       :disabled="disabled"
       :checked="modelValue"
-      :id="id"
     />
     <div class="checkbox"></div>
   </div>

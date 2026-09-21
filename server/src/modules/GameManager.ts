@@ -1,120 +1,79 @@
-// @ts-nocheck
-// @ts-ignore
-
-import tiles from '../data/tiles.ts'
-import { deepClone } from '../utils/common.ts'
+import tiles from '../data/tiles'
+import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
-import type {
-  BaseObject,
-  Player,
-  Point,
-  Scores,
-  FollowerCount,
-} from './types.ts'
+import { calcCityScore, calcRoadScore } from './scoring'
+import {
+  ActionTypes,
+  ObjectTypes,
+  type AvailableFollowerPlace,
+  type AvailablePlace,
+  type BaseObject,
+  type CompletedObjects,
+  type FollowerCount,
+  type GridTile,
+  type Player,
+  type PlayerId,
+  type PlacedFollower,
+  type Point,
+  type ScoreForObject,
+  type Scores,
+  type SideName,
+  type TemporaryObjects,
+  type Tile,
+  type TilePlacesStats,
+} from './types'
 
-interface Tile {
-  id: string
-  imgUrl: string
-  rotation: number
-  sides: {
-    north: string
-    west: string
-    south: string
-    east: string
-  }
-}
+export { ActionTypes, ObjectTypes } from './types'
+export type { AvailableFollowerPlace } from './types'
 
-interface GridTile extends Tile {
-  x: number
-  y: number
-  withShield?: boolean
-  isSolidCity?: boolean
-  precisionX?: number
-  precisionY?: number
-}
-
-export enum ActionTypes {
-  PLACE_TILE = 'PLACE_TILE',
-  PLACE_FOLLOWER = 'PLACE_FOLLOWER',
-  ADDING_SCORES = 'ADDING_SCORES',
-  BACK_FOLLOWER = 'BACK_FOLLOWER',
-}
-
-export enum ObjectTypes {
-  CITY = 'CITY',
-  ROAD = 'ROAD',
-  MONASTERY = 'MONASTERY',
+export interface GameAction {
+  actionType: ActionTypes
+  // Полезная нагрузка зависит от типа действия; клиент читает поля динамически
+  actionData: any
+  initiator?: Player | null
 }
 
 export interface IGameBoard {
+  id?: string
   gridSize: number[]
   gameIsStarted: boolean
   gameIsEnded: boolean
   tilesList: Tile[]
-  currentTile: GridTile | null // Changed from 'any' to 'Tile'
+  currentTile: GridTile | null
   players: Player[]
-  currentPlayer: Player | null // Assuming Player has an 'id' property
+  currentPlayer: Player | null
   currentPlayerIndex: number
-  playersFollowers: { [playerId: Player['id']]: FollowerCount }
+  playersFollowers: Record<PlayerId, FollowerCount>
   temporaryObjects: TemporaryObjects
-  completedObjects: CompletedObjects // This type is still unclear, please provide more information
-  scores: Scores // This type is still unclear, please provide more information
-  availableFollowersPlaces: { point: Point; temporaryObject: BaseObject }[]
+  completedObjects: CompletedObjects
+  scores: Scores
+  availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
-  availablePlacesTiles: { rowIndex: number; tileIndex: number }[]
-  lastPlacement: { rowIndex: number; tileIndex: number } | null
+  availablePlacesTiles: AvailablePlace[]
+  lastPlacement: { rowIndex?: number; tileIndex?: number }
   tileHistory: Tile[]
-  actionsHistory: {
-    actionType: ActionTypes
-    actionData: any
-    initiator?: Player | null
-  }[]
+  actionsHistory: GameAction[]
   moveCounter: number
   lastUpdate: number
+  placedFollowers: PlacedFollower[]
+  placingPoint?: { rowIndex: number; tileIndex: number }
+  tilePlacesStats: TilePlacesStats
   startGame(): void
-  autoPlay(): void
-  placeFollower(availablePlace: {
-    point: Point
-    temporaryObject: BaseObject
-  }): void
+  autoPlay(): Promise<void>
+  placeFollower(availablePlace: AvailableFollowerPlace): void
   skipFollower(): void
-  placeTile(tile: Tile, rowIndex: number, tileIndex: number): void
-  autoPlaceTile(): void
-  calcScoreForCity(city: BaseObject): {
-    total: number
-    players: { [playerId: Player['id']]: number }
-  }
-  calcScoreForRoad(road: BaseObject): {
-    total: number
-    players: { [playerId: Player['id']]: number }
-  }
-  zoomToObject(objectId: string): void
-  recalculateScores(): void
+  placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
+  autoPlaceTile(): Promise<void>
+  calcScoreForCity(city: BaseObject): ScoreForObject
+  calcScoreForRoad(road: BaseObject): ScoreForObject
+  getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
-  simulatePlaceFollower({
-    point,
-    temporaryObject,
-  }: {
-    point: Point
-    temporaryObject: BaseObject
-  }): boolean
-  getNextPlayer(currentPlayerId: Player['id']): Player
-}
-
-interface TemporaryObjects {
-  cities: BaseObject[]
-  roads: BaseObject[]
-  monasteries: BaseObject[]
-}
-
-interface CompletedObjects {
-  cities: BaseObject[]
-  roads: BaseObject[]
-  monasteries: BaseObject[]
+  simulatePlaceFollower(place: AvailableFollowerPlace): boolean
 }
 
 export class GameManager implements IGameBoard {
+  id?: string
   gridSize = [30, 30]
   gameIsStarted: boolean
   gameIsEnded: boolean
@@ -123,150 +82,79 @@ export class GameManager implements IGameBoard {
   players: Player[]
   currentPlayer: Player | null
   currentPlayerIndex: number
-  playersFollowers: { [playerId: Player['id']]: FollowerCount }
+  playersFollowers: Record<PlayerId, FollowerCount>
   temporaryObjects: TemporaryObjects
   completedObjects: CompletedObjects
   scores: Scores
-  availableFollowersPlaces: { point: Point; temporaryObject: BaseObject }[]
+  availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
-  placedFollowers: { playerId: Player['id']; objectId: string; point: Point }[]
-  tilePlacesStats: {
-    [key: string]: {
-      rowIndex: number
-      tileIndex: number
-      rotation: number
-      sides: {
-        north: string
-        west: string
-        south: string
-        east: string
-      }
-    }[]
-  } = {}
-  lastPlacement: { rowIndex: number; tileIndex: number }
-  availablePlacesTiles: {
-    rowIndex: number
-    tileIndex: number
-    objects: BaseObject[]
-  }[]
+  placedFollowers: PlacedFollower[]
+  tilePlacesStats: TilePlacesStats = {}
+  lastPlacement: { rowIndex?: number; tileIndex?: number }
+  availablePlacesTiles: AvailablePlace[]
   tileHistory: Tile[]
   moveCounter: number
-  actionsHistory: {
-    actionType: ActionTypes
-    actionData: any
-    initiator?: Player | null
-  }[]
-  lastUpdate: number
+  actionsHistory: GameAction[]
+  lastUpdate = 0
 
-  constructor(params?: Partial<{ players: any[] }>) {
-    const players = params?.players || []
+  constructor(params: { players?: Player[] } = {}) {
+    const players = params.players ?? []
+
     this.gameIsStarted = false
     this.gameIsEnded = false
     this.tilesList = []
     this.currentTile = null
     this.players = []
     this.currentPlayer = null
+    this.currentPlayerIndex = 0
     this.availableFollowersPlaces = []
     this.isPlacingFollower = false
-    this.temporaryObjects = {
-      cities: [],
-      roads: [],
-      monasteries: [],
-    }
-    this.completedObjects = {
-      cities: [],
-      roads: [],
-      monasteries: [],
-    }
+    this.temporaryObjects = { cities: [], roads: [], monasteries: [] }
+    this.completedObjects = { cities: [], roads: [], monasteries: [] }
     this.scores = {}
     this.playersFollowers = {}
     this.placedFollowers = []
-
     this.moveCounter = 1
-    this.lastPlacement = {
-      rowIndex: undefined,
-      tileIndex: undefined,
-    }
+    this.lastPlacement = { rowIndex: undefined, tileIndex: undefined }
     this.availablePlacesTiles = []
     this.tileHistory = []
-
     this.actionsHistory = []
 
-    // this.initGrid()
     this.initTilesList()
     this.initPlayers(players)
 
     this.startGame()
   }
 
-  initGrid() {
-    for (let i = 0; i < this.gridSize[1]; i++) {
-      this.grid[i] = []
-      for (let j = 0; j < this.gridSize[0]; j++) {
-        this.grid[i][j] = null
-      }
-    }
-  }
-
   initTilesList() {
     this.tilesList = tiles
-      .reduce((acc, tile) => {
-        return [...acc, ...Array(tile.count).fill({ ...tile, rotation: 0 })]
+      .reduce<Tile[]>((acc, tile) => {
+        const copies = Array<Tile>(tile.count).fill({ ...tile, rotation: 0 })
+        return [...acc, ...copies]
       }, [])
       .sort(() => Math.random() - 0.5)
   }
 
-  initPlayers(players) {
+  initPlayers(players: Player[]) {
     players.forEach((player) => {
       this.players.push(player)
       this.scores[player.id] = 0
     })
 
-    this.playersFollowers = this.players.reduce((acc, player) => {
-      acc[player.id] = { ordinaryFollowers: 7, monks: 1 }
-      return acc
-    }, {})
+    this.playersFollowers = players.reduce<Record<PlayerId, FollowerCount>>(
+      (acc, player) => {
+        acc[player.id] = { ordinaryFollowers: 7, monks: 1 }
+        return acc
+      },
+      {}
+    )
   }
 
   startGame() {
     this.gameIsStarted = true
-
     this.placeStartTile()
-
-    this.currentPlayer = this.players[0]
+    this.currentPlayer = this.players[0] ?? null
     this.currentPlayerIndex = 0
-  }
-
-  zoomToObject(objectId: string) {
-    const object = [
-      ...this.temporaryObjects.cities,
-      ...this.temporaryObjects.roads,
-      ...this.temporaryObjects.monasteries,
-      ...this.completedObjects.cities,
-      ...this.completedObjects.roads,
-      ...this.completedObjects.monasteries,
-    ].find((object) => object.id === objectId)
-    const point = object?.points[0]
-    const rowIndex = point?.y
-    const tileIndex = point?.x
-
-    if (rowIndex && tileIndex) {
-      const targetTile = document.querySelector(
-        '.game-tile[data-row-index="' +
-          rowIndex +
-          '"][data-tile-index="' +
-          tileIndex +
-          '"]'
-      )
-
-      if (targetTile) {
-        targetTile?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'center',
-        })
-      }
-    }
   }
 
   placeStartTile() {
@@ -290,17 +178,17 @@ export class GameManager implements IGameBoard {
   }
 
   endTurn() {
+    const currentPlayer = this.currentPlayer
+
     if (
-      this.players.findIndex(
-        (player) => player.id === this.currentPlayer?.id
-      ) ===
+      this.players.findIndex((player) => player.id === currentPlayer?.id) ===
       this.players.length - 1
     ) {
       this.moveCounter = this.moveCounter + 1
     }
     this.isPlacingFollower = false
 
-    const nextPlayer = this.getNextPlayer(this.currentPlayer?.id)
+    const nextPlayer = this.getNextPlayer(currentPlayer?.id)
 
     this.currentPlayer = nextPlayer
     this.currentPlayerIndex = this.players.findIndex(
@@ -310,7 +198,7 @@ export class GameManager implements IGameBoard {
     this.getRandomTileFromList()
   }
 
-  getNextPlayer(currentPlayerId) {
+  getNextPlayer(currentPlayerId: PlayerId | undefined): Player {
     const currentPlayerIndex = this.players.findIndex(
       (player) => player.id === currentPlayerId
     )
@@ -328,32 +216,48 @@ export class GameManager implements IGameBoard {
 
   checkAvailableFollowers() {
     if (!this.currentTile) return
+    const currentPlayer = this.currentPlayer
+    if (!currentPlayer) return
+    const tile = this.currentTile
 
-    if (!this.playersFollowers[this.currentPlayer.id].ordinaryFollowers) {
+    if (!this.playersFollowers[currentPlayer.id].ordinaryFollowers) {
       this.endTurn()
       return
     }
-    this.availableFollowersPlaces = Object.keys(this.currentTile?.sides)
-      .concat(this.currentTile.isMonastery ? [undefined] : [])
-      .map((side) => {
-        return {
-          point: {
-            x: this.currentTile.x,
-            y: this.currentTile.y,
-            direction: side,
-            pointType: side && this.currentTile.sides[side],
-          },
-          temporaryObject: this.findObjectByPoint(
-            this.temporaryObjects,
-            this.currentTile.x,
-            this.currentTile.y,
-            side
-          ),
-        }
-      })
-      .filter((place) => {
-        return place.temporaryObject && !place.temporaryObject.followers?.length
-      })
+
+    const sides: (SideName | undefined)[] = Object.keys(
+      tile.sides
+    ) as SideName[]
+    if (tile.isMonastery) {
+      sides.push(undefined)
+    }
+
+    const candidates: {
+      point: Point
+      temporaryObject: BaseObject | undefined
+    }[] = sides.map((side) => {
+      return {
+        point: {
+          x: tile.x,
+          y: tile.y,
+          direction: side,
+          pointType: side ? tile.sides[side] : undefined,
+        },
+        temporaryObject: this.findObjectByPoint(
+          this.temporaryObjects,
+          tile.x,
+          tile.y,
+          side
+        ),
+      }
+    })
+
+    this.availableFollowersPlaces = candidates.filter(
+      (place): place is AvailableFollowerPlace => {
+        const object = place.temporaryObject
+        return object !== undefined && object.followers.length === 0
+      }
+    )
 
     if (this.availableFollowersPlaces.length) {
       this.goPlaceFollower()
@@ -362,8 +266,8 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  placeTile(tile, rowIndex, tileIndex) {
-    if (this.gameIsEnded) return
+  placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
+    if (this.gameIsEnded) return false
 
     const isCorrectPosition = this.isCorrectTilePosition(
       tile,
@@ -411,76 +315,78 @@ export class GameManager implements IGameBoard {
     return true
   }
 
-  setAvailablePlacesTiles({ rowIndex, tileIndex }) {
+  setAvailablePlacesTiles({
+    rowIndex,
+    tileIndex,
+  }: {
+    rowIndex: number
+    tileIndex: number
+  }) {
     const oppositeTilesCoords = [
-      {
-        rowIndex: rowIndex - 1,
-        tileIndex,
-      },
-      {
-        rowIndex,
-        tileIndex: tileIndex + 1,
-      },
-      {
-        rowIndex: rowIndex + 1,
-        tileIndex,
-      },
-      {
-        rowIndex,
-        tileIndex: tileIndex - 1,
-      },
+      { rowIndex: rowIndex - 1, tileIndex },
+      { rowIndex, tileIndex: tileIndex + 1 },
+      { rowIndex: rowIndex + 1, tileIndex },
+      { rowIndex, tileIndex: tileIndex - 1 },
     ]
 
     oppositeTilesCoords.forEach((tile) => {
-      if (
-        !this.tilePlacesStats[tile.rowIndex]?.[tile.tileIndex] &&
-        !this.availablePlacesTiles.find(
+      const alreadyOccupied = Boolean(
+        this.tilePlacesStats[tile.rowIndex]?.[tile.tileIndex]
+      )
+      const alreadyPlanned = Boolean(
+        this.availablePlacesTiles.find(
           (place) =>
             place.rowIndex === tile.rowIndex &&
             place.tileIndex === tile.tileIndex
         )
-      ) {
-        this.availablePlacesTiles.push({
-          ...tile,
-          objects: ['north', 'east', 'south', 'west'].map((side) => {
-            const adjacentTileMap = {
-              north: {
-                rowIndex: tile.rowIndex - 1,
-                tileIndex: tile.tileIndex,
-                side: 'south',
-              },
-              east: {
-                rowIndex: tile.rowIndex,
-                tileIndex: tile.tileIndex + 1,
-                side: 'west',
-              },
-              south: {
-                rowIndex: tile.rowIndex + 1,
-                tileIndex: tile.tileIndex,
-                side: 'north',
-              },
-              west: {
-                rowIndex: tile.rowIndex,
-                tileIndex: tile.tileIndex - 1,
-                side: 'east',
-              },
-            }
+      )
+      if (alreadyOccupied || alreadyPlanned) return
 
-            const adjacentTile =
-              this.tilePlacesStats[adjacentTileMap[side].rowIndex]?.[
-                adjacentTileMap[side].tileIndex
-              ]
-
-            if (!adjacentTile) return null
-            return this.findObjectByPoint(
-              this.temporaryObjects,
-              adjacentTileMap[side].tileIndex,
-              adjacentTileMap[side].rowIndex,
-              adjacentTileMap[side].side
-            )
-          }),
-        })
+      const adjacentTileMap: Record<
+        SideName,
+        { rowIndex: number; tileIndex: number; side: SideName }
+      > = {
+        north: {
+          rowIndex: tile.rowIndex - 1,
+          tileIndex: tile.tileIndex,
+          side: 'south',
+        },
+        east: {
+          rowIndex: tile.rowIndex,
+          tileIndex: tile.tileIndex + 1,
+          side: 'west',
+        },
+        south: {
+          rowIndex: tile.rowIndex + 1,
+          tileIndex: tile.tileIndex,
+          side: 'north',
+        },
+        west: {
+          rowIndex: tile.rowIndex,
+          tileIndex: tile.tileIndex - 1,
+          side: 'east',
+        },
       }
+
+      const objects = (Object.keys(adjacentTileMap) as SideName[]).map(
+        (side) => {
+          const adjacent = adjacentTileMap[side]
+          const adjacentTile =
+            this.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]
+
+          if (!adjacentTile) return null
+          return (
+            this.findObjectByPoint(
+              this.temporaryObjects,
+              adjacent.tileIndex,
+              adjacent.rowIndex,
+              adjacent.side
+            ) ?? null
+          )
+        }
+      )
+
+      this.availablePlacesTiles.push({ ...tile, objects })
     })
 
     this.availablePlacesTiles = this.availablePlacesTiles.filter((place) => {
@@ -489,7 +395,11 @@ export class GameManager implements IGameBoard {
   }
 
   goPlaceFollower() {
-    if (!this.playersFollowers[this.currentPlayer.id].ordinaryFollowers) {
+    const currentPlayer = this.currentPlayer
+    if (
+      !currentPlayer ||
+      !this.playersFollowers[currentPlayer.id].ordinaryFollowers
+    ) {
       this.endTurn()
     } else {
       this.currentTile = null
@@ -497,16 +407,18 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  placeFollower(availablePlace) {
+  placeFollower(availablePlace: AvailableFollowerPlace) {
     if (this.gameIsEnded) return
+    const currentPlayer = this.currentPlayer
+    if (!currentPlayer) return
 
     // Check if player has followers available
-    if (!this.playersFollowers[this.currentPlayer.id]?.ordinaryFollowers) {
+    if (!this.playersFollowers[currentPlayer.id]?.ordinaryFollowers) {
       this.skipFollower()
       return
     }
 
-    this.playersFollowers[this.currentPlayer.id].ordinaryFollowers -= 1
+    this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
 
     const temporaryObject = this.findObjectByPoint(
       this.temporaryObjects,
@@ -520,14 +432,14 @@ export class GameManager implements IGameBoard {
       return
     }
 
-    temporaryObject?.followers?.push({
-      playerId: this.currentPlayer.id,
+    temporaryObject.followers.push({
+      playerId: currentPlayer.id,
       objectId: temporaryObject.id,
       point: availablePlace.point,
     })
 
     this.placedFollowers.push({
-      playerId: this.currentPlayer.id,
+      playerId: currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
       isMonastery: availablePlace.temporaryObject.isMonastery,
@@ -538,7 +450,7 @@ export class GameManager implements IGameBoard {
     this.actionsHistory.push({
       actionType: ActionTypes.PLACE_FOLLOWER,
       actionData: { ...availablePlace },
-      initiator: this.currentPlayer,
+      initiator: currentPlayer,
     })
 
     this.endTurn()
@@ -549,7 +461,12 @@ export class GameManager implements IGameBoard {
     this.endTurn()
   }
 
-  findObjectByPoint(objects, x, y, direction) {
+  findObjectByPoint(
+    objects: TemporaryObjects,
+    x: number,
+    y: number,
+    direction?: string
+  ): BaseObject | undefined {
     return [...objects.cities, ...objects.roads, ...objects.monasteries].find(
       (object) => {
         return object.points.some((point) => {
@@ -563,79 +480,64 @@ export class GameManager implements IGameBoard {
     )
   }
 
-  async autoPlaceTile() {
-    if (this.gameIsEnded) {
-      return
-    }
+  async autoPlaceTile(): Promise<void> {
+    if (this.gameIsEnded) return
 
     // Ensure we have a current tile
     if (!this.currentTile) {
       this.getRandomTileFromList()
-      if (!this.currentTile) {
-        return
-      }
+      if (!this.currentTile) return
     }
 
-    try {
-      const simulator = new GameSimulatorModule(this)
-      const result = simulator.findBestMove(this.currentTile)
+    const simulator = new GameSimulatorModule(this)
+    const result = simulator.findBestMove(this.currentTile)
 
-      if (result.moves.length) {
-        const move = result.moves[0]
-        if (move) {
-          // Place the tile
-          const tilePlaced = this.placeTile(
-            move.tile,
-            move.rowIndex,
-            move.tileIndex
-          )
-          if (!tilePlaced) {
-            return
-          }
+    if (result.moves.length) {
+      const move = result.moves[0]
+      const tilePlaced = this.placeTile(
+        move.tile,
+        move.rowIndex,
+        move.tileIndex
+      )
+      if (!tilePlaced) return
 
-          // Handle follower placement if available
-          if (this.availableFollowersPlaces.length) {
-            this.placeFollower(this.availableFollowersPlaces[0])
-          } else {
-            // this.skipFollower()
-          }
-        }
-      } else {
-        // If no valid moves found, get a new tile and try again
-        this.getRandomTileFromList()
-        if (this.currentTile) {
-          await this.autoPlaceTile()
-        }
+      if (this.availableFollowersPlaces.length) {
+        this.placeFollower(this.availableFollowersPlaces[0])
       }
-    } catch (error) {
-      throw error
+    } else {
+      // If no valid moves found, get a new tile and try again
+      this.getRandomTileFromList()
+      if (this.currentTile) {
+        await this.autoPlaceTile()
+      }
     }
   }
 
   getRandomTileFromList() {
     if (!this.tilesList.length) {
       this.gameIsEnded = true
-    } else {
-      const tile = this.tilesList[0]
+      return
+    }
 
-      if (this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })) {
-        this.tilesList.shift()
-        this.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
-        this.updateTileHistory(tile)
-      } else {
-        const listWithoutCurrentTile = this.tilesList.filter(
-          (_, index) => index !== 0
-        )
-        this.tilesList = [...listWithoutCurrentTile, tile]
-        this.getRandomTileFromList()
-      }
+    const tile = this.tilesList[0]
+
+    if (this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })) {
+      this.tilesList.shift()
+      this.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
+      this.updateTileHistory(tile)
+    } else {
+      const listWithoutCurrentTile = this.tilesList.filter(
+        (_, index) => index !== 0
+      )
+      this.tilesList = [...listWithoutCurrentTile, tile]
+      this.getRandomTileFromList()
     }
   }
 
-  checkAvailablePlacesForTile(tile) {
+  checkAvailablePlacesForTile(tile: Tile): boolean {
     return this.availablePlacesTiles.some((place) => {
       return [0, 1, 2, 3].some((rotationCount) => {
-        let processedTile = { ...tile }
+        let processedTile: Tile = { ...tile }
         for (let i = 0; i < rotationCount; i++) {
           processedTile = this.rotateTile(processedTile)
         }
@@ -649,35 +551,26 @@ export class GameManager implements IGameBoard {
     })
   }
 
-  updateTileHistory(tile) {
+  updateTileHistory(tile: Tile) {
     this.tileHistory.push(deepClone(tile))
   }
 
-  checkGridAfterPlacingTile(rowIndex, tileIndex) {
-    const tile = this.tilePlacesStats[rowIndex][tileIndex]
+  checkGridAfterPlacingTile(rowIndex: number, tileIndex: number) {
+    const tile = this.tilePlacesStats[rowIndex]?.[tileIndex]
+    if (!tile) return
 
-    const roadsPoints = Object.entries(tile.sides)
-      .filter(([direction, pointType]) => pointType === 'road')
-      .map(([direction, pointType]) => {
-        return {
-          y: rowIndex,
-          x: tileIndex,
-          direction,
-          pointType,
-        }
+    const roadsPoints: Point[] = Object.entries(tile.sides)
+      .filter(([, pointType]) => pointType === 'road')
+      .map(([direction]) => {
+        return { y: rowIndex, x: tileIndex, direction, pointType: 'road' }
       })
 
     this.checkRoads(roadsPoints)
 
-    const citiesPoints = Object.entries(tile.sides)
-      .filter(([direction, pointType]) => pointType === 'city')
-      .map(([direction, pointType]) => {
-        return {
-          y: rowIndex,
-          x: tileIndex,
-          direction,
-          pointType,
-        }
+    const citiesPoints: Point[] = Object.entries(tile.sides)
+      .filter(([, pointType]) => pointType === 'city')
+      .map(([direction]) => {
+        return { y: rowIndex, x: tileIndex, direction, pointType: 'city' }
       })
 
     this.checkCities(citiesPoints, tile.isSolidCity)
@@ -685,7 +578,7 @@ export class GameManager implements IGameBoard {
     this.checkMonasteries(tile)
   }
 
-  checkMonasteries(tile) {
+  checkMonasteries(tile: GridTile) {
     if (tile.isMonastery) {
       this.temporaryObjects.monasteries.push({
         followers: [],
@@ -699,34 +592,26 @@ export class GameManager implements IGameBoard {
   }
 
   checkCompletedMonasteries() {
+    const surroundings: [number, number][] = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
+    ]
+
     const completedMonasteries = this.temporaryObjects.monasteries.filter(
       (monastery) => {
         const monasteryPoint = monastery.points[0]
-        return [
-          [-1, -1],
-          [-1, 0],
-          [-1, 1],
-          [0, -1],
-          [0, 1],
-          [1, -1],
-          [1, 0],
-          [1, 1],
-        ].every((coordinates) => {
-          return (
-            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
-              monasteryPoint.x + coordinates[1]
-            ] &&
-            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
-              monasteryPoint.x + coordinates[1]
-            ] &&
-            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
-              monasteryPoint.x + coordinates[1]
-            ] &&
-            this.tilePlacesStats[monasteryPoint.y + coordinates[0]]?.[
-              monasteryPoint.x + coordinates[1]
-            ]
+        if (!monasteryPoint) return false
+        return surroundings.every(([dy, dx]) =>
+          Boolean(
+            this.tilePlacesStats[monasteryPoint.y + dy]?.[monasteryPoint.x + dx]
           )
-        })
+        )
       }
     )
 
@@ -745,7 +630,7 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  calcScoreForMonasteries(monasteries) {
+  calcScoreForMonasteries(monasteries: BaseObject[]) {
     monasteries.forEach((monastery) => {
       monastery.followers.forEach((follower) => {
         this.scores[follower.playerId] += 9
@@ -757,9 +642,7 @@ export class GameManager implements IGameBoard {
             objectData: monastery,
             score: {
               objectId: monastery.id,
-              players: {
-                [follower.playerId]: 9,
-              },
+              players: { [follower.playerId]: 9 },
               total: 9,
             },
           },
@@ -774,15 +657,13 @@ export class GameManager implements IGameBoard {
         )
         this.actionsHistory.push({
           actionType: ActionTypes.BACK_FOLLOWER,
-          actionData: {
-            followers: [follower],
-          },
+          actionData: { followers: [follower] },
         })
       })
     })
   }
 
-  checkRoads(roadsPoints) {
+  checkRoads(roadsPoints: Point[]) {
     if (roadsPoints.length === 2) {
       const roadsIds = roadsPoints
         .map((roadPoint) => {
@@ -790,18 +671,15 @@ export class GameManager implements IGameBoard {
             road.points.find((point) => this.isOppositePoint(point, roadPoint))
           )?.id
         })
-        .filter((id) => id)
+        .filter((id): id is string => Boolean(id))
 
       if (roadsIds.length) {
         this.mergeRoads(roadsIds, roadsPoints)
       } else {
-        const tempRoad = {
+        this.temporaryObjects.roads.push({
           id: 'id' + Math.random(),
           points: roadsPoints,
           followers: [],
-        }
-        this.temporaryObjects.roads.push({
-          ...tempRoad,
         })
       }
     } else {
@@ -817,48 +695,38 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  mergeRoads(roadsIds, roadsPoints) {
+  mergeRoads(roadsIds: string[], roadsPoints: Point[]) {
     if (roadsIds.length === 1) {
-      const road = this.temporaryObjects.roads.find(
-        (road) => road.id === roadsIds[0]
-      )
+      const road = this.temporaryObjects.roads.find((r) => r.id === roadsIds[0])
+      if (!road) return
 
       road.points = road.points.concat(roadsPoints)
 
       this.checkCompleteRoad(road)
     } else {
-      const road = {
+      const mergingRoads = roadsIds
+        .map((id) => this.temporaryObjects.roads.find((r) => r.id === id))
+        .filter((r): r is BaseObject => Boolean(r))
+
+      const road: BaseObject = {
         id: 'id' + Math.random(),
-        points: roadsIds
-          .map((id) => {
-            return this.temporaryObjects.roads.find((road) => road.id === id)
-              .points
-          })
-          .flat()
-          .concat(roadsPoints),
-        followers: roadsIds
-          .map((id) => {
-            return this.temporaryObjects.roads.find((road) => road.id === id)
-              .followers
-          })
-          .flat(),
+        points: mergingRoads.flatMap((r) => r.points).concat(roadsPoints),
+        followers: mergingRoads.flatMap((r) => r.followers),
       }
 
       roadsIds.forEach((id) => {
         this.temporaryObjects.roads = this.temporaryObjects.roads.filter(
-          (road) => road.id !== id
+          (r) => r.id !== id
         )
       })
 
-      this.temporaryObjects.roads.push({
-        ...road,
-      })
+      this.temporaryObjects.roads.push(road)
 
       this.checkCompleteRoad(road)
     }
   }
 
-  checkCompleteRoad(road) {
+  checkCompleteRoad(road: BaseObject) {
     const isAllPointsCompleted = road.points.every((point) => {
       const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
       return road.points.some((otherPoint) => {
@@ -872,45 +740,40 @@ export class GameManager implements IGameBoard {
       })
     })
 
-    if (isAllPointsCompleted) {
-      const score = this.calcScoreForRoad(road)
-      this.temporaryObjects.roads = this.temporaryObjects.roads.filter(
-        (r) => r.id !== road.id
+    if (!isAllPointsCompleted) return
+
+    const score = this.calcScoreForRoad(road)
+    this.temporaryObjects.roads = this.temporaryObjects.roads.filter(
+      (r) => r.id !== road.id
+    )
+    this.completedObjects.roads.push({ ...deepClone(road), score })
+
+    if (road.followers.length) {
+      this.actionsHistory.push({
+        actionType: ActionTypes.ADDING_SCORES,
+        actionData: {
+          objectType: ObjectTypes.ROAD,
+          objectData: road,
+          score,
+        },
+      })
+    }
+
+    road.followers.forEach((follower) => {
+      this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+      this.placedFollowers.splice(
+        this.placedFollowers.findIndex(
+          (f) => f.playerId === follower.playerId && f.objectId === road.id
+        ),
+        1
       )
-      this.completedObjects.roads.push({
-        ...JSON.parse(JSON.stringify(road)),
-        score,
+    })
+
+    if (road.followers.length) {
+      this.actionsHistory.push({
+        actionType: ActionTypes.BACK_FOLLOWER,
+        actionData: { followers: road.followers },
       })
-
-      if (road.followers.length) {
-        this.actionsHistory.push({
-          actionType: ActionTypes.ADDING_SCORES,
-          actionData: {
-            objectType: ObjectTypes.ROAD,
-            objectData: road,
-            score,
-          },
-        })
-      }
-
-      road.followers.forEach((follower) => {
-        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        this.placedFollowers.splice(
-          this.placedFollowers.findIndex(
-            (f) => f.playerId === follower.playerId && f.objectId === road.id
-          ),
-          1
-        )
-      })
-
-      if (road.followers.length) {
-        this.actionsHistory.push({
-          actionType: ActionTypes.BACK_FOLLOWER,
-          actionData: {
-            followers: road.followers,
-          },
-        })
-      }
     }
   }
 
@@ -928,84 +791,27 @@ export class GameManager implements IGameBoard {
     })
   }
 
-  calcScoreForRoad(road, isCompleted = true) {
-    let points: number = 0
-    const uniqueTiles = new Set()
-
-    road.points.forEach((point) => {
-      const tile = this.tilePlacesStats[point.y]?.[point.x]
-      if (tile) {
-        uniqueTiles.add(`${point.y},${point.x}`)
-      }
-    })
-
-    points = uniqueTiles.size
-
-    if (road.followers.length) {
-      points = uniqueTiles.size
-
-      const followersCountByPlayer: Record<string, number> =
-        road.followers.reduce((acc, follower) => {
-          acc[follower.playerId] = acc[follower.playerId]
-            ? acc[follower.playerId] + 1
-            : 1
-          return acc
-        }, {})
-
-      const maxCount = Object.values(followersCountByPlayer).reduce(
-        (acc, count) => Math.max(acc, count),
-        0
-      )
-
-      let total = 0
-
-      const scores = Object.entries(followersCountByPlayer).reduce(
-        (acc, [playerId, count]: [string, number]) => {
-          if (count === maxCount) {
-            total += points
-            acc[playerId] = points
-            this.scores[playerId] += points
-          }
-          return acc
-        },
-        {}
-      )
-
-      return {
-        total,
-        players: scores,
-        objectId: road.id,
-      }
-    } else {
-      points = uniqueTiles.size
-
-      return {
-        total: points,
-        players: {},
-      }
-    }
+  calcScoreForRoad(road: BaseObject, _isCompleted = true): ScoreForObject {
+    return calcRoadScore(this.tilePlacesStats, road, this.scores)
   }
 
-  checkCities(citiesPoints, isSolidCity) {
+  checkCities(citiesPoints: Point[], isSolidCity?: boolean) {
     if (isSolidCity) {
       const citiesIds = citiesPoints
         .map((cityPoint) => {
-          return this.temporaryObjects.cities.find((road) =>
-            road.points.find((point) => this.isOppositePoint(point, cityPoint))
+          return this.temporaryObjects.cities.find((city) =>
+            city.points.find((point) => this.isOppositePoint(point, cityPoint))
           )?.id
         })
-        .filter((id) => id)
+        .filter((id): id is string => Boolean(id))
 
       if (citiesIds.length) {
         this.mergeCities(citiesIds, citiesPoints)
       } else {
-        const tempCity = {
+        this.temporaryObjects.cities.push({
           id: 'id' + Math.random(),
           points: citiesPoints,
           followers: [],
-        }
-        this.temporaryObjects.cities.push({
-          ...tempCity,
         })
       }
     } else {
@@ -1021,48 +827,40 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  mergeCities(citiesIds, citiesPoints) {
+  mergeCities(citiesIds: string[], citiesPoints: Point[]) {
     if (citiesIds.length === 1) {
       const city = this.temporaryObjects.cities.find(
-        (city) => city.id === citiesIds[0]
+        (c) => c.id === citiesIds[0]
       )
+      if (!city) return
 
       city.points = city.points.concat(citiesPoints)
 
       this.checkCompleteCity(city)
     } else {
-      const city = {
+      const mergingCities = citiesIds
+        .map((id) => this.temporaryObjects.cities.find((c) => c.id === id))
+        .filter((c): c is BaseObject => Boolean(c))
+
+      const city: BaseObject = {
         id: 'id' + Math.random(),
-        points: citiesIds
-          .map((id) => {
-            return this.temporaryObjects.cities.find((city) => city.id === id)
-              .points
-          })
-          .flat()
-          .concat(citiesPoints),
-        followers: citiesIds
-          .map((id) => {
-            return this.temporaryObjects.cities.find((road) => road.id === id)
-              .followers
-          })
-          .flat(),
+        points: mergingCities.flatMap((c) => c.points).concat(citiesPoints),
+        followers: mergingCities.flatMap((c) => c.followers),
       }
 
       citiesIds.forEach((id) => {
         this.temporaryObjects.cities = this.temporaryObjects.cities.filter(
-          (city) => city.id !== id
+          (c) => c.id !== id
         )
       })
 
-      this.temporaryObjects.cities.push({
-        ...city,
-      })
+      this.temporaryObjects.cities.push(city)
 
       this.checkCompleteCity(city)
     }
   }
 
-  checkCompleteCity(city) {
+  checkCompleteCity(city: BaseObject) {
     const isAllPointsCompleted = city.points.every((point) => {
       const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
       return city.points.some((otherPoint) => {
@@ -1076,116 +874,61 @@ export class GameManager implements IGameBoard {
       })
     })
 
-    if (isAllPointsCompleted) {
-      const score = this.calcScoreForCity(city)
-      this.temporaryObjects.cities = this.temporaryObjects.cities.filter(
-        (r) => r.id !== city.id
-      )
-      this.completedObjects.cities.push({
-        ...JSON.parse(JSON.stringify(city)),
-        score,
+    if (!isAllPointsCompleted) return
+
+    const score = this.calcScoreForCity(city)
+    this.temporaryObjects.cities = this.temporaryObjects.cities.filter(
+      (c) => c.id !== city.id
+    )
+    this.completedObjects.cities.push({ ...deepClone(city), score })
+
+    if (city.followers.length) {
+      this.actionsHistory.push({
+        actionType: ActionTypes.ADDING_SCORES,
+        actionData: {
+          objectType: ObjectTypes.CITY,
+          objectData: city,
+          score,
+        },
       })
-
-      if (city.followers.length) {
-        this.actionsHistory.push({
-          actionType: ActionTypes.ADDING_SCORES,
-          actionData: {
-            objectType: ObjectTypes.CITY,
-            objectData: city,
-            score,
-          },
-        })
-      }
-
-      city.followers.forEach((follower) => {
-        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        this.placedFollowers.splice(
-          this.placedFollowers.findIndex(
-            (f) => f.playerId === follower.playerId && f.objectId === city.id
-          ),
-          1
-        )
-      })
-
-      if (city.followers.length) {
-        this.actionsHistory.push({
-          actionType: ActionTypes.BACK_FOLLOWER,
-          actionData: {
-            followers: city.followers,
-          },
-        })
-      }
     }
-  }
 
-  calcScoreForCity(city, isCompleted = true) {
-    let points: number = 0
-    const uniqueTiles = new Set()
-    let shieldCount = 0
-
-    city.points.forEach((point) => {
-      const tile = this.tilePlacesStats[point.y]?.[point.x]
-      if (tile && !uniqueTiles.has(`${point.y},${point.x}`)) {
-        uniqueTiles.add(`${point.y},${point.x}`)
-        if (tile.withShield) {
-          shieldCount++
-        }
-      }
+    city.followers.forEach((follower) => {
+      this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+      this.placedFollowers.splice(
+        this.placedFollowers.findIndex(
+          (f) => f.playerId === follower.playerId && f.objectId === city.id
+        ),
+        1
+      )
     })
 
     if (city.followers.length) {
-      points = uniqueTiles.size * 2
-      points += shieldCount * 2
-
-      const followersCountByPlayer: Record<string, number> =
-        city.followers.reduce((acc, follower) => {
-          acc[follower.playerId] = acc[follower.playerId]
-            ? acc[follower.playerId] + 1
-            : 1
-          return acc
-        }, {})
-
-      const maxCount = Object.values(followersCountByPlayer).reduce(
-        (acc, count) => Math.max(acc, count),
-        0
-      )
-
-      let total = 0
-
-      const scores = Object.entries(followersCountByPlayer).reduce(
-        (acc, [playerId, count]: [string, number]) => {
-          if (count === maxCount) {
-            total += points
-            acc[playerId] = points
-            this.scores[playerId] += points
-          }
-          return acc
-        },
-        {}
-      )
-
-      return {
-        total: total,
-        players: scores,
-        objectId: city.id,
-      }
-    } else {
-      points = uniqueTiles.size * 2
-      points += shieldCount * 2
-      return {
-        total: points,
-        players: {},
-      }
+      this.actionsHistory.push({
+        actionType: ActionTypes.BACK_FOLLOWER,
+        actionData: { followers: city.followers },
+      })
     }
   }
 
-  getCompletedObjectsForPlayer(objectType, playerId) {
+  calcScoreForCity(city: BaseObject, _isCompleted = true): ScoreForObject {
+    return calcCityScore(this.tilePlacesStats, city, this.scores)
+  }
+
+  getCompletedObjectsForPlayer(
+    objectType: keyof CompletedObjects,
+    _playerId: PlayerId
+  ) {
     return this.completedObjects[objectType].filter((object) => object.score)
   }
 
-  isCorrectTilePosition(tile, rowIndex, tileIndex) {
+  isCorrectTilePosition(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): boolean {
     if (this.isEmptyGrid()) return true
-    if (Boolean(this.tilePlacesStats[rowIndex]?.[tileIndex])) {
+    if (this.tilePlacesStats[rowIndex]?.[tileIndex]) {
       return false
     } else {
       const adjacentTiles = [
@@ -1196,10 +939,10 @@ export class GameManager implements IGameBoard {
       ]
 
       if (adjacentTiles.some((pointType) => Boolean(pointType))) {
+        const sides = Object.keys(tile.sides) as SideName[]
         return adjacentTiles.every(
           (adjacentPointType, index) =>
-            !adjacentPointType ||
-            adjacentPointType === tile.sides[Object.keys(tile.sides)[index]]
+            !adjacentPointType || adjacentPointType === tile.sides[sides[index]]
         )
       } else {
         return false
@@ -1207,7 +950,7 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  isOppositePoint(point, oppositePoint) {
+  isOppositePoint(point: Point, oppositePoint: Point): boolean {
     const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
     const oppositePointPrecisionCoordinates =
       this.getPrecisionCoordinates(oppositePoint)
@@ -1218,7 +961,7 @@ export class GameManager implements IGameBoard {
     )
   }
 
-  getPrecisionCoordinates(point) {
+  getPrecisionCoordinates(point: Point): { x: number; y: number } {
     let x = point.x
     let y = point.y
 
@@ -1235,7 +978,10 @@ export class GameManager implements IGameBoard {
     return { x, y }
   }
 
-  rotateTile(tile, direction = 'clockwise') {
+  rotateTile(
+    tile: Tile,
+    direction: 'clockwise' | 'counterclockwise' = 'clockwise'
+  ): Tile {
     const processedTile = { ...tile }
     if (direction === 'clockwise') {
       if (processedTile.rotation + 90 > 360) {
@@ -1268,7 +1014,7 @@ export class GameManager implements IGameBoard {
     return processedTile
   }
 
-  async autoPlay() {
+  async autoPlay(): Promise<void> {
     while (this.tilesList.length > 0) {
       await this.autoPlaceTile()
 
@@ -1276,67 +1022,36 @@ export class GameManager implements IGameBoard {
     }
 
     console.log('Игра завершена!')
-    console.log('Результаты:')
-    // window.location.reload();
   }
 
-  isEmptyGrid() {
+  isEmptyGrid(): boolean {
     return this.lastPlacement.rowIndex === undefined
   }
 
   clone(): IGameBoard {
     const clone = new GameManager({ players: this.players })
 
-    // Copy primitive properties
     clone.gridSize = [...this.gridSize]
     clone.gameIsStarted = this.gameIsStarted
     clone.gameIsEnded = this.gameIsEnded
     clone.isPlacingFollower = this.isPlacingFollower
 
     clone.availablePlacesTiles = deepClone(this.availablePlacesTiles)
-
-    // Deep copy tiles list
     clone.tilesList = deepClone(this.tilesList)
-
-    // Copy current tile
-    clone.currentTile = this.currentTile
-      ? { ...deepClone(this.currentTile) }
-      : null
-
-    // Deep copy players
+    clone.currentTile = this.currentTile ? deepClone(this.currentTile) : null
     clone.players = deepClone(this.players)
     clone.currentPlayer = this.currentPlayer
-      ? { ...deepClone(this.currentPlayer) }
+      ? deepClone(this.currentPlayer)
       : null
-
-    // Deep copy followers
     clone.playersFollowers = deepClone(this.playersFollowers)
-
-    // Deep copy temporary objects
     clone.temporaryObjects = deepClone(this.temporaryObjects)
-
-    // Deep copy completed objects
     clone.completedObjects = deepClone(this.completedObjects)
-
-    // Deep copy scores
-    clone.scores = {
-      ...deepClone(this.scores),
-    }
-
-    // Deep copy available followers places
+    clone.scores = deepClone(this.scores)
     clone.availableFollowersPlaces = deepClone(this.availableFollowersPlaces)
-
-    // Deep copy placed followers
     clone.placedFollowers = deepClone(this.placedFollowers)
-
-    // Deep copy last placement
     clone.lastPlacement = deepClone(this.lastPlacement)
-
-    // Deep copy last follower placement
     clone.tileHistory = deepClone(this.tileHistory)
-
     clone.tilePlacesStats = deepClone(this.tilePlacesStats)
-
     clone.lastUpdate = this.lastUpdate
 
     return clone
@@ -1353,39 +1068,35 @@ export class GameManager implements IGameBoard {
       return false
     }
 
-    // Create a copy of the tile with position
-    const placedTile = { ...tile, x: tileIndex, y: rowIndex }
+    const placedTile: GridTile = { ...tile, x: tileIndex, y: rowIndex }
 
     if (!this.tilePlacesStats[rowIndex]) {
       this.tilePlacesStats[rowIndex] = {}
     }
     this.tilePlacesStats[rowIndex][tileIndex] = placedTile
 
-    // Check for completed objects
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
     return true
   }
 
-  simulatePlaceFollower(availablePlace: {
-    point: Point
-    temporaryObject: BaseObject
-  }): boolean {
+  simulatePlaceFollower(availablePlace: AvailableFollowerPlace): boolean {
+    const currentPlayer = this.currentPlayer
     if (
-      !this.currentPlayer ||
-      !this.playersFollowers[this.currentPlayer.id]?.ordinaryFollowers
+      !currentPlayer ||
+      !this.playersFollowers[currentPlayer.id]?.ordinaryFollowers
     ) {
       return false
     }
 
-    this.playersFollowers[this.currentPlayer.id].ordinaryFollowers -= 1
+    this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
     availablePlace.temporaryObject.followers.push({
-      playerId: this.currentPlayer.id,
+      playerId: currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
     })
 
     this.placedFollowers.push({
-      playerId: this.currentPlayer.id,
+      playerId: currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
     })

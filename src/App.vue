@@ -25,13 +25,13 @@
       :games-list="games"
       :players="playersList"
       :current-game="currentGame"
-      @startGame="showLobby = false"
-      @gameStarted="onGameStart"
-      @rejoinGame="rejoinGame"
-      @joinGame="joinGame"
-      @leaveGame="leaveGame"
-      @createGame="createGame"
-      @updateGamesList="getGamesList"
+      @start-game="showLobby = false"
+      @game-started="onGameStart"
+      @rejoin-game="rejoinGame"
+      @join-game="joinGame"
+      @leave-game="leaveGame"
+      @create-game="createGame"
+      @update-games-list="getGamesList"
     />
     <GameControls :game-board="gameState" />
     <GameActionsHistory
@@ -73,7 +73,7 @@
         <TileView :tile="localCurrentTile" class="preview-tile" />
       </div>
     </Draggable>
-    <div class="game-board" ref="gameBoardRef">
+    <div ref="gameBoardRef" class="game-board">
       <div
         v-for="(row, rowIndex) in defaultGrid"
         :key="rowIndex"

@@ -1,21 +1,25 @@
-import { type IGameBoard } from './GameManager.ts'
-import type { Tile, Point, BaseObject } from './types.ts'
+import type { IGameBoard } from './GameManager'
+import type {
+  AvailableFollowerPlace,
+  ObjectFollower,
+  Tile,
+  TileSides,
+} from './types'
 
-interface SimulationResult {
-  score: number
-  moves: {
-    tile: Tile
-    rowIndex: number
-    tileIndex: number
-    rotation: number
-    followerPlace?: {
-      point: Point
-      temporaryObject: BaseObject
-    }
-  }[]
+export interface SimulationMove {
+  tile: Tile
+  rowIndex: number
+  tileIndex: number
+  rotation: number
+  followerPlace?: AvailableFollowerPlace
 }
 
-function rotateSides(sides: Tile['sides'], times: number): Tile['sides'] {
+export interface SimulationResult {
+  score: number
+  moves: SimulationMove[]
+}
+
+function rotateSides(sides: TileSides, times: number): TileSides {
   let result = { ...sides }
   for (let i = 0; i < times; i++) {
     result = {
@@ -26,21 +30,6 @@ function rotateSides(sides: Tile['sides'], times: number): Tile['sides'] {
     }
   }
   return result
-}
-
-export interface IGameSimulator {
-  gameState: IGameBoard
-  originalState: IGameBoard
-  simulateMove(
-    tile: Tile,
-    rowIndex: number,
-    tileIndex: number,
-    rotation: number,
-    followerPlace?: { point: Point; temporaryObject: BaseObject },
-    gameState?: IGameBoard
-  ): SimulationResult
-  findBestMove(tile: Tile, depth: number): SimulationResult
-  calculateScore(gameState: IGameBoard): number
 }
 
 export class GameSimulatorModule {
@@ -57,11 +46,11 @@ export class GameSimulatorModule {
     rowIndex: number,
     tileIndex: number,
     rotation: number,
-    followerPlace?: { point: Point; temporaryObject: BaseObject },
+    followerPlace?: AvailableFollowerPlace,
     gameState?: IGameBoard
   ): SimulationResult {
     // Create a copy of the game state
-    const clonedGameState = gameState.clone()
+    const clonedGameState = (gameState ?? this.gameState).clone()
 
     // Try to place the tile
     const tilePlaced = clonedGameState.simulatePlaceTile(
@@ -82,34 +71,25 @@ export class GameSimulatorModule {
       }
     }
 
-    // Calculate the score for this move
-    const score: number = this.calculateScore(clonedGameState)
+    const score = this.calculateScore(clonedGameState)
 
     return {
       score,
-      moves: [
-        {
-          tile,
-          rowIndex,
-          tileIndex,
-          rotation,
-          followerPlace,
-        },
-      ],
+      moves: [{ tile, rowIndex, tileIndex, rotation, followerPlace }],
     }
   }
 
   findBestMove(tile: Tile): SimulationResult {
-    let bestScore: number = -Infinity
-    let bestMoves: SimulationResult['moves'] = []
+    let bestScore = -Infinity
+    let bestMoves: SimulationMove[] = []
 
-    this.gameState.availablePlacesTiles?.forEach(({ rowIndex, tileIndex }) => {
+    this.gameState.availablePlacesTiles.forEach(({ rowIndex, tileIndex }) => {
       for (let rotation = 0; rotation < 360; rotation += 90) {
         const turns = rotation / 90
         const rotatedSides = rotateSides(tile.sides, turns)
         const rotatedTile: Tile = { ...tile, rotation, sides: rotatedSides }
 
-        // Используем rotatedTile для симуляции
+        // Сначала оцениваем ход без подданного
         const resultWithoutFollower = this.simulateMove(
           rotatedTile,
           rowIndex,
@@ -123,11 +103,10 @@ export class GameSimulatorModule {
           bestMoves = resultWithoutFollower.moves
         }
 
-        // ... и для симуляции с фолловером
+        // ... и для симуляции с подданным
         const gameState = this.gameState.clone()
         if (gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)) {
-          const availablePlaces = gameState.availableFollowersPlaces
-          for (const place of availablePlaces) {
+          for (const place of gameState.availableFollowersPlaces) {
             const resultWithFollower = this.simulateMove(
               rotatedTile,
               rowIndex,
@@ -145,66 +124,46 @@ export class GameSimulatorModule {
       }
     })
 
-    return {
-      score: bestScore,
-      moves: bestMoves,
-    }
+    return { score: bestScore, moves: bestMoves }
   }
 
   private calculateScore(gameState: IGameBoard): number {
-    let score: number = Object.values(gameState.scores).reduce(
-      (sum, score): number => sum + score,
+    let score = Object.values(gameState.scores).reduce(
+      (sum, value) => sum + value,
       0
     )
 
-    // --- Новый блок: бонус за продолжаемые объекты с нашими подданными ---
     const currentPlayer = gameState.currentPlayer
+    if (!currentPlayer) return score
 
-    if (
-      currentPlayer &&
-      gameState.playersFollowers[currentPlayer.id].ordinaryFollowers === 7
-    ) {
-      score += 10
-
-      return score
+    // Бонус, если подданные ещё не выставлены
+    if (gameState.playersFollowers[currentPlayer.id].ordinaryFollowers === 7) {
+      return score + 10
     }
-    if (currentPlayer) {
-      // Город
-      for (const city of gameState.temporaryObjects.cities) {
-        if (city.followers?.some((f) => f.playerId === currentPlayer.id)) {
-          // Например, +2 за каждый наш meeple в продолжаемом городе
-          score +=
-            2 *
-            +new Set(
-              city.followers
-                .filter((f) => f.playerId === currentPlayer.id)
-                .map((f) => f.objectId)
-            ).size
-        }
+
+    const countPlayerObjects = (followers: ObjectFollower[]) =>
+      new Set(
+        followers
+          .filter((f) => f.playerId === currentPlayer.id)
+          .map((f) => f.objectId)
+      ).size
+
+    // Город
+    for (const city of gameState.temporaryObjects.cities) {
+      if (city.followers.some((f) => f.playerId === currentPlayer.id)) {
+        score += 2 * countPlayerObjects(city.followers)
       }
-      // Дорога
-      for (const road of gameState.temporaryObjects.roads) {
-        if (road.followers?.some((f) => f.playerId === currentPlayer.id)) {
-          score +=
-            1 *
-            +new Set(
-              road.followers
-                .filter((f) => f.playerId === currentPlayer.id)
-                .map((f) => f.objectId)
-            ).size
-        }
+    }
+    // Дорога
+    for (const road of gameState.temporaryObjects.roads) {
+      if (road.followers.some((f) => f.playerId === currentPlayer.id)) {
+        score += countPlayerObjects(road.followers)
       }
-      // Монастырь
-      for (const monastery of gameState.temporaryObjects.monasteries) {
-        if (monastery.followers?.some((f) => f.playerId === currentPlayer.id)) {
-          score +=
-            3 *
-            +new Set(
-              monastery.followers
-                .filter((f) => f.playerId === currentPlayer.id)
-                .map((f) => f.objectId)
-            ).size
-        }
+    }
+    // Монастырь
+    for (const monastery of gameState.temporaryObjects.monasteries) {
+      if (monastery.followers.some((f) => f.playerId === currentPlayer.id)) {
+        score += 3 * countPlayerObjects(monastery.followers)
       }
     }
 

@@ -19,7 +19,7 @@
 </template>
 <script setup lang="ts">
 import Draggable from '@/components/Draggable.vue'
-import tiles from '../../server/src/data/tiles.js'
+import tiles from '../../server/src/data/tiles'
 import TileView from '@/components/TileView.vue'
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
 import { computed } from 'vue'

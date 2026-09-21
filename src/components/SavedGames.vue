@@ -6,7 +6,7 @@
       </button>
       <button>x</button>
     </div>
-    <input type="text" v-model="savedGameName" />
+    <input v-model="savedGameName" type="text" />
     <button>Save Game</button>
   </Draggable>
 </template>

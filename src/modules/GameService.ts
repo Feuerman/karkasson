@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client'
 import { ref } from 'vue'
+import { AvailableFollowerPlace } from '../../server/src/modules/GameManager'
 
 export interface IGameService {
   socket: Socket | null
@@ -265,7 +266,7 @@ class GameService implements IGameService {
     })
   }
 
-  placeFollower(place: { type: string; side?: string }) {
+  placeFollower(place: AvailableFollowerPlace) {
     return new Promise((resolve, reject) => {
       this.socket?.emit(
         'placeFollower',

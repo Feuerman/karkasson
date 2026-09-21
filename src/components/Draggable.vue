@@ -1,8 +1,8 @@
 <template>
   <div
+    ref="draggableElement"
     class="draggable"
     :style="dragStyle"
-    ref="draggableElement"
     :class="{ 'draggable--dragging': isDragging }"
   >
     <template v-if="isNoneStyle">
