@@ -5,6 +5,51 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.1.0] - 2026-09-22
+
+Интеграционные тесты на Vitest. Сервер стал тестируемым: сборка сервера вынесена
+в фабрику, хранилище игр абстрагировано от Firebase (in-memory замена), задержки
+и адрес сервера вынесены в конфигурацию. Поведение игры не менялось.
+
+### Added
+
+- **Интеграционные тесты** (`tests/integration/`), запуск — `npm test` /
+  `npm run test:integration` (Vitest `vitest.integration.config.ts`):
+  - `lobby.test.ts` — создание лобби, список игр, занятые слоты, удаление игрока,
+    переименование;
+  - `startGame.test.ts` — старт игры, ход реального игрока (размещение тайла и
+    подданного), переход хода, сохранение состояния;
+  - `persistence.test.ts` — восстановление сохранённого лобби после перезапуска
+    сервера;
+  - `reconnect.test.ts` — временный разрыв и переподключение в игре и в лобби,
+    удаление игры при уходе последнего игрока;
+  - `serverFrontend.test.ts` — подъём реального Vite dev-сервера фронтенда и
+    проверка, что он общается с тестовым игровым сервером.
+- **Тестовая инфраструктура сервера**:
+  - `server/src/app.ts` — фабрика `createGameServer` (HTTP + Socket.IO), которую
+    используют и продакшн-бутстрап (`index.ts`), и тесты; поддержка
+    in-memory-хранилища и ленивого подключения admin-UI.
+  - Интерфейс `IGameDatabase` (`server/src/modules/Database.ts`) — хранилище игр
+    абстрагировано; тесты подставляют `InMemoryDatabase`.
+- **Конфигурация для тестов**: задержка хода компьютера и адрес сервера вынесены
+  в переменные окружения (`COMPUTER_MOVE_DELAY_MS`, `VITE_SERVER_URL`).
+- **Хелперы тестов** (`tests/integration/helpers/`): `TestClient` (обёртка над
+  `socket.io-client`: ожидание событий с предикатом, ack-вызовы, симуляция
+  разрыва/переподключения), `startTestServer`/`stopTestServer`,
+  `startTestFrontend`, `createLobbyWithPlayers`.
+- Добавлен `vitest` в dev-зависимости (`@types/node` обновлён до 24.x).
+
+### Changed
+
+- **`server/src/index.ts`** сокращён до использования `createGameServer`.
+- **`server/src/modules/Database.ts`**: появился интерфейс `IGameDatabase`,
+  класс `GameDatabase` реализует его.
+- **`server/src/services/GameService.ts`** принимает `IGameDatabase` вместо
+  конкретного `GameDatabase`.
+- **`src/modules/GameService.ts`** (клиент): адрес сервера переопределяется через
+  `VITE_SERVER_URL`.
+- Корневой `package.json` переведён на версию `1.1.0`.
+
 ## [1.0.0] - 2026-09-21
 
 Первый версионированный релиз. Основная работа — крупный рефакторинг серверной
