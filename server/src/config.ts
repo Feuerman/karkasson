@@ -9,7 +9,8 @@ export const GAME_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
 export const STALE_GAMES_CHECK_MS = 10_000
 
 // Пауза перед ходом компьютерного игрока
-export const COMPUTER_MOVE_DELAY_MS = 1000
+export const COMPUTER_MOVE_DELAY_MS =
+  Number(process.env.COMPUTER_MOVE_DELAY_MS) || 1000
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyDyRbOXPz22xQVZndSmwwXWwfBXXQw-adw',

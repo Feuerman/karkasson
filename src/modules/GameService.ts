@@ -12,6 +12,9 @@ export interface IGameService {
   joinGame: (gameId: string, playerName: string) => Promise<any>
 }
 
+// Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
+
 class GameService implements IGameService {
   socket: Socket | null
   gameId: string
@@ -34,10 +37,10 @@ class GameService implements IGameService {
       return
     }
 
-    this.socket = io('https://karkasson.onrender.com', {
-      secure: true,
-      rejectUnauthorized: true,
-      port: 10000,
+    const isSecure = SERVER_URL.startsWith('https')
+    this.socket = io(SERVER_URL, {
+      secure: isSecure,
+      rejectUnauthorized: isSecure,
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
