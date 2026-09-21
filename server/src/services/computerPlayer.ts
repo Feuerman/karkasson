@@ -9,6 +9,15 @@ export function isComputerPlayer(player: Player): boolean {
   return !player.socketId && !player.deviceId
 }
 
+/**
+ * Таймеры уже запланированных цепочек компьютерных ходов по играм.
+ * Нужно, чтобы `maybeContinueWithComputerMove`, вызываемый после каждого
+ * действия человека (placeTile/placeFollower/skipFollower), не запускал
+ * несколько параллельных цепочек для одной игры: они начинают гонку
+ * за один и тот же ход и могут разместить один тайл несколько раз.
+ */
+const pendingMoveTimers = new Map<string, NodeJS.Timeout>()
+
 /** Запускает ход компьютера с небольшой задержкой */
 export function scheduleComputerMove(
   io: Server,
@@ -16,9 +25,14 @@ export function scheduleComputerMove(
   gameId: string,
   delay = COMPUTER_MOVE_DELAY_MS
 ): void {
-  setTimeout(() => {
+  if (pendingMoveTimers.has(gameId)) return
+
+  const timer = setTimeout(() => {
+    pendingMoveTimers.delete(gameId)
     void runComputerMoves(io, service, gameId)
   }, delay)
+
+  pendingMoveTimers.set(gameId, timer)
 }
 
 /**

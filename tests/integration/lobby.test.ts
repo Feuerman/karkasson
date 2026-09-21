@@ -116,6 +116,40 @@ describe('Лобби', () => {
     expect(error).toBe('Все слоты заняты')
   })
 
+  it('leaveGame удаляет пустое лобби и обновляет список игр', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    // joiner уходит первым — creator ещё в лобби, игра остаётся.
+    // Берём слепок из того же предикатного latestGame (повторный вызов
+    // создавал бы гонку между двумя разными socket-соединениями).
+    lobby.joiner.emit('leaveGame', { gameId: lobby.gameId })
+    const afterJoiner = (await latestGame(
+      lobby.creator,
+      (g) =>
+        g.players[1] !== undefined &&
+        !g.players[1].socketId &&
+        !g.players[1].deviceId &&
+        Boolean(g.players[0]?.socketId)
+    )).players as Array<{
+      socketId: string | null
+      deviceId: string | null
+    }>
+    expect(afterJoiner[0].socketId).toBeTruthy()
+    expect(afterJoiner[1].socketId).toBeNull()
+
+    // creator (последний активный игрок) уходит тоже — лобби пустеет,
+    // сервер удаляет игру, шлёт gameDeleted и обновляет updateGamesList.
+    lobby.creator.emit('leaveGame', { gameId: lobby.gameId })
+    await lobby.creator.waitForEvent('gameDeleted')
+
+    const { games } = await lobby.creator.emitAck<{
+      games: Array<{ id: string }>
+    }>('getGamesList')
+    expect(games.find((g) => g.id === lobby.gameId)).toBeFalsy()
+  })
+
   it('удаляет игрока из лобби', async () => {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)

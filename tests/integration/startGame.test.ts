@@ -5,83 +5,12 @@ import {
   latestGame,
   type TestGameData,
 } from './helpers/lobby'
+import { findValidPlacement, type GameStateSnapshot } from './helpers/gameplay'
 import {
   startTestServer,
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-
-type SideMap = Record<string, string>
-
-interface ValidMove {
-  tile: Record<string, unknown>
-  rowIndex: number
-  tileIndex: number
-}
-
-/** Поворот сторон по часовой стрелке (как rotateTile на сервере) */
-function rotateSides(sides: SideMap, count: number): SideMap {
-  let current = { ...sides }
-  for (let i = 0; i < count; i++) {
-    current = {
-      north: current.west,
-      west: current.south,
-      south: current.east,
-      east: current.north,
-    }
-  }
-  return current
-}
-
-type Stats = Record<
-  number,
-  Record<number, { sides?: SideMap } | undefined>
->
-
-/** Зеркало серверной isCorrectTilePosition */
-function isValidPosition(
-  game: TestGameData,
-  sides: SideMap,
-  rowIndex: number,
-  tileIndex: number
-): boolean {
-  const stats = game.tilePlacesStats as unknown as Stats
-  const adjacent = [
-    stats[rowIndex - 1]?.[tileIndex]?.sides?.south,
-    stats[rowIndex]?.[tileIndex + 1]?.sides?.west,
-    stats[rowIndex + 1]?.[tileIndex]?.sides?.north,
-    stats[rowIndex]?.[tileIndex - 1]?.sides?.east,
-  ]
-
-  if (!adjacent.some(Boolean)) return false
-
-  const ownSides = ['north', 'east', 'south', 'west']
-  return adjacent.every((type, index) => !type || type === sides[ownSides[index]])
-}
-
-/** Подбирает легальное место для текущего тайла игрока */
-function findValidPlacement(game: TestGameData): ValidMove | null {
-  const tile = (game.currentTile ?? null) as {
-    sides?: SideMap
-    rotation?: number
-  } | null
-  if (!tile?.sides) return null
-
-  const places = game.availablePlacesTiles ?? []
-  for (const place of places) {
-    for (let rotation = 0; rotation < 4; rotation++) {
-      const sides = rotateSides(tile.sides, rotation)
-      if (isValidPosition(game, sides, place.rowIndex, place.tileIndex)) {
-        return {
-          tile: { ...tile, sides, rotation: rotation * 90 },
-          rowIndex: place.rowIndex,
-          tileIndex: place.tileIndex,
-        }
-      }
-    }
-  }
-  return null
-}
 
 describe('Запуск игры', () => {
   let server: RunningServer | undefined
@@ -140,7 +69,7 @@ describe('Запуск игры', () => {
       (g) => g.gameIsStarted === true
     )) as TestGameData
 
-    const move = findValidPlacement(started)
+    const move = findValidPlacement(started as GameStateSnapshot)
     expect(move).not.toBeNull()
 
     const placed = await lobby.creator.emitAck<{
