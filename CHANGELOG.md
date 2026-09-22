@@ -5,7 +5,73 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
-## [1.6.0] - 2026-09-22
+## [1.7.0] - 2026-09-22
+
+Проект избавлен от `any`: все оставшиеся нестрогие места типизированы, а
+строковые поля сокращены до литеральных типов. Заведён единый алиас `@server/*`
+для импорта серверных типов в клиент, чтобы доменная модель сервера была
+единственным источником истины. Логика игры не менялась.
+
+### Added
+
+- **`src/types/socket.ts`** — типы ack-ответов сокета: `SocketAck<T>`,
+  `GamesListResponse`, `GameResponse`, `PlacementsResponse`,
+  `AvailablePlacement`, `EmptyResponse`, `GameCreatedPayload`,
+  `PlayerIdsPayload`.
+- **Литеральные типы**: `TileSideType` (`'field' | 'road' | 'city'`),
+  `PointDirection` (`SideName | 'center'`), `PointType`, `RotationDirection`
+  (`'clockwise' | 'counterclockwise'`) и `AvailablePlacementType` — в
+  `server/src/modules/types.ts` и клиентском `src/modules/types.ts`.
+- **`GameAction` — дискриминированный союз** по `ActionTypes` в
+  `GameManager.ts`: `PlaceTileActionData`, `PlaceFollowerActionData`,
+  `AddingScoresActionData`, `BackFollowerActionData` вместо
+  `actionData: any`.
+- **Алиас `@server/*`** в `tsconfig.json` и `vite.config.js` — клиент импортирует
+  серверные типы (`@server/modules/types`, `@server/modules/GameManager`,
+  `@server/services/GameService`, `@server/data/tiles`), относительные импорты
+  в стиле `../../server/src/...` убраны.
+- **`NotificationType`** — тип нотификации (`'success' | 'error' | 'warning' |
+  'info'`) вынесен из фиксированной строки в `notification/index.vue`.
+
+### Changed
+
+- **`src/modules/GameService.ts`** — все промисы типизированы:
+  `getGamesList(): Promise<GameSummary[]>`, `createGame`/`joinGame`/
+  `rejoinGame(): Promise<GameData>`, ack-вызовы — `Promise<SocketAck>`;
+  `gamesList: GameSummary[]`, `onGameUpdated(callback: (game: GameData) => void)`.
+- **`src/types/game.ts`** — `IGameBoard` и `IGame` выведены из серверного
+  `GameData` (`isMyTurn` добавлен клиентским пересечением); `ITile` типизирован
+  через `GridTile['sides']` и `ObjectFollower[]`.
+- **`server/src/services/GameService.ts`** — в `GameData` добавлен
+  `placingPoint`, чтобы клиентские `IGameBoard`/`IGame` совпадали с сервером.
+- **`server/src/modules/GameManager.ts`** — `Object.entries(tile.sides)`
+  приведён к `PointDirection`, `rotateTile` использует `RotationDirection`,
+  касты `as PointDirection` вместо `direction: string`.
+- **Компоненты**: `App.vue` (`playersList: Player[]`, `playerIds:
+  (string | number)[]`, обработка ошибок через `unknown`), `GameLobby.vue`
+  (`GameSummary[]`, `Player[]`, `IGame`), `GameStats.vue`
+  (`CompletedObjects`, `PlayerId`), `GamePlacingFollowers.vue`
+  (`pointTypeTitle(pointType?: PointType | 'monastery')`, `pointDirectionTitle
+  (direction?: PointDirection)`), `GameActionsHistory.vue`
+  (`highlightObject(objectData: BaseObject)`, `ObjectFollower` в reduce),
+  `TileView.vue` (`canvas: HTMLCanvasElement`, `PlacedFollower[]`),
+  `TilesList.vue` (`reduce<Record<string, number>>`), `Draggable.vue`,
+  `SavedGames.vue`, `GameControls.vue`.
+- **`src/data/tiles.ts` и `server/src/data/tiles.ts`** — массивы тайлов
+  типизированы (`sides.north/east/south/west: TileSideType`, опциональные
+  `isMonastery`/`withShield`/`isSolidCity`).
+- **`src/utils/common.ts`** — `throttle` с обобщением
+  `<T extends (...args: never[]) => void>`.
+- **`env.d.ts` / `src/types/vue.d.ts`** — `DefineComponent` без `{}`/`any`,
+  `src/types/components.d.ts` удалён (дублировал `env.d.ts`).
+- **Хелперы тестов** — `tests/integration/helpers/client.ts` без `as any`
+  (dispose закрывает менеджер транспорта), `gameplay.ts` (`SideMap`,
+  `ObjectPoint.pointType?: TileSideType`).
+- Корневой `package.json` переведён на версию `1.7.0`.
+
+### Removed
+
+- `src/components/AIPlayer.vue` (не использовался) и `src/types/components.d.ts`.
 
 Игровое поле превращено в «карту» без нативной прокрутки: перемещение
 выполняется перетаскиванием мыши (зажатая левая кнопка), колесо мыши меняет
