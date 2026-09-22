@@ -2,6 +2,14 @@ export type PlayerId = string | number
 
 export type SideName = 'north' | 'west' | 'south' | 'east'
 
+export type TileSideType = 'field' | 'road' | 'city'
+
+export type PointDirection = SideName | 'center'
+
+export type PointType = TileSideType
+
+export type RotationDirection = 'clockwise' | 'counterclockwise'
+
 export interface Player {
   id: PlayerId
   name: string | null
@@ -14,8 +22,8 @@ export interface Player {
 export interface Point {
   x: number
   y: number
-  direction?: string
-  pointType?: string
+  direction?: PointDirection
+  pointType?: PointType
   rowIndex?: number
   tileIndex?: number
   precisionX?: number
@@ -60,10 +68,10 @@ export type Road = BaseObject
 export type Monastery = BaseObject
 
 export interface TileSides {
-  north: string
-  west: string
-  south: string
-  east: string
+  north: TileSideType
+  west: TileSideType
+  south: TileSideType
+  east: TileSideType
 }
 
 export interface Tile {
@@ -105,6 +113,9 @@ export type AvailableFollowerPlace = {
   temporaryObject: BaseObject
 }
 
+/** Тип размещения подданного на сервере */
+export type AvailablePlacementType = 'road' | 'city' | 'monastery'
+
 /** Слот будущего тайла: координаты и примыкающие к ним объекты */
 export interface AvailablePlace {
   rowIndex: number
@@ -126,25 +137,25 @@ export enum ObjectTypes {
 }
 
 export enum PlayerColors {
-  'coral' = 1, // #FF7F50 - теплый, но не агрессивный как красный
-  'skyblue', // #87CEEB - мягкий синий
-  'lime', // #00FF00 - яркий, но не режущий глаз
-  'gold', // #FFD700 - альтернатива желтому
-  'orchid', // #DA70D6 - приятный фиолетовый
-  'teal', // #008080 - насыщенный бирюзовый
-  'salmon', // #FA8072 - мягкий розово-оранжевый
-  'slateblue', // #6A5ACD - глубокий сине-фиолетовый
+  coral = 1, // #FF7F50 - теплый, но не агрессивный как красный
+  skyblue, // #87CEEB - мягкий синий
+  lime, // #00FF00 - яркий, но не режущий глаз
+  gold, // #FFD700 - альтернатива желтому
+  orchid, // #DA70D6 - приятный фиолетовый
+  teal, // #008080 - насыщенный бирюзовый
+  salmon, // #FA8072 - мягкий розово-оранжевый
+  slateblue, // #6A5ACD - глубокий сине-фиолетовый
 }
 
 export enum PlayerNames {
-  'Андрей' = 1,
-  'Валентина',
+  Андрей = 1,
+  Валентина,
   'Артем Кошкин',
-  'Владислав',
-  'Григорий',
-  'Дмитрий',
-  'Евгений',
-  'Екатерина',
+  Владислав,
+  Григорий,
+  Дмитрий,
+  Евгений,
+  Екатерина,
 }
 
 export function playerColorForIndex(index: number): string {

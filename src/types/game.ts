@@ -1,45 +1,22 @@
-export interface IGameBoard {
-  gridSize: number
-  gameIsStarted: boolean
-  gameIsEnded: boolean
-  tilesList: any[]
-  isMyTurn: boolean
-  isPlacingFollower: boolean
-  tilePlacesStats: Record<number, Record<number, any>>
-  placedFollowers: any[]
-  lastPlacement: {
-    rowIndex: number
-    tileIndex: number
-  }
-  currentPlayer: {
-    socketId: string
-  }
-}
+import type { GameData } from '@server/services/GameService'
+import type { GridTile, ObjectFollower } from '@server/modules/types'
 
-export interface IGame {
-  id: string
-  gameIsStarted: boolean
-  players: any[]
-  currentPlayer: {
-    socketId: string
-  }
-  placingPoint?: {
-    rowIndex: number
-    tileIndex: number
-  }
-  currentTile?: {
-    id: string
-    rotation: number
-    sides: Record<string, any>
-  }
-}
+export type IGameBoard = GameData & { isMyTurn: boolean }
+export type IGame = GameData
 
 export interface ITile {
   id: string
   rotation: number
-  sides: Record<string, any>
-  followers: any[]
-  imgUrl: string
-  name: string
-  description: string
+  sides: GridTile['sides']
+  x?: number
+  y?: number
+  rowIndex?: number
+  tileIndex?: number
+  followers?: ObjectFollower[]
+  imgUrl?: string
+  name?: string
+  description?: string
+  isSolidCity?: boolean
+  isMonastery?: boolean
+  withShield?: boolean
 }

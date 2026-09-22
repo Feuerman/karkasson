@@ -13,7 +13,7 @@
       <template v-if="gameBoard.gameIsEnded">
         Победитель: {{ winnerPlayer.name }}
       </template>
-      <template v-else> Ходит {{ gameBoard.currentPlayer.name }} </template>
+      <template v-else> Ходит {{ gameBoard.currentPlayer?.name }} </template>
     </div>
     <div>
       <div v-for="player in [...gameBoard.players]" :key="player.id">
@@ -25,9 +25,9 @@
             -
             {{ gameBoard.scores[player.id] }}
             <span
-              v-for="item in gameBoard.playersFollowers[player.id]
+              v-for="n in gameBoard.playersFollowers[player.id]
                 .ordinaryFollowers"
-              :key="item.id"
+              :key="n"
               >+</span
             >
           </h2>
@@ -38,7 +38,8 @@
 </template>
 
 <script setup lang="ts">
-import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
+import type { IGameBoard } from '@/types/game'
+import type { CompletedObjects, PlayerId } from '@server/modules/types'
 import { computed } from 'vue'
 import {
   playerBackgroundColorClass,
@@ -49,7 +50,10 @@ const props = defineProps<{
   gameBoard: IGameBoard
 }>()
 
-const getCompletedObjectsForPlayer = (objectType, playerId) => {
+const getCompletedObjectsForPlayer = (
+  objectType: keyof CompletedObjects,
+  playerId: PlayerId
+) => {
   return (
     props.gameBoard?.completedObjects[objectType].filter(
       (object) => object.score?.players[playerId]
@@ -58,14 +62,17 @@ const getCompletedObjectsForPlayer = (objectType, playerId) => {
 }
 
 const winnerPlayer = computed(() => {
-  return Object.values(props.gameBoard.scores).reduce(
-    (acc, score, index) => {
-      if (score > acc.score) {
-        acc = { ...props.gameBoard.players[index], score }
+  let winner = { name: '', color: null as string | null, score: 0 }
+  Object.values(props.gameBoard.scores).forEach((score, index) => {
+    if (score > winner.score) {
+      const player = props.gameBoard.players[index]
+      winner = {
+        name: player?.name ?? '',
+        color: player?.color ?? null,
+        score,
       }
-      return acc
-    },
-    { name: '', score: 0 }
-  )
+    }
+  })
+  return winner
 })
 </script>

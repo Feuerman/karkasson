@@ -181,7 +181,10 @@ export function registerGameHandlers({
         return
       }
 
-      const availablePlacements: { type: string; side?: string }[] = []
+      const availablePlacements: {
+        type: 'road' | 'city' | 'monastery'
+        side?: string
+      }[] = []
 
       Object.entries(tile.sides).forEach(([side, type]) => {
         if (type === 'road') {

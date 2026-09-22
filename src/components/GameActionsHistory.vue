@@ -90,12 +90,13 @@
                   <span
                     :class="
                       playerTextColorClass(
-                        gameBoard.players[playerId - 1]?.color
+                        gameBoard.players[Number(playerId) - 1]?.color
                       )
                     "
                   >
-                    {{ gameBoard.players[playerId - 1].name }} - {{ score }}
-                    {{ getPlural(score, 'очко', 'очка', 'очков') }},
+                    {{ gameBoard.players[Number(playerId) - 1].name }} -
+                    {{ score ?? 0 }}
+                    {{ getPlural(score ?? 0, 'очко', 'очка', 'очков') }},
                   </span>
                 </span>
               </div>
@@ -110,24 +111,28 @@
                 <span
                   v-for="(
                     count, playerId
-                  ) in action.actionData.followers.reduce((acc, follower) => {
-                    if (!acc[follower.playerId]) {
-                      acc[follower.playerId] = 0
-                    }
+                  ) in action.actionData.followers.reduce(
+                    (acc: Record<string, number>, follower: ObjectFollower) => {
+                      const key = String(follower.playerId)
+                      if (!acc[key]) {
+                        acc[key] = 0
+                      }
 
-                    acc[follower.playerId] += 1
-                    return acc
-                  }, {})"
+                      acc[key] += 1
+                      return acc
+                    },
+                    {}
+                  )"
                   :key="playerId"
                 >
                   <span
                     :class="
                       playerTextColorClass(
-                        gameBoard.players[playerId - 1]?.color
+                        gameBoard.players[Number(playerId) - 1]?.color
                       )
                     "
                   >
-                    {{ gameBoard.players[playerId - 1].name }} -
+                    {{ gameBoard.players[Number(playerId) - 1].name }} -
                     {{ count }},&nbsp;
                   </span>
                 </span>
@@ -140,12 +145,9 @@
   </Draggable>
 </template>
 <script setup lang="ts">
-import {
-  ActionTypes,
-  type IGameBoard,
-  ObjectTypes,
-} from '../../server/src/modules/GameManager.ts'
-import { defineEmits } from 'vue'
+import { ActionTypes, ObjectTypes } from '@server/modules/types'
+import type { BaseObject, ObjectFollower } from '@server/modules/types'
+import type { IGameBoard } from '@/types/game'
 import Draggable from '@/components/Draggable.vue'
 import { playerTextColorClass } from '@/utils/colors'
 
@@ -158,7 +160,7 @@ const props = defineProps({
 
 const emits = defineEmits(['highlightObject'])
 
-const highlightObject = (objectData) => {
+const highlightObject = (objectData: BaseObject) => {
   emits('highlightObject', objectData)
 }
 
@@ -172,7 +174,7 @@ const getPlural = (count: number, one: string, two: string, five: string) => {
       : five
 }
 
-const zoomToCoordinates = (rowIndex, tileIndex) => {
+const zoomToCoordinates = (rowIndex: number, tileIndex: number) => {
   const targetTile = document.querySelector(
     '[data-row-index="' + rowIndex + '"][data-tile-index="' + tileIndex + '"]'
   )

@@ -1,4 +1,20 @@
-export const tiles = [
+import type { TileSideType } from '@server/modules/types'
+
+export const tiles: {
+  id: string
+  count: number
+  description: string
+  sides: {
+    north: TileSideType
+    east: TileSideType
+    south: TileSideType
+    west: TileSideType
+  }
+  isMonastery?: boolean
+  withShield?: boolean
+  isSolidCity?: boolean
+  imgUrl: string
+}[] = [
   {
     id: 'A',
     count: 2,

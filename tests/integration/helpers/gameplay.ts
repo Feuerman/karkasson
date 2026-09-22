@@ -11,7 +11,8 @@ import { latestGame, type GameSummaryPlayer } from './lobby'
 // ------------------------------------------------------------------ типы
 
 export type SideName = 'north' | 'east' | 'south' | 'west'
-export type SideMap = Record<SideName, string>
+export type TileSideType = 'field' | 'road' | 'city'
+export type SideMap = Record<SideName, TileSideType>
 
 export const SIDE_ORDER: SideName[] = ['north', 'east', 'south', 'west']
 
@@ -33,7 +34,7 @@ export interface ObjectPoint {
   x: number
   y: number
   direction?: string
-  pointType?: string
+  pointType?: TileSideType
   rowIndex?: number
   tileIndex?: number
 }

@@ -12,7 +12,7 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
+import type { IGameBoard } from '@/types/game'
 import Draggable from '@/components/Draggable.vue'
 
 defineProps({
@@ -24,5 +24,5 @@ defineProps({
 
 const savedGameName = ref('')
 
-const savedGames = ref([])
+const savedGames = ref<{ id: string; name: string }[]>([])
 </script>

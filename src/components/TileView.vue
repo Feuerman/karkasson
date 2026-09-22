@@ -4,7 +4,7 @@
   >
     <template v-if="props.tile?.imgUrl">
       <img
-        :src="tileImg"
+        :src="tileImg?.href"
         :class="rotateClass"
         class="block h-full w-full object-cover transition-transform duration-200 ease-in-out"
         :alt="props.tile?.imgUrl"
@@ -25,7 +25,8 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import { PlayerColors } from '../../server/src/modules/types.ts'
+import type { PlacedFollower } from '@server/modules/types'
+import { PlayerColors } from '@server/modules/types'
 
 const props = defineProps({
   tile: Object,
@@ -35,7 +36,7 @@ const props = defineProps({
     type: Number,
     default: 110,
   },
-  followers: Array,
+  followers: Array as () => PlacedFollower[],
 })
 
 const imagesMap = {
@@ -64,7 +65,7 @@ const imagesMap = {
 }
 
 const tileImg = computed(() => {
-  return imagesMap[props.tile?.id]
+  return imagesMap[props.tile?.id as keyof typeof imagesMap]
 })
 
 const rotateClasses: Record<number, string> = {
@@ -79,12 +80,14 @@ const rotateClass = computed(() => {
   return rotateClasses[rotation] ?? 'rotate-0'
 })
 
-const canvas = ref(null)
+const canvas = ref<HTMLCanvasElement | null>(null)
 
 const drawTile = () => {
   if (!canvas.value || !props.followers) return
 
   const ctx = canvas.value.getContext('2d')
+  if (!ctx) return
+
   ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
 
   // Настройки стиля для точек
@@ -132,8 +135,11 @@ const drawTile = () => {
         y = point.y
     }
 
-    ctx.fillStyle = PlayerColors[point.playerId]
-    ctx.strokeStyle = PlayerColors[point.playerId]
+    const playerColor = String(
+      PlayerColors[point.playerId as keyof typeof PlayerColors]
+    )
+    ctx.fillStyle = playerColor
+    ctx.strokeStyle = playerColor
 
     // Рисуем круг (точку)
     ctx.beginPath()

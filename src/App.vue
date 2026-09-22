@@ -175,6 +175,18 @@ import GameService from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
 import type { IGame, IGameBoard, ITile } from './types/game'
+import type { GameSummary } from '@server/services/GameService'
+import type { Player } from '@server/modules/types'
+
+const notifyError = (error: unknown) => {
+  if (error instanceof Error) {
+    notificationService.error(error.message)
+  } else if (typeof error === 'string') {
+    notificationService.error(error)
+  } else {
+    notificationService.error('Произошла ошибка')
+  }
+}
 
 const ghostPreviewRef = ref<HTMLElement | null>(null)
 const ghostFrameRef = ref<HTMLElement | null>(null)
@@ -226,7 +238,12 @@ const hoveredTile = ref({
 const localCurrentTile = ref<ITile>({
   id: '',
   rotation: 0,
-  sides: {},
+  sides: {
+    north: '' as ITile['sides']['north'],
+    west: '' as ITile['sides']['west'],
+    south: '' as ITile['sides']['south'],
+    east: '' as ITile['sides']['east'],
+  },
   followers: [],
   imgUrl: '',
   name: '',
@@ -246,7 +263,7 @@ watch(
 
 const updateSelectedPlacingPoint = throttle(
   async (value: { rowIndex: number; tileIndex: number }) => {
-    const res = await GameService.selectPlacingPoint(value)
+    await GameService.selectPlacingPoint(value)
   },
   300
 )
@@ -324,8 +341,8 @@ const onGameStart = (gameData: IGame) => {
     gameData.placingPoint?.tileIndex !== undefined
   ) {
     hoveredTile.value = gameData.placingPoint || {
-      rowIndex: null,
-      tileIndex: null,
+      rowIndex: undefined,
+      tileIndex: undefined,
     }
   }
 
@@ -335,7 +352,9 @@ const onGameStart = (gameData: IGame) => {
     } as ITile
   }
 
-  handleGameCreated(gameData.id)
+  if (gameData.id) {
+    handleGameCreated(gameData.id)
+  }
 
   GameService.onGameUpdated((updatedGame: IGame) => {
     const isMyTurn =
@@ -352,8 +371,8 @@ const onGameStart = (gameData: IGame) => {
         updatedGame.placingPoint?.tileIndex !== hoveredTile.value.tileIndex)
     ) {
       hoveredTile.value = updatedGame.placingPoint || {
-        rowIndex: null,
-        tileIndex: null,
+        rowIndex: undefined,
+        tileIndex: undefined,
       }
 
       zoomToTile(hoveredTile.value)
@@ -403,14 +422,26 @@ const onGameStart = (gameData: IGame) => {
   if (GameService.socket) {
     GameService.socket.on(
       'playerTemporaryDisconnected',
-      ({ deviceId, playerIds }: { deviceId: string; playerIds: any[] }) => {
+      ({
+        deviceId,
+        playerIds,
+      }: {
+        deviceId: string
+        playerIds: (string | number)[]
+      }) => {
         // console.log('Player temporarily disconnected:', { deviceId, playerIds });
       }
     )
 
     GameService.socket.on(
       'playerReconnected',
-      ({ deviceId, playerIds }: { deviceId: string; playerIds: any[] }) => {
+      ({
+        deviceId,
+        playerIds,
+      }: {
+        deviceId: string
+        playerIds: (string | number)[]
+      }) => {
         console.log('Player reconnected:', { deviceId, playerIds })
       }
     )
@@ -466,7 +497,7 @@ const rotateTile = (
 
 const placeTile = async (
   tile: ITile,
-  { rowIndex, tileIndex }: { rowIndex: number; tileIndex: number }
+  { rowIndex, tileIndex }: { rowIndex?: number; tileIndex?: number }
 ) => {
   if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
     notificationService.error('Выберите клетку для размещения')
@@ -484,7 +515,7 @@ const placeTile = async (
   }
 }
 
-const updateLocalGamesList = (gamesList: IGame[]) => {
+const updateLocalGamesList = (gamesList: GameSummary[]) => {
   const savedGameId = localStorage.getItem('lastGameId')
 
   games.value = gamesList.map((game) => ({
@@ -495,7 +526,7 @@ const updateLocalGamesList = (gamesList: IGame[]) => {
 
 const getGamesList = async () => {
   try {
-    const gamesList = (await GameService.getGamesList()) as IGame[]
+    const gamesList = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
     if (error instanceof Error) {
@@ -508,7 +539,7 @@ const getGamesList = async () => {
 
 const joinGame = async (gameId: string) => {
   try {
-    const game = (await GameService.joinGame(gameId)) as IGame
+    const game = await GameService.joinGame(gameId)
     console.log(game, game.gameIsStarted)
     if (!game.gameIsStarted) {
       currentGame.value = game
@@ -517,7 +548,7 @@ const joinGame = async (gameId: string) => {
       showLobby.value = false
     }
   } catch (error) {
-    notificationService.error(error || error.message)
+    notifyError(error)
   }
 }
 
@@ -528,7 +559,7 @@ const leaveGame = async () => {
     currentGame.value = null
     getGamesList()
   } catch (error) {
-    notificationService.error(error || error.message)
+    notifyError(error)
   }
 }
 
@@ -539,26 +570,26 @@ const goInLobby = async () => {
     showLobby.value = true
     currentGame.value = null
     playersList.value = []
-    gameState.value = {}
+    gameState.value = {} as IGameBoard
     getGamesList()
   } catch (error) {
-    notificationService.error(error || error.message)
+    notifyError(error)
   }
 }
 
 const createGame = async () => {
   try {
-    const game = (await GameService.createGame()) as IGame
+    const game = await GameService.createGame()
     currentGame.value = game
     playersList.value = game.players
   } catch (error) {
-    notificationService.error(error || error.message)
+    notifyError(error)
   }
 }
 
 const rejoinGame = async (gameId: string) => {
   try {
-    const game = (await GameService.rejoinGame(gameId)) as IGame
+    const game = await GameService.rejoinGame(gameId)
     if (!game.gameIsStarted) {
       currentGame.value = game
       playersList.value = game.players
@@ -566,7 +597,7 @@ const rejoinGame = async (gameId: string) => {
       showLobby.value = false
     }
   } catch (error) {
-    notificationService.error(error || error.message)
+    notifyError(error)
   }
 }
 
@@ -580,8 +611,8 @@ const reconnectingPlayers = computed(() => {
   )
 })
 
-const games = ref<IGame[]>([])
-const playersList = ref<any[]>([])
+const games = ref<(GameSummary & { isLastGame?: boolean })[]>([])
+const playersList = ref<Player[]>([])
 const currentGame = ref<IGame | null>(null)
 
 onMounted(async () => {
@@ -595,7 +626,7 @@ onMounted(async () => {
   })
 
   if (GameService.socket) {
-    GameService.socket.on('updateGamesList', (gamesList: IGame[]) => {
+    GameService.socket.on('updateGamesList', (gamesList: GameSummary[]) => {
       updateLocalGamesList(gamesList)
     })
 
