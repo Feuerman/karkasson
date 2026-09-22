@@ -6,23 +6,25 @@ export const deepClone = <T>(obj: T): T => {
   } else if (obj instanceof Date) {
     return new Date(obj.getTime()) as T
   } else {
-    return Object.entries(obj).reduce((acc, [key, value]) => {
-      if (typeof value === 'object' && value !== null) {
+    return Object.entries(obj).reduce(
+      (acc, [key, value]) => {
         acc[key] = deepClone(value)
-      } else {
-        acc[key] = value
-      }
-      return acc
-    }, {} as T)
+        return acc
+      },
+      {} as Record<string, unknown>
+    ) as T
   }
 }
 
 export const sleep = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms))
 
-export const throttle = (fn: (...args: any[]) => void, delay: number) => {
+export const throttle = <T extends (...args: never[]) => void>(
+  fn: T,
+  delay: number
+) => {
   let timeout: NodeJS.Timeout | null = null
-  return (...args: any[]) => {
+  return (...args: Parameters<T>) => {
     if (timeout) {
       clearTimeout(timeout)
     }

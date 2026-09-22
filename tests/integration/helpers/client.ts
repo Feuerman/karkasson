@@ -179,8 +179,7 @@ export class TestClient {
 
   /** Разрыв основного транспорта → сервер увидит «transport close» (временное отключение) */
   closeTransport(): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(this.socket.io.engine as any)?.close?.()
+    this.socket.io.engine?.close?.()
   }
 
   /** Полное отключение клиента */
@@ -198,8 +197,8 @@ export class TestClient {
     this.waiters.clear()
     this.socket.removeAllListeners()
     this.socket.disconnect()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(this.socket.io as any)?._close?.()
+    const manager = this.socket.io as unknown as { _close?: () => void }
+    manager._close?.()
   }
 }
 

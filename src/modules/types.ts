@@ -1,8 +1,14 @@
+export type TileSideType = 'field' | 'road' | 'city'
+
+export type PointDirection = 'north' | 'west' | 'south' | 'east' | 'center'
+
+export type PointType = TileSideType
+
 export interface Point {
   x: number
   y: number
-  direction?: string
-  pointType?: string
+  direction?: PointDirection
+  pointType?: PointType
 }
 
 export interface Follower {
@@ -31,10 +37,10 @@ export interface Tile {
   x?: number
   y?: number
   sides: {
-    north: string
-    west: string
-    south: string
-    east: string
+    north: TileSideType
+    west: TileSideType
+    south: TileSideType
+    east: TileSideType
   }
   isSolidCity?: boolean
 }

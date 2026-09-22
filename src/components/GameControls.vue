@@ -21,9 +21,10 @@
 </template>
 <script setup lang="ts">
 import GameStats from '@/components/GameStats.vue'
-import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
-import { GameSimulatorModule } from '../../server/src/modules/GameSimulatorModule.ts'
+import { GameSimulatorModule } from '@server/modules/GameSimulatorModule'
 import Draggable from '@/components/Draggable.vue'
+import type { IGameBoard } from '@/types/game'
+import type { IGameBoard as ServerGameBoard } from '@server/modules/GameManager'
 
 const props = defineProps({
   gameBoard: {
@@ -33,23 +34,24 @@ const props = defineProps({
 })
 
 const calculateBestMove = () => {
-  if (!props.gameBoard.currentTile) return
+  const board = props.gameBoard as unknown as ServerGameBoard
+  if (!board.currentTile) return
 
   const tileForSim = {
-    ...props.gameBoard.currentTile,
-    sides: { ...props.gameBoard.currentTile.sides },
+    ...board.currentTile,
+    sides: { ...board.currentTile.sides },
   }
 
-  const simulator = new GameSimulatorModule(props.gameBoard)
+  const simulator = new GameSimulatorModule(board)
   const result = simulator.findBestMove(tileForSim)
 
   if (result.score > -1) {
     const move = result.moves[0]
     if (move) {
-      props.gameBoard.placeTile(move.tile, move.rowIndex, move.tileIndex)
+      board.placeTile(move.tile, move.rowIndex, move.tileIndex)
 
       if (move.followerPlace) {
-        props.gameBoard.placeFollower(move.followerPlace)
+        board.placeFollower(move.followerPlace)
       }
     }
   }

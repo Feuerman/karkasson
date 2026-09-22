@@ -1,6 +1,9 @@
 import { io, type Socket } from 'socket.io-client'
 import { ref } from 'vue'
-import type { AvailableFollowerPlace } from '../../server/src/modules/GameManager'
+import type { AvailableFollowerPlace } from '@server/modules/GameManager'
+import type { GameSummary, GameData } from '@server/services/GameService'
+import type { GridTile, Tile } from '@server/modules/types'
+import type { SocketAck, AvailablePlacement } from '@/types/socket'
 
 export interface IGameService {
   socket: Socket | null
@@ -8,8 +11,8 @@ export interface IGameService {
   deviceId: string
   connect: () => void
   disconnect: () => void
-  createGame: () => Promise<any>
-  joinGame: (gameId: string, playerName: string) => Promise<any>
+  createGame: () => Promise<GameData>
+  joinGame: (gameId: string, playerName?: string) => Promise<GameData>
 }
 
 export interface GameServiceOptions {
@@ -25,7 +28,7 @@ export class GameService implements IGameService {
   socket: Socket | null
   gameId: string
   deviceId: string
-  gamesList: any[] = []
+  gamesList: GameSummary[] = []
   isConnected = ref(false)
   private serverUrl: string
 
@@ -111,24 +114,27 @@ export class GameService implements IGameService {
   }
 
   getGamesList() {
-    return new Promise((resolve, reject) => {
+    return new Promise<GameSummary[]>((resolve, reject) => {
       if (!this.socket?.connected) {
         reject('Нет соединения с сервером')
       } else {
-        this.socket.emit('getGamesList', (response) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            this.gamesList = response.games
-            resolve(response.games)
+        this.socket.emit(
+          'getGamesList',
+          (response: { games?: GameSummary[]; error?: string }) => {
+            if (response.error) {
+              reject(response.error)
+            } else {
+              this.gamesList = response.games ?? []
+              resolve(this.gamesList)
+            }
           }
-        })
+        )
       }
     })
   }
 
   createGame() {
-    return new Promise((resolve, reject) => {
+    return new Promise<GameData>((resolve, reject) => {
       if (!this.socket?.connected) {
         reject('Нет соединения с сервером')
       } else {
@@ -136,7 +142,7 @@ export class GameService implements IGameService {
         this.socket?.once('error', (error: Error) => reject(error))
         this.socket?.once(
           'gameCreated',
-          ({ gameId, game }: { gameId: string; game: any }) => {
+          ({ gameId, game }: { gameId: string; game: GameData }) => {
             this.gameId = gameId
             resolve(game)
           }
@@ -146,14 +152,14 @@ export class GameService implements IGameService {
   }
 
   addPlayer({ name, index }: { name: string; index: number }) {
-    return new Promise((resolve, reject) => {
+    return new Promise<SocketAck>((resolve, reject) => {
       if (!this.socket?.connected) {
         reject('Нет соединения с сервером')
       } else {
         this.socket.emit(
           'addPlayer',
           { gameId: this.gameId, name, index },
-          (response) => {
+          (response: SocketAck) => {
             if (response.error) {
               reject(response.error)
             } else {
@@ -165,15 +171,15 @@ export class GameService implements IGameService {
     })
   }
 
-  removePlayer(index: number, name = null) {
-    return new Promise((resolve, reject) => {
+  removePlayer(index: number, name: string | null = null) {
+    return new Promise<SocketAck>((resolve, reject) => {
       if (!this.socket?.connected) {
         reject('Нет соединения с сервером')
       } else {
         this.socket.emit(
           'removePlayer',
           { gameId: this.gameId, index, name },
-          (response) => {
+          (response: SocketAck) => {
             if (response.error) {
               reject(response.error)
             } else {
@@ -186,17 +192,17 @@ export class GameService implements IGameService {
   }
 
   startGame() {
-    this.socket.emit('startGame', { gameId: this.gameId })
+    this.socket?.emit('startGame', { gameId: this.gameId })
   }
 
-  joinGame(gameId: string, playerName: string) {
-    return new Promise((resolve, reject) => {
+  joinGame(gameId: string, playerName?: string) {
+    return new Promise<GameData>((resolve, reject) => {
       if (!this.socket?.connected) {
         reject('Нет соединения с сервером')
       } else {
         this.socket.emit('joinGame', { gameId, playerName })
         this.socket.once('error', (error: Error) => reject(error))
-        this.socket.once('gameUpdated', (game: any) => {
+        this.socket.once('gameUpdated', (game: GameData) => {
           this.gameId = gameId
           resolve(game)
         })
@@ -205,21 +211,21 @@ export class GameService implements IGameService {
   }
 
   rejoinGame(gameId: string) {
-    return new Promise((resolve, reject) => {
+    return new Promise<GameData>((resolve, reject) => {
       if (!this.socket?.connected) {
         console.error('Socket not connected while rejoining game')
         return
       }
       this.socket.emit('rejoinGame', { gameId, deviceId: this.deviceId })
       this.socket.once('error', (error: Error) => reject(error))
-      this.socket.once('gameUpdated', (game: any) => {
+      this.socket.once('gameUpdated', (game: GameData) => {
         this.gameId = gameId
         resolve(game)
       })
     })
   }
 
-  onGameUpdated(callback: (game: any) => void) {
+  onGameUpdated(callback: (game: GameData) => void) {
     this.socket?.on('gameUpdated', callback)
   }
 
@@ -234,11 +240,11 @@ export class GameService implements IGameService {
     rowIndex: number
     tileIndex: number
   }) {
-    return new Promise((resolve, reject) => {
+    return new Promise<SocketAck>((resolve, reject) => {
       this.socket?.emit(
         'selectPlacingPoint',
         { gameId: this.gameId, point: { rowIndex, tileIndex } },
-        (response: any) => {
+        (response: SocketAck) => {
           if (response.error) {
             reject(response.error)
           } else {
@@ -249,12 +255,12 @@ export class GameService implements IGameService {
     })
   }
 
-  async updateCurrentTile(tile: any) {
-    return new Promise((resolve, reject) => {
+  async updateCurrentTile(tile: Tile | GridTile) {
+    return new Promise<SocketAck>((resolve, reject) => {
       this.socket?.emit(
         'updateCurrentTile',
         { gameId: this.gameId, tile },
-        (response: any) => {
+        (response: SocketAck) => {
           if (response.error) {
             reject(response.error)
           } else {
@@ -265,12 +271,15 @@ export class GameService implements IGameService {
     })
   }
 
-  placeTile(tile: any, position: { rowIndex: number; tileIndex: number }) {
-    return new Promise((resolve, reject) => {
+  placeTile(
+    tile: Tile | GridTile,
+    position: { rowIndex: number; tileIndex: number }
+  ) {
+    return new Promise<SocketAck>((resolve, reject) => {
       this.socket?.emit(
         'placeTile',
         { gameId: this.gameId, tile, position },
-        (response: any) => {
+        (response: SocketAck) => {
           if (response.error) {
             reject(response.error)
           } else {
@@ -282,11 +291,11 @@ export class GameService implements IGameService {
   }
 
   placeFollower(place: AvailableFollowerPlace) {
-    return new Promise((resolve, reject) => {
+    return new Promise<SocketAck>((resolve, reject) => {
       this.socket?.emit(
         'placeFollower',
         { gameId: this.gameId, place },
-        (response: any) => {
+        (response: SocketAck) => {
           if (response.error) {
             reject(response.error)
           } else {
@@ -298,16 +307,20 @@ export class GameService implements IGameService {
   }
 
   skipFollower() {
-    return new Promise((resolve, reject) => {
-      this.socket.emit('skipFollower', { gameId: this.gameId }, (response) => {
-        console.log('Server response for skip follower:', response)
-        if (response.error) {
-          console.error('Server error:', response.error)
-          reject(response.error)
-        } else {
-          resolve(response)
+    return new Promise<SocketAck>((resolve, reject) => {
+      this.socket?.emit(
+        'skipFollower',
+        { gameId: this.gameId },
+        (response: SocketAck) => {
+          console.log('Server response for skip follower:', response)
+          if (response.error) {
+            console.error('Server error:', response.error)
+            reject(response.error)
+          } else {
+            resolve(response)
+          }
         }
-      })
+      )
     })
   }
 
@@ -320,19 +333,19 @@ export class GameService implements IGameService {
     }
   }
 
-  checkAvailablePlacements(position) {
-    return new Promise((resolve, reject) => {
-      this.socket.emit(
+  checkAvailablePlacements(position: { row: number; col: number }) {
+    return new Promise<AvailablePlacement[]>((resolve, reject) => {
+      this.socket?.emit(
         'checkAvailablePlacements',
         {
           gameId: this.gameId,
           position,
         },
-        (response) => {
+        (response: { placements?: AvailablePlacement[]; error?: string }) => {
           if (response.error) {
             reject(response.error)
           } else {
-            resolve(response.placements)
+            resolve(response.placements ?? [])
           }
         }
       )

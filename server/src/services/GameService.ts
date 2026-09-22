@@ -28,6 +28,7 @@ export interface GameSummary {
 }
 
 export interface GameData {
+  placingPoint?: IGameBoard['placingPoint']
   tilePlacesStats: IGameBoard['tilePlacesStats']
   tilesList: IGameBoard['tilesList']
   currentTile: IGameBoard['currentTile']
@@ -299,6 +300,7 @@ export class GameService {
 
   formatGameData(game: IGameBoard): GameData {
     return {
+      placingPoint: game.placingPoint,
       tilePlacesStats: game.tilePlacesStats,
       tilesList: game.tilesList,
       currentTile: game.currentTile,

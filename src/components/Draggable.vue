@@ -31,15 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  onMounted,
-  onUnmounted,
-  watch,
-  defineEmits,
-  nextTick,
-} from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { DraggableRegistry } from '@/modules/draggableRegistry'
 
 const props = defineProps({

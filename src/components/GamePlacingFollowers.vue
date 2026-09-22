@@ -33,9 +33,10 @@
 </template>
 
 <script setup lang="ts">
-import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
+import type { IGameBoard } from '@/types/game'
+import type { PointType, PointDirection } from '@server/modules/types'
 import Draggable from '@/components/Draggable.vue'
-import GameService from '@/modules/GameService.js'
+import GameService from '@/modules/GameService'
 
 defineProps({
   gameBoard: {
@@ -44,25 +45,26 @@ defineProps({
   },
 })
 
-const pointTypeTitle = (pointType: any) => {
-  const pointTypeMap = {
+const pointTypeTitle = (pointType?: PointType | 'monastery') => {
+  const pointTypeMap: Record<string, string> = {
     city: 'Город',
     road: 'Дорога',
     field: 'Поле',
     monastery: 'Монастырь',
   }
 
-  return pointTypeMap[pointType]
+  return pointTypeMap[pointType ?? '']
 }
 
-const pointDirectionTitle = (direction: any) => {
-  const directionMap = {
+const pointDirectionTitle = (direction?: PointDirection) => {
+  const directionMap: Record<string, string> = {
     north: 'Север',
     south: 'Юг',
     east: 'Восток',
     west: 'Запад',
+    center: 'Центр',
   }
 
-  return directionMap[direction]
+  return directionMap[direction ?? '']
 }
 </script>

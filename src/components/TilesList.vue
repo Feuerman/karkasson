@@ -19,9 +19,9 @@
 </template>
 <script setup lang="ts">
 import Draggable from '@/components/Draggable.vue'
-import tiles from '../../server/src/data/tiles'
+import { tiles } from '@server/data/tiles'
 import TileView from '@/components/TileView.vue'
-import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
+import type { IGameBoard } from '@/types/game'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -33,10 +33,13 @@ const props = defineProps({
 
 const currentTilesCount = computed(() => {
   return (
-    props.gameBoard?.tileHistory?.reduce((acc, tile) => {
-      acc[tile.id] = acc[tile.id] ? acc[tile.id] + 1 : 1
-      return acc
-    }, {}) || {}
+    props.gameBoard?.tileHistory?.reduce<Record<string, number>>(
+      (acc, tile) => {
+        acc[tile.id] = acc[tile.id] ? acc[tile.id] + 1 : 1
+        return acc
+      },
+      {}
+    ) || {}
   )
 })
 </script>

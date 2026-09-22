@@ -23,29 +23,31 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+export type NotificationType = 'success' | 'error' | 'warning' | 'info'
+
 interface Notification {
   id: number
   message: string
-  type: 'success' | 'error' | 'warning' | 'info'
+  type: NotificationType
   duration: number
 }
 
 const notifications = ref<Notification[]>([])
 let nextId = 1
 
-const typeClassMap: Record<Notification['type'], string> = {
+const typeClassMap: Record<NotificationType, string> = {
   success: 'bg-success',
   error: 'bg-danger',
   warning: 'bg-warning',
   info: 'bg-primary',
 }
 
-const typeClass = (type: Notification['type']): string =>
+const typeClass = (type: NotificationType): string =>
   typeClassMap[type] ?? typeClassMap.info
 
 const addNotification = (
   message: string,
-  type: 'success' | 'error' | 'warning' | 'info' = 'info',
+  type: NotificationType = 'info',
   duration: number = 3000
 ) => {
   const id = nextId++

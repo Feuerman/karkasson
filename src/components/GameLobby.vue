@@ -147,16 +147,18 @@
         <!--          <input v-model="currentGame.name" placeholder="Ваше имя" />-->
         <!--        </div>-->
         <div class="my-6 mb-8 flex w-[500px] flex-col gap-6">
-<div
-              v-for="(player, index) in players"
-              :key="player.id"
-              class="flex items-center gap-3 rounded-lg py-1.5 pl-2 pr-4"
-            >
+          <div
+            v-for="(player, index) in players"
+            :key="player.id"
+            class="flex items-center gap-3 rounded-lg py-1.5 pl-2 pr-4"
+          >
             <PlayersListInputCheckbox
               :class="playerTextColorClass(player.color)"
               :model-value="Boolean(player.name)"
               :disabled="
-                player.socketId && player.deviceId !== gameService.deviceId
+                Boolean(
+                  player.socketId && player.deviceId !== gameService.deviceId
+                )
               "
               @change="
                 player.socketId || player.name
@@ -168,10 +170,10 @@
             <input
               :value="player.name"
               :placeholder="`Игрок ${index + 1}`"
-              :disabled="player.socketId || !player.name"
+              :disabled="Boolean(player.socketId || !player.name)"
               :class="playerBorderColorClass(player.name ? player.color : null)"
               class="flex-grow rounded-lg border-2 border-solid bg-transparent px-4 py-2 text-[1.1rem] font-medium text-text outline-none placeholder:text-border-strong disabled:cursor-not-allowed"
-              @input="currentPlayerName = $event.target.value"
+              @input="onPlayerNameInput"
             />
             <div
               v-if="!player.socketId && player.name"
@@ -218,9 +220,19 @@
 <script lang="ts">
 import GameService from '@/modules/GameService'
 import notificationService from '@/plugins/notification'
-import { IGameBoard } from '../../server/src/modules/GameManager'
+import type { IGame, IGameBoard } from '@/types/game'
+import type { GameSummary } from '@server/services/GameService'
+import type { Player } from '@server/modules/types'
 import PlayersListInputCheckbox from './../components/PlayersListInputCheckbox.vue'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
+
+const notifyError = (error: unknown) => {
+  if (error instanceof Error) {
+    notificationService.error(error.message)
+  } else {
+    notificationService.error(String(error))
+  }
+}
 
 export default {
   name: 'GameLobby',
@@ -231,16 +243,16 @@ export default {
       default: () => ({}),
     },
     gamesList: {
-      type: Array,
+      type: Array as () => GameSummary[],
       default: () => [],
     },
     players: {
-      type: Array,
+      type: Array as () => Player[],
       default: () => [],
     },
     currentGame: {
-      type: Object,
-      default: () => ({}),
+      type: Object as () => IGame | null,
+      default: null,
     },
   },
   data() {
@@ -254,7 +266,7 @@ export default {
     gameService() {
       return GameService
     },
-    computedGamesList() {
+    computedGamesList(): GameSummary[] {
       return this.showEndedGames
         ? this.gamesList
         : this.gamesList.filter((g) => !g.gameIsEnded)
@@ -269,50 +281,53 @@ export default {
   methods: {
     playerTextColorClass,
     playerBorderColorClass,
+    onPlayerNameInput(event: Event) {
+      this.currentPlayerName = (event.target as HTMLInputElement).value
+    },
     async createGame() {
       try {
         this.$emit('createGame')
       } catch (error) {
-        notificationService.error(error)
+        notifyError(error)
       }
     },
     leaveGameAndGoBack() {
       this.$emit('leaveGame')
     },
-    async joinGame(gameId) {
+    async joinGame(gameId: string | undefined) {
       try {
         this.$emit('joinGame', gameId)
       } catch (error) {
-        notificationService.error(error)
+        notifyError(error)
       }
     },
-    async rejoinGame(gameId) {
+    async rejoinGame(gameId: string | undefined) {
       try {
         this.$emit('rejoinGame', gameId)
       } catch (error) {
-        notificationService.error(error)
+        notifyError(error)
       }
     },
-    addPlayer(player, index) {
+    addPlayer(player: { name?: string | null }, index: number) {
       try {
-        GameService.addPlayer({ name: player.name, index })
+        GameService.addPlayer({ name: player.name ?? '', index })
         this.currentPlayerName = ''
       } catch (error) {
-        notificationService.error(error)
+        notifyError(error)
       }
     },
-    removePlayer(index, name = null) {
+    removePlayer(index: number, name: string | null = null) {
       try {
         GameService.removePlayer(index, name)
       } catch (error) {
-        notificationService.error(error)
+        notifyError(error)
       }
     },
     startGame() {
       GameService.startGame()
       this.$emit('startGame')
     },
-    isRejoinable(game) {
+    isRejoinable(game: GameSummary) {
       return game.players?.some((p) => p.deviceId === GameService.deviceId)
     },
   },

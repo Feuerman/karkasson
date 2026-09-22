@@ -11,10 +11,13 @@ import {
   type CompletedObjects,
   type FollowerCount,
   type GridTile,
+  type ObjectFollower,
   type Player,
   type PlayerId,
   type PlacedFollower,
   type Point,
+  type PointDirection,
+  type RotationDirection,
   type ScoreForObject,
   type Scores,
   type SideName,
@@ -23,15 +26,51 @@ import {
   type TilePlacesStats,
 } from './types'
 
-export { ActionTypes, ObjectTypes } from './types'
-export type { AvailableFollowerPlace } from './types'
+export type {
+  AvailableFollowerPlace,
+  AvailablePlacementType,
+  RotationDirection,
+} from './types'
 
-export interface GameAction {
-  actionType: ActionTypes
-  // Полезная нагрузка зависит от типа действия; клиент читает поля динамически
-  actionData: any
-  initiator?: Player | null
+export interface PlaceTileActionData {
+  tile: Tile
+  rowIndex: number
+  tileIndex: number
 }
+
+export interface PlaceFollowerActionData extends AvailableFollowerPlace {}
+
+export interface AddingScoresActionData {
+  objectType: ObjectTypes
+  objectData: BaseObject
+  score: ScoreForObject
+}
+
+export interface BackFollowerActionData {
+  followers: ObjectFollower[]
+}
+
+export type GameAction =
+  | {
+      actionType: ActionTypes.PLACE_TILE
+      actionData: PlaceTileActionData
+      initiator?: Player | null
+    }
+  | {
+      actionType: ActionTypes.PLACE_FOLLOWER
+      actionData: PlaceFollowerActionData
+      initiator?: Player | null
+    }
+  | {
+      actionType: ActionTypes.ADDING_SCORES
+      actionData: AddingScoresActionData
+      initiator?: Player | null
+    }
+  | {
+      actionType: ActionTypes.BACK_FOLLOWER
+      actionData: BackFollowerActionData
+      initiator?: Player | null
+    }
 
 export interface IGameBoard {
   id?: string
@@ -465,7 +504,7 @@ export class GameManager implements IGameBoard {
     objects: TemporaryObjects,
     x: number,
     y: number,
-    direction?: string
+    direction?: SideName | 'center'
   ): BaseObject | undefined {
     return [...objects.cities, ...objects.roads, ...objects.monasteries].find(
       (object) => {
@@ -562,7 +601,12 @@ export class GameManager implements IGameBoard {
     const roadsPoints: Point[] = Object.entries(tile.sides)
       .filter(([, pointType]) => pointType === 'road')
       .map(([direction]) => {
-        return { y: rowIndex, x: tileIndex, direction, pointType: 'road' }
+        return {
+          y: rowIndex,
+          x: tileIndex,
+          direction: direction as PointDirection,
+          pointType: 'road',
+        }
       })
 
     this.checkRoads(roadsPoints)
@@ -570,7 +614,12 @@ export class GameManager implements IGameBoard {
     const citiesPoints: Point[] = Object.entries(tile.sides)
       .filter(([, pointType]) => pointType === 'city')
       .map(([direction]) => {
-        return { y: rowIndex, x: tileIndex, direction, pointType: 'city' }
+        return {
+          y: rowIndex,
+          x: tileIndex,
+          direction: direction as PointDirection,
+          pointType: 'city',
+        }
       })
 
     this.checkCities(citiesPoints, tile.isSolidCity)
@@ -978,10 +1027,7 @@ export class GameManager implements IGameBoard {
     return { x, y }
   }
 
-  rotateTile(
-    tile: Tile,
-    direction: 'clockwise' | 'counterclockwise' = 'clockwise'
-  ): Tile {
+  rotateTile(tile: Tile, direction: RotationDirection = 'clockwise'): Tile {
     const processedTile = { ...tile }
     if (direction === 'clockwise') {
       if (processedTile.rotation + 90 > 360) {
