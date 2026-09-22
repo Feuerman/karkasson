@@ -5,30 +5,32 @@
     :initial-x="10"
     :initial-y="10"
   >
-    <div class="game-actions-history">
-      <div class="game-actions-history__title">
+    <div
+      class="w-[550px] overflow-hidden rounded-lg bg-surface px-5 pb-5 shadow-strong"
+    >
+      <div
+        class="sticky top-0 z-10 mb-2.5 flex justify-between border-b border-border bg-surface px-0 py-2.5 text-[1.4rem] font-medium text-text"
+      >
         <span>История действий</span>
-        <span class="game-actions-history__title-count"
+        <span class="text-[1.2rem] text-primary"
           >в колоде {{ gameBoard.tilesList.length }}</span
         >
       </div>
-      <div class="game-actions-history__list">
+      <div class="max-h-[400px] overflow-y-scroll">
         <div v-for="(action, index) in gameBoard.actionsHistory" :key="index">
           <template v-if="action.actionType === ActionTypes.PLACE_TILE">
-            <div class="game-actions-history__item">
-              <div class="game-actions-history__item-title">
+            <div class="mb-2 flex items-center gap-2 rounded">
+              <div
+                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+              >
                 <strong>Выложен тайл. </strong>
-                <span
-                  :style="{
-                    color: action.initiator?.color,
-                  }"
-                >
+                <span :class="playerTextColorClass(action.initiator?.color)">
                   {{ action.initiator?.name }}.
                 </span>
                 <span
                   >Тайл {{ action.actionData.tile.id }} на клетку
                   <span
-                    class="link-style"
+                    class="cursor-pointer font-semibold underline transition-opacity hover:opacity-80 active:no-underline"
                     @click="
                       zoomToCoordinates(
                         action.actionData.rowIndex,
@@ -45,20 +47,18 @@
           <template
             v-else-if="action.actionType === ActionTypes.PLACE_FOLLOWER"
           >
-            <div class="game-actions-history__item">
-              <div class="game-actions-history__item-title">
+            <div class="mb-2 flex items-center gap-2 rounded">
+              <div
+                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+              >
                 <strong>Выcтавлен подданный. </strong>
-                <span
-                  :style="{
-                    color: action.initiator?.color,
-                  }"
-                >
+                <span :class="playerTextColorClass(action.initiator?.color)">
                   {{ action.initiator?.name }}.
                 </span>
                 <span
                   >На клетку
                   <span
-                    class="link-style"
+                    class="cursor-pointer font-semibold underline transition-opacity hover:opacity-80 active:no-underline"
                     @click="
                       zoomToCoordinates(
                         action.actionData.point.y,
@@ -74,8 +74,10 @@
             </div>
           </template>
           <template v-else-if="action.actionType === ActionTypes.ADDING_SCORES">
-            <div class="game-actions-history__item">
-              <div class="game-actions-history__item-title">
+            <div class="mb-2 flex items-center gap-2 rounded">
+              <div
+                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+              >
                 <strong>Завершен объект. </strong>
                 <span @click="highlightObject(action.actionData.objectData)"
                   >{{ action.actionData.objectType }}.
@@ -86,7 +88,11 @@
                   :key="playerId"
                 >
                   <span
-                    :style="{ color: gameBoard.players[playerId - 1].color }"
+                    :class="
+                      playerTextColorClass(
+                        gameBoard.players[playerId - 1]?.color
+                      )
+                    "
                   >
                     {{ gameBoard.players[playerId - 1].name }} - {{ score }}
                     {{ getPlural(score, 'очко', 'очка', 'очков') }},
@@ -96,8 +102,10 @@
             </div>
           </template>
           <template v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER">
-            <div class="game-actions-history__item">
-              <div class="game-actions-history__item-title">
+            <div class="mb-2 flex items-center gap-2 rounded">
+              <div
+                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+              >
                 <strong>Возврат подданных.</strong>
                 <span
                   v-for="(
@@ -113,7 +121,11 @@
                   :key="playerId"
                 >
                   <span
-                    :style="{ color: gameBoard.players[playerId - 1].color }"
+                    :class="
+                      playerTextColorClass(
+                        gameBoard.players[playerId - 1]?.color
+                      )
+                    "
                   >
                     {{ gameBoard.players[playerId - 1].name }} -
                     {{ count }},&nbsp;
@@ -135,6 +147,7 @@ import {
 } from '../../server/src/modules/GameManager.ts'
 import { defineEmits } from 'vue'
 import Draggable from '@/components/Draggable.vue'
+import { playerTextColorClass } from '@/utils/colors'
 
 const props = defineProps({
   gameBoard: {
@@ -161,11 +174,7 @@ const getPlural = (count: number, one: string, two: string, five: string) => {
 
 const zoomToCoordinates = (rowIndex, tileIndex) => {
   const targetTile = document.querySelector(
-    '.game-tile[data-row-index="' +
-      rowIndex +
-      '"][data-tile-index="' +
-      tileIndex +
-      '"]'
+    '[data-row-index="' + rowIndex + '"][data-tile-index="' + tileIndex + '"]'
   )
 
   if (targetTile) {
@@ -175,78 +184,11 @@ const zoomToCoordinates = (rowIndex, tileIndex) => {
       inline: 'center',
     })
 
-    targetTile.classList.add('--active')
+    targetTile.classList.add('tile-pulse')
 
     setTimeout(() => {
-      targetTile.classList.remove('--active')
+      targetTile.classList.remove('tile-pulse')
     }, 1000)
   }
 }
 </script>
-
-<style scoped lang="scss">
-.game-actions-history {
-  width: 550px;
-  padding: 0 20px 20px 20px;
-  background-color: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  &__item-title {
-    span + span {
-      margin-left: 0.2rem;
-    }
-    strong {
-      margin-right: 0.3rem;
-    }
-  }
-  &__title {
-    position: sticky;
-    top: 0;
-    padding: 10px 0;
-    background-color: #fff;
-    border-bottom: 1px solid #e0e0e0;
-    font-size: 1.4rem;
-    color: #333;
-    margin-bottom: 10px;
-    font-weight: 500;
-    display: flex;
-    justify-content: space-between;
-  }
-
-  &__title-count {
-    font-size: 1.2rem;
-    color: #2196f3;
-  }
-
-  &__list {
-    overflow-y: scroll;
-    max-height: 400px;
-  }
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 4px;
-    margin-bottom: 0.5rem;
-  }
-
-  &__icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background-color: #e0e0e0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #333;
-  }
-
-  &__text {
-    font-size: 0.9rem;
-    color: #333;
-    font-weight: 500;
-  }
-}
-</style>

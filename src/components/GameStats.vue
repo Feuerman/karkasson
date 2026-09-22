@@ -1,23 +1,28 @@
 <template>
-  <div class="game-stats">
+  <div class="overflow-hidden rounded-lg bg-surface shadow-strong">
     <div
-      class="game-stats__header"
-      :style="{
-        backgroundColor: gameBoard.gameIsEnded
-          ? winnerPlayer.color
-          : gameBoard.currentPlayer.color,
-      }"
+      :class="
+        playerBackgroundColorClass(
+          gameBoard.gameIsEnded
+            ? winnerPlayer.color
+            : gameBoard.currentPlayer?.color
+        )
+      "
+      class="px-2.5 py-2 text-center text-[1.4em] font-medium text-black"
     >
       <template v-if="gameBoard.gameIsEnded">
         Победитель: {{ winnerPlayer.name }}
       </template>
       <template v-else> Ходит {{ gameBoard.currentPlayer.name }} </template>
     </div>
-    <div class="game-stats__players">
+    <div>
       <div v-for="player in [...gameBoard.players]" :key="player.id">
-        <div class="game-stats__player">
-          <h2>
-            <span :style="{ color: player.color }">{{ player.name }}</span> -
+        <div class="px-2.5 py-2">
+          <h2 class="m-0 text-[1.2em] text-black">
+            <span :class="playerTextColorClass(player.color)">{{
+              player.name
+            }}</span>
+            -
             {{ gameBoard.scores[player.id] }}
             <span
               v-for="item in gameBoard.playersFollowers[player.id]
@@ -34,8 +39,11 @@
 
 <script setup lang="ts">
 import { type IGameBoard } from '../../server/src/modules/GameManager.ts'
-import GameStatsCollapsed from './GameStatsCollapsed.vue'
 import { computed } from 'vue'
+import {
+  playerBackgroundColorClass,
+  playerTextColorClass,
+} from '@/utils/colors'
 
 const props = defineProps<{
   gameBoard: IGameBoard
@@ -61,37 +69,3 @@ const winnerPlayer = computed(() => {
   )
 })
 </script>
-
-<style scoped lang="scss">
-.game-stats {
-  background-color: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  &__title {
-    position: sticky;
-    top: 0;
-    background-color: #fff;
-    border-bottom: 1px solid #e0e0e0;
-    font-size: 1.4rem;
-    color: #333;
-    margin-bottom: 10px;
-    font-weight: 500;
-  }
-  &__header {
-    padding: 10px;
-    color: black;
-    font-size: 1.4em;
-    text-align: center;
-    font-weight: 500;
-  }
-  &__player {
-    padding: 10px;
-    h2 {
-      margin: 0;
-      color: black;
-      font-size: 1.2em;
-    }
-  }
-}
-</style>
