@@ -5,6 +5,44 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.4.0] - 2026-09-22
+
+Переход клиента и сервера с npm на pnpm. Корневой пакет и `server` объединены
+в pnpm-workspace с единым `pnpm-lock.yaml`, `node_modules` стал изолированным
+(pnpm store + симлинки), а build-скрипты чувствительных зависимостей
+(`@firebase/util`, `@parcel/watcher`, `protobufjs`, `vue-demi`) по умолчанию
+заблокированы pnpm — снижен риск исполнения постороннего кода при установке.
+Параллельно проведена чистка секретов: учётные данные opencode убраны из
+репозитория, скомпрометированный ключ API вычищен из истории коммитов.
+Логика игры не менялась.
+
+### Added
+
+- **pnpm-workspace** (`pnpm-workspace.yaml`): пакет `server` стал частью
+  workspace, клиент и сервер устанавливаются одной командой `pnpm install`;
+  `package-lock.json` заменён единым `pnpm-lock.yaml`, изолированные
+  `node_modules` больше не имеют плоского hoisting-а.
+- **Сборка сервера из workspace** — `pnpm --filter server run build`
+  (`server/package.json` переведён на dev-скрипты pnpm).
+
+### Changed
+
+- **`.github/workflows/deploy-gh-pages.yml`** — CI переведён с npm на pnpm:
+  `pnpm/action-setup`, `cache: pnpm`, `pnpm install --frozen-lockfile`.
+- **`README.md`** — команды `npm install/dev/build` заменены на pnpm, добавлен
+  запуск сервера (`pnpm --filter server run dev`).
+- Корневой `package.json` переведён на версию `1.4.0`.
+
+### Security
+
+- **`opencode.json`** — из репозитория убраны учётные данные и локальные пути:
+  API-ключ `ref` и путь к `codebase-memory-mcp` перенесены в глобальный конфиг
+  `~/.config/opencode/opencode.jsonc` с подстановкой `{env:REF_API_KEY}`; в
+  проекте остались только переносимые настройки (модель, `references`,
+  `provider`).
+- **История git** — ранее закоммиченный ключ API и локальные пути пользователя
+  вычищены из всех коммитов (`git filter-repo` + force-push на `origin/main`).
+
 ## [1.3.0] - 2026-09-22
 
 Клиентский `GameService` стал тестируемым: инъекция адреса сервера и
