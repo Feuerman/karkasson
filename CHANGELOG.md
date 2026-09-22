@@ -5,6 +5,51 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.5.0] - 2026-09-22
+
+Клиент переведён с самописных CSS-стилей на Tailwind CSS v4: подключён плагин
+`@tailwindcss/vite`, тема вынесена в `@theme`, из всех Vue-компонентов удалены
+блоки `<style>` и классы переписаны на утилиты Tailwind. Попутно доработаны
+стили лобби: выравнивание слотов игроков, единообразные нижние кнопки, серая
+подсветка пустых инпутов, игроки в списке игр выводятся по одному на строку.
+
+### Added
+
+- **Tailwind CSS v4** — зависимости `tailwindcss` и `@tailwindcss/vite`,
+  плагин подключён в `vite.config.js` (`tailwindcss()`); точка входа —
+  `src/assets/main.css` (`@import 'tailwindcss'`).
+- **Тема** (`@theme` в `src/assets/main.css`): фирменные и нейтральные цвета
+  (primary/success/danger/warning, поверхности, границы, текст), восемь
+  динамических цветов игроков `--color-player-*` (соответствуют `PlayerColors`
+  сервера), `--font-sans`, тени `soft/card/strong`, анимация `tile-pulse`, а
+  также утилиты `tile-pulse` (подсветка активного тайла) и `btn-stone`.
+- **`src/utils/colors.ts`** — маппер цвета игрока в классы Tailwind
+  (`text-player-*` / `bg-player-*` / `border-player-*`); при отсутствии цвета
+  возвращаются нейтральные серые классы.
+
+### Changed
+
+- Все Vue-компоненты (`App.vue`, `GameLobby`, `GameActionsHistory`,
+  `GameStats`/`GameStatsCollapsed`, `TileView`, `Draggable`,
+  `GamePlacingFollowers`, `PlayersListInputCheckbox`, `notification`,
+  `GameControls`, `TilesList`, `AIPlayer`) переведены на утилиты Tailwind,
+  блоки `<style lang="scss">` удалены; `src/assets/base.css` удалён.
+- Подсветка активного тайла: класс `--active` заменён утилитой `tile-pulse`,
+  выделение тайлов доски/истории — через data-атрибуты
+  `data-row-index`/`data-tile-index`.
+- Лобби: кнопки слотов игроков выровнены по высоте инпутов, нижние кнопки
+  («Отключиться» / «Начать игру») оформлены единообразно (равная ширина,
+  скругление, тень, hover-подъём), пустые инпуты игроков стали серыми вместо
+  коралловых (нейтральный fallback в `colors.ts`), игроки в списке игр
+  выводятся по одному на строку.
+- Корневой `package.json` переведён на версию `1.5.0`.
+
+### Removed
+
+- Все блоки `<style>` из SFC и файл `src/assets/base.css`; единственная
+  оставшаяся привязка `:style` — пиксельные координаты перетаскивания тайла
+  в `Draggable.vue`.
+
 ## [1.4.0] - 2026-09-22
 
 Переход клиента и сервера с npm на pnpm. Корневой пакет и `server` объединены
