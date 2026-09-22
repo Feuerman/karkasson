@@ -2,33 +2,47 @@
   <Draggable
     v-if="gameBoard.isPlacingFollower"
     draggable-id="placing-followers"
-    class="min-w-[200px] rounded-lg bg-surface p-4 shadow-card"
     :initial-x="700"
     :initial-y="400"
   >
-    <template v-if="gameBoard.availableFollowersPlaces.length === 0">
-      <div class="mb-2 text-text">Нет доступных клеток</div>
-      <button
-        class="w-full cursor-pointer rounded-lg border-0 bg-surface-muted px-3 py-2 font-medium text-text transition-all duration-200 hover:bg-border disabled:cursor-not-allowed disabled:bg-disabled"
-        @click="gameBoard.isMyTurn && GameService.skipFollower"
-      >
-        Отменить
-      </button>
-    </template>
-    <template v-else>
+    <UCard
+      class="min-w-[200px] shadow-card"
+      :ui="{ root: 'rounded-lg', body: 'p-4' }"
+    >
       <div
-        v-for="(place, index) in gameBoard.availableFollowersPlaces"
-        :key="index"
-        class="mb-1 cursor-pointer rounded-lg p-3 text-center transition-all duration-200 last:mb-0 hover:bg-surface-muted"
-        @click.stop="gameBoard.isMyTurn && GameService.placeFollower(place)"
+        v-if="gameBoard.availableFollowersPlaces.length === 0"
+        class="flex flex-col gap-2"
       >
-        <template v-if="place.temporaryObject?.isMonastery">Монастырь</template>
-        <template v-else>
-          {{ pointTypeTitle(place.point.pointType) }}
-          {{ pointDirectionTitle(place.point.direction) }}
-        </template>
+        <div class="mb-2 text-text">Нет доступных клеток</div>
+        <UButton
+          block
+          variant="soft"
+          color="neutral"
+          class="font-medium"
+          @click="gameBoard.isMyTurn && GameService.skipFollower"
+        >
+          Отменить
+        </UButton>
       </div>
-    </template>
+      <div v-else class="flex flex-col gap-1">
+        <UButton
+          v-for="(place, index) in gameBoard.availableFollowersPlaces"
+          :key="index"
+          block
+          variant="ghost"
+          class="rounded-lg text-center"
+          @click.stop="gameBoard.isMyTurn && GameService.placeFollower(place)"
+        >
+          <template v-if="place.temporaryObject?.isMonastery"
+            >Монастырь</template
+          >
+          <template v-else>
+            {{ pointTypeTitle(place.point.pointType) }}
+            {{ pointDirectionTitle(place.point.direction) }}
+          </template>
+        </UButton>
+      </div>
+    </UCard>
   </Draggable>
 </template>
 
@@ -36,6 +50,8 @@
 import type { IGameBoard } from '@/types/game'
 import type { PointType, PointDirection } from '@server/modules/types'
 import Draggable from '@/components/Draggable.vue'
+import UCard from '@nuxt/ui/components/Card.vue'
+import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 
 defineProps({

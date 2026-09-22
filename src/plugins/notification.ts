@@ -1,44 +1,28 @@
-import { App } from 'vue'
-import { createVNode, render } from 'vue'
-import NotificationComponent from '../components/notification/index.vue'
+export type NotificationType = 'success' | 'error' | 'warning' | 'info'
 
-// Create a global notification service
-const notificationService = {
-  success: (message: string, duration?: number) => {
-    notificationVNode.component?.exposed?.addNotification(
-      message,
-      'success',
-      duration
-    )
-  },
-  error: (message: string, duration?: number) => {
-    notificationVNode.component?.exposed?.addNotification(
-      message,
-      'error',
-      duration
-    )
-  },
-  warning: (message: string, duration?: number) => {
-    notificationVNode.component?.exposed?.addNotification(
-      message,
-      'warning',
-      duration
-    )
-  },
-  info: (message: string, duration?: number) => {
-    notificationVNode.component?.exposed?.addNotification(
-      message,
-      'info',
-      duration
-    )
-  },
+export interface NotificationBridge {
+  show(type: NotificationType, message: string, duration?: number): void
 }
 
-// Create container and component instance
-const container = document.createElement('div')
-document.body.appendChild(container)
-const notificationVNode = createVNode(NotificationComponent)
-render(notificationVNode, container)
+let bridge: NotificationBridge | null = null
 
-// Export the notification service
+export const registerNotificationBridge = (b: NotificationBridge): void => {
+  bridge = b
+}
+
+const notify = (type: NotificationType, message: string, duration?: number) => {
+  bridge?.show(type, message, duration)
+}
+
+const notificationService = {
+  success: (message: string, duration?: number) =>
+    notify('success', message, duration),
+  error: (message: string, duration?: number) =>
+    notify('error', message, duration),
+  warning: (message: string, duration?: number) =>
+    notify('warning', message, duration),
+  info: (message: string, duration?: number) =>
+    notify('info', message, duration),
+}
+
 export default notificationService

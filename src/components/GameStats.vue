@@ -1,5 +1,8 @@
 <template>
-  <div class="overflow-hidden rounded-lg bg-surface shadow-strong">
+  <UCard
+    class="overflow-hidden rounded-lg shadow-strong"
+    :ui="{ root: 'overflow-hidden rounded-lg', body: 'p-0' }"
+  >
     <div
       :class="
         playerBackgroundColorClass(
@@ -18,7 +21,9 @@
     <div>
       <div v-for="player in [...gameBoard.players]" :key="player.id">
         <div class="px-2.5 py-2">
-          <h2 class="m-0 text-[1.2em] text-black">
+          <h2
+            class="m-0 text-[1.2em] whitespace-nowrap text-black"
+          >
             <span :class="playerTextColorClass(player.color)">{{
               player.name
             }}</span>
@@ -34,10 +39,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </UCard>
 </template>
 
 <script setup lang="ts">
+import UCard from '@nuxt/ui/components/Card.vue'
 import type { IGameBoard } from '@/types/game'
 import type { CompletedObjects, PlayerId } from '@server/modules/types'
 import { computed } from 'vue'

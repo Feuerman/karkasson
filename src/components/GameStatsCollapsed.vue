@@ -3,17 +3,21 @@
     <template v-if="isOpened">
       <slot />
     </template>
-    <button
-      class="cursor-pointer rounded-lg border-0 bg-surface-muted px-4 py-1.5 text-sm font-medium text-text transition-all duration-200 hover:bg-border"
+    <UButton
+      size="sm"
+      variant="soft"
+      color="neutral"
+      class="self-start px-4 py-1.5 font-medium"
       @click="isOpened = !isOpened"
     >
       {{ !isOpened ? 'Показать' : 'Скрыть' }}
-    </button>
+    </UButton>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import UButton from '@nuxt/ui/components/Button.vue'
 
 const isOpened = ref(false)
 </script>
