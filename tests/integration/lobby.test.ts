@@ -125,14 +125,16 @@ describe('Лобби', () => {
     // Берём слепок из того же предикатного latestGame (повторный вызов
     // создавал бы гонку между двумя разными socket-соединениями).
     lobby.joiner.emit('leaveGame', { gameId: lobby.gameId })
-    const afterJoiner = (await latestGame(
-      lobby.creator,
-      (g) =>
-        g.players[1] !== undefined &&
-        !g.players[1].socketId &&
-        !g.players[1].deviceId &&
-        Boolean(g.players[0]?.socketId)
-    )).players as Array<{
+    const afterJoiner = (
+      await latestGame(
+        lobby.creator,
+        (g) =>
+          g.players[1] !== undefined &&
+          !g.players[1].socketId &&
+          !g.players[1].deviceId &&
+          Boolean(g.players[0]?.socketId)
+      )
+    ).players as Array<{
       socketId: string | null
       deviceId: string | null
     }>

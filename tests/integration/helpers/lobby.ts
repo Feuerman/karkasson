@@ -88,9 +88,6 @@ export async function latestGame(
   )) as TestGameData
 }
 
-export function playerIndexByName(
-  game: TestGameData,
-  name: string
-): number {
+export function playerIndexByName(game: TestGameData, name: string): number {
   return game.players.findIndex((p) => p.name === name)
 }

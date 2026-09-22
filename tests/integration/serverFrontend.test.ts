@@ -4,10 +4,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-import {
-  startTestFrontend,
-  type RunningFrontend,
-} from './helpers/frontend'
+import { startTestFrontend, type RunningFrontend } from './helpers/frontend'
 
 describe('Запуск сервера и фронтенда', () => {
   let server: RunningServer | undefined
