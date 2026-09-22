@@ -5,6 +5,63 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.8.0] - 2026-09-22
+
+Интерфейс переведён с ручной вёрстки на компоненты Nuxt UI v4: вместо
+`@tailwindcss/vite` подключён `@nuxt/ui/vite`, добавлены vue-плагин и стили
+`@import '@nuxt/ui'`, а нативные `button`/`input`/спиннеры/панели/уведомления
+заменены на `UButton`, `UInput`, `UCheckbox`, `UBadge`, `UCard`, `UEmpty`,
+`USlideover`, `UDropdownMenu`, `UToaster`, `UAlert`, `UTable`. В главном меню
+появился раздел «Правила игры» с текстовым справочником и примерами.
+
+### Added
+
+- **`src/rules/`** — данные правил: `types.ts` (маркеры, референсы тайлов,
+  сетки примеров), `baseGame.ts` (базовые правила по секциям), `examples.ts`
+  (примеры раскладок); модульные тесты `tests/unit/rulesExamples.test.ts`.
+- **`src/components/rules/RulesPanel.vue`** — панель правил на `USlideover`
+  (sidebar) с навигацией по секциям `UButton`; пункт «Правила игры»
+  (`i-lucide-circle-help`) в меню игры.
+- **`src/components/rules/RulesBlockRenderer.vue`** — рендер блоков документа:
+  callout → `UAlert` (tip/warning/default с иконками lucide), таблицы → `UTable`,
+  примеры → `RulesExampleGrid`.
+- **`src/components/rules/RulesExampleGrid.vue`** — сетка примеров из тайлов с
+  маркерами (подданные, запрет, завершение) через `UIcon`.
+- **`src/components/ToastBridge.vue`** — мост уведомлений: сервис
+  `notificationService` → `useToast`/`UToaster` с маппингом цветов и иконок.
+
+### Changed
+
+- **`vite.config.js` / `src/main.js` / `src/assets/main.css` / `index.html`** —
+  `ui()` (`@nuxt/ui/vite`) вместо `tailwindcss()` (Tailwind v4 подключается
+  вместе с Nuxt UI), `app.use(ui)`, `@import '@nuxt/ui'`, контейнер монтирования
+  получает `class="isolate"`.
+- **`package.json`** — добавлена зависимость `@nuxt/ui` `^4.11.2`, корневой
+  `package.json` переведён на версию `1.8.0`.
+- **`src/plugins/notification.ts`** — bridge-регистрация
+  (`NotificationType`, `NotificationBridge`, `registerNotificationBridge`);
+  API сервиса `success/error/warning/info` не изменился.
+- **`src/App.vue`** — кнопки «Выйти из игры», «Разместить», поворота тайла",
+  сброса масштаба, оверлей реконнекта и чипы игроков — `UButton`/`UIcon`/
+  `UBadge`; исправлена центровка иконных кнопок поворота.
+- **`src/components/GameLobby.vue`** — слоты игроков на `UCheckbox`/`UInput`/
+  `UButton` с рамкой в цвет игрока, панели и карточки игр на `UCard`, пустое
+  лобби на `UEmpty`, спиннер соединения на `UIcon`.
+- **`src/components/GameMenu.vue`** — `UDropdownMenu` с триггером `UButton`.
+- **`GameStats.vue` / `GameStatsCollapsed.vue` / `GameActionsHistory.vue` /
+  `GamePlacingFollowers.vue` / `SavedGames.vue`** — панели на `UCard`, кнопки и
+  инпуты на `UButton`/`UInput`; строки статистики без переносов
+  (`whitespace-nowrap`).
+- **Интеграционные тесты** — `helpers/frontend.ts` запускает Vite с
+  `ui()`-плагином и алиасом `@server`, `vitest.integration.config.ts` добавляет
+  алиасы `@`/`@server`, ассерт `<div id="app"` учитывает `class="isolate"`.
+
+### Removed
+
+- `src/components/notification/index.vue` (уведомления переведены на
+  `UToaster`/`ToastBridge`) и `src/components/PlayersListInputCheckbox.vue`
+  (заменён связкой `UCheckbox` внутри `GameLobby`).
+
 ## [1.7.0] - 2026-09-22
 
 Проект избавлен от `any`: все оставшиеся нестрогие места типизированы, а
