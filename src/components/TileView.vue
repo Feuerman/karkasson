@@ -1,10 +1,12 @@
 <template>
-  <div class="relative overflow-hidden rounded-lg bg-surface shadow-soft">
+  <div
+    class="relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-surface shadow-soft"
+  >
     <template v-if="props.tile?.imgUrl">
       <img
         :src="tileImg"
         :class="rotateClass"
-        class="block transition-transform duration-200 ease-in-out"
+        class="block h-full w-full object-cover transition-transform duration-200 ease-in-out"
         :alt="props.tile?.imgUrl"
         @load="drawTile"
       />
@@ -12,7 +14,7 @@
         ref="canvas"
         :width="size"
         :height="size"
-        class="pointer-events-none absolute left-0 top-0"
+        class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
       ></canvas>
     </template>
     <template v-else>
