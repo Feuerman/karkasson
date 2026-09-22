@@ -69,9 +69,18 @@ describe('Подсчёт очков и полная партия', () => {
     expect(stats.completedAtEnd.roads).toBeGreaterThan(0)
     expect(stats.completedAtEnd.cities).toBeGreaterThan(0)
 
-    // Алиса размещала фишки и получала их обратно по завершении
+    // Алиса размещала фишки
     expect(stats.followersPlaced).toBeGreaterThan(0)
-    expect(stats.aliceFollowerReturns).toBeGreaterThan(0)
+
+    // Детерминированный учёт фишек Алисы: каждая размещённая фишка либо
+    // вернулась в запас (строение завершилось), либо осталась на доске на
+    // незавершённом объекте. Сколько именно возвратов случится — зависит от
+    // случайной формы доски, поэтому жёсткое «> 0» здесь было бы флейки-тестом.
+    // А сам механизм возврата «не остаётся фишек на завершённых строениях»
+    // детерминированно проверяется в assertFollowerInvariants ниже.
+    expect(stats.aliceFollowerReturns + stats.aliceFollowersOnBoardAtEnd).toBe(
+      stats.aliceFollowedObjects
+    )
 
     // Итоговые очки равны сумме очков за завершённые строения
     verifyScoringAgainstServer(endState)

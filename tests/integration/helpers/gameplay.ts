@@ -590,6 +590,24 @@ export function assertFollowerInvariants(
   let totalPlaced = 0
   let totalOrdinary = 0
 
+  // Завершённое строение снимает все свои фишки с доски (возврат в запас).
+  // Поэтому ни одна фишка из placedFollowers не может ссылаться на объект,
+  // который уже попал в completedObjects.
+  const completedObjectIds = new Set<string>()
+  if (state.completedObjects) {
+    const completedGroups = [
+      state.completedObjects.roads,
+      state.completedObjects.cities,
+      state.completedObjects.monasteries,
+    ]
+    for (const group of completedGroups) {
+      for (const object of group) completedObjectIds.add(object.id)
+    }
+  }
+  for (const follower of state.placedFollowers) {
+    expect(completedObjectIds.has(follower.objectId)).toBe(false)
+  }
+
   for (const player of state.players) {
     const placedCount = state.placedFollowers.filter(
       (follower) => playerId(follower.playerId) === playerId(player.id)
@@ -619,6 +637,8 @@ export interface GamePlayStats {
   aliceTurns: number
   followersPlaced: number
   aliceFollowerReturns: number
+  aliceFollowedObjects: number
+  aliceFollowersOnBoardAtEnd: number
   completedAtEnd: { roads: number; cities: number; monasteries: number }
   endState: GameStateSnapshot
 }
@@ -647,11 +667,14 @@ export async function playFullGame(
     aliceTurns: 0,
     followersPlaced: 0,
     aliceFollowerReturns: 0,
+    aliceFollowedObjects: 0,
+    aliceFollowersOnBoardAtEnd: 0,
     completedAtEnd: { roads: 0, cities: 0, monasteries: 0 },
     endState: state,
   }
 
-  const aliceFollowedObjectIds = new Set<string>()
+  const aliceEverFollowedObjects = new Set<string>()
+  const aliceFollowersOnBoard = new Set<string>()
 
   const processState = (s: GameStateSnapshot) => {
     verifyScoringAgainstServer(s)
@@ -664,10 +687,17 @@ export async function playFullGame(
     const currentIds = new Set(
       alicePlaced.map((follower) => String(follower.objectId))
     )
-    for (const objectId of aliceFollowedObjectIds) {
-      if (!currentIds.has(objectId)) stats.aliceFollowerReturns++
+    for (const objectId of currentIds) aliceEverFollowedObjects.add(objectId)
+
+    for (const objectId of aliceFollowersOnBoard) {
+      if (!currentIds.has(objectId)) {
+        // Фишка исчезла с доски (строение завершено и счёт начислен) —
+        // объект засчитывается как «возвращённый» ровно один раз.
+        stats.aliceFollowerReturns++
+        aliceFollowersOnBoard.delete(objectId)
+      }
     }
-    for (const objectId of currentIds) aliceFollowedObjectIds.add(objectId)
+    for (const objectId of currentIds) aliceFollowersOnBoard.add(objectId)
   }
 
   processState(state)
@@ -694,6 +724,8 @@ export async function playFullGame(
   }
 
   stats.endState = state
+  stats.aliceFollowedObjects = aliceEverFollowedObjects.size
+  stats.aliceFollowersOnBoardAtEnd = aliceFollowersOnBoard.size
   stats.completedAtEnd.roads = state.completedObjects?.roads.length ?? 0
   stats.completedAtEnd.cities = state.completedObjects?.cities.length ?? 0
   stats.completedAtEnd.monasteries =

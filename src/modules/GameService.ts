@@ -1,6 +1,6 @@
-import { io, Socket } from 'socket.io-client'
+import { io, type Socket } from 'socket.io-client'
 import { ref } from 'vue'
-import { AvailableFollowerPlace } from '../../server/src/modules/GameManager'
+import type { AvailableFollowerPlace } from '../../server/src/modules/GameManager'
 
 export interface IGameService {
   socket: Socket | null
@@ -12,21 +12,32 @@ export interface IGameService {
   joinGame: (gameId: string, playerName: string) => Promise<any>
 }
 
-// Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
+export interface GameServiceOptions {
+  serverUrl?: string
+  deviceId?: string
+}
 
-class GameService implements IGameService {
+// Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
+const DEFAULT_SERVER_URL =
+  import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
+
+export class GameService implements IGameService {
   socket: Socket | null
   gameId: string
   deviceId: string
   gamesList: any[] = []
   isConnected = ref(false)
+  private serverUrl: string
 
-  constructor() {
+  constructor(options: GameServiceOptions = {}) {
     this.socket = null
     this.gameId = ''
     this.gamesList = []
-    this.deviceId = localStorage.getItem('deviceId') || crypto.randomUUID()
+    this.serverUrl = options.serverUrl ?? DEFAULT_SERVER_URL
+    this.deviceId =
+      options.deviceId ??
+      localStorage.getItem('deviceId') ??
+      crypto.randomUUID()
     localStorage.setItem('deviceId', this.deviceId)
   }
 
@@ -37,6 +48,7 @@ class GameService implements IGameService {
       return
     }
 
+    const SERVER_URL = this.serverUrl
     const isSecure = SERVER_URL.startsWith('https')
     this.socket = io(SERVER_URL, {
       secure: isSecure,

@@ -56,9 +56,7 @@ describe('Отключение и переподключение игроков'
 
     // Device у Боба сохранился, а socket освобождён
     const savedAfterDisconnect = await server.db.getGame(lobby.gameId)
-    const savedBob = savedAfterDisconnect?.players.find(
-      (p) => p.name === 'Bob'
-    )
+    const savedBob = savedAfterDisconnect?.players.find((p) => p.name === 'Bob')
     expect(savedBob?.socketId).toBeNull()
     expect(savedBob?.deviceId).toBe('device-joiner')
 
@@ -73,7 +71,8 @@ describe('Отключение и переподключение игроков'
 
     const rejoined = await latestGame(
       lobby.joiner,
-      (g) => g.players.find((p) => p.name === 'Bob')?.socketId === lobby.joiner.id
+      (g) =>
+        g.players.find((p) => p.name === 'Bob')?.socketId === lobby.joiner.id
     )
     const rejoinedBob = rejoined.players.find((p) => p.name === 'Bob')
     expect(rejoinedBob?.socketId).toBe(lobby.joiner.id)
@@ -160,8 +159,7 @@ describe('Отключение и переподключение игроков'
     const after = await latestGame(
       lobby.joiner,
       (g) =>
-        g.players.find((p) => p.name === 'Alice')?.socketId ===
-        lobby.creator.id
+        g.players.find((p) => p.name === 'Alice')?.socketId === lobby.creator.id
     )
     expect(after.gameIsStarted).toBe(true)
     expect(after.tilePlacesStats).toEqual(beforeState.tilePlacesStats)
