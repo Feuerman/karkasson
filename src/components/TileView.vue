@@ -1,9 +1,10 @@
 <template>
-  <div class="tile">
+  <div class="relative overflow-hidden rounded-lg bg-surface shadow-soft">
     <template v-if="props.tile?.imgUrl">
       <img
         :src="tileImg"
-        :style="imageStyle"
+        :class="rotateClass"
+        class="block transition-transform duration-200 ease-in-out"
         :alt="props.tile?.imgUrl"
         @load="drawTile"
       />
@@ -11,16 +12,11 @@
         ref="canvas"
         :width="size"
         :height="size"
-        :style="{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          pointerEvents: 'none',
-        }"
+        class="pointer-events-none absolute left-0 top-0"
       ></canvas>
     </template>
     <template v-else>
-      <div class="tile__empty"></div>
+      <div></div>
     </template>
   </div>
 </template>
@@ -69,11 +65,16 @@ const tileImg = computed(() => {
   return imagesMap[props.tile?.id]
 })
 
-const imageStyle = computed(() => {
-  return {
-    transform: 'rotate(' + props.tile?.rotation + 'deg)',
-    transition: 'transform 0.2s ease-in-out',
-  }
+const rotateClasses: Record<number, string> = {
+  0: 'rotate-0',
+  90: 'rotate-90',
+  180: 'rotate-180',
+  270: 'rotate-270',
+}
+
+const rotateClass = computed(() => {
+  const rotation = (((props.tile?.rotation ?? 0) % 360) + 360) % 360
+  return rotateClasses[rotation] ?? 'rotate-0'
 })
 
 const canvas = ref(null)
@@ -164,112 +165,3 @@ watch(
   { deep: true }
 )
 </script>
-
-<style lang="scss" scoped>
-.tile-view {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
-  &__image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  &__follower {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    color: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    transform: translate(-50%, -50%);
-
-    &--knight {
-      background-color: #f44336;
-    }
-
-    &--farmer {
-      background-color: #4caf50;
-    }
-
-    &--monk {
-      background-color: #9c27b0;
-    }
-
-    &--robber {
-      background-color: #ff9800;
-    }
-
-    &--north {
-      top: 25%;
-      left: 50%;
-    }
-
-    &--south {
-      top: 75%;
-      left: 50%;
-    }
-
-    &--east {
-      top: 50%;
-      left: 75%;
-    }
-
-    &--west {
-      top: 50%;
-      left: 25%;
-    }
-
-    &--center {
-      top: 50%;
-      left: 50%;
-    }
-  }
-
-  &__overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-
-    &:hover {
-      opacity: 1;
-    }
-  }
-
-  &__rotation-indicator {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 20px;
-    height: 20px;
-    background-color: rgba(255, 255, 255, 0.8);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    color: #333;
-  }
-}
-</style>

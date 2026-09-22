@@ -1,15 +1,15 @@
 <template>
   <Draggable draggable-id="tiles-list">
-    <div class="game-all-tiles">
+    <div class="grid w-[500px] grid-cols-15">
       <div
         v-for="tile in tiles"
         :key="tile.id"
-        class="game-all-tiles__tile"
+        class="mb-5 w-[110px]"
         :class="{
-          '--disabled': tile.count - (currentTilesCount[tile.id] || 0) === 0,
+          'opacity-50': tile.count - (currentTilesCount[tile.id] || 0) === 0,
         }"
       >
-        <div class="game-all-tiles__tile__count">
+        <div class="mb-1 text-center text-xl font-bold text-black">
           {{ tile.count - (currentTilesCount[tile.id] || 0) }}
         </div>
         <TileView :tile="tile" />
@@ -40,28 +40,3 @@ const currentTilesCount = computed(() => {
   )
 })
 </script>
-
-<style scoped lang="scss">
-.game-all-tiles {
-  display: grid;
-  grid-template-columns: repeat(15, 1fr);
-  width: 500px;
-
-  &__tile {
-    width: 110px;
-    margin-bottom: 20px;
-
-    &.--disabled {
-      opacity: 0.5;
-    }
-  }
-
-  &__tile__count {
-    color: #000;
-    font-size: 20px;
-    text-align: center;
-    margin-bottom: 5px;
-    font-weight: bold;
-  }
-}
-</style>

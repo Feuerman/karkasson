@@ -1,11 +1,18 @@
 <template>
-  <div class="notifications-container">
-    <TransitionGroup name="notification">
+  <div class="fixed right-5 top-5 z-[9999] flex flex-col gap-2.5">
+    <TransitionGroup
+      enter-active-class="transition-all duration-300 ease"
+      enter-from-class="translate-x-[30px] opacity-0"
+      enter-to-class="translate-x-0 opacity-100"
+      leave-active-class="transition-all duration-300 ease"
+      leave-from-class="translate-x-0 opacity-100"
+      leave-to-class="translate-x-[30px] opacity-0"
+    >
       <div
         v-for="notification in notifications"
         :key="notification.id"
-        class="notification"
-        :class="notification.type"
+        class="min-w-[200px] rounded px-6 py-3 text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] transition-all duration-300 ease"
+        :class="typeClass(notification.type)"
       >
         {{ notification.message }}
       </div>
@@ -26,6 +33,16 @@ interface Notification {
 const notifications = ref<Notification[]>([])
 let nextId = 1
 
+const typeClassMap: Record<Notification['type'], string> = {
+  success: 'bg-success',
+  error: 'bg-danger',
+  warning: 'bg-warning',
+  info: 'bg-primary',
+}
+
+const typeClass = (type: Notification['type']): string =>
+  typeClassMap[type] ?? typeClassMap.info
+
 const addNotification = (
   message: string,
   type: 'success' | 'error' | 'warning' | 'info' = 'info',
@@ -44,54 +61,3 @@ defineExpose({
   addNotification,
 })
 </script>
-
-<style scoped lang="scss">
-.notifications-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.notification {
-  padding: 12px 24px;
-  border-radius: 4px;
-  color: white;
-  min-width: 200px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-
-  &.success {
-    background-color: #4caf50;
-  }
-
-  &.error {
-    background-color: #f44336;
-  }
-
-  &.warning {
-    background-color: #ff9800;
-  }
-
-  &.info {
-    background-color: #2196f3;
-  }
-}
-
-.notification-enter-active,
-.notification-leave-active {
-  transition: all 0.3s ease;
-}
-
-.notification-enter-from {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-.notification-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-</style>

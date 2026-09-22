@@ -1,9 +1,12 @@
 <template>
-  <div class="game-stats-collapsed">
+  <div class="flex flex-col gap-2">
     <template v-if="isOpened">
       <slot />
     </template>
-    <button @click="isOpened = !isOpened">
+    <button
+      class="cursor-pointer rounded-lg border-0 bg-surface-muted px-4 py-1.5 text-sm font-medium text-text transition-all duration-200 hover:bg-border"
+      @click="isOpened = !isOpened"
+    >
       {{ !isOpened ? 'Показать' : 'Скрыть' }}
     </button>
   </div>
@@ -14,19 +17,3 @@ import { ref } from 'vue'
 
 const isOpened = ref(false)
 </script>
-
-<style scoped lang="scss">
-.game-stats {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  z-index: 2;
-  width: 500px;
-  height: 400px;
-  background-color: white;
-  padding: 20px;
-  border-radius: 5px;
-  color: black;
-  overflow: scroll;
-}
-</style>

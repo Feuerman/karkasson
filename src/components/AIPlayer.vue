@@ -1,6 +1,12 @@
 <template>
-  <div class="ai-player">
-    <button :disabled="!canMakeMove" @click="makeAIMove">Make AI Move</button>
+  <div class="m-2.5">
+    <button
+      :disabled="!canMakeMove"
+      class="cursor-pointer rounded border-0 bg-success px-4 py-2 text-white transition-colors duration-200 hover:bg-success-dark disabled:cursor-not-allowed disabled:bg-[#cccccc]"
+      @click="makeAIMove"
+    >
+      Make AI Move
+    </button>
   </div>
 </template>
 
@@ -44,23 +50,3 @@ const makeAIMove = () => {
   }
 }
 </script>
-
-<style scoped>
-.ai-player {
-  margin: 10px;
-}
-
-button {
-  padding: 8px 16px;
-  background-color: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-</style>

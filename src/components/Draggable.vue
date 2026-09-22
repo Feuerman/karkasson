@@ -1,9 +1,13 @@
 <template>
   <div
     ref="draggableElement"
-    class="draggable"
+    class="absolute z-[2000] max-h-[90vh] touch-none will-change-transform"
+    :class="
+      isDragging
+        ? 'pointer-events-none transition-none'
+        : 'pointer-events-auto transition-transform duration-200 ease'
+    "
     :style="dragStyle"
-    :class="{ 'draggable--dragging': isDragging }"
   >
     <template v-if="isNoneStyle">
       <div @mousedown="startDrag">
@@ -11,7 +15,16 @@
       </div>
     </template>
     <template v-else>
-      <div v-if="!disabled" class="draggable__icon" @mousedown="startDrag" />
+      <div
+        v-if="!disabled"
+        :class="
+          isDragging
+            ? 'cursor-grabbing bg-[#45a049]'
+            : 'cursor-move bg-success/70'
+        "
+        class="absolute left-1/2 top-[calc(100%_-_2px)] flex h-3 w-[30px] -translate-x-1/2 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white shadow-soft transition-colors duration-300 after:absolute after:-left-1 after:-top-1 after:h-[calc(100%_+_8px)] after:w-[calc(100%_+_8px)] after:bg-black/10 after:content-['']"
+        @mousedown="startDrag"
+      />
       <slot />
     </template>
   </div>
@@ -214,56 +227,7 @@ const stopDrag = () => {
 }
 
 const dragStyle = computed(() => ({
-  transition: isDragging.value ? 'none' : 'transform 0.2s ease',
-  pointerEvents: isDragging.value ? 'none' : 'auto',
-  position: 'absolute',
   top: `${dragPosition.value.y}px`,
   left: `${dragPosition.value.x}px`,
 }))
 </script>
-
-<style scoped lang="scss">
-.draggable {
-  position: absolute;
-  z-index: 2000;
-  touch-action: none;
-  will-change: transform;
-  max-height: 90vh;
-  &__icon {
-    cursor: move;
-    position: absolute;
-    top: calc(100% - 2px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: 30px;
-    height: 12px;
-    background-color: rgba(76, 175, 80, 0.7);
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 12px;
-    font-weight: bold;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    transition: width 0.3s ease;
-    &::after {
-      content: '';
-      position: absolute;
-      top: -4px;
-      left: -4px;
-      width: calc(100% + 8px);
-      height: calc(100% + 8px);
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-  }
-  &--dragging {
-    //box-shadow: 0 2px 10px rgba(255, 255, 255, 1);
-    .draggable__icon {
-      cursor: grabbing;
-      background-color: #45a049;
-    }
-  }
-}
-</style>

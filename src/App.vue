@@ -1,23 +1,35 @@
 <template>
-  <div class="game-wrapper">
-    <div v-if="playersReconnectProcess" class="players-reconnect">
-      <div class="players-reconnect__title">
-        <div class="loader-spinner"></div>
+  <div class="relative flex h-full flex-col bg-surface-muted text-text">
+    <div
+      v-if="playersReconnectProcess"
+      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-5 bg-black/80 text-lg font-medium text-white"
+    >
+      <div class="flex flex-col items-center gap-2.5">
+        <div
+          class="h-10 w-10 animate-spin rounded-full border-4 border-track border-t-accent"
+        ></div>
         <div>Ожидание подключения игроков</div>
       </div>
-      <div class="players-reconnect__players">
+      <div class="flex flex-wrap justify-center gap-2.5">
         <div
           v-for="player in reconnectingPlayers"
           :key="player.id"
-          class="players-reconnect__player"
+          class="rounded bg-white/20 px-2.5 py-1"
         >
           {{ player.name }}
         </div>
       </div>
     </div>
-    <div v-if="!showLobby" class="back-to-lobby" @click="goInLobby">
+    <div
+      v-if="!showLobby"
+      class="group fixed right-8 top-8 z-[9999] flex cursor-pointer items-center justify-center gap-2.5 rounded bg-success px-2.5 py-1 text-base text-white transition-colors duration-200 hover:bg-success/80 active:bg-success/60"
+      @click="goInLobby"
+    >
       <i class="fa fa-home" aria-hidden="true">&lt;</i>
-      <span>Выйти из игры</span>
+      <span
+        class="block w-0 overflow-hidden whitespace-nowrap transition-[width] duration-200 group-hover:w-[145px]"
+        >Выйти из игры</span
+      >
     </div>
     <GameLobby
       v-if="showLobby"
@@ -46,18 +58,22 @@
       :disabled="!gameState.isMyTurn"
       draggable-id="tile-preview"
     >
-      <div class="game-preview-tile">
+      <div class="overflow-hidden [transform-origin:center]">
         <button
           v-if="gameState.isMyTurn"
-          class="game-preview-tile__place-button"
+          class="absolute -top-[30px] left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded bg-success px-2.5 py-1 text-[14px] text-white transition-colors duration-200 hover:bg-success/80 active:bg-success/60"
           @click="
             gameState.isMyTurn && placeTile(localCurrentTile, hoveredTile)
           "
         >
           Разместить
         </button>
-        <div v-if="gameState.isMyTurn" class="game-preview-tile__controls">
+        <div
+          v-if="gameState.isMyTurn"
+          class="absolute left-1/2 top-[15px] z-[9999] flex -translate-x-1/2 gap-[35px] rounded"
+        >
           <button
+            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded border-0 bg-primary text-base text-white transition-colors duration-200 hover:bg-primary-dark active:bg-primary-darker"
             @click.stop.prevent="
               rotateTile(localCurrentTile, 'counterclockwise')
             "
@@ -65,28 +81,35 @@
             ↺
           </button>
           <button
+            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded border-0 bg-primary text-base text-white transition-colors duration-200 hover:bg-primary-dark active:bg-primary-darker"
             @click.stop.prevent="rotateTile(localCurrentTile, 'clockwise')"
           >
             ↻
           </button>
         </div>
-        <TileView :tile="localCurrentTile" class="preview-tile" />
+        <TileView
+          :tile="localCurrentTile"
+          class="relative cursor-grab overflow-hidden rounded-lg transition-transform duration-200 active:cursor-grabbing"
+        />
       </div>
     </Draggable>
-    <div ref="gameBoardRef" class="game-board">
+    <div
+      ref="gameBoardRef"
+      class="flex w-full flex-col gap-2.5 overflow-scroll rounded-lg bg-board p-2.5 shadow-[inset_0_0_10px_rgba(0,0,0,0.1)]"
+    >
       <div
         v-for="(row, rowIndex) in defaultGrid"
         :key="rowIndex"
-        class="game-row"
+        class="flex gap-2.5"
       >
         <div
           v-for="(tile, tileIndex) in row"
           :key="tileIndex"
-          class="game-tile"
+          class="relative h-[115px] w-[115px] flex-shrink-0 rounded-lg border border-border bg-surface shadow-soft transition-all duration-200"
           :class="[
             hoveredTile?.rowIndex === rowIndex &&
             hoveredTile?.tileIndex === tileIndex
-              ? '--active'
+              ? 'tile-pulse'
               : '',
           ]"
           :data-row-index="rowIndex"
@@ -196,11 +219,7 @@ const zoomToTile = ({
     return
   }
   const targetTile = document.querySelector(
-    '.game-tile[data-row-index="' +
-      rowIndex +
-      '"][data-tile-index="' +
-      tileIndex +
-      '"]'
+    '[data-row-index="' + rowIndex + '"][data-tile-index="' + tileIndex + '"]'
   )
 
   if (targetTile) {
@@ -270,7 +289,7 @@ const onGameStart = (gameData: IGame) => {
 
       setTimeout(() => {
         const targetTile = document.querySelector(
-          '.game-tile[data-row-index="' +
+          '[data-row-index="' +
             hoveredTile.value.rowIndex +
             '"][data-tile-index="' +
             hoveredTile.value.tileIndex +
@@ -519,302 +538,3 @@ onMounted(async () => {
   })
 })
 </script>
-
-<style lang="scss" scoped>
-.game-wrapper {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  background-color: #f5f5f5;
-  color: #333;
-}
-
-.game-header {
-  padding: 1rem;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-
-  &__left,
-  &__right {
-    display: flex;
-    gap: 1rem;
-  }
-}
-
-.game-board {
-  width: 100%;
-  display: flex;
-  gap: 10px;
-  flex-direction: column;
-  background-color: #e8e8e8;
-  overflow: scroll;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
-
-  .game-row {
-    display: flex;
-    gap: 10px;
-  }
-
-  .game-tile {
-    position: relative;
-    flex-shrink: 0;
-    width: 115px;
-    height: 115px;
-    border-radius: 8px;
-    border: 1px solid #e0e0e0;
-    transition: all 0.2s ease;
-    background-color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
-    &.drop-possible {
-      box-shadow: 0 0 15px rgba(76, 175, 80, 0.7);
-      background-color: rgba(76, 175, 80, 0.1);
-    }
-
-    &.drop-forbidden {
-      box-shadow: 0 0 15px rgba(244, 67, 54, 0.7);
-      background-color: rgba(244, 67, 54, 0.1);
-    }
-
-    &.--active {
-      //box-shadow: 0 0 8px 8px rgba(76, 175, 80, 0.7);
-      //border: 1px solid rgba(76, 175, 80, 0.7);
-      //background-color: rgba(76, 175, 80, 0.7);
-      animation: pulse 1s infinite ease-in-out;
-    }
-  }
-
-  @keyframes pulse {
-    0% {
-      box-shadow: 0 0 8px 8px rgba(76, 175, 80, 0.5);
-      border: 1px solid rgba(76, 175, 80, 0.5);
-      background-color: rgba(76, 175, 80, 0.5);
-    }
-    25% {
-      box-shadow: 0 0 10px 10px rgba(76, 175, 80, 0.5);
-      border: 1px solid rgba(76, 175, 80, 0.5);
-      background-color: rgba(76, 175, 80, 0.5);
-    }
-    50% {
-      box-shadow: 0 0 12px 12px rgba(76, 175, 80, 0.6);
-      border: 1px solid rgba(76, 175, 80, 0.6);
-      background-color: rgba(76, 175, 80, 0.6);
-    }
-    75% {
-      box-shadow: 0 0 14px 14px rgba(76, 175, 80, 0.6);
-      border: 1px solid rgba(76, 175, 80, 0.6);
-      background-color: rgba(76, 175, 80, 0.6);
-    }
-    100% {
-      box-shadow: 0 0 20px 20px rgba(76, 175, 80, 0.7);
-      border: 1px solid rgba(76, 175, 80, 0.7);
-      background-color: rgba(76, 175, 80, 0.7);
-    }
-  }
-
-  .game-tile__coords {
-    position: absolute;
-    top: -22px;
-    left: 5px;
-    font-size: 0.8rem;
-    color: #666;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
-}
-
-.preview-tile {
-  position: relative;
-  cursor: grab;
-  transition: transform 0.2s ease;
-  border-radius: 8px;
-  overflow: hidden;
-
-  &:active {
-    cursor: grabbing;
-  }
-}
-
-.dragged-tile {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 110px;
-  height: 110px;
-  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
-  transform-origin: center;
-  border-radius: 8px;
-  overflow: hidden;
-
-  &:hover {
-    transform: scale(1.05);
-  }
-}
-
-.game-preview-tile {
-  transform-origin: center;
-  overflow: hidden;
-
-  &__place-button {
-    position: absolute;
-    top: -30px;
-    left: 50%;
-    transform: translateX(-50%);
-    border: none;
-    background-color: rgba(76, 175, 80, 1);
-    padding: 5px 10px;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    transition: background-color 0.2s ease;
-
-    &:hover {
-      background-color: rgba(76, 175, 80, 0.8);
-    }
-
-    &:active {
-      background-color: rgba(76, 175, 80, 0.6);
-    }
-  }
-
-  &__controls {
-    z-index: 9999;
-    display: flex;
-    gap: 35px;
-    position: absolute;
-    top: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 4px;
-
-    button {
-      width: 24px;
-      height: 24px;
-      border: none;
-      background-color: #2196f3;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      transition: background-color 0.2s ease;
-
-      &:hover {
-        background-color: #1976d2;
-      }
-
-      &:active {
-        background-color: #1565c0;
-      }
-    }
-  }
-}
-
-.back-to-lobby {
-  position: fixed;
-  top: 30px;
-  right: 30px;
-  z-index: 9999;
-  border: none;
-  background-color: rgba(76, 175, 80, 1);
-  padding: 5px 10px;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-size: 16px;
-  transition: background-color 0.2s ease;
-
-  span {
-    display: block;
-    width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    transition: width 0.2s ease;
-  }
-
-  &:hover {
-    background-color: rgba(76, 175, 80, 0.8);
-    span {
-      width: 145px;
-    }
-  }
-
-  &:active {
-    background-color: rgba(76, 175, 80, 0.6);
-  }
-}
-
-.players-reconnect {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  color: white;
-  font-size: 1.2rem;
-  font-weight: 500;
-
-  &__title {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-
-  &__players {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-  }
-
-  &__player {
-    padding: 5px 10px;
-    border-radius: 4px;
-    background-color: rgba(255, 255, 255, 0.2);
-  }
-}
-
-.loader-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #5a80aa;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-</style>
