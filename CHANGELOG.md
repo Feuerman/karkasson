@@ -5,6 +5,50 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.3.0] - 2026-09-22
+
+Клиентский `GameService` стал тестируемым: инъекция адреса сервера и
+`deviceId`, класс `GameService` экспортируется, модульные тесты подсчёта
+очков переведены на чистую игровую логику. Добавлены интеграционные тесты
+игровых действий (валидация хода, вращения, выход из игры в запущенной
+партии), полной партии против четырёх ИИ и клиентского `GameService`.
+
+### Added
+
+- **Модульные тесты подсчёта очков** (`tests/unit/scoring.test.ts`) на
+  чистую игровую логику — детерминированный сценарий против
+  `tests/integration/scoring.test.ts` с полным перебором.
+- **`tests/integration/gameActions.test.ts`** — `placeTile` с неверной
+  позицией и вращениями, занятое место, смена хода; `leaveGame` в
+  запущенной партии (события фильтруются по `gameIsStarted`).
+- **`tests/integration/computerOnly.test.ts`** — полная партия против
+  четырёх ИИ без реальных игроков: ровно 67 тайлов размещено, игра
+  завершается, победитель объявлен.
+- **`tests/integration/clientGameService.test.ts`** — клиентский
+  `GameService` против живого сервера: вход, список игр, размещение тайла,
+  отключение/переподключение сокета.
+- **`tests/integration/persistence.test.ts`** — расширен: перезапуск сервера
+  в середине партии и её продолжение с сохранённым состоянием.
+- Хелперы: `setUpPolyfills` (`tests/integration/setup.ts`, `localStorage` /
+  `crypto` для node-окружения Vitest).
+
+### Fixed
+
+- **Флаки `tests/integration/scoring.test.ts`**: требование
+  «Алиса вернула подданного» не гарантировалось случайной партией. Вместо
+  него — детерминированное тождество учёта
+  `вернувшиеся + оставшиеся на поле = количество объектов следов`, и
+  инвариант в `assertFollowerInvariants`: на завершённом объекте не может
+  остаться подданный. `playFullGame` больше не засчитывает возвращённые
+  объекты повторно и отслеживает `aliceFollowedObjects` /
+  `aliceFollowersOnBoardAtEnd`.
+
+### Changed
+
+- **`src/modules/GameService.ts`** — `GameServiceOptions { serverUrl?,
+  deviceId? }`, экспорт класса и `DEFAULT_SERVER_URL`, импорты типов вынесены
+  в `import type`.
+
 ## [1.2.0] - 2026-09-22
 
 Фикс гонки при серии компьютерных ходов: раньше после каждого действия
