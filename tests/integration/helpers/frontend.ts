@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 import type { AddressInfo } from 'node:net'
 import { createServer as createViteServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import ui from '@nuxt/ui/vite'
 
 export interface RunningFrontend {
   viteServer: Awaited<ReturnType<typeof createViteServer>>
@@ -14,6 +15,9 @@ export interface RunningFrontend {
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 const SRC_DIR = fileURLToPath(new URL('../../../../src', import.meta.url))
+const SERVER_SRC_DIR = fileURLToPath(
+  new URL('../../../server/src', import.meta.url)
+)
 
 /**
  * Поднимает настоящий Vite dev-сервер фронтенда и направляет
@@ -36,10 +40,16 @@ export async function startTestFrontend(
           propsDestructure: true,
         },
       }),
+      ui({
+        router: false,
+        dts: false,
+        colorMode: false,
+      }),
     ],
     resolve: {
       alias: {
         '@': SRC_DIR,
+        '@server': SERVER_SRC_DIR,
       },
     },
   })

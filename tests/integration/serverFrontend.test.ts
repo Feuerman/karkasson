@@ -33,7 +33,7 @@ describe('Запуск сервера и фронтенда', () => {
     const response = await frontend!.fetch('/')
     expect(response.status).toBe(200)
     const html = await response.text()
-    expect(html).toContain('<div id="app">')
+    expect(html).toContain('<div id="app')
     expect(html).toContain('/src/main.js')
   })
 

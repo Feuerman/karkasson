@@ -2,72 +2,81 @@
   <div
     class="absolute inset-0 z-[3000] flex h-full w-full flex-col items-center bg-black/50 p-8 text-text"
   >
-    <div
-      class="fixed right-4 top-4 z-[3001] flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 shadow-soft"
-    >
-      <div
-        class="h-2.5 w-2.5 rounded-full bg-[#ff4444] transition-colors duration-300"
-        :class="gameService.isConnected.value ? 'bg-[#44ff44]' : ''"
-      ></div>
-      <span class="text-sm text-text-muted">{{
-        gameService.isConnected.value ? 'Подключено' : 'Отключено'
-      }}</span>
+    <div class="fixed right-4 top-4 z-[3001] flex items-center gap-2">
+      <UBadge
+        :color="connectionColor"
+        variant="subtle"
+        class="rounded-full bg-white/90 px-4 py-2 shadow-soft"
+      >
+        <template #leading>
+          <span
+            class="h-2.5 w-2.5 rounded-full transition-colors duration-300"
+            :class="connectionDotClass"
+          ></span>
+        </template>
+        {{ gameService.isConnected.value ? 'Подключено' : 'Отключено' }}
+      </UBadge>
     </div>
-    <div
+    <UCard
       v-if="!currentGame?.id"
-      class="flex flex-col items-center justify-center gap-4 rounded-lg bg-surface p-8 shadow-card"
+      class="rounded-lg shadow-card"
+      :ui="{
+        root: 'rounded-lg',
+        body: 'flex flex-col items-center justify-center gap-4 p-8',
+      }"
     >
       <h2 class="mb-4 text-center text-[2rem] text-text">Каркассон Онлайн</h2>
       <div
         v-if="!gameService.isConnected.value"
-        class="flex flex-col items-center justify-center gap-4 rounded-lg bg-white/90 p-8 shadow-card"
+        class="flex flex-col items-center justify-center gap-4 rounded-lg p-8"
       >
-        <div
-          class="h-10 w-10 animate-spin rounded-full border-4 border-track border-t-accent"
-        ></div>
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="h-10 w-10 animate-spin text-primary"
+        />
         <p class="m-0 text-center text-[1.1rem] text-text-muted">
           Идет соединение с сервером...
         </p>
       </div>
       <div
         v-else-if="isLoadingGames"
-        class="flex flex-col items-center justify-center gap-4 rounded-lg bg-white/90 p-8 shadow-card"
+        class="flex flex-col items-center justify-center gap-4 rounded-lg p-8"
       >
-        <div
-          class="h-10 w-10 animate-spin rounded-full border-4 border-track border-t-accent"
-        ></div>
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="h-10 w-10 animate-spin text-primary"
+        />
         <p class="m-0 text-center text-[1.1rem] text-text-muted">
           Загрузка списка игр...
         </p>
       </div>
-      <div v-else class="lobby-actions">
+      <div v-else class="flex flex-col items-stretch gap-2">
         <div class="mb-6 flex items-center justify-between gap-[100px]">
-          <div
-            class="flex items-center gap-0.5 text-base font-medium text-text"
-          >
-            <PlayersListInputCheckbox
-              id="show-ended-games"
-              :model-value="Boolean(showEndedGames)"
-              @change="showEndedGames = !showEndedGames"
-            />
-            <label for="show-ended-games">Показать оконченные</label>
-          </div>
-          <button
-            class="mt-2.5 cursor-pointer rounded-lg border-0 bg-accent px-3 py-3 text-base font-medium text-white transition-all duration-200 hover:bg-accent-dark active:translate-y-0.5"
-            @click="createGame"
-          >
+          <UCheckbox
+            label="Показать оконченные"
+            :model-value="Boolean(showEndedGames)"
+            @update:model-value="showEndedGames = !showEndedGames"
+          />
+          <UButton class="mt-2.5 px-3 py-3 text-base" @click="createGame">
             Создать новую игру
-          </button>
+          </UButton>
         </div>
         <div class="flex h-[700px] flex-col gap-2 overflow-y-scroll">
-          <template v-if="computedGamesList.length === 0">
-            <div>Нет текущих игр</div>
-          </template>
+          <UEmpty
+            v-if="computedGamesList.length === 0"
+            icon="i-lucide-grid-3x3"
+            title="Нет текущих игр"
+            description="Создайте новую игру или присоединитесь к существующей"
+            class="mx-auto my-auto"
+          />
           <template v-else>
-            <div
+            <UCard
               v-for="game in computedGamesList"
               :key="game.id"
-              class="mb-2.5 flex items-center justify-between gap-10 rounded-lg bg-accent px-6 py-4 transition-all duration-200"
+              class="mb-2.5 !border-accent !bg-accent text-white transition-all duration-200 hover:!bg-accent-dark active:translate-y-0.5"
+              :ui="{
+                body: 'flex items-center justify-between gap-10 px-6 py-4',
+              }"
             >
               <span
                 class="block w-[150px] whitespace-nowrap text-base font-medium text-white"
@@ -105,9 +114,11 @@
                   </span>
                 </template>
               </div>
-              <button
+              <UButton
                 v-if="!currentGame?.id"
-                class="w-[220px] cursor-pointer rounded-lg border-0 bg-surface-muted px-4 py-2 text-base font-medium text-text transition-all duration-200 hover:bg-border active:translate-y-0.5"
+                color="neutral"
+                variant="soft"
+                class="w-[220px] text-text"
                 @click="
                   isRejoinable(game) ? rejoinGame(game.id) : joinGame(game.id)
                 "
@@ -117,42 +128,41 @@
                   >Продолжить</template
                 >
                 <template v-else>Загрузить</template>
-              </button>
-            </div>
+              </UButton>
+            </UCard>
           </template>
         </div>
       </div>
-    </div>
+    </UCard>
 
-    <div
+    <UCard
       v-if="currentGame?.id"
-      class="mt-8 flex flex-col gap-4 rounded-lg border-t border-border bg-surface-soft p-8 shadow-soft"
+      class="mt-8 border-t border-border bg-surface-soft shadow-soft"
+      :ui="{ root: 'rounded-lg', body: 'flex flex-col gap-4 p-8' }"
     >
       <div
         v-if="!gameService.isConnected.value"
-        class="flex flex-col items-center justify-center gap-4 rounded-lg bg-white/90 p-8 shadow-card"
+        class="flex flex-col items-center justify-center gap-4 rounded-lg p-8"
       >
-        <div
-          class="h-10 w-10 animate-spin rounded-full border-4 border-track border-t-accent"
-        ></div>
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="h-10 w-10 animate-spin text-primary"
+        />
         <p class="m-0 text-center text-[1.1rem] text-text-muted">
           Идет соединение с сервером...
         </p>
       </div>
-      <div v-else class="game-header">
+      <div v-else class="flex flex-col items-center">
         <h3 class="mb-4 text-center text-[1.5rem] text-text">
           ID игры: {{ currentGame?.id }}
         </h3>
-        <!--        <div class="game-title">-->
-        <!--          <input v-model="currentGame.name" placeholder="Ваше имя" />-->
-        <!--        </div>-->
         <div class="my-6 mb-8 flex w-[500px] flex-col gap-6">
           <div
             v-for="(player, index) in players"
             :key="player.id"
             class="flex items-center gap-3 rounded-lg py-1.5 pl-2 pr-4"
           >
-            <PlayersListInputCheckbox
+            <UCheckbox
               :class="playerTextColorClass(player.color)"
               :model-value="Boolean(player.name)"
               :disabled="
@@ -160,34 +170,41 @@
                   player.socketId && player.deviceId !== gameService.deviceId
                 )
               "
-              @change="
+              @update:model-value="
                 player.socketId || player.name
                   ? removePlayer(index)
                   : addPlayer(player, index)
               "
             />
 
-            <input
-              :value="player.name"
+            <UInput
+              :model-value="player.name ?? ''"
               :placeholder="`Игрок ${index + 1}`"
               :disabled="Boolean(player.socketId || !player.name)"
-              :class="playerBorderColorClass(player.name ? player.color : null)"
-              class="flex-grow rounded-lg border-2 border-solid bg-transparent px-4 py-2 text-[1.1rem] font-medium text-text outline-none placeholder:text-border-strong disabled:cursor-not-allowed"
-              @input="onPlayerNameInput"
+              :ui="{
+                input:
+                  'border-2 ' +
+                  playerBorderColorClass(player.name ? player.color : null),
+              }"
+              class="flex-1 rounded-lg bg-transparent text-[1.1rem] font-medium text-text"
+              @update:model-value="onPlayerNameInput"
             />
-            <div
-              v-if="!player.socketId && player.name"
-              class="text-base font-medium text-current"
-            >
+            <div v-if="!player.socketId && player.name" class="text-text">
               AI
             </div>
-            <button
+            <UButton
               v-if="
                 (player.socketId && player.deviceId === gameService.deviceId) ||
                 (!player.socketId && player.name)
               "
-              :class="playerBorderColorClass(player.name ? player.color : null)"
-              class="cursor-pointer whitespace-nowrap rounded-lg border-2 border-solid bg-transparent px-5 py-2 text-[1.1rem] font-medium text-text transition-colors duration-200 hover:bg-border-strong/20 active:translate-y-0.5"
+              variant="outline"
+              color="neutral"
+              :ui="{
+                base:
+                  'border-2 ' +
+                  playerBorderColorClass(player.name ? player.color : null),
+              }"
+              class="whitespace-nowrap px-5 py-2 text-[1.1rem] font-medium text-text"
               @click="
                 player.socketId
                   ? removePlayer(index, player.name)
@@ -195,25 +212,25 @@
               "
             >
               {{ !player.socketId ? 'Занять' : 'Освободить' }}
-            </button>
+            </UButton>
           </div>
         </div>
         <div class="mt-4 flex justify-center gap-6">
-          <button
-            class="btn-stone min-w-[220px] rounded-xl px-8 py-3.5 text-base font-bold text-text shadow-soft transition-all duration-200 hover:-translate-y-1 hover:text-[#222] hover:shadow-card active:translate-y-0.5"
+          <UButton
+            class="btn-stone min-w-[220px] !text-text px-8 py-3.5 text-base font-bold shadow-soft"
             @click="leaveGameAndGoBack"
           >
             Отключиться
-          </button>
-          <button
-            class="btn-stone min-w-[220px] rounded-xl px-8 py-3.5 text-base font-bold text-text shadow-soft transition-all duration-200 hover:-translate-y-1 hover:text-[#222] hover:shadow-card active:translate-y-0.5"
+          </UButton>
+          <UButton
+            class="btn-stone min-w-[220px] !text-text px-8 py-3.5 text-base font-bold shadow-soft"
             @click="startGame"
           >
             Начать игру
-          </button>
+          </UButton>
         </div>
       </div>
-    </div>
+    </UCard>
   </div>
 </template>
 
@@ -223,7 +240,13 @@ import notificationService from '@/plugins/notification'
 import type { IGame, IGameBoard } from '@/types/game'
 import type { GameSummary } from '@server/services/GameService'
 import type { Player } from '@server/modules/types'
-import PlayersListInputCheckbox from './../components/PlayersListInputCheckbox.vue'
+import UBadge from '@nuxt/ui/components/Badge.vue'
+import UButton from '@nuxt/ui/components/Button.vue'
+import UCard from '@nuxt/ui/components/Card.vue'
+import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
+import UEmpty from '@nuxt/ui/components/Empty.vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
+import UInput from '@nuxt/ui/components/Input.vue'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
 
 const notifyError = (error: unknown) => {
@@ -236,7 +259,15 @@ const notifyError = (error: unknown) => {
 
 export default {
   name: 'GameLobby',
-  components: { PlayersListInputCheckbox },
+  components: {
+    UBadge,
+    UButton,
+    UCard,
+    UCheckbox,
+    UEmpty,
+    UIcon,
+    UInput,
+  },
   props: {
     gameState: {
       type: Object as () => IGameBoard,
@@ -266,6 +297,14 @@ export default {
     gameService() {
       return GameService
     },
+    connectionColor(): 'success' | 'error' {
+      return this.gameService.isConnected.value ? 'success' : 'error'
+    },
+    connectionDotClass(): string {
+      return this.gameService.isConnected.value
+        ? 'bg-[#44ff44]'
+        : 'bg-[#ff4444]'
+    },
     computedGamesList(): GameSummary[] {
       return this.showEndedGames
         ? this.gamesList
@@ -281,8 +320,8 @@ export default {
   methods: {
     playerTextColorClass,
     playerBorderColorClass,
-    onPlayerNameInput(event: Event) {
-      this.currentPlayerName = (event.target as HTMLInputElement).value
+    onPlayerNameInput(value: string) {
+      this.currentPlayerName = value
     },
     async createGame() {
       try {

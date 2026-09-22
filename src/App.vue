@@ -1,165 +1,181 @@
 <template>
-  <div class="relative flex h-full flex-col bg-surface-muted text-text">
-    <div
-      v-if="playersReconnectProcess"
-      class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-5 bg-black/80 text-lg font-medium text-white"
-    >
-      <div class="flex flex-col items-center gap-2.5">
-        <div
-          class="h-10 w-10 animate-spin rounded-full border-4 border-track border-t-accent"
-        ></div>
-        <div>Ожидание подключения игроков</div>
-      </div>
-      <div class="flex flex-wrap justify-center gap-2.5">
-        <div
-          v-for="player in reconnectingPlayers"
-          :key="player.id"
-          class="rounded bg-white/20 px-2.5 py-1"
-        >
-          {{ player.name }}
+  <UApp class="h-full">
+    <UToaster />
+    <ToastBridge />
+    <div class="relative flex h-full flex-col bg-surface-muted text-text">
+      <div
+        v-if="playersReconnectProcess"
+        class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-5 bg-black/80 text-lg font-medium text-white"
+      >
+        <div class="flex flex-col items-center gap-2.5">
+          <UIcon
+            name="i-lucide-loader-circle"
+            class="h-10 w-10 animate-spin text-white"
+          />
+          <div>Ожидание подключения игроков</div>
+        </div>
+        <div class="flex flex-wrap justify-center gap-2.5">
+          <UBadge
+            v-for="player in reconnectingPlayers"
+            :key="player.id"
+            variant="subtle"
+            class="!bg-white/20 !text-white"
+          >
+            {{ player.name }}
+          </UBadge>
         </div>
       </div>
-    </div>
-    <div
-      v-if="!showLobby"
-      class="group fixed right-8 top-8 z-[9999] flex cursor-pointer items-center justify-center gap-2.5 rounded bg-success px-2.5 py-1 text-base text-white transition-colors duration-200 hover:bg-success/80 active:bg-success/60"
-      @click="goInLobby"
-    >
-      <i class="fa fa-home" aria-hidden="true">&lt;</i>
-      <span
-        class="block w-0 overflow-hidden whitespace-nowrap transition-[width] duration-200 group-hover:w-[145px]"
-        >Выйти из игры</span
+      <UButton
+        v-if="!showLobby"
+        color="success"
+        icon="i-lucide-arrow-left"
+        class="group fixed right-8 top-8 z-[9999] flex cursor-pointer items-center justify-center gap-2.5 px-2.5 py-1 text-base text-white"
+        @click="goInLobby"
       >
-    </div>
-    <GameLobby
-      v-if="showLobby"
-      :game="gameState"
-      :games-list="games"
-      :players="playersList"
-      :current-game="currentGame"
-      @start-game="showLobby = false"
-      @game-started="onGameStart"
-      @rejoin-game="rejoinGame"
-      @join-game="joinGame"
-      @leave-game="leaveGame"
-      @create-game="createGame"
-      @update-games-list="getGamesList"
-    />
-    <GameControls :game-board="gameState" />
-    <GameActionsHistory
-      :game-board="gameState"
-      @highlight-object="highlightObject"
-    />
-    <GamePlacingFollowers :game-board="gameState" />
-    <Draggable
-      v-if="!gameState.isPlacingFollower"
-      is-none-style
-      :initial-x="currentStatePosition.x"
-      :initial-y="currentStatePosition.y"
-      :disabled="!gameState.isMyTurn"
-      draggable-id="tile-preview"
-    >
-      <div
-        ref="ghostFrameRef"
-        class="relative cursor-grab select-none active:cursor-grabbing"
-      >
-        <button
-          v-if="gameState.isMyTurn"
-          class="absolute -top-[30px] left-1/2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded bg-success px-2.5 py-1 text-[14px] text-white transition-colors duration-200 hover:bg-success/80 active:bg-success/60"
-          @mousedown.stop
-          @click="
-            gameState.isMyTurn && placeTile(localCurrentTile, hoveredTile)
-          "
+        <span
+          class="block w-0 overflow-hidden whitespace-nowrap transition-[width] duration-200 group-hover:w-[145px]"
+          >Выйти из игры</span
         >
-          Разместить
-        </button>
+      </UButton>
+      <GameLobby
+        v-if="showLobby"
+        :game="gameState"
+        :games-list="games"
+        :players="playersList"
+        :current-game="currentGame"
+        @start-game="showLobby = false"
+        @game-started="onGameStart"
+        @rejoin-game="rejoinGame"
+        @join-game="joinGame"
+        @leave-game="leaveGame"
+        @create-game="createGame"
+        @update-games-list="getGamesList"
+      />
+      <GameControls :game-board="gameState" />
+      <GameActionsHistory
+        :game-board="gameState"
+        @highlight-object="highlightObject"
+      />
+      <GamePlacingFollowers :game-board="gameState" />
+      <Draggable
+        v-if="!gameState.isPlacingFollower"
+        is-none-style
+        :initial-x="currentStatePosition.x"
+        :initial-y="currentStatePosition.y"
+        :disabled="!gameState.isMyTurn"
+        draggable-id="tile-preview"
+      >
         <div
-          v-if="gameState.isMyTurn"
-          class="absolute left-[-32px] top-1/2 -translate-y-1/2"
+          ref="ghostFrameRef"
+          class="relative cursor-grab select-none active:cursor-grabbing"
         >
-          <button
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded border-0 bg-primary text-base text-white transition-colors duration-200 hover:bg-primary-dark active:bg-primary-darker"
+          <UButton
+            v-if="gameState.isMyTurn"
+            color="success"
+            class="absolute -top-[30px] left-1/2 z-10 -translate-x-1/2 cursor-pointer px-2.5 py-1 text-[14px] text-white"
             @mousedown.stop
-            @click.stop.prevent="
-              rotateTile(localCurrentTile, 'counterclockwise')
+            @click="
+              gameState.isMyTurn && placeTile(localCurrentTile, hoveredTile)
             "
           >
-            ↺
-          </button>
-        </div>
-        <div
-          v-if="gameState.isMyTurn"
-          class="absolute right-[-32px] top-1/2 -translate-y-1/2"
-        >
-          <button
-            class="flex h-6 w-6 cursor-pointer items-center justify-center rounded border-0 bg-primary text-base text-white transition-colors duration-200 hover:bg-primary-dark active:bg-primary-darker"
-            @mousedown.stop
-            @click.stop.prevent="rotateTile(localCurrentTile, 'clockwise')"
-          >
-            ↻
-          </button>
-        </div>
-        <div ref="ghostPreviewRef" class="h-[115px] w-[115px] origin-top-left">
-          <TileView
-            :tile="localCurrentTile"
-            :size="115"
-            class="h-full w-full rounded-lg shadow-soft"
-          />
-        </div>
-      </div>
-    </Draggable>
-    <div
-      ref="boardRef"
-      class="min-h-0 w-full flex-1 select-none overflow-auto rounded-lg bg-board shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-      :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
-      @mousedown="onMouseDown"
-      @click.capture="onClickCapture"
-    >
-      <div ref="sizeBoxRef">
-        <div
-          ref="planeRef"
-          class="grid origin-top-left grid-cols-[repeat(50,115px)] gap-2.5 p-2.5"
-        >
+            Разместить
+          </UButton>
           <div
-            v-for="(row, rowIndex) in defaultGrid"
-            :key="rowIndex"
-            class="contents"
+            v-if="gameState.isMyTurn"
+            class="absolute left-[-32px] top-1/2 -translate-y-1/2"
+          >
+            <UButton
+              color="primary"
+              icon="i-lucide-rotate-ccw"
+              class="flex h-6 w-6 cursor-pointer items-center justify-center !p-0 text-white"
+              :ui="{ leadingIcon: 'size-4' }"
+              @mousedown.stop
+              @click.stop.prevent="
+                rotateTile(localCurrentTile, 'counterclockwise')
+              "
+            />
+          </div>
+          <div
+            v-if="gameState.isMyTurn"
+            class="absolute right-[-32px] top-1/2 -translate-y-1/2"
+          >
+            <UButton
+              color="primary"
+              icon="i-lucide-rotate-cw"
+              class="flex h-6 w-6 cursor-pointer items-center justify-center !p-0 text-white"
+              :ui="{ leadingIcon: 'size-4' }"
+              @mousedown.stop
+              @click.stop.prevent="rotateTile(localCurrentTile, 'clockwise')"
+            />
+          </div>
+          <div
+            ref="ghostPreviewRef"
+            class="h-[115px] w-[115px] origin-top-left"
+          >
+            <TileView
+              :tile="localCurrentTile"
+              :size="115"
+              class="h-full w-full rounded-lg shadow-soft"
+            />
+          </div>
+        </div>
+      </Draggable>
+      <div
+        ref="boardRef"
+        class="min-h-0 w-full flex-1 select-none overflow-auto rounded-lg bg-board shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
+        @mousedown="onMouseDown"
+        @click.capture="onClickCapture"
+      >
+        <div ref="sizeBoxRef">
+          <div
+            ref="planeRef"
+            class="grid origin-top-left grid-cols-[repeat(50,115px)] gap-2.5 p-2.5"
           >
             <div
-              v-for="(tile, tileIndex) in row"
-              :key="tileIndex"
-              class="relative h-[115px] w-[115px] flex-shrink-0 rounded-lg border border-border bg-surface shadow-soft transition-all duration-200"
-              :class="[
-                hoveredTile?.rowIndex === rowIndex &&
-                hoveredTile?.tileIndex === tileIndex
-                  ? 'tile-pulse'
-                  : '',
-              ]"
-              :data-row-index="rowIndex"
-              :data-tile-index="tileIndex"
-              @click="handleTileClick(rowIndex, tileIndex)"
+              v-for="(row, rowIndex) in defaultGrid"
+              :key="rowIndex"
+              class="contents"
             >
-              <TileView
-                :tile="gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]"
-                :followers="gameState.placedFollowers"
-                :highlight-points="highlightPoints"
-                :size="115"
-              />
+              <div
+                v-for="(tile, tileIndex) in row"
+                :key="tileIndex"
+                class="relative h-[115px] w-[115px] flex-shrink-0 rounded-lg border border-border bg-surface shadow-soft transition-all duration-200"
+                :class="[
+                  hoveredTile?.rowIndex === rowIndex &&
+                  hoveredTile?.tileIndex === tileIndex
+                    ? 'tile-pulse'
+                    : '',
+                ]"
+                :data-row-index="rowIndex"
+                :data-tile-index="tileIndex"
+                @click="handleTileClick(rowIndex, tileIndex)"
+              >
+                <TileView
+                  :tile="gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]"
+                  :followers="gameState.placedFollowers"
+                  :highlight-points="highlightPoints"
+                  :size="115"
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <UButton
+        v-if="!showLobby && canReset"
+        color="primary"
+        icon="i-lucide-minimize-2"
+        title="Сбросить масштаб"
+        class="fixed bottom-4 right-4 z-[3000] flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-white shadow-strong"
+        @click="resetZoom"
+      >
+        100%
+      </UButton>
+      <GameMenu :items="menuItems" @select="onMenuSelect" />
+      <RulesPanel v-model:open="showRules" :doc="baseGameRules" />
     </div>
-    <button
-      v-if="!showLobby && canReset"
-      class="fixed bottom-4 right-4 z-[3000] flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm text-white shadow-strong transition-colors duration-200 hover:bg-primary-dark active:bg-primary-darker"
-      title="Сбросить масштаб"
-      @click="resetZoom"
-    >
-      <span class="text-base leading-none">⟲</span>
-      <span>100%</span>
-    </button>
-  </div>
+  </UApp>
 </template>
 
 <script lang="ts" setup>
@@ -169,6 +185,14 @@ import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory.vue'
 import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
+import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
+import RulesPanel from './components/rules/RulesPanel.vue'
+import UApp from '@nuxt/ui/components/App.vue'
+import UButton from '@nuxt/ui/components/Button.vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
+import UToaster from '@nuxt/ui/components/Toaster.vue'
+import ToastBridge from './components/ToastBridge.vue'
+import { baseGameRules } from './rules/baseGame'
 import { deepClone, throttle } from './utils/common'
 import GameLobby from './components/GameLobby.vue'
 import GameService from './modules/GameService'
@@ -614,6 +638,17 @@ const reconnectingPlayers = computed(() => {
 const games = ref<(GameSummary & { isLastGame?: boolean })[]>([])
 const playersList = ref<Player[]>([])
 const currentGame = ref<IGame | null>(null)
+
+const showRules = ref(false)
+const menuItems: GameMenuItem[] = [
+  { id: 'rules', label: 'Правила игры', icon: 'i-lucide-circle-help' },
+]
+
+const onMenuSelect = (id: string) => {
+  if (id === 'rules') {
+    showRules.value = true
+  }
+}
 
 onMounted(async () => {
   GameService.connect()

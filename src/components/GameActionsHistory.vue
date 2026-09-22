@@ -5,23 +5,27 @@
     :initial-x="10"
     :initial-y="10"
   >
-    <div
-      class="w-[550px] overflow-hidden rounded-lg bg-surface px-5 pb-5 shadow-strong"
+    <UCard
+      class="w-[550px] shadow-strong"
+      :ui="{
+        root: 'overflow-hidden rounded-lg',
+        body: 'p-0',
+      }"
     >
       <div
-        class="sticky top-0 z-10 mb-2.5 flex justify-between border-b border-border bg-surface px-0 py-2.5 text-[1.4rem] font-medium text-text"
+        class="sticky top-0 z-10 mb-2.5 flex justify-between border-b border-border bg-surface px-5 py-2.5 text-[1.4rem] font-medium text-text"
       >
         <span>История действий</span>
         <span class="text-[1.2rem] text-primary"
           >в колоде {{ gameBoard.tilesList.length }}</span
         >
       </div>
-      <div class="max-h-[400px] overflow-y-scroll">
+      <div class="max-h-[400px] overflow-y-scroll px-5 pb-5 pt-0">
         <div v-for="(action, index) in gameBoard.actionsHistory" :key="index">
           <template v-if="action.actionType === ActionTypes.PLACE_TILE">
             <div class="mb-2 flex items-center gap-2 rounded">
               <div
-                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+                class="flex flex-wrap items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
               >
                 <strong>Выложен тайл. </strong>
                 <span :class="playerTextColorClass(action.initiator?.color)">
@@ -49,7 +53,7 @@
           >
             <div class="mb-2 flex items-center gap-2 rounded">
               <div
-                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+                class="flex flex-wrap items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
               >
                 <strong>Выcтавлен подданный. </strong>
                 <span :class="playerTextColorClass(action.initiator?.color)">
@@ -76,7 +80,7 @@
           <template v-else-if="action.actionType === ActionTypes.ADDING_SCORES">
             <div class="mb-2 flex items-center gap-2 rounded">
               <div
-                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+                class="flex flex-wrap items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
               >
                 <strong>Завершен объект. </strong>
                 <span @click="highlightObject(action.actionData.objectData)"
@@ -105,7 +109,7 @@
           <template v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER">
             <div class="mb-2 flex items-center gap-2 rounded">
               <div
-                class="flex items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
+                class="flex flex-wrap items-center gap-0.5 [&_span+span]:ml-0.5 [&_strong]:mr-[3px]"
               >
                 <strong>Возврат подданных.</strong>
                 <span
@@ -141,10 +145,11 @@
           </template>
         </div>
       </div>
-    </div>
+    </UCard>
   </Draggable>
 </template>
 <script setup lang="ts">
+import UCard from '@nuxt/ui/components/Card.vue'
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
 import type { BaseObject, ObjectFollower } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
