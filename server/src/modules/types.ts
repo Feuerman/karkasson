@@ -45,6 +45,7 @@ export interface PlacedFollower {
   objectId: string
   point: Point
   isMonastery?: boolean
+  isGarden?: boolean
   isAbbot?: boolean
 }
 
@@ -62,6 +63,7 @@ export interface BaseObject {
   followers: ObjectFollower[]
   score?: ScoreForObject
   isMonastery?: boolean
+  isGarden?: boolean
 }
 
 export interface City extends BaseObject {
@@ -89,6 +91,7 @@ export interface Tile {
   isSolidCity?: boolean
   withShield?: boolean
   isMonastery?: boolean
+  hasGarden?: boolean
 }
 
 export interface GridTile extends Tile {
@@ -109,6 +112,7 @@ export interface TemporaryObjects {
   cities: BaseObject[]
   roads: BaseObject[]
   monasteries: BaseObject[]
+  gardens: BaseObject[]
 }
 
 export type CompletedObjects = TemporaryObjects
@@ -119,7 +123,7 @@ export type AvailableFollowerPlace = {
 }
 
 /** Тип размещения подданного на сервере */
-export type AvailablePlacementType = 'road' | 'city' | 'monastery'
+export type AvailablePlacementType = 'road' | 'city' | 'monastery' | 'garden'
 
 /** Слот будущего тайла: координаты и примыкающие к ним объекты */
 export interface AvailablePlace {
@@ -139,6 +143,7 @@ export enum ObjectTypes {
   CITY = 'CITY',
   ROAD = 'ROAD',
   MONASTERY = 'MONASTERY',
+  GARDEN = 'GARDEN',
 }
 
 export enum PlayerColors {

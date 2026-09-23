@@ -113,3 +113,14 @@ export function calcMonasteryPoints(
 
   return count
 }
+
+/**
+ * Очки «незавершённого» сада: сад считается так же, как монастырь —
+ * 1 очко за сам тайл и по 1 очку за каждую занятую клетку в окрестности 3×3.
+ */
+export function calcGardenPoints(
+  tilePlacesStats: TilePlacesStats,
+  garden: BaseObject
+): number {
+  return calcMonasteryPoints(tilePlacesStats, garden)
+}

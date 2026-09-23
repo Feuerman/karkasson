@@ -57,8 +57,8 @@ describe('Подсчёт очков и полная партия', () => {
     // Игра действительно завершилась
     expect(endState.gameIsEnded).toBe(true)
 
-    // На доске лежат все тайлы колоды (66 ходов + стартовый = 67)
-    expect(countPlacedTiles(endState.tilePlacesStats)).toBe(67)
+    // На доске лежат все тайлы колоды (71 ход + стартовый = 72)
+    expect(countPlacedTiles(endState.tilePlacesStats)).toBe(72)
 
     // Алиса ходила не менее 10 раз (колода / число игроков ≈ 16)
     expect(stats.aliceTurns).toBeGreaterThan(10)

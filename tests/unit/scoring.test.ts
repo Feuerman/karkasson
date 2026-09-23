@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calcCityScore,
+  calcGardenPoints,
   calcMonasteryPoints,
   calcRoadScore,
 } from '../../server/src/modules/scoring'
@@ -352,6 +353,59 @@ describe('calcMonasteryPoints', () => {
     }
 
     const points = calcMonasteryPoints({}, monastery)
+
+    expect(points).toBe(0)
+  })
+})
+
+describe('calcGardenPoints', () => {
+  it('изолированный сад даёт 1 очко (только сам тайл)', () => {
+    const board = boardOf([[0, 0]])
+    const garden: BaseObject = {
+      id: 'garden-1',
+      points: [{ x: 0, y: 0 }],
+      isGarden: true,
+      followers: [],
+    }
+
+    const points = calcGardenPoints(board, garden)
+
+    expect(points).toBe(1)
+  })
+
+  it('сад в окружении 3×3 даёт 9 очков', () => {
+    const board = boardOf([
+      [0, 0],
+      [0, 1],
+      [0, 2],
+      [1, 0],
+      [1, 1],
+      [1, 2],
+      [2, 0],
+      [2, 1],
+      [2, 2],
+    ])
+    const garden: BaseObject = {
+      id: 'garden-full',
+      points: [{ x: 1, y: 1 }],
+      isGarden: true,
+      followers: [],
+    }
+
+    const points = calcGardenPoints(board, garden)
+
+    expect(points).toBe(9)
+  })
+
+  it('сад без точки не даёт очков', () => {
+    const garden: BaseObject = {
+      id: 'garden-empty',
+      points: [],
+      isGarden: true,
+      followers: [],
+    }
+
+    const points = calcGardenPoints({}, garden)
 
     expect(points).toBe(0)
   })

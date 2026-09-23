@@ -6,6 +6,7 @@ const POINT_TYPE_TITLES: Record<string, string> = {
   road: 'Дорога',
   field: 'Поле',
   monastery: 'Монастырь',
+  garden: 'Сад',
 }
 
 const POINT_DIRECTION_TITLES: Record<string, string> = {
@@ -23,6 +24,7 @@ export const pointDirectionTitle = (direction?: PointDirection): string =>
   POINT_DIRECTION_TITLES[direction ?? ''] ?? ''
 
 export const followerPlaceIcon = (place: AvailableFollowerPlace): string => {
+  if (place.temporaryObject?.isGarden) return 'i-lucide-flower-2'
   if (place.temporaryObject?.isMonastery) return 'i-lucide-church'
   switch (place.point?.pointType) {
     case 'city':

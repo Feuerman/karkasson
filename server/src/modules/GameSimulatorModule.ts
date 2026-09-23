@@ -114,10 +114,16 @@ export class GameSimulatorModule {
         const gameState = this.gameState.clone()
         if (gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)) {
           for (const place of gameState.availableFollowersPlaces) {
-            const followerTypes: FollowerType[] = ['follower']
             const pool =
               gameState.playersFollowers[gameState.currentPlayer?.id ?? '']
-            if (place.temporaryObject.isMonastery && pool?.monks) {
+            const followerTypes: FollowerType[] = place.temporaryObject.isGarden
+              ? []
+              : ['follower']
+            if (
+              (place.temporaryObject.isMonastery ||
+                place.temporaryObject.isGarden) &&
+              pool?.monks
+            ) {
               followerTypes.push('abbot')
             }
 
@@ -181,6 +187,12 @@ export class GameSimulatorModule {
     for (const monastery of gameState.temporaryObjects.monasteries) {
       if (monastery.followers.some((f) => f.playerId === currentPlayer.id)) {
         score += 3 * countPlayerObjects(monastery.followers)
+      }
+    }
+    // Сад
+    for (const garden of gameState.temporaryObjects.gardens) {
+      if (garden.followers.some((f) => f.playerId === currentPlayer.id)) {
+        score += 3 * countPlayerObjects(garden.followers)
       }
     }
 

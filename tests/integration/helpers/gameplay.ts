@@ -27,6 +27,7 @@ export interface TileSnapshot {
   isSolidCity?: boolean
   withShield?: boolean
   isMonastery?: boolean
+  hasGarden?: boolean
   imgUrl?: string
 }
 
@@ -57,6 +58,7 @@ export interface BaseObjectSnapshot {
   points: ObjectPoint[]
   followers: ObjectFollowerSnapshot[]
   isMonastery?: boolean
+  isGarden?: boolean
   score?: ObjectScoreSnapshot
 }
 
@@ -64,6 +66,7 @@ export interface CompletedObjectsSnapshot {
   cities: BaseObjectSnapshot[]
   roads: BaseObjectSnapshot[]
   monasteries: BaseObjectSnapshot[]
+  gardens: BaseObjectSnapshot[]
 }
 
 export interface FollowerPlaceSnapshot {
@@ -76,6 +79,7 @@ export interface PlacedFollowerSnapshot {
   objectId: string
   point: ObjectPoint
   isMonastery?: boolean
+  isGarden?: boolean
   isAbbot?: boolean
 }
 
@@ -106,6 +110,7 @@ export interface GameStateSnapshot {
     cities: BaseObjectSnapshot[]
     roads: BaseObjectSnapshot[]
     monasteries: BaseObjectSnapshot[]
+    gardens: BaseObjectSnapshot[]
   }
   completedObjects?: CompletedObjectsSnapshot
   placingPoint?: { rowIndex: number; tileIndex: number }
@@ -479,6 +484,7 @@ export function baseObjectPoints(
   tilePlacesStats: GameStateSnapshot['tilePlacesStats']
 ): number {
   if (object.isMonastery) return 9
+  if (object.isGarden) return 9
   const city = countCityPoints(object, tilePlacesStats)
   return city.tiles > 0 || object.points.some((p) => p.pointType === 'city')
     ? city.tiles * 2 + city.shields * 2
@@ -528,6 +534,14 @@ export function recomputeExpectedScores(
     }
   }
 
+  for (const garden of completed.gardens) {
+    for (const follower of garden.followers) {
+      // Аббат на завершённом саду очков не приносит (он ждёт отзыва)
+      if (follower.isAbbot) continue
+      credit(follower.playerId, 9)
+    }
+  }
+
   return expected
 }
 
@@ -541,6 +555,7 @@ export function verifyScoringAgainstServer(state: GameStateSnapshot): void {
     cities: [],
     roads: [],
     monasteries: [],
+    gardens: [],
   }
   const expected = recomputeExpectedScores(
     completed,
@@ -605,6 +620,7 @@ export function assertFollowerInvariants(
       state.completedObjects.roads,
       state.completedObjects.cities,
       state.completedObjects.monasteries,
+      state.completedObjects.gardens ?? [],
     ]
     for (const group of completedGroups) {
       for (const object of group) completedObjectIds.add(object.id)

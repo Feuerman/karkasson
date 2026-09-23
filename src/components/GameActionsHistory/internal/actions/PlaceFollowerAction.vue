@@ -38,7 +38,9 @@ const emit = defineEmits<{
 const objectName = computed(() =>
   action.actionData.temporaryObject?.isMonastery
     ? 'монастырь'
-    : action.actionData.point.pointType
+    : action.actionData.temporaryObject?.isGarden
+      ? 'сад'
+      : action.actionData.point.pointType
 )
 
 const forwardZoom = (row: number, col: number) => {

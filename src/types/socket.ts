@@ -24,7 +24,7 @@ export interface PlacementsResponse {
 }
 
 export interface AvailablePlacement {
-  type: 'road' | 'city' | 'monastery'
+  type: 'road' | 'city' | 'monastery' | 'garden'
   side?: string
 }
 

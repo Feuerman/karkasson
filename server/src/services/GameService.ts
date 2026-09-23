@@ -272,6 +272,8 @@ export class GameService {
       if (!savedGame.id) return
       const game = new GameManager({ players: savedGame.players })
       Object.assign(game, savedGame)
+      game.temporaryObjects.gardens ??= []
+      game.completedObjects.gardens ??= []
       this.games[savedGame.id] = game
     })
   }
