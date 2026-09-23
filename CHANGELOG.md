@@ -5,6 +5,56 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.13.0] - 2026-09-23
+
+Новый ландшафтный объект — сад. На сад ставится только аббат (не обычный
+подданный); при завершении сада очки не начисляются — аббат остаётся до
+отзыва владельцем и приносит по 1 очку за каждую занятую клетку в окрестности
+3×3. Сад — не отдельный тайл, а признак на части копий существующих тайлов,
+задаваемый конфигом при генерации колоды. Также выровнены `id` тайлов с
+именами изображений и добавлены пропущенные тайлы `M` и `N`.
+
+### Added
+
+- **`server/src/data/tiles.ts`** - конфиг `gardenTileCounts` (по одной копии
+  сада на тайлах `E`, `H`, `I`, `M`, `N`, `R`, `U`, `V`); добавлены тайлы
+  `M` и `N`.
+- **`server/src/modules/types.ts`** - `hasGarden` (тайл), `isGarden`
+  (объект/подданный), коллекция `gardens` в `TemporaryObjects`,
+  `ObjectTypes.GARDEN`, `AvailablePlacementType` `garden`.
+- **`server/src/modules/scoring.ts`** - `calcGardenPoints` (подсчёт тайлов в
+  окрестности 3×3 для частичного счёта аббата на саду).
+- **`server/src/modules/GameManager.ts`** - `checkGardens`,
+  `checkCompletedGardens`, `calcScoreForGardens`; сады учитываются в
+  `findObjectByPoint`, `checkAvailableFollowers`, `placeFollower`,
+  `simulatePlaceFollower` и `recallAbbot` (аббат ставится/отзывается и с сада);
+  `initTilesList` помечает копии сада по `gardenTileCounts`.
+- **`server/src/modules/GameSimulatorModule.ts`** - ИИ оценивает сады и ставит
+  аббата на сад.
+- **`server/src/socket/handlers/game.ts`** - `checkAvailablePlacements`
+  возвращает сад.
+- **`src/utils/labels.ts`** - подпись «Сад» и иконка для сада.
+- **`src/components/GamePlacingFollowers.vue`** - кнопка «Сад — аббат» (на сад
+  ставится только аббат).
+- **`src/components/TileView.vue`** - маркер сада (и монастыря) в центре тайла
+  и бейдж сада для условного обозначения тайлов с садом.
+
+### Changed
+
+- **`server/src/data/tiles.ts`** и **`src/data/tiles.ts`** - `id` тайлов
+  приведены к именам изображений (`Base_Game_C3_Tile_*.png`), описания
+  исправлены; `hasGarden` убран из статичных данных тайлов.
+- **`server/src/modules/GameManager.ts`** - стартовый тайл теперь `D` (ранее
+  `E`).
+- **`src/rules/baseGame.ts`** - примеры правил обновлены под новые `id`,
+  правила дополнены садом.
+
+### Fixed
+
+- **`server/src/modules/GameManager.ts`** - при окончании игры очищается
+  `currentTile`, чтобы последний вытянутый тайл не оставался на доске.
+- **`src/App.vue`** - превью тайла скрывается по окончании игры.
+
 ## [1.12.0] - 2026-09-23
 
 Рефакторинг лобби по аналогии с `GameActionsHistory`: плоский `GameLobby.vue`
@@ -52,7 +102,7 @@
 ### Added
 
 - **`server/src/modules/scoring.ts`** - `calcMonasteryPoints(tilePlacesStats,
-  monastery)` - подсчёт тайлов в окрестности 3x3 для частичного счёта аббата.
+monastery)` - подсчёт тайлов в окрестности 3x3 для частичного счёта аббата.
 - **`server/src/modules/GameManager.ts`** - метод `recallAbbot()`: отзыв аббата
   текущего игрока с начислением частичных очков и возвратом фишки в запас
   (события истории `ADDING_SCORES` + `BACK_FOLLOWER`). События истории
@@ -318,7 +368,7 @@
   `@server/services/GameService`, `@server/data/tiles`), относительные импорты
   в стиле `../../server/src/...` убраны.
 - **`NotificationType`** — тип нотификации (`'success' | 'error' | 'warning' |
-  'info'`) вынесен из фиксированной строки в `notification/index.vue`.
+'info'`) вынесен из фиксированной строки в `notification/index.vue`.
 
 ### Changed
 
@@ -335,11 +385,11 @@
   приведён к `PointDirection`, `rotateTile` использует `RotationDirection`,
   касты `as PointDirection` вместо `direction: string`.
 - **Компоненты**: `App.vue` (`playersList: Player[]`, `playerIds:
-  (string | number)[]`, обработка ошибок через `unknown`), `GameLobby.vue`
+(string | number)[]`, обработка ошибок через `unknown`), `GameLobby.vue`
   (`GameSummary[]`, `Player[]`, `IGame`), `GameStats.vue`
   (`CompletedObjects`, `PlayerId`), `GamePlacingFollowers.vue`
   (`pointTypeTitle(pointType?: PointType | 'monastery')`, `pointDirectionTitle
-  (direction?: PointDirection)`), `GameActionsHistory.vue`
+(direction?: PointDirection)`), `GameActionsHistory.vue`
   (`highlightObject(objectData: BaseObject)`, `ObjectFollower` в reduce),
   `TileView.vue` (`canvas: HTMLCanvasElement`, `PlacedFollower[]`),
   `TilesList.vue` (`reduce<Record<string, number>>`), `Draggable.vue`,
@@ -521,7 +571,7 @@
 ### Changed
 
 - **`src/modules/GameService.ts`** — `GameServiceOptions { serverUrl?,
-  deviceId? }`, экспорт класса и `DEFAULT_SERVER_URL`, импорты типов вынесены
+deviceId? }`, экспорт класса и `DEFAULT_SERVER_URL`, импорты типов вынесены
   в `import type`.
 
 ## [1.2.0] - 2026-09-22
