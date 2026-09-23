@@ -22,6 +22,7 @@ import Draggable from '@/components/Draggable.vue'
 import { tiles } from '@server/data/tiles'
 import TileView from '@/components/TileView.vue'
 import type { IGameBoard } from '@/types/game'
+import { countBy } from '@/utils/common'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -32,14 +33,6 @@ const props = defineProps({
 })
 
 const currentTilesCount = computed(() => {
-  return (
-    props.gameBoard?.tileHistory?.reduce<Record<string, number>>(
-      (acc, tile) => {
-        acc[tile.id] = acc[tile.id] ? acc[tile.id] + 1 : 1
-        return acc
-      },
-      {}
-    ) || {}
-  )
+  return countBy(props.gameBoard?.tileHistory ?? [], (tile) => tile.id)
 })
 </script>

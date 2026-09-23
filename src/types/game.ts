@@ -1,8 +1,9 @@
-import type { GameData } from '@server/services/GameService'
+import type { GameSummary, GameData } from '@server/services/GameService'
 import type { GridTile, ObjectFollower } from '@server/modules/types'
 
 export type IGameBoard = GameData & { isMyTurn: boolean }
 export type IGame = GameData
+export type LobbyGame = GameSummary & { isLastGame?: boolean }
 
 export interface ITile {
   id: string

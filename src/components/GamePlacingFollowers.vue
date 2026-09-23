@@ -56,11 +56,15 @@
 
 <script setup lang="ts">
 import type { IGameBoard } from '@/types/game'
-import type { PointType, PointDirection } from '@server/modules/types'
 import Draggable from '@/components/Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
+import {
+  followerPlaceIcon as placeIcon,
+  pointDirectionTitle,
+  pointTypeTitle,
+} from '@/utils/labels'
 
 defineProps({
   gameBoard: {
@@ -68,44 +72,4 @@ defineProps({
     required: true,
   },
 })
-
-const pointTypeTitle = (pointType?: PointType | 'monastery') => {
-  const pointTypeMap: Record<string, string> = {
-    city: 'Город',
-    road: 'Дорога',
-    field: 'Поле',
-    monastery: 'Монастырь',
-  }
-
-  return pointTypeMap[pointType ?? '']
-}
-
-const pointDirectionTitle = (direction?: PointDirection) => {
-  const directionMap: Record<string, string> = {
-    north: 'Север',
-    south: 'Юг',
-    east: 'Восток',
-    west: 'Запад',
-    center: 'Центр',
-  }
-
-  return directionMap[direction ?? '']
-}
-
-const placeIcon = (place: {
-  temporaryObject?: { isMonastery?: boolean }
-  point?: { pointType?: PointType }
-}) => {
-  if (place.temporaryObject?.isMonastery) return 'i-lucide-church'
-  switch (place.point?.pointType) {
-    case 'city':
-      return 'i-lucide-castle'
-    case 'road':
-      return 'i-lucide-route'
-    case 'field':
-      return 'i-lucide-sprout'
-    default:
-      return 'i-lucide-person-standing'
-  }
-}
 </script>

@@ -91,7 +91,7 @@
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
               @click.stop.prevent="
-                rotateTile(localCurrentTile, 'counterclockwise')
+                rotateLocalTile(localCurrentTile, 'counterclockwise')
               "
             />
           </div>
@@ -105,7 +105,9 @@
               class="flex h-6 w-6 cursor-pointer items-center justify-center !p-0 text-white"
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
-              @click.stop.prevent="rotateTile(localCurrentTile, 'clockwise')"
+              @click.stop.prevent="
+                rotateLocalTile(localCurrentTile, 'clockwise')
+              "
             />
           </div>
           <div
@@ -182,7 +184,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory.vue'
@@ -196,24 +198,16 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { baseGameRules } from './rules/baseGame'
-import { deepClone, throttle } from './utils/common'
+import { notifyError, throttle } from './utils/common'
+import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
+import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby.vue'
 import GameService from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
-import type { IGame, IGameBoard, ITile } from './types/game'
+import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import type { Player } from '@server/modules/types'
-
-const notifyError = (error: unknown) => {
-  if (error instanceof Error) {
-    notificationService.error(error.message)
-  } else if (typeof error === 'string') {
-    notificationService.error(error)
-  } else {
-    notificationService.error('Произошла ошибка')
-  }
-}
 
 const ghostPreviewRef = ref<HTMLElement | null>(null)
 const ghostFrameRef = ref<HTMLElement | null>(null)
@@ -224,8 +218,8 @@ function applyGhostZoom(zoom: number) {
   }
 
   if (ghostFrameRef.value) {
-    ghostFrameRef.value.style.width = `${115 * zoom}px`
-    ghostFrameRef.value.style.height = `${115 * zoom}px`
+    ghostFrameRef.value.style.width = `${TILE_SIZE * zoom}px`
+    ghostFrameRef.value.style.height = `${TILE_SIZE * zoom}px`
   }
 }
 
@@ -244,7 +238,6 @@ const {
 })
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
-const gameServiceState = reactive(GameService)
 
 const defaultGrid = ref([
   ...Array(50)
@@ -262,7 +255,7 @@ const hoveredTile = ref({
   tileIndex: undefined as number | undefined,
 })
 
-const localCurrentTile = ref<ITile>({
+const EMPTY_TILE: ITile = {
   id: '',
   rotation: 0,
   sides: {
@@ -275,7 +268,9 @@ const localCurrentTile = ref<ITile>({
   imgUrl: '',
   name: '',
   description: '',
-})
+}
+
+const localCurrentTile = ref<ITile>({ ...EMPTY_TILE })
 
 const showLobby = ref(true)
 
@@ -330,20 +325,10 @@ const zoomToTile = ({
   rowIndex,
   tileIndex,
 }: { rowIndex?: number; tileIndex?: number } = {}) => {
-  if (!rowIndex || !tileIndex) {
+  if (rowIndex === undefined || tileIndex === undefined) {
     return
   }
-  const targetTile = document.querySelector(
-    '[data-row-index="' + rowIndex + '"][data-tile-index="' + tileIndex + '"]'
-  )
-
-  if (targetTile) {
-    targetTile?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center',
-    })
-  }
+  scrollToTile(rowIndex, tileIndex)
 }
 
 const highlightPoints = ref<number[][]>([])
@@ -354,14 +339,21 @@ const highlightObject = (objectData: { points?: number[][] }) => {
   }
 }
 
+const applyGameState = (game: IGame): boolean => {
+  const isMyTurn = game.currentPlayer?.socketId === GameService.socket?.id
+  gameState.value = { ...game, isMyTurn } as IGameBoard
+  return isMyTurn
+}
+
+const syncLocalTile = (tile?: ITile | null) => {
+  if (!tile) return
+  localCurrentTile.value = { ...tile } as ITile
+}
+
 const onGameStart = (gameData: IGame) => {
-  const isMyTurn = gameData.currentPlayer?.socketId === GameService.socket?.id
+  applyGameState(gameData)
 
   showLobby.value = false
-  gameState.value = {
-    ...gameData,
-    isMyTurn,
-  } as IGameBoard
 
   if (
     gameData.placingPoint?.rowIndex !== undefined &&
@@ -373,24 +365,14 @@ const onGameStart = (gameData: IGame) => {
     }
   }
 
-  if (gameData.currentTile) {
-    localCurrentTile.value = {
-      ...gameData.currentTile,
-    } as ITile
-  }
+  syncLocalTile(gameData.currentTile)
 
   if (gameData.id) {
     handleGameCreated(gameData.id)
   }
 
   GameService.onGameUpdated((updatedGame: IGame) => {
-    const isMyTurn =
-      updatedGame.currentPlayer?.socketId === GameService.socket?.id
-
-    gameState.value = {
-      ...updatedGame,
-      isMyTurn,
-    } as IGameBoard
+    const isMyTurn = applyGameState(updatedGame)
 
     if (
       !isMyTurn &&
@@ -405,12 +387,9 @@ const onGameStart = (gameData: IGame) => {
       zoomToTile(hoveredTile.value)
 
       setTimeout(() => {
-        const targetTile = document.querySelector(
-          '[data-row-index="' +
-            hoveredTile.value.rowIndex +
-            '"][data-tile-index="' +
-            hoveredTile.value.tileIndex +
-            '"]'
+        const targetTile = findTileElement(
+          hoveredTile.value.rowIndex ?? -1,
+          hoveredTile.value.tileIndex ?? -1
         )
         const targetTileRect = targetTile?.getBoundingClientRect()
 
@@ -428,15 +407,11 @@ const onGameStart = (gameData: IGame) => {
       (localCurrentTile.value.id !== updatedGame.currentTile?.id ||
         localCurrentTile.value.rotation !== updatedGame.currentTile?.rotation)
     ) {
-      localCurrentTile.value = {
-        ...updatedGame.currentTile,
-      } as ITile
+      syncLocalTile(updatedGame.currentTile)
     }
 
     if (localCurrentTile.value.id !== updatedGame.currentTile?.id) {
-      localCurrentTile.value = {
-        ...updatedGame.currentTile,
-      } as ITile
+      syncLocalTile(updatedGame.currentTile)
 
       hoveredTile.value =
         updatedGame.placingPoint?.rowIndex !== undefined &&
@@ -450,8 +425,8 @@ const onGameStart = (gameData: IGame) => {
     GameService.socket.on(
       'playerTemporaryDisconnected',
       ({
-        deviceId,
-        playerIds,
+        deviceId: _deviceId,
+        playerIds: _playerIds,
       }: {
         deviceId: string
         playerIds: (string | number)[]
@@ -483,42 +458,12 @@ const handleGameCreated = (gameId: string) => {
   localStorage.setItem('lastGameId', gameId)
 }
 
-const rotateTile = (
+const rotateLocalTile = (
   tile: ITile,
   direction: 'clockwise' | 'counterclockwise'
 ) => {
-  const newTile = deepClone(tile)
-
-  if (direction === 'clockwise') {
-    if (newTile.rotation + 90 > 360) {
-      newTile.rotation = 0
-    }
-    newTile.rotation += 90
-
-    newTile.sides = {
-      ...newTile.sides,
-      north: newTile.sides.west,
-      west: newTile.sides.south,
-      south: newTile.sides.east,
-      east: newTile.sides.north,
-    }
-  } else {
-    if (newTile.rotation - 90 < 0) {
-      newTile.rotation = 360
-    }
-    newTile.rotation -= 90
-
-    newTile.sides = {
-      ...newTile.sides,
-      north: newTile.sides.east,
-      west: newTile.sides.north,
-      south: newTile.sides.west,
-      east: newTile.sides.south,
-    }
-  }
-
+  const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
-
   updateCurrentTile(newTile)
 }
 
@@ -534,11 +479,7 @@ const placeTile = async (
   try {
     await GameService.placeTile(tile, { rowIndex, tileIndex })
   } catch (e: unknown) {
-    if (e instanceof Error) {
-      notificationService.error(e.message)
-    } else {
-      notificationService.error('Произошла ошибка при размещении плитки')
-    }
+    notifyError(e, 'Произошла ошибка при размещении плитки')
   }
 }
 
@@ -556,11 +497,7 @@ const getGamesList = async () => {
     const gamesList = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
-    if (error instanceof Error) {
-      notificationService.error(error.message)
-    } else {
-      notificationService.error('Произошла ошибка при получении списка игр')
-    }
+    notifyError(error, 'Произошла ошибка при получении списка игр')
   }
 }
 
@@ -638,7 +575,7 @@ const reconnectingPlayers = computed(() => {
   )
 })
 
-const games = ref<(GameSummary & { isLastGame?: boolean })[]>([])
+const games = ref<LobbyGame[]>([])
 const playersList = ref<Player[]>([])
 const currentGame = ref<IGame | null>(null)
 

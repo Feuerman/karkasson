@@ -27,6 +27,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { PlacedFollower } from '@server/modules/types'
 import { PlayerColors } from '@server/modules/types'
+import { rotationClass } from '@/utils/tiles'
 
 const props = defineProps({
   tile: Object,
@@ -68,17 +69,7 @@ const tileImg = computed(() => {
   return imagesMap[props.tile?.id as keyof typeof imagesMap]
 })
 
-const rotateClasses: Record<number, string> = {
-  0: 'rotate-0',
-  90: 'rotate-90',
-  180: 'rotate-180',
-  270: 'rotate-270',
-}
-
-const rotateClass = computed(() => {
-  const rotation = (((props.tile?.rotation ?? 0) % 360) + 360) % 360
-  return rotateClasses[rotation] ?? 'rotate-0'
-})
+const rotateClass = computed(() => rotationClass(props.tile?.rotation ?? 0))
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 

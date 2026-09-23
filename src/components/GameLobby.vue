@@ -332,10 +332,11 @@
   </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import GameService from '@/modules/GameService'
-import notificationService from '@/plugins/notification'
-import type { IGame, IGameBoard } from '@/types/game'
+import { notifyError } from '@/utils/common'
+import type { IGame, IGameBoard, LobbyGame } from '@/types/game'
 import type { GameSummary } from '@server/services/GameService'
 import type { Player } from '@server/modules/types'
 import UBadge from '@nuxt/ui/components/Badge.vue'
@@ -350,137 +351,116 @@ import {
   playerTextColorClass,
 } from '@/utils/colors'
 
-const notifyError = (error: unknown) => {
-  if (error instanceof Error) {
-    notificationService.error(error.message)
-  } else {
-    notificationService.error(String(error))
+const props = withDefaults(
+  defineProps<{
+    gameState?: IGameBoard
+    gamesList?: LobbyGame[]
+    players?: Player[]
+    currentGame?: IGame | null
+  }>(),
+  {
+    gameState: () => ({}) as IGameBoard,
+    gamesList: () => [],
+    players: () => [],
+    currentGame: null,
+  }
+)
+
+const emit = defineEmits<{
+  createGame: []
+  joinGame: [gameId: string]
+  rejoinGame: [gameId: string]
+  leaveGame: []
+  startGame: []
+  gameStarted: [game: IGame]
+  updateGamesList: []
+}>()
+
+const gameService = GameService
+
+const currentPlayerName = ref('')
+const showEndedGames = ref(false)
+const isLoadingGames = ref(true)
+
+const connectionColor = computed<'success' | 'error'>(() =>
+  gameService.isConnected.value ? 'success' : 'error'
+)
+
+const connectionDotClass = computed<string>(() =>
+  gameService.isConnected.value ? 'bg-[#44ff44]' : 'bg-[#ff4444]'
+)
+
+const computedGamesList = computed<LobbyGame[]>(() =>
+  showEndedGames.value
+    ? props.gamesList
+    : props.gamesList.filter((g) => !g.gameIsEnded)
+)
+
+onMounted(() => {
+  // Simulate initial games loading
+  setTimeout(() => {
+    isLoadingGames.value = false
+  }, 1000)
+})
+
+function joinButtonIcon(game: GameSummary): string {
+  if (!game.gameIsStarted) return 'i-lucide-log-in'
+  if (!game.gameIsEnded) return 'i-lucide-play'
+  return 'i-lucide-download'
+}
+
+function onPlayerNameInput(value: string) {
+  currentPlayerName.value = value
+}
+
+function createGame() {
+  emit('createGame')
+}
+
+function leaveGameAndGoBack() {
+  emit('leaveGame')
+}
+
+function joinGame(gameId: string | undefined) {
+  if (gameId === undefined) return
+  emit('joinGame', gameId)
+}
+
+function rejoinGame(gameId: string | undefined) {
+  if (gameId === undefined) return
+  emit('rejoinGame', gameId)
+}
+
+async function addPlayer(player: { name?: string | null }, index: number) {
+  try {
+    await GameService.addPlayer({ name: player.name ?? '', index })
+    currentPlayerName.value = ''
+  } catch (error) {
+    notifyError(error)
   }
 }
 
-export default {
-  name: 'GameLobby',
-  components: {
-    UBadge,
-    UButton,
-    UCheckbox,
-    UEmpty,
-    UIcon,
-    UInput,
-  },
-  props: {
-    gameState: {
-      type: Object as () => IGameBoard,
-      default: () => ({}),
-    },
-    gamesList: {
-      type: Array as () => (GameSummary & { isLastGame?: boolean })[],
-      default: () => [],
-    },
-    players: {
-      type: Array as () => Player[],
-      default: () => [],
-    },
-    currentGame: {
-      type: Object as () => IGame | null,
-      default: null,
-    },
-  },
-  data() {
-    return {
-      currentPlayerName: '',
-      showEndedGames: false,
-      isLoadingGames: true,
-    }
-  },
-  computed: {
-    gameService() {
-      return GameService
-    },
-    connectionColor(): 'success' | 'error' {
-      return this.gameService.isConnected.value ? 'success' : 'error'
-    },
-    connectionDotClass(): string {
-      return this.gameService.isConnected.value
-        ? 'bg-[#44ff44]'
-        : 'bg-[#ff4444]'
-    },
-    computedGamesList(): (GameSummary & { isLastGame?: boolean })[] {
-      return this.showEndedGames
-        ? this.gamesList
-        : this.gamesList.filter((g) => !g.gameIsEnded)
-    },
-  },
-  mounted() {
-    // Simulate initial games loading
-    setTimeout(() => {
-      this.isLoadingGames = false
-    }, 1000)
-  },
-  methods: {
-    playerTextColorClass,
-    playerBorderColorClass,
-    playerBackgroundColorClass,
-    joinButtonIcon(game: GameSummary): string {
-      if (!game.gameIsStarted) return 'i-lucide-log-in'
-      if (!game.gameIsEnded) return 'i-lucide-play'
-      return 'i-lucide-download'
-    },
-    onPlayerNameInput(value: string) {
-      this.currentPlayerName = value
-    },
-    async createGame() {
-      try {
-        this.$emit('createGame')
-      } catch (error) {
-        notifyError(error)
-      }
-    },
-    leaveGameAndGoBack() {
-      this.$emit('leaveGame')
-    },
-    async joinGame(gameId: string | undefined) {
-      try {
-        this.$emit('joinGame', gameId)
-      } catch (error) {
-        notifyError(error)
-      }
-    },
-    async rejoinGame(gameId: string | undefined) {
-      try {
-        this.$emit('rejoinGame', gameId)
-      } catch (error) {
-        notifyError(error)
-      }
-    },
-    addPlayer(player: { name?: string | null }, index: number) {
-      try {
-        GameService.addPlayer({ name: player.name ?? '', index })
-        this.currentPlayerName = ''
-      } catch (error) {
-        notifyError(error)
-      }
-    },
-    removePlayer(index: number, name: string | null = null) {
-      try {
-        GameService.removePlayer(index, name)
-      } catch (error) {
-        notifyError(error)
-      }
-    },
-    startGame() {
-      GameService.startGame()
-      this.$emit('startGame')
-    },
-    isRejoinable(game: GameSummary) {
-      return game.players?.some((p) => p.deviceId === GameService.deviceId)
-    },
-    canToggleSlot(player: Player): boolean {
-      return Boolean(
-        (player.socketId && player.deviceId === GameService.deviceId) ||
-        (!player.socketId && player.name)
-      )
-    },
-  },
+async function removePlayer(index: number, name: string | null = null) {
+  try {
+    await GameService.removePlayer(index, name)
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+function startGame() {
+  GameService.startGame()
+  emit('startGame')
+}
+
+function isRejoinable(game: GameSummary) {
+  return game.players?.some((p) => p.deviceId === GameService.deviceId)
+}
+
+function canToggleSlot(player: Player): boolean {
+  return Boolean(
+    (player.socketId && player.deviceId === GameService.deviceId) ||
+    (!player.socketId && player.name)
+  )
 }
 </script>

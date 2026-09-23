@@ -127,7 +127,7 @@
                   >
                     {{ gameBoard.players[Number(playerId) - 1].name }} —
                     {{ score ?? 0 }}
-                    {{ getPlural(score ?? 0, 'очко', 'очка', 'очков') }},
+                    {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
                   </span>
                 </span>
               </div>
@@ -147,19 +147,9 @@
               >
                 <strong class="mr-[3px] text-text">Возврат подданных.</strong>
                 <span
-                  v-for="(
-                    count, playerId
-                  ) in action.actionData.followers.reduce(
-                    (acc: Record<string, number>, follower: ObjectFollower) => {
-                      const key = String(follower.playerId)
-                      if (!acc[key]) {
-                        acc[key] = 0
-                      }
-
-                      acc[key] += 1
-                      return acc
-                    },
-                    {}
+                  v-for="(count, playerId) in countBy(
+                    action.actionData.followers,
+                    (follower) => String(follower.playerId)
                   )"
                   :key="playerId"
                 >
@@ -185,10 +175,12 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { ActionTypes } from '@server/modules/types'
-import type { BaseObject, ObjectFollower } from '@server/modules/types'
+import type { BaseObject } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
 import Draggable from '@/components/Draggable.vue'
 import { playerTextColorClass } from '@/utils/colors'
+import { countBy, pluralForm } from '@/utils/common'
+import { pulseTile, scrollToTile } from '@/utils/board'
 
 defineProps({
   gameBoard: {
@@ -203,33 +195,8 @@ const highlightObject = (objectData: BaseObject) => {
   emits('highlightObject', objectData)
 }
 
-const getPlural = (count: number, one: string, two: string, five: string) => {
-  return count % 10 === 1 && count % 100 !== 11
-    ? one
-    : count % 10 >= 2 &&
-        count % 10 <= 4 &&
-        (count % 100 < 10 || count % 100 >= 20)
-      ? two
-      : five
-}
-
 const zoomToCoordinates = (rowIndex: number, tileIndex: number) => {
-  const targetTile = document.querySelector(
-    '[data-row-index="' + rowIndex + '"][data-tile-index="' + tileIndex + '"]'
-  )
-
-  if (targetTile) {
-    targetTile?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center',
-    })
-
-    targetTile.classList.add('tile-pulse')
-
-    setTimeout(() => {
-      targetTile.classList.remove('tile-pulse')
-    }, 1000)
-  }
+  scrollToTile(rowIndex, tileIndex)
+  pulseTile(rowIndex, tileIndex)
 }
 </script>
