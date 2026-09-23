@@ -114,6 +114,66 @@
       "mode": "primary",
       "model": "tecius/deepseek-v4-pro",
       "color": "accent"
+    },
+    "free-plan": {
+      "description": "Планирование и анализ без правок на OpenCode union-alpha",
+      "mode": "primary",
+      "model": "opencode/union-alpha",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "tecius-plan": {
+      "description": "Планирование и анализ без правок на DeepSeek V4.1 Flash",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4.1-flash",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "tecius-pro-plan": {
+      "description": "Планирование и анализ без правок на DeepSeek V4 Pro",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4-pro",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "luna-plan": {
+      "description": "Планирование и анализ без правок на GPT 5.6 Luna",
+      "mode": "primary",
+      "model": "tecius/gpt-5.6-luna",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "glm-plan": {
+      "description": "Планирование и анализ без правок на GLM 5.3 Flash",
+      "mode": "primary",
+      "model": "tecius/glm-5.3-flash",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    },
+    "big-pickle-plan": {
+      "description": "Планирование и анализ без правок на big-pickle",
+      "mode": "primary",
+      "model": "opencode/big-pickle",
+      "color": "info",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
     }
   }
 }
