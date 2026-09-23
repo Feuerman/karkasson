@@ -5,6 +5,70 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.10.0] - 2026-09-23
+
+Рефакторинг клиента: повторяющиеся методы вынесены в утилиты, дублирующий
+код из компонентов удалён, сокет-взаимодействие `GameService` сведено к
+общим помощникам. Функциональность не изменилась, чище код и выше
+тестируемость.
+
+### Added
+
+- **`src/utils/tiles.ts`** - `TILE_SIZE` (115), `normalizeRotation`,
+  `rotationClass` (поворот 0/90/180/270), `rotateTile(tile, direction)` -
+  возвращает новую плитку без мутаций.
+- **`src/utils/board.ts`** - `findTileElement`, `scrollToTile`,
+  `pulseTile` (анимация подсветки разыгрываемого объекта).
+- **`src/utils/labels.ts`** - `pointTypeTitle`, `pointDirectionTitle`,
+  `followerPlaceIcon` (подписи и иконки lucide для точек/подданных).
+- **`src/utils/common.ts`** - `notifyError(error, fallbackMessage)`,
+  `clamp`, `pluralForm`, `countBy`.
+- **`src/types/game.ts`** - общий тип `LobbyGame`
+  (`GameSummary & { isLastGame?: boolean }`), убран дубль из `GameLobby.vue`.
+- **`src/modules/draggableRegistry.ts`** - `placeCollisionFree(id, x, y, w, h)`:
+  регистрация элемента с клампом к вьюпорту и поиском свободной позиции.
+
+### Changed
+
+- **`src/modules/GameService.ts`** - приватные помощники `emitAck` (ack-запросы)
+  и `emitAndWait` (событийные), метод `getNotConnectedError`; все сокет-методы
+  (`getGamesList`, `createGame`, `addPlayer`, `removePlayer`, `joinGame`,
+  `rejoinGame`, `selectPlacingPoint`, `updateCurrentTile`, `placeTile`,
+  `placeFollower`, `skipFollower`, `checkAvailablePlacements`) переписаны на
+  них; `emitAck` при отсутствии payload отправляет только ack-колбэк
+  (схема сервера для `getGamesList`).
+- **`src/components/Draggable.vue`** - логика размещения на `onMounted` и в
+  `stopDrag` заменена на `placeCollisionFree`.
+- **`src/App.vue`** - помощники `applyGameState`, `syncLocalTile`,
+  `rotateLocalTile`, `zoomToTile`, константа `EMPTY_TILE`; уведомления об
+  ошибках через `notifyError`.
+- **`src/components/GameLobby.vue`** - типизация `ref<LobbyGame[]>` из общих
+  типов, `addPlayer`/`removePlayer` теперь `await`-ятся, удалены мёртвые
+  `try/catch` вокруг синхронных сокет-эмитов.
+- **`src/components/GameActionsHistory.vue` / `TilesList.vue`** - подсчёт
+  через `countBy`, прокрутка и подсветка через `src/utils/board.ts`.
+- **`src/components/GamePlacingFollowers.vue` / `TileView.vue`** - словари
+  и иконки вынесены в `src/utils/labels.ts` и `src/utils/tiles.ts`.
+
+### Fixed
+
+- **`rejoinGame`** не отклонял промис при отсутствии соединения.
+- **`selectPlacingPoint` / `updateCurrentTile` / `placeTile` /
+  `placeFollower` / `skipFollower` / `checkAvailablePlacements`** могли
+  «зависать» при оборванном сокете (сейчас — отклонение «Нет соединения
+  с сервером»).
+- **Прокрутка к строке/колонке 0** - `zoomToTile` учитывал `!rowIndex` /
+  `!tileIndex`, теперь проверка `=== undefined`.
+- **`getGamesList`** - неверная схема ack-колбэка (сервер принимает колбэк
+  первым аргументом), поймана интеграционным тестом.
+
+### Removed
+
+- Мёртвый код: `reactive(GameService)` и неиспользуемые `deviceId`/`playerIds`
+  в обработчике `playerTemporaryDisconnected` (`App.vue`).
+- Дублирующиеся локальные словари, функции пересчёта и логика размещения
+  из компонентов (сеть `-200+` строк кода). Версия 1.10.0
+
 ## [1.9.0] - 2026-09-23
 
 Средневековое оформление интерфейса в стиле «пергамент и камень»: единая
