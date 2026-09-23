@@ -76,6 +76,7 @@ describe('Размещение фишек', () => {
       ...(afterGame.temporaryObjects?.roads ?? []),
       ...(afterGame.temporaryObjects?.cities ?? []),
       ...(afterGame.temporaryObjects?.monasteries ?? []),
+      ...(afterGame.temporaryObjects?.gardens ?? []),
     ]
     const targetObject = allObjects.find(
       (object) => object.id === place.temporaryObject.id

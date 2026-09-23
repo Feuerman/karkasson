@@ -19,5 +19,6 @@ export interface ITile {
   description?: string
   isSolidCity?: boolean
   isMonastery?: boolean
+  hasGarden?: boolean
   withShield?: boolean
 }

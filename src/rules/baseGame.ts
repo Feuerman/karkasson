@@ -20,17 +20,17 @@ const roadConnectionExample: RulesExample = {
   description:
     'Новый тайл с дорогой прилегает к тайлам с дорогой: грани «дорога» должны совпадать.',
   grid: grid([
-    [empty, tile('S'), empty],
+    [empty, tile('U'), empty],
     [
       empty,
       cell(
-        rot('S'),
+        rot('U'),
         { kind: 'new' },
         { kind: 'follower', color: 'coral', direction: 'north' }
       ),
       empty,
     ],
-    [empty, tile('S'), empty],
+    [empty, tile('U'), empty],
   ]),
   caption:
     'Все прилегающие грани — дороги. Синяя пунктирная рамка — тайл только что выложен, цветная точка — подданный.',
@@ -43,8 +43,8 @@ const wrongPlacementExample: RulesExample = {
   description:
     'Грань «дорога» не может прилегать к грани «поле». Красный крестик отмечает несовпадение.',
   grid: grid([
-    [empty, tile('S'), empty],
-    [empty, invalid(rot('F'), 'north'), empty],
+    [empty, tile('U'), empty],
+    [empty, invalid(rot('E'), 'north'), empty],
   ]),
   caption: 'Новый тайл можно повернуть или положить в другое место, но не так.',
   intentionalMismatch: true,
@@ -80,11 +80,11 @@ const completedRoadExample: RulesExample = {
   description:
     'Дорога завершена, когда её концы замкнуты (в данном случае — кольцо).',
   grid: grid([
-    [completed(rot('U')), completed(rot('U', 90))],
+    [completed(rot('W')), completed(rot('W', 90))],
     [
-      completed(rot('U', 270)),
+      completed(rot('W', 270)),
       cell(
-        rot('U', 180),
+        rot('W', 180),
         { kind: 'completed' },
         { kind: 'new' },
         { kind: 'follower', color: 'gold', direction: 'north' }
@@ -101,11 +101,11 @@ const completedCityExample: RulesExample = {
   description:
     'Город завершён, когда у стен не осталось открытых граней: все «городские» стороны прилегают друг к другу.',
   grid: grid([
-    [completed(rot('J', 180)), completed(rot('J', 270))],
+    [completed(rot('I', 180)), completed(rot('I', 270))],
     [
-      completed(rot('J', 90)),
+      completed(rot('I', 90)),
       cell(
-        rot('J'),
+        rot('I'),
         { kind: 'completed' },
         { kind: 'new' },
         { kind: 'follower', color: 'coral', direction: 'north' }
@@ -123,15 +123,15 @@ const claimedObjectExample: RulesExample = {
   description:
     'На один объект (здесь — одна дорога) можно поставить только одного подданного.',
   grid: grid([
-    [empty, tile('S'), empty],
+    [empty, tile('U'), empty],
     [
       empty,
-      cell(rot('S'), { kind: 'follower', color: 'coral', direction: 'south' }),
+      cell(rot('U'), { kind: 'follower', color: 'coral', direction: 'south' }),
       empty,
     ],
     [
       empty,
-      cell(rot('S'), { kind: 'new' }, { kind: 'no', direction: 'north' }),
+      cell(rot('U'), { kind: 'new' }, { kind: 'no', direction: 'north' }),
       empty,
     ],
   ]),
@@ -161,7 +161,7 @@ if (import.meta.env.DEV) {
 export const baseGameRules: RulesDocument = {
   id: 'base-game',
   title: 'Правила игры',
-  subtitle: 'Каркассон: базовая игра + монастыри',
+  subtitle: 'Каркассон: базовая игра + монастыри и сады',
   sections: [
     {
       id: 'goal',
@@ -173,7 +173,7 @@ export const baseGameRules: RulesDocument = {
         },
         {
           type: 'paragraph',
-          text: 'В этой версии реализованы дороги, города и монастыри, а также особая фишка — аббат. Поля (фермеры) в игре отсутствуют — разделы, где они упоминаются, помечены пометкой «не реализовано».',
+          text: 'В этой версии реализованы дороги, города, монастыри и сады, а также особая фишка — аббат. Поля (фермеры) в игре отсутствуют — разделы, где они упоминаются, помечены пометкой «не реализовано».',
         },
         {
           type: 'callout',
@@ -261,7 +261,7 @@ export const baseGameRules: RulesDocument = {
         },
         {
           type: 'tiles-row',
-          tiles: [rot('U'), rot('U', 90), rot('U', 180), rot('U', 270)],
+          tiles: [rot('W'), rot('W', 90), rot('W', 180), rot('W', 270)],
           labels: ['0°', '90°', '180°', '270°'],
         },
         {
@@ -288,6 +288,7 @@ export const baseGameRules: RulesDocument = {
             'Дорога — разбойник: приносит очки при завершении дороги.',
             'Монастырь — монах: приносит 9 очков при завершении монастыря.',
             'Монастырь — аббат: особая фишка, см. раздел «Монастырь» ниже.',
+            'Сад — аббат: на сад ставится только аббат, см. раздел «Монастырь» ниже.',
             'Поле — фермер — не реализовано в этой версии.',
           ],
         },
@@ -298,7 +299,7 @@ export const baseGameRules: RulesDocument = {
             'На объект, где уже стоит чей-либо подданный, ставить нельзя (даже своего).',
             'Клетка, где стоит тайл без подходящего объекта, недоступна для подданного.',
             'Нельзя поставить подданного, если все 7 фишек игрока уже на поле.',
-            'Аббат один на игрока и ставится только на монастырь.',
+            'Аббат один на игрока и ставится только на монастырь или сад.',
           ],
         },
         {
@@ -328,6 +329,7 @@ export const baseGameRules: RulesDocument = {
             'Дорога — 1 очко за каждый тайл дороги.',
             'Город — 2 очка за каждый тайл города + 2 очка за каждый герб (щит) внутри.',
             'Монастырь — 1 очко за сам монастырь + 1 очко за каждый из 8 окружающих тайлов = 9 очков.',
+            'Сад — очков при завершении не приносит (аббат на саду отзывается, как на монастыре).',
           ],
         },
         {
@@ -372,7 +374,7 @@ export const baseGameRules: RulesDocument = {
           type: 'callout',
           tone: 'note',
           title: 'Аббат',
-          text: 'У каждого игрока есть особая фишка — аббат. Аббата можно поставить только на монастырь, и сделать это можно вместо обычного подданного. Завершённый монастырь с аббатом очков не приносит: аббат остаётся на доске, пока владелец не заберёт его в свой ход. При отзыве аббат начисляет 1 очко за сам монастырь и по 1 очку за каждую занятую клетку вокруг него.',
+          text: 'У каждого игрока есть особая фишка — аббат. Аббата можно поставить только на монастырь или сад, и сделать это можно вместо обычного подданного. Завершённый монастырь или сад с аббатом очков не приносит: аббат остаётся на доске, пока владелец не заберёт его в свой ход. При отзыве аббат начисляет 1 очко за сам объект и по 1 очку за каждую занятую клетку вокруг него.',
         },
       ],
     },
@@ -413,6 +415,7 @@ export const baseGameRules: RulesDocument = {
               'Реализовано',
             ],
             ['Монастырь', '9 очков', '1 + все окружающие тайлы', 'Реализовано'],
+            ['Сад (аббат)', '—', '1 + все окружающие тайлы при отзыве', 'Реализовано'],
             [
               'Поле (фермер)',
               '—',

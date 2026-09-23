@@ -1,7 +1,12 @@
-import tiles from '../data/tiles'
+import tiles, { gardenTileCounts } from '../data/tiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
-import { calcCityScore, calcMonasteryPoints, calcRoadScore } from './scoring'
+import {
+  calcCityScore,
+  calcGardenPoints,
+  calcMonasteryPoints,
+  calcRoadScore,
+} from './scoring'
 import {
   ActionTypes,
   ObjectTypes,
@@ -158,8 +163,18 @@ export class GameManager implements IGameBoard {
     this.currentPlayerIndex = 0
     this.availableFollowersPlaces = []
     this.isPlacingFollower = false
-    this.temporaryObjects = { cities: [], roads: [], monasteries: [] }
-    this.completedObjects = { cities: [], roads: [], monasteries: [] }
+    this.temporaryObjects = {
+      cities: [],
+      roads: [],
+      monasteries: [],
+      gardens: [],
+    }
+    this.completedObjects = {
+      cities: [],
+      roads: [],
+      monasteries: [],
+      gardens: [],
+    }
     this.scores = {}
     this.playersFollowers = {}
     this.placedFollowers = []
@@ -177,10 +192,14 @@ export class GameManager implements IGameBoard {
 
   initTilesList() {
     this.tilesList = tiles
-      .reduce<Tile[]>((acc, tile) => {
-        const copies = Array<Tile>(tile.count).fill({ ...tile, rotation: 0 })
-        return [...acc, ...copies]
-      }, [])
+      .flatMap<Tile>((tile) => {
+        const gardenCount = gardenTileCounts[tile.id] ?? 0
+        return Array.from({ length: tile.count }, (_, index) => {
+          const copy: Tile = { ...tile, rotation: 0 }
+          if (index < gardenCount) copy.hasGarden = true
+          return copy
+        })
+      })
       .sort(() => Math.random() - 0.5)
   }
 
@@ -212,7 +231,7 @@ export class GameManager implements IGameBoard {
       tileIndex: Math.floor(this.gridSize[0] / 2),
     }
 
-    const startTileIndex = this.tilesList.findIndex((tile) => tile.id === 'E')
+    const startTileIndex = this.tilesList.findIndex((tile) => tile.id === 'D')
     const startTile = { ...this.tilesList[startTileIndex] }
 
     this.tilesList.splice(startTileIndex, 1)
@@ -280,7 +299,7 @@ export class GameManager implements IGameBoard {
     }
 
     const sides: PointDirection[] = Object.keys(tile.sides) as SideName[]
-    if (tile.isMonastery) {
+    if (tile.isMonastery || tile.hasGarden) {
       sides.push('center')
     }
 
@@ -307,7 +326,15 @@ export class GameManager implements IGameBoard {
     this.availableFollowersPlaces = candidates.filter(
       (place): place is AvailableFollowerPlace => {
         const object = place.temporaryObject
-        return object !== undefined && object.followers.length === 0
+        if (object === undefined || object.followers.length !== 0) {
+          return false
+        }
+        // На сад можно поставить только аббата — предлагаем его лишь при
+        // наличии свободного аббата в запасе.
+        if (object.isGarden && !followerPool?.monks) {
+          return false
+        }
+        return true
       }
     )
 
@@ -491,12 +518,16 @@ export class GameManager implements IGameBoard {
 
     // Валидация пула и целевого объекта до списания фишки
     const isAbbot = followerType === 'abbot'
+    const isCenterFeature = Boolean(
+      temporaryObject.isMonastery || temporaryObject.isGarden
+    )
     if (isAbbot) {
-      if (!followerPool.monks || !temporaryObject.isMonastery) {
+      if (!followerPool.monks || !isCenterFeature) {
         this.skipFollower()
         return
       }
-    } else if (!followerPool.ordinaryFollowers) {
+    } else if (!followerPool.ordinaryFollowers || temporaryObject.isGarden) {
+      // На сад можно поставить только аббата
       this.skipFollower()
       return
     }
@@ -519,6 +550,7 @@ export class GameManager implements IGameBoard {
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
       isMonastery: availablePlace.temporaryObject.isMonastery,
+      isGarden: availablePlace.temporaryObject.isGarden,
       isAbbot: isAbbot || undefined,
     })
 
@@ -542,10 +574,10 @@ export class GameManager implements IGameBoard {
   }
 
   /**
-   * Отзыв аббата в ход владельца: аббат снимается с монастыря (завершённого
-   * или нет) и начисляются очки за «незавершённый» монастырь — 1 очко за сам
-   * тайл и по 1 очку за каждую занятую клетку в окрестности 3×3. Ход не
-   * расходуется: игрок после отзыва продолжает свой ход.
+   * Отзыв аббата в ход владельца: аббат снимается с монастыря или сада
+   * (завершённого или нет) и начисляются очки за «незавершённый» объект —
+   * 1 очко за сам тайл и по 1 очку за каждую занятую клетку в окрестности 3×3.
+   * Ход не расходуется: игрок после отзыва продолжает свой ход.
    */
   recallAbbot(): boolean {
     if (this.gameIsEnded) return false
@@ -553,42 +585,48 @@ export class GameManager implements IGameBoard {
     if (!currentPlayer) return false
 
     const playerKey = String(currentPlayer.id)
-    const monasteries = [
+    const centerObjects = [
       ...this.temporaryObjects.monasteries,
       ...this.completedObjects.monasteries,
+      ...this.temporaryObjects.gardens,
+      ...this.completedObjects.gardens,
     ]
-    const monastery = monasteries.find((m) =>
+    const target = centerObjects.find((m) =>
       m.followers.some((f) => f.isAbbot && String(f.playerId) === playerKey)
     )
-    if (!monastery) return false
+    if (!target) return false
 
-    const abbot = monastery.followers.find(
+    const abbot = target.followers.find(
       (f) => f.isAbbot && String(f.playerId) === playerKey
     )
     if (!abbot) return false
 
-    const points = calcMonasteryPoints(this.tilePlacesStats, monastery)
+    const points = target.isGarden
+      ? calcGardenPoints(this.tilePlacesStats, target)
+      : calcMonasteryPoints(this.tilePlacesStats, target)
     this.scores[currentPlayer.id] =
       (this.scores[currentPlayer.id] ?? 0) + points
 
     this.actionsHistory.push({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
-        objectType: ObjectTypes.MONASTERY,
-        objectData: monastery,
+        objectType: target.isGarden
+          ? ObjectTypes.GARDEN
+          : ObjectTypes.MONASTERY,
+        objectData: target,
         score: {
-          objectId: monastery.id,
+          objectId: target.id,
           players: { [currentPlayer.id]: points },
           total: points,
         },
       },
     })
 
-    monastery.followers = monastery.followers.filter((f) => f !== abbot)
+    target.followers = target.followers.filter((f) => f !== abbot)
     const placedIndex = this.placedFollowers.findIndex(
       (f) =>
         f.isAbbot &&
-        f.objectId === monastery.id &&
+        f.objectId === target.id &&
         String(f.playerId) === playerKey
     )
     if (placedIndex !== -1) {
@@ -611,17 +649,20 @@ export class GameManager implements IGameBoard {
     y: number,
     direction?: SideName | 'center'
   ): BaseObject | undefined {
-    return [...objects.cities, ...objects.roads, ...objects.monasteries].find(
-      (object) => {
-        return object.points.some((point) => {
-          return (
-            point.x === x &&
-            point.y === y &&
-            (!direction || point.direction === direction)
-          )
-        })
-      }
-    )
+    return [
+      ...objects.cities,
+      ...objects.roads,
+      ...objects.monasteries,
+      ...objects.gardens,
+    ].find((object) => {
+      return object.points.some((point) => {
+        return (
+          point.x === x &&
+          point.y === y &&
+          (!direction || point.direction === direction)
+        )
+      })
+    })
   }
 
   async autoPlaceTile(): Promise<void> {
@@ -660,6 +701,7 @@ export class GameManager implements IGameBoard {
   getRandomTileFromList() {
     if (!this.tilesList.length) {
       this.gameIsEnded = true
+      this.currentTile = null
       return
     }
 
@@ -730,6 +772,8 @@ export class GameManager implements IGameBoard {
     this.checkCities(citiesPoints, tile.isSolidCity)
 
     this.checkMonasteries(tile)
+
+    this.checkGardens(tile)
   }
 
   checkMonasteries(tile: GridTile) {
@@ -818,6 +862,96 @@ export class GameManager implements IGameBoard {
           this.placedFollowers.findIndex(
             (f) =>
               f.playerId === follower.playerId && f.objectId === monastery.id
+          ),
+          1
+        )
+        this.actionsHistory.push({
+          actionType: ActionTypes.BACK_FOLLOWER,
+          actionData: { followers: [follower] },
+        })
+      })
+    })
+  }
+
+  checkGardens(tile: GridTile) {
+    if (tile.hasGarden) {
+      this.temporaryObjects.gardens.push({
+        followers: [],
+        id: 'id' + Math.random(),
+        isGarden: true,
+        points: [
+          {
+            x: tile.x,
+            y: tile.y,
+            direction: 'center',
+            rowIndex: tile.y,
+            tileIndex: tile.x,
+          },
+        ],
+      })
+    }
+
+    this.checkCompletedGardens()
+  }
+
+  checkCompletedGardens() {
+    const surroundings: [number, number][] = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
+    ]
+
+    const completedGardens = this.temporaryObjects.gardens.filter((garden) => {
+      const gardenPoint = garden.points[0]
+      if (!gardenPoint) return false
+      return surroundings.every(([dy, dx]) =>
+        Boolean(this.tilePlacesStats[gardenPoint.y + dy]?.[gardenPoint.x + dx])
+      )
+    })
+
+    this.temporaryObjects.gardens = this.temporaryObjects.gardens.filter(
+      (garden) => !completedGardens.find((g) => g.id === garden.id)
+    )
+
+    this.completedObjects.gardens = [
+      ...this.completedObjects.gardens,
+      ...completedGardens,
+    ]
+
+    if (completedGardens.length) {
+      this.calcScoreForGardens(completedGardens)
+    }
+  }
+
+  calcScoreForGardens(gardens: BaseObject[]) {
+    gardens.forEach((garden) => {
+      garden.followers.forEach((follower) => {
+        // Аббат на саду так же не приносит очков при завершении и ждёт отзыва.
+        if (follower.isAbbot) return
+
+        this.scores[follower.playerId] += 9
+
+        this.actionsHistory.push({
+          actionType: ActionTypes.ADDING_SCORES,
+          actionData: {
+            objectType: ObjectTypes.GARDEN,
+            objectData: garden,
+            score: {
+              objectId: garden.id,
+              players: { [follower.playerId]: 9 },
+              total: 9,
+            },
+          },
+        })
+        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+        this.placedFollowers.splice(
+          this.placedFollowers.findIndex(
+            (f) => f.playerId === follower.playerId && f.objectId === garden.id
           ),
           1
         )
@@ -1265,11 +1399,19 @@ export class GameManager implements IGameBoard {
     if (!currentPlayer || !followerPool) return false
 
     const isAbbot = followerType === 'abbot'
+    const isCenterFeature = Boolean(
+      availablePlace.temporaryObject.isMonastery ||
+      availablePlace.temporaryObject.isGarden
+    )
     if (isAbbot) {
-      if (!followerPool.monks || !availablePlace.temporaryObject.isMonastery) {
+      if (!followerPool.monks || !isCenterFeature) {
         return false
       }
-    } else if (!followerPool.ordinaryFollowers) {
+    } else if (
+      !followerPool.ordinaryFollowers ||
+      availablePlace.temporaryObject.isGarden
+    ) {
+      // На сад можно поставить только аббата
       return false
     }
 
@@ -1291,6 +1433,7 @@ export class GameManager implements IGameBoard {
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
       isMonastery: availablePlace.temporaryObject.isMonastery,
+      isGarden: availablePlace.temporaryObject.isGarden,
       isAbbot: isAbbot || undefined,
     })
 

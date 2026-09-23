@@ -225,7 +225,7 @@ export function registerGameHandlers({
       }
 
       const availablePlacements: {
-        type: 'road' | 'city' | 'monastery'
+        type: 'road' | 'city' | 'monastery' | 'garden'
         side?: string
       }[] = []
 
@@ -257,6 +257,15 @@ export function registerGameHandlers({
         )
         if (monastery && monastery.followers.length === 0) {
           availablePlacements.push({ type: 'monastery', side: 'center' })
+        }
+      }
+
+      if (tile.hasGarden) {
+        const garden = game.temporaryObjects.gardens.find(
+          (g) => g.points[0]?.x === col && g.points[0]?.y === row
+        )
+        if (garden && garden.followers.length === 0) {
+          availablePlacements.push({ type: 'garden', side: 'center' })
         }
       }
 

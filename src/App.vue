@@ -59,7 +59,7 @@
       <GamePlacingFollowers :game-board="gameState" />
       <GameAbbotRecall :game-board="gameState" />
       <Draggable
-        v-if="!gameState.isPlacingFollower"
+        v-if="!gameState.isPlacingFollower && !gameState.gameIsEnded"
         is-none-style
         :initial-x="currentStatePosition.x"
         :initial-y="currentStatePosition.y"

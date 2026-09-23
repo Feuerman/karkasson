@@ -57,7 +57,7 @@ describe('Полностью автоматическая партия (4 ком
     expect(startedState.gameIsStarted).toBe(true)
     expect(startedState.tilePlacesStats[15]?.[15]).toBeTruthy()
 
-    // Ждём завершения партии (66 ходов колоды + стартовый тайл)
+    // Ждём завершения партии (71 ход колоды + стартовый тайл)
     const endedPayload = await creator.waitForEvent(
       'gameUpdated',
       (payload) => (payload as GameStateSnapshot).gameIsEnded === true,
@@ -65,7 +65,7 @@ describe('Полностью автоматическая партия (4 ком
     )
     const ended = endedPayload as GameStateSnapshot
     expect(ended.gameIsEnded).toBe(true)
-    expect(countPlacedTiles(ended.tilePlacesStats)).toBe(67)
+    expect(countPlacedTiles(ended.tilePlacesStats)).toBe(72)
 
     // Очки согласуются с завершёнными строениями, фишки не потеряны
     verifyScoringAgainstServer(ended)

@@ -18,7 +18,7 @@ export const tiles: {
   {
     id: 'A',
     count: 2,
-    description: 'Monastery with a road',
+    description: 'Monastery with road',
     sides: {
       north: 'field',
       east: 'field',
@@ -31,7 +31,7 @@ export const tiles: {
   {
     id: 'B',
     count: 4,
-    description: 'Monastery with a field',
+    description: 'Monastery',
     sides: {
       north: 'field',
       east: 'field',
@@ -43,20 +43,8 @@ export const tiles: {
   },
   {
     id: 'C',
-    count: 3,
-    description: 'City with connecting roads',
-    sides: {
-      north: 'city',
-      east: 'road',
-      south: 'road',
-      west: 'road',
-    },
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_L.png',
-  },
-  {
-    id: 'D',
     count: 1,
-    description: 'Straight road with field',
+    description: 'City with shield',
     sides: {
       north: 'city',
       east: 'city',
@@ -68,9 +56,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_C.png',
   },
   {
-    id: 'E',
+    id: 'D',
     count: 4,
-    description: 'Curved road with field',
+    description: 'City with road',
     sides: {
       north: 'city',
       east: 'road',
@@ -80,9 +68,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_D.png',
   },
   {
-    id: 'F',
+    id: 'E',
     count: 5,
-    description: 'Road ending in field',
+    description: 'City',
     sides: {
       north: 'city',
       east: 'field',
@@ -92,23 +80,23 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_E.png',
   },
   {
-    id: 'G',
+    id: 'F',
     count: 2,
-    description: 'Separate city sections',
+    description: 'Two city edges with shield',
     sides: {
       north: 'field',
       east: 'city',
       south: 'field',
       west: 'city',
     },
-    isSolidCity: true,
     withShield: true,
+    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_F.png',
   },
   {
-    id: 'H',
+    id: 'G',
     count: 1,
-    description: 'City edge with curved road',
+    description: 'Two city edges',
     sides: {
       north: 'field',
       east: 'city',
@@ -119,9 +107,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_G.png',
   },
   {
-    id: 'I',
+    id: 'H',
     count: 3,
-    description: 'City edge with field',
+    description: 'Two city edges',
     sides: {
       north: 'city',
       east: 'field',
@@ -131,9 +119,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_H.png',
   },
   {
-    id: 'J',
+    id: 'I',
     count: 2,
-    description: 'City with curved road',
+    description: 'Two adjacent city edges',
     sides: {
       north: 'city',
       east: 'field',
@@ -143,7 +131,7 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_I.png',
   },
   {
-    id: 'K',
+    id: 'J',
     count: 3,
     description: 'City with curved road',
     sides: {
@@ -155,9 +143,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_J.png',
   },
   {
-    id: 'L',
+    id: 'K',
     count: 3,
-    description: 'Village with crossroad',
+    description: 'City with road',
     sides: {
       north: 'city',
       east: 'field',
@@ -167,23 +155,60 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_K.png',
   },
   {
+    id: 'L',
+    count: 3,
+    description: 'City with crossroads',
+    sides: {
+      north: 'city',
+      east: 'road',
+      south: 'road',
+      west: 'road',
+    },
+    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_L.png',
+  },
+  {
     id: 'M',
     count: 2,
-    description: 'City cap',
+    description: 'Two city edges with shield',
+    sides: {
+      north: 'city',
+      east: 'city',
+      south: 'field',
+      west: 'field',
+    },
+    withShield: true,
+    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_M.png',
+  },
+  {
+    id: 'N',
+    count: 3,
+    description: 'City with road',
+    sides: {
+      north: 'city',
+      east: 'city',
+      south: 'field',
+      west: 'field',
+    },
+    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_N.png',
+  },
+  {
+    id: 'O',
+    count: 2,
+    description: 'City and road with shield',
     sides: {
       north: 'city',
       east: 'road',
       south: 'road',
       west: 'city',
     },
-    isSolidCity: true,
     withShield: true,
+    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_O.png',
   },
   {
-    id: 'N',
+    id: 'P',
     count: 3,
-    description: 'City edge with curved road',
+    description: 'City and road',
     sides: {
       north: 'city',
       east: 'road',
@@ -194,9 +219,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_P.png',
   },
   {
-    id: 'O',
+    id: 'Q',
     count: 1,
-    description: 'City with road through',
+    description: 'City with shield',
     sides: {
       north: 'city',
       east: 'city',
@@ -208,9 +233,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_Q.png',
   },
   {
-    id: 'P',
+    id: 'R',
     count: 3,
-    description: 'City edge with curved road',
+    description: 'City',
     sides: {
       north: 'city',
       east: 'city',
@@ -221,9 +246,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_R.png',
   },
   {
-    id: 'Q',
+    id: 'S',
     count: 2,
-    description: 'City with shield',
+    description: 'City with road and shield',
     sides: {
       north: 'city',
       east: 'city',
@@ -235,9 +260,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_S.png',
   },
   {
-    id: 'R',
+    id: 'T',
     count: 1,
-    description: 'City edge with curved road',
+    description: 'City with road',
     sides: {
       north: 'city',
       east: 'city',
@@ -248,9 +273,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_T.png',
   },
   {
-    id: 'S',
+    id: 'U',
     count: 8,
-    description: 'Road with T-junction',
+    description: 'Straight road',
     sides: {
       north: 'road',
       east: 'field',
@@ -260,9 +285,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_U.png',
   },
   {
-    id: 'T',
+    id: 'V',
     count: 9,
-    description: 'City with shield',
+    description: 'Curved road',
     sides: {
       north: 'field',
       east: 'field',
@@ -272,9 +297,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_V.png',
   },
   {
-    id: 'U',
+    id: 'W',
     count: 4,
-    description: 'Straight road',
+    description: 'T-junction road',
     sides: {
       north: 'field',
       east: 'road',
@@ -284,9 +309,9 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_W.png',
   },
   {
-    id: 'V',
+    id: 'X',
     count: 1,
-    description: 'Curved road',
+    description: 'Crossroads',
     sides: {
       north: 'road',
       east: 'road',
@@ -296,5 +321,17 @@ export const tiles: {
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_X.png',
   },
 ]
+
+/** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
+export const gardenTileCounts: Record<string, number> = {
+  I: 1,
+  R: 1,
+  U: 1,
+  V: 1,
+  E: 1,
+  H: 1,
+  M: 1,
+  N: 1,
+}
 
 export default tiles

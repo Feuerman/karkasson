@@ -32,11 +32,15 @@
       <div v-else class="flex flex-col gap-1.5">
         <template v-for="(place, index) in gameBoard.availableFollowersPlaces">
           <div
-            v-if="place.temporaryObject?.isMonastery"
+            v-if="
+              place.temporaryObject?.isMonastery ||
+              place.temporaryObject?.isGarden
+            "
             :key="`${index}-monastery`"
             class="flex flex-col gap-1.5"
           >
             <UButton
+              v-if="place.temporaryObject?.isMonastery"
               block
               variant="ghost"
               class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
@@ -61,9 +65,16 @@
               @click.stop="gameBoard.isMyTurn && placeFollower(place, 'abbot')"
             >
               <template #leading>
-                <UIcon name="i-lucide-church" class="h-4 w-4 text-gold-dark" />
+                <UIcon
+                  :name="
+                    place.temporaryObject?.isGarden
+                      ? 'i-lucide-flower-2'
+                      : 'i-lucide-church'
+                  "
+                  class="h-4 w-4 text-gold-dark"
+                />
               </template>
-              Монастырь — аббат
+              {{ centerFeatureTitle(place) }} — аббат
             </UButton>
           </div>
           <UButton
@@ -121,6 +132,9 @@ const meFollowers = computed(() => {
 
 const ordinaryAvailable = computed(() => meFollowers.value.ordinaryFollowers)
 const abbotAvailable = computed(() => meFollowers.value.monks)
+
+const centerFeatureTitle = (place: AvailableFollowerPlace): string =>
+  place.temporaryObject?.isGarden ? 'Сад' : 'Монастырь'
 
 const placeFollower = (
   place: AvailableFollowerPlace,
