@@ -187,7 +187,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from './components/GameControls.vue'
-import GameActionsHistory from './components/GameActionsHistory.vue'
+import GameActionsHistory from './components/GameActionsHistory'
 import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
 import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
