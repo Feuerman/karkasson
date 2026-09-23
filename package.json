@@ -1,7 +1,7 @@
 {
   "name": "carcasson_ex",
   "description": "Онлайн-игра «Каркассон»: Vue 3 клиент и игровой сервер на Node.js/Socket.IO",
-  "version": "1.10.1",
+  "version": "1.11.0",
   "private": true,
   "type": "module",
   "scripts": {

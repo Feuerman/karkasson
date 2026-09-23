@@ -39,6 +39,20 @@
             class="inline-block h-2.5 w-2.5 rounded-[3px] border border-black/25"
             :class="playerBackgroundColorClass(player.color)"
           />
+          <UIcon
+            name="i-lucide-church"
+            class="ml-1 h-4 w-4"
+            :class="
+              gameBoard.playersFollowers[player.id].monks > 0
+                ? 'text-gold-dark'
+                : 'text-text-muted/40'
+            "
+            :title="
+              gameBoard.playersFollowers[player.id].monks > 0
+                ? 'Аббат в запасе'
+                : 'Аббат на поле'
+            "
+          />
         </span>
         <span class="text-[1.1rem] font-bold tabular-nums text-text">
           {{ gameBoard.scores[player.id] }}

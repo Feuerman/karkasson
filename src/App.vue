@@ -57,6 +57,7 @@
         @highlight-object="highlightObject"
       />
       <GamePlacingFollowers :game-board="gameState" />
+      <GameAbbotRecall :game-board="gameState" />
       <Draggable
         v-if="!gameState.isPlacingFollower"
         is-none-style
@@ -190,6 +191,7 @@ import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory'
 import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
+import GameAbbotRecall from './components/GameAbbotRecall.vue'
 import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
 import RulesPanel from './components/rules/RulesPanel.vue'
 import UApp from '@nuxt/ui/components/App.vue'
@@ -207,7 +209,7 @@ import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
-import type { Player } from '@server/modules/types'
+import type { Player, Point } from '@server/modules/types'
 
 const ghostPreviewRef = ref<HTMLElement | null>(null)
 const ghostFrameRef = ref<HTMLElement | null>(null)
@@ -331,12 +333,9 @@ const zoomToTile = ({
   scrollToTile(rowIndex, tileIndex)
 }
 
-const highlightPoints = ref<number[][]>([])
-const highlightObject = (objectData: { points?: number[][] }) => {
-  highlightPoints.value = []
-  if (objectData.points) {
-    highlightPoints.value = objectData.points
-  }
+const highlightPoints = ref<Point[]>([])
+const highlightObject = (objectData: { points?: Point[] }) => {
+  highlightPoints.value = objectData.points ?? []
 }
 
 const applyGameState = (game: IGame): boolean => {

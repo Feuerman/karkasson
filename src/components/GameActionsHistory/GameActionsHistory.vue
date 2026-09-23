@@ -5,7 +5,9 @@
     :initial-x="10"
     :initial-y="10"
   >
-    <div class="panel-parchment w-[540px] max-w-[90vw] overflow-hidden shadow-card">
+    <div
+      class="panel-parchment w-[540px] max-w-[90vw] overflow-hidden shadow-card"
+    >
       <div
         class="sticky top-0 z-10 mb-2 flex items-center justify-between gap-3 border-b border-gold-dark/30 bg-surface/90 px-5 py-2.5 backdrop-blur"
       >

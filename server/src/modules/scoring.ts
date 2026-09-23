@@ -89,3 +89,27 @@ export function calcCityScore(
   const result = distributeScore(points, city.followers, scores)
   return city.followers.length ? { ...result, objectId: city.id } : result
 }
+
+/**
+ * Очки «незавершённого» монастыря: 1 очко за сам монастырь и по 1 очку
+ * за каждую занятую клетку в окрестности 3×3. Используется для отзыва
+ * аббата (в этой версии финального подсчёта незавершённых объектов нет).
+ */
+export function calcMonasteryPoints(
+  tilePlacesStats: TilePlacesStats,
+  monastery: BaseObject
+): number {
+  const monasteryPoint = monastery.points[0]
+  if (!monasteryPoint) return 0
+
+  let count = 0
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (tilePlacesStats[monasteryPoint.y + dy]?.[monasteryPoint.x + dx]) {
+        count++
+      }
+    }
+  }
+
+  return count
+}

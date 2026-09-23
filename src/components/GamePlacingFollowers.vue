@@ -30,31 +30,65 @@
         </UButton>
       </div>
       <div v-else class="flex flex-col gap-1.5">
-        <UButton
-          v-for="(place, index) in gameBoard.availableFollowersPlaces"
-          :key="index"
-          block
-          variant="ghost"
-          class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
-          @click.stop="gameBoard.isMyTurn && GameService.placeFollower(place)"
-        >
-          <template #leading>
-            <UIcon :name="placeIcon(place)" class="h-4 w-4 text-gold-dark" />
-          </template>
-          <template v-if="place.temporaryObject?.isMonastery"
-            >Монастырь</template
+        <template v-for="(place, index) in gameBoard.availableFollowersPlaces">
+          <div
+            v-if="place.temporaryObject?.isMonastery"
+            :key="`${index}-monastery`"
+            class="flex flex-col gap-1.5"
           >
-          <template v-else>
+            <UButton
+              block
+              variant="ghost"
+              class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+              :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
+              @click.stop="
+                gameBoard.isMyTurn && placeFollower(place, 'follower')
+              "
+            >
+              <template #leading>
+                <UIcon
+                  name="i-lucide-person-standing"
+                  class="h-4 w-4 text-gold-dark"
+                />
+              </template>
+              Монастырь — монах
+            </UButton>
+            <UButton
+              block
+              variant="ghost"
+              class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+              :disabled="!gameBoard.isMyTurn || abbotAvailable === 0"
+              @click.stop="gameBoard.isMyTurn && placeFollower(place, 'abbot')"
+            >
+              <template #leading>
+                <UIcon name="i-lucide-church" class="h-4 w-4 text-gold-dark" />
+              </template>
+              Монастырь — аббат
+            </UButton>
+          </div>
+          <UButton
+            v-else
+            :key="`${index}-ordinary`"
+            block
+            variant="ghost"
+            class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+            :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
+            @click.stop="gameBoard.isMyTurn && placeFollower(place, 'follower')"
+          >
+            <template #leading>
+              <UIcon :name="placeIcon(place)" class="h-4 w-4 text-gold-dark" />
+            </template>
             {{ pointTypeTitle(place.point.pointType) }}
             {{ pointDirectionTitle(place.point.direction) }}
-          </template>
-        </UButton>
+          </UButton>
+        </template>
       </div>
     </div>
   </Draggable>
 </template>
 
 <script setup lang="ts">
+import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { IGameBoard } from '@/types/game'
 import Draggable from '@/components/Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
@@ -65,11 +99,33 @@ import {
   pointDirectionTitle,
   pointTypeTitle,
 } from '@/utils/labels'
+import { computed } from 'vue'
 
-defineProps({
+const props = defineProps({
   gameBoard: {
     type: Object as () => IGameBoard,
     required: true,
   },
 })
+
+const meFollowers = computed(() => {
+  const currentPlayer = props.gameBoard.currentPlayer
+  if (!currentPlayer) return { ordinaryFollowers: 0, monks: 0 }
+  return (
+    props.gameBoard.playersFollowers[currentPlayer.id] ?? {
+      ordinaryFollowers: 0,
+      monks: 0,
+    }
+  )
+})
+
+const ordinaryAvailable = computed(() => meFollowers.value.ordinaryFollowers)
+const abbotAvailable = computed(() => meFollowers.value.monks)
+
+const placeFollower = (
+  place: AvailableFollowerPlace,
+  type: 'follower' | 'abbot'
+) => {
+  GameService.placeFollower(place, type)
+}
 </script>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { calcCityScore, calcRoadScore } from '../../server/src/modules/scoring'
+import {
+  calcCityScore,
+  calcMonasteryPoints,
+  calcRoadScore,
+} from '../../server/src/modules/scoring'
 import type {
   BaseObject,
   GridTile,
@@ -276,5 +280,79 @@ describe('calcCityScore', () => {
     expect(result.players).toEqual({})
     expect(result.objectId).toBeUndefined()
     expect(Object.keys(scores)).toHaveLength(0)
+  })
+})
+
+describe('calcMonasteryPoints', () => {
+  it('изолированный монастырь даёт 1 очко (только сам тайл)', () => {
+    const board = boardOf([[0, 0]])
+    const monastery: BaseObject = {
+      id: 'monastery-1',
+      points: [{ x: 0, y: 0, pointType: 'city' }],
+      isMonastery: true,
+      followers: [],
+    }
+
+    const points = calcMonasteryPoints(board, monastery)
+
+    expect(points).toBe(1)
+  })
+
+  it('монастырь в окружении 3×3 даёт 9 очков', () => {
+    const board = boardOf([
+      [0, 0],
+      [0, 1],
+      [0, 2],
+      [1, 0],
+      [1, 1],
+      [1, 2],
+      [2, 0],
+      [2, 1],
+      [2, 2],
+    ])
+    const monastery: BaseObject = {
+      id: 'monastery-full',
+      points: [{ x: 1, y: 1 }],
+      isMonastery: true,
+      followers: [],
+    }
+
+    const points = calcMonasteryPoints(board, monastery)
+
+    expect(points).toBe(9)
+  })
+
+  it('пропуски в окрестности учитываются: 4 из 9 клеток заняты', () => {
+    const board = boardOf([
+      [0, 1],
+      [1, 0],
+      [1, 1],
+      [2, 2],
+    ])
+    board[1][1] = gridTile({ x: 1, y: 1, isMonastery: true })
+    const monastery: BaseObject = {
+      id: 'monastery-partial',
+      points: [{ x: 1, y: 1 }],
+      isMonastery: true,
+      followers: [],
+    }
+
+    const points = calcMonasteryPoints(board, monastery)
+
+    // заняты: (0,1), (1,0), (1,1), (2,2) — ровно 4
+    expect(points).toBe(4)
+  })
+
+  it('монастырь без точки не даёт очков', () => {
+    const monastery: BaseObject = {
+      id: 'monastery-empty',
+      points: [],
+      isMonastery: true,
+      followers: [],
+    }
+
+    const points = calcMonasteryPoints({}, monastery)
+
+    expect(points).toBe(0)
   })
 })

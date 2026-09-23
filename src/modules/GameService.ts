@@ -262,11 +262,19 @@ export class GameService implements IGameService {
     })
   }
 
-  placeFollower(place: AvailableFollowerPlace) {
+  placeFollower(
+    place: AvailableFollowerPlace,
+    followerType: 'follower' | 'abbot' = 'follower'
+  ) {
     return this.emitAck<SocketAck>('placeFollower', {
       gameId: this.gameId,
       place,
+      followerType,
     })
+  }
+
+  recallAbbot() {
+    return this.emitAck<SocketAck>('recallAbbot', { gameId: this.gameId })
   }
 
   skipFollower() {

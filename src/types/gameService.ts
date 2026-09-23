@@ -17,6 +17,11 @@ export interface IGameService {
     tile: ITile,
     position: { rowIndex: number; tileIndex: number }
   ) => Promise<SocketAck>
+  placeFollower: (
+    place: unknown,
+    followerType?: 'follower' | 'abbot'
+  ) => Promise<SocketAck>
+  recallAbbot: () => Promise<SocketAck>
   getGamesList: () => Promise<GameSummary[]>
   joinGame: (gameId: string) => Promise<IGame>
   leaveGame: () => Promise<void>
