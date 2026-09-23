@@ -5,6 +5,72 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.11.0] - 2026-09-23
+
+Новая особая фишка — аббат (мини-экспаншн из базовых правил): каждого
+игрока есть отдельная фишка аббата, которую можно выставить вместо
+обычного подданного только на монастырь. Аббата можно в свой ход снять с
+монастыря (ход не расходуется) и получить по 1 очку за сам монастырь и за
+каждую занятую клетку вокруг него. Завершённый монастырь с аббатом очков
+не приносит и фишку не возвращает — аббат ждёт отзыва владельцем.
+Финальный подсчёт незавершённых объектов не менялся.
+
+### Added
+
+- **`server/src/modules/scoring.ts`** - `calcMonasteryPoints(tilePlacesStats,
+  monastery)` - подсчёт тайлов в окрестности 3x3 для частичного счёта аббата.
+- **`server/src/modules/GameManager.ts`** - метод `recallAbbot()`: отзыв аббата
+  текущего игрока с начислением частичных очков и возвратом фишки в запас
+  (события истории `ADDING_SCORES` + `BACK_FOLLOWER`). События истории
+  `ADDING_SCORES` имеют те же `id`/`turn`/`gameId`, что и событие
+  `TILE_PLACED` текущего хода.
+- **`src/types/gameService.ts` / `src/modules/GameService.ts`** - событие и
+  метод клиента `recallAbbot`; метод `placeFollower` принимает `followerType`.
+- **`src/components/GameAbbotRecall.vue`** - панель отзыва аббата с
+  предпросмотром количества очков.
+- Тесты: юнит на `calcMonasteryPoints`, интеграционные сценарии постановки и
+  отзыва аббата (см. `tests/`).
+
+### Changed
+
+- **`server/src/modules/types.ts`** - тип `ObjectFollower`/`PlacedFollower`
+  получил `isAbbot?: boolean`; добавлен тип `FollowerType` (`follower`/`abbot`);
+  `PlaceFollowerActionData` принимает `followerType`.
+- **`server/src/modules/GameManager.ts`** - валидация в `placeFollower` и
+  `simulatePlaceFollower`: аббат требует пула `monks` и объекта-монастыря,
+  обычный подданный - `ordinaryFollowers`. Проверка «нечего выставлять»
+  учитывает оба пула. `calcScoreForMonasteries` пропускает аббатов.
+- **`server/src/modules/GameSimulatorModule.ts`** - ИИ перебирает и постановку
+  аббата на монастыри, когда у игрока есть аббат в запасе.
+- **`server/src/socket/handlers/game.ts`** - обработчик `recallAbbot`
+  (защищён `isPlayersTurn`, проверяет наличие аббата на доске).
+- **`src/components/GamePlacingFollowers.vue`** - при монастыре предлагается
+  выбор «монах»/«аббат» с дизейблом по пулам.
+- **`src/components/TileView.vue`** - аббат на доске отмечен крестом; обычная
+  фишка - кружком в цвет игрока.
+- **`src/components/GameStats.vue`** - рядом с квадратами подданных показан
+  индикатор аббата (в запасе/на поле).
+- **`src/components/GameActionsHistory/internal/actions/PlaceFollowerAction.vue`**
+  - различает «подданный»/«аббат» и корректно подписывает объект «монастырь».
+- **`src/rules/baseGame.ts`** - разделы про фишки и монастырь описывают аббата
+  вместо пометки «не реализован».
+
+### Fixed
+
+- **`server/src/modules/GameManager.ts`** - точка-монастырь теперь помечается
+  `direction: 'center'` (как и ожидает клиент): на тайле «монастырь с дорогой»
+  дорога больше не перекрывает монастырь в `findObjectByPoint`, поэтому аббат
+  корректно ставится на монастырь (а не отклоняется) и находится при отзыве.
+- **`tests/integration/gameManagerAbbot.test.ts`** - детерминированные
+  сценарии приведены в соответствие со сторонами стартового тайла `E`
+  (`north = city`, `east/west = road`).
+- **`server/src/modules/GameManager.ts`** - `isCorrectTilePosition` больше не
+  опирается на порядок ключей `tile.sides` (клиентский `rotateSides` возвращает
+  объект в порядке `{north, west, south, east}`): сопоставление сторон стало
+  явным по направлению, иначе повёрнутый тайл с несимметричными
+  восток/запад не находил ни одной валидной позиции. Добавлен регрессионный
+  тест `tests/integration/gameManagerPlacement.test.ts`.
+
 ## [1.10.1] - 2026-09-23
 
 Документация проекта: README переписан с шаблона Vite в полноценный обзор
