@@ -1,9 +1,9 @@
 <template>
   <div class="rounded-xl border border-border bg-surface-soft p-3.5">
-    <div class="mb-1.5 text-[15px] font-semibold text-text">
+    <div class="mb-1.5 text-[16px] font-semibold text-text">
       {{ example.title }}
     </div>
-    <p v-if="example.description" class="mb-3 text-sm text-text-muted">
+    <p v-if="example.description" class="mb-3 text-[15px] text-text-muted">
       {{ example.description }}
     </p>
 
@@ -61,7 +61,7 @@
 
     <p
       v-if="example.caption"
-      class="mt-2.5 text-[13px] leading-relaxed text-text-faint"
+      class="mt-2.5 text-[14px] leading-relaxed text-text-faint"
     >
       {{ example.caption }}
     </p>

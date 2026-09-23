@@ -4,7 +4,12 @@
       :items="dropdownItems"
       :content="{ side: 'top', sideOffset: 8, collisionPadding: 8 }"
     >
-      <UButton color="primary" icon="i-lucide-menu" label="Меню" />
+      <UButton
+        color="primary"
+        icon="i-lucide-scroll-text"
+        label="Меню"
+        class="cursor-pointer rounded-full px-5 text-white shadow-soft"
+      />
     </UDropdownMenu>
   </div>
 </template>

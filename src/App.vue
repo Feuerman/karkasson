@@ -110,19 +110,19 @@
           </div>
           <div
             ref="ghostPreviewRef"
-            class="h-[115px] w-[115px] origin-top-left"
+            class="h-[115px] w-[115px] origin-top-left bg-black/15 shadow-card ring-1 ring-gold/80"
           >
             <TileView
               :tile="localCurrentTile"
               :size="115"
-              class="h-full w-full rounded-lg shadow-soft"
+              class="h-full w-full"
             />
           </div>
         </div>
       </Draggable>
       <div
         ref="boardRef"
-        class="min-h-0 w-full flex-1 select-none overflow-auto rounded-lg bg-board shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        class="board-surface min-h-0 w-full flex-1 select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
         @mousedown="onMouseDown"
         @click.capture="onClickCapture"
@@ -140,8 +140,11 @@
               <div
                 v-for="(tile, tileIndex) in row"
                 :key="tileIndex"
-                class="relative h-[115px] w-[115px] flex-shrink-0 rounded-lg border border-border bg-surface shadow-soft transition-all duration-200"
+                class="relative h-[115px] w-[115px] flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
                 :class="[
+                  gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]
+                    ? 'border-black/15'
+                    : '',
                   hoveredTile?.rowIndex === rowIndex &&
                   hoveredTile?.tileIndex === tileIndex
                     ? 'tile-pulse'
