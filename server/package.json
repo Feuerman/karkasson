@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Игровой сервер «Каркассон Онлайн» (Socket.IO): лобби, правила, ИИ, персистентность в Firebase",
   "main": "index.ts",
   "scripts": {
     "dev": "nodemon src/index.ts",
