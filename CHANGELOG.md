@@ -5,6 +5,40 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии соответствуют [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [1.12.0] - 2026-09-23
+
+Рефакторинг лобби по аналогии с `GameActionsHistory`: плоский `GameLobby.vue`
+разбит на модуль с переиспользуемыми внутренними компонентами, дублирующая
+разметка вынесена в общие части, игровая логика (хилперы входа/переподключения)
+извлечена в чистые функции. Функциональность не менялась.
+
+### Added
+
+- **`src/components/GameLobby/`** - модуль лобби: `index.ts` (точка входа),
+  `GameLobby.vue` (оркестратор: props/emits, состояние, вызовы `GameService`).
+- **`internal/ConnectionBadge.vue`** - индикатор подключения к серверу.
+- **`internal/LobbyHeader.vue`** - шапка лобби (иконка, заголовок, подзаголовок)
+  с параметром размера `lg`/`md` для главного экрана и экрана готовности.
+- **`internal/LoadingState.vue`** - спиннер с сообщением (заменяет три
+  дублировавшихся блока «идёт соединение / загрузка списка игр»).
+- **`internal/GameCard.vue`** - карточка игры в списке (статус, счёт, кнопка
+  входа); эмитит `join`/`rejoin`.
+- **`internal/GameStatus.vue`** - индикатор статуса игры (ход / окончена /
+  ожидание игроков).
+- **`internal/PlayerSlot.vue`** - слот игрока (чекбокс, поле имени, метка «ИИ»,
+  кнопка «Занять/Освободить»); эмитит `toggleCheckbox`/`nameInput`/`toggleButton`.
+- **`internal/helpers.ts`** - чистые функции `joinButtonIcon`, `joinButtonLabel`,
+  `isRejoinable`, `canToggleSlot`.
+
+### Changed
+
+- **`src/App.vue`** - импорт `./components/GameLobby` (модуль) вместо
+  `./components/GameLobby.vue`.
+
+### Removed
+
+- Плоский `src/components/GameLobby.vue` (перенесён в модуль `GameLobby/`).
+
 ## [1.11.0] - 2026-09-23
 
 Новая особая фишка — аббат (мини-экспаншн из базовых правил): каждого
