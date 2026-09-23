@@ -3,7 +3,13 @@ import { ref } from 'vue'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { GameSummary, GameData } from '@server/services/GameService'
 import type { GridTile, Tile } from '@server/modules/types'
-import type { SocketAck, AvailablePlacement } from '@/types/socket'
+import type {
+  SocketAck,
+  GamesListResponse,
+  AvailablePlacement,
+  PlacementsResponse,
+  GameCreatedPayload,
+} from '@/types/socket'
 
 export interface IGameService {
   socket: Socket | null
@@ -14,6 +20,8 @@ export interface IGameService {
   createGame: () => Promise<GameData>
   joinGame: (gameId: string, playerName?: string) => Promise<GameData>
 }
+
+export type SocketPayload = Record<string, unknown>
 
 export interface GameServiceOptions {
   serverUrl?: string
@@ -42,6 +50,55 @@ export class GameService implements IGameService {
       localStorage.getItem('deviceId') ??
       crypto.randomUUID()
     localStorage.setItem('deviceId', this.deviceId)
+  }
+
+  private getNotConnectedError(): string {
+    return 'Нет соединения с сервером'
+  }
+
+  /** Ack-callback: emit → ответ { error?, ... }. Резолвится самим ответом. */
+  private emitAck<T extends object>(
+    event: string,
+    payload?: SocketPayload
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.socket?.connected) {
+        reject(this.getNotConnectedError())
+        return
+      }
+
+      const callback = (response: SocketAck) => {
+        if (response.error) {
+          reject(response.error)
+        } else {
+          resolve(response as T)
+        }
+      }
+
+      if (payload === undefined) {
+        this.socket.emit(event, callback)
+      } else {
+        this.socket.emit(event, payload, callback)
+      }
+    })
+  }
+
+  /** Event-based: emit → ждём successEvent, ошибки ловим через 'error'. */
+  private emitAndWait<T>(
+    sendEvent: string,
+    successEvent: string,
+    payload: SocketPayload = {}
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.socket?.connected) {
+        reject(this.getNotConnectedError())
+        return
+      }
+
+      this.socket.once('error', (error: Error) => reject(error))
+      this.socket.once(successEvent, (data: T) => resolve(data))
+      this.socket.emit(sendEvent, payload)
+    })
   }
 
   connect() {
@@ -113,81 +170,34 @@ export class GameService implements IGameService {
     })
   }
 
-  getGamesList() {
-    return new Promise<GameSummary[]>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject('Нет соединения с сервером')
-      } else {
-        this.socket.emit(
-          'getGamesList',
-          (response: { games?: GameSummary[]; error?: string }) => {
-            if (response.error) {
-              reject(response.error)
-            } else {
-              this.gamesList = response.games ?? []
-              resolve(this.gamesList)
-            }
-          }
-        )
-      }
-    })
+  async getGamesList() {
+    const response = await this.emitAck<GamesListResponse>('getGamesList')
+    this.gamesList = response.games ?? []
+    return this.gamesList
   }
 
-  createGame() {
-    return new Promise<GameData>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject('Нет соединения с сервером')
-      } else {
-        this.socket?.emit('createGame')
-        this.socket?.once('error', (error: Error) => reject(error))
-        this.socket?.once(
-          'gameCreated',
-          ({ gameId, game }: { gameId: string; game: GameData }) => {
-            this.gameId = gameId
-            resolve(game)
-          }
-        )
-      }
-    })
+  async createGame() {
+    const { gameId, game } = await this.emitAndWait<GameCreatedPayload>(
+      'createGame',
+      'gameCreated'
+    )
+    this.gameId = gameId
+    return game
   }
 
   addPlayer({ name, index }: { name: string; index: number }) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject('Нет соединения с сервером')
-      } else {
-        this.socket.emit(
-          'addPlayer',
-          { gameId: this.gameId, name, index },
-          (response: SocketAck) => {
-            if (response.error) {
-              reject(response.error)
-            } else {
-              resolve(response)
-            }
-          }
-        )
-      }
+    return this.emitAck<SocketAck>('addPlayer', {
+      gameId: this.gameId,
+      name,
+      index,
     })
   }
 
   removePlayer(index: number, name: string | null = null) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject('Нет соединения с сервером')
-      } else {
-        this.socket.emit(
-          'removePlayer',
-          { gameId: this.gameId, index, name },
-          (response: SocketAck) => {
-            if (response.error) {
-              reject(response.error)
-            } else {
-              resolve(response)
-            }
-          }
-        )
-      }
+    return this.emitAck<SocketAck>('removePlayer', {
+      gameId: this.gameId,
+      index,
+      name,
     })
   }
 
@@ -195,34 +205,22 @@ export class GameService implements IGameService {
     this.socket?.emit('startGame', { gameId: this.gameId })
   }
 
-  joinGame(gameId: string, playerName?: string) {
-    return new Promise<GameData>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject('Нет соединения с сервером')
-      } else {
-        this.socket.emit('joinGame', { gameId, playerName })
-        this.socket.once('error', (error: Error) => reject(error))
-        this.socket.once('gameUpdated', (game: GameData) => {
-          this.gameId = gameId
-          resolve(game)
-        })
-      }
+  async joinGame(gameId: string, playerName?: string) {
+    const game = await this.emitAndWait<GameData>('joinGame', 'gameUpdated', {
+      gameId,
+      playerName,
     })
+    this.gameId = gameId
+    return game
   }
 
-  rejoinGame(gameId: string) {
-    return new Promise<GameData>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        console.error('Socket not connected while rejoining game')
-        return
-      }
-      this.socket.emit('rejoinGame', { gameId, deviceId: this.deviceId })
-      this.socket.once('error', (error: Error) => reject(error))
-      this.socket.once('gameUpdated', (game: GameData) => {
-        this.gameId = gameId
-        resolve(game)
-      })
+  async rejoinGame(gameId: string) {
+    const game = await this.emitAndWait<GameData>('rejoinGame', 'gameUpdated', {
+      gameId,
+      deviceId: this.deviceId,
     })
+    this.gameId = gameId
+    return game
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
@@ -240,34 +238,16 @@ export class GameService implements IGameService {
     rowIndex: number
     tileIndex: number
   }) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      this.socket?.emit(
-        'selectPlacingPoint',
-        { gameId: this.gameId, point: { rowIndex, tileIndex } },
-        (response: SocketAck) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            resolve(response)
-          }
-        }
-      )
+    return this.emitAck<SocketAck>('selectPlacingPoint', {
+      gameId: this.gameId,
+      point: { rowIndex, tileIndex },
     })
   }
 
   async updateCurrentTile(tile: Tile | GridTile) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      this.socket?.emit(
-        'updateCurrentTile',
-        { gameId: this.gameId, tile },
-        (response: SocketAck) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            resolve(response)
-          }
-        }
-      )
+    return this.emitAck<SocketAck>('updateCurrentTile', {
+      gameId: this.gameId,
+      tile,
     })
   }
 
@@ -275,53 +255,22 @@ export class GameService implements IGameService {
     tile: Tile | GridTile,
     position: { rowIndex: number; tileIndex: number }
   ) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      this.socket?.emit(
-        'placeTile',
-        { gameId: this.gameId, tile, position },
-        (response: SocketAck) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            resolve(response)
-          }
-        }
-      )
+    return this.emitAck<SocketAck>('placeTile', {
+      gameId: this.gameId,
+      tile,
+      position,
     })
   }
 
   placeFollower(place: AvailableFollowerPlace) {
-    return new Promise<SocketAck>((resolve, reject) => {
-      this.socket?.emit(
-        'placeFollower',
-        { gameId: this.gameId, place },
-        (response: SocketAck) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            resolve(response)
-          }
-        }
-      )
+    return this.emitAck<SocketAck>('placeFollower', {
+      gameId: this.gameId,
+      place,
     })
   }
 
   skipFollower() {
-    return new Promise<SocketAck>((resolve, reject) => {
-      this.socket?.emit(
-        'skipFollower',
-        { gameId: this.gameId },
-        (response: SocketAck) => {
-          console.log('Server response for skip follower:', response)
-          if (response.error) {
-            console.error('Server error:', response.error)
-            reject(response.error)
-          } else {
-            resolve(response)
-          }
-        }
-      )
-    })
+    return this.emitAck<SocketAck>('skipFollower', { gameId: this.gameId })
   }
 
   disconnect() {
@@ -333,23 +282,18 @@ export class GameService implements IGameService {
     }
   }
 
-  checkAvailablePlacements(position: { row: number; col: number }) {
-    return new Promise<AvailablePlacement[]>((resolve, reject) => {
-      this.socket?.emit(
-        'checkAvailablePlacements',
-        {
-          gameId: this.gameId,
-          position,
-        },
-        (response: { placements?: AvailablePlacement[]; error?: string }) => {
-          if (response.error) {
-            reject(response.error)
-          } else {
-            resolve(response.placements ?? [])
-          }
-        }
-      )
-    })
+  async checkAvailablePlacements(position: {
+    row: number
+    col: number
+  }): Promise<AvailablePlacement[]> {
+    const response = await this.emitAck<PlacementsResponse>(
+      'checkAvailablePlacements',
+      {
+        gameId: this.gameId,
+        position,
+      }
+    )
+    return response.placements ?? []
   }
 
   leaveGame() {

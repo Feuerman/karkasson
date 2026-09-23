@@ -61,46 +61,13 @@ onMounted(async () => {
       height: rect.height,
     }
 
-    // Проверяем, чтобы начальная позиция была в пределах экрана
-    dragPosition.value.x = Math.min(
-      Math.max(dragPosition.value.x, 0),
-      window.innerWidth - elementSize.value.width
+    dragPosition.value = DraggableRegistry.placeCollisionFree(
+      props.draggableId,
+      dragPosition.value.x,
+      dragPosition.value.y,
+      elementSize.value.width,
+      elementSize.value.height
     )
-    dragPosition.value.y = Math.min(
-      Math.max(dragPosition.value.y, 0),
-      window.innerHeight - elementSize.value.height
-    )
-
-    DraggableRegistry.register(props.draggableId, {
-      x: dragPosition.value.x,
-      y: dragPosition.value.y,
-      width: elementSize.value.width,
-      height: elementSize.value.height,
-    })
-
-    if (
-      DraggableRegistry.checkCollisions(props.draggableId, {
-        x: dragPosition.value.x,
-        y: dragPosition.value.y,
-        width: elementSize.value.width,
-        height: elementSize.value.height,
-      })
-    ) {
-      const freePosition = DraggableRegistry.findFreePosition(
-        props.draggableId,
-        dragPosition.value.x,
-        dragPosition.value.y,
-        elementSize.value.width,
-        elementSize.value.height
-      )
-      dragPosition.value = freePosition
-      DraggableRegistry.register(props.draggableId, {
-        x: freePosition.x,
-        y: freePosition.y,
-        width: elementSize.value.width,
-        height: elementSize.value.height,
-      })
-    }
   }
 })
 
@@ -181,36 +148,13 @@ const stopDrag = () => {
     emit('drag-end', { x: dragPosition.value.x, y: dragPosition.value.y })
 
     if (draggableElement.value) {
-      DraggableRegistry.register(props.draggableId, {
-        x: dragPosition.value.x,
-        y: dragPosition.value.y,
-        width: elementSize.value.width,
-        height: elementSize.value.height,
-      })
-
-      if (
-        DraggableRegistry.checkCollisions(props.draggableId, {
-          x: dragPosition.value.x,
-          y: dragPosition.value.y,
-          width: elementSize.value.width,
-          height: elementSize.value.height,
-        })
-      ) {
-        const freePosition = DraggableRegistry.findFreePosition(
-          props.draggableId,
-          dragPosition.value.x,
-          dragPosition.value.y,
-          elementSize.value.width,
-          elementSize.value.height
-        )
-        dragPosition.value = freePosition
-        DraggableRegistry.register(props.draggableId, {
-          x: freePosition.x,
-          y: freePosition.y,
-          width: elementSize.value.width,
-          height: elementSize.value.height,
-        })
-      }
+      dragPosition.value = DraggableRegistry.placeCollisionFree(
+        props.draggableId,
+        dragPosition.value.x,
+        dragPosition.value.y,
+        elementSize.value.width,
+        elementSize.value.height
+      )
     }
   }
 

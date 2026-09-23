@@ -8,6 +8,9 @@ type DraggableElement = {
 
 const registry = new Map<string, DraggableElement>()
 
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max)
+
 export const DraggableRegistry = {
   register(id: string, element: DraggableElement) {
     registry.set(id, element)
@@ -66,5 +69,26 @@ export const DraggableRegistry = {
     }
 
     return { x: originalX, y: originalY }
+  },
+
+  /** Приводит позицию к экрану, уводит от чужих панелей и регистрирует её. */
+  placeCollisionFree(
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): DraggableElement {
+    const clampedX = clamp(x, 0, window.innerWidth - width)
+    const clampedY = clamp(y, 0, window.innerHeight - height)
+
+    let position = { x: clampedX, y: clampedY }
+
+    if (this.checkCollisions(id, { ...position, width, height })) {
+      position = this.findFreePosition(id, clampedX, clampedY, width, height)
+    }
+
+    this.register(id, { ...position, width, height })
+    return { ...position, width, height }
   },
 }
