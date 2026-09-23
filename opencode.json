@@ -42,6 +42,58 @@
   "provider": {
     "opencode": {
       "whitelist": ["union-alpha", "big-pickle"]
+    },
+    "tecius": {
+      "name": "Тециус",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://api.llm.tecius.ru/v1",
+        "apiKey": "{file:./.opencode/.secrets/tecius-api-key}"
+      },
+      "models": {
+        "deepseek-v4.1-flash": {
+          "name": "[Тециус] DeepSeek V4.1 Flash",
+          "modalities": { "input": ["text", "image"] },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 384000 },
+          "variants": {
+            "max": { "reasoningEffort": "max" },
+            "high": { "reasoningEffort": "high" },
+            "low": { "reasoningEffort": "low" },
+            "medium": { "disabled": true }
+          }
+        },
+        "deepseek-v4-pro": {
+          "name": "[Тециус] DeepSeek V4 Pro",
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 384000 }
+        },
+        "gpt-5.6-luna": {
+          "name": "[Тециус] GPT 5.6 Luna",
+          "modalities": { "input": ["text", "image"] },
+          "reasoning": true,
+          "tool_call": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 128000 }
+        },
+        "glm-5.3-flash": {
+          "name": "[Тециус] GLM 5.3 Flash",
+          "modalities": { "input": ["text", "image"] },
+          "tool_call": true,
+          "reasoning": true,
+          "attachment": true,
+          "limit": { "context": 1000000, "output": 131072 },
+          "variants": {
+            "max": { "reasoningEffort": "max" },
+            "high": { "reasoningEffort": "high" },
+            "low": { "reasoningEffort": "low" }
+          }
+        }
+      }
     }
   },
   "agent": {
@@ -50,6 +102,18 @@
       "mode": "primary",
       "model": "opencode/union-alpha",
       "color": "warning"
+    },
+    "tecius": {
+      "description": "Рабочий режим на моделях Тециус (код проекта, конфиденциальные данные)",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4.1-flash",
+      "color": "primary"
+    },
+    "tecius-pro": {
+      "description": "Сложные агентные задачи на модели Тециус DeepSeek V4 Pro",
+      "mode": "primary",
+      "model": "tecius/deepseek-v4-pro",
+      "color": "accent"
     }
   }
 }
