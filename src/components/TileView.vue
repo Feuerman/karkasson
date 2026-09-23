@@ -1,12 +1,12 @@
 <template>
   <div
-    class="relative flex h-full w-full items-center justify-center overflow-hidden rounded-lg bg-surface shadow-soft"
+    class="relative flex h-full w-full items-center justify-center overflow-hidden"
   >
     <template v-if="props.tile?.imgUrl">
       <img
         :src="tileImg?.href"
         :class="rotateClass"
-        class="block h-full w-full object-cover transition-transform duration-200 ease-in-out"
+        class="block h-full w-full scale-[1.08] object-cover transition-transform duration-200 ease-in-out"
         :alt="props.tile?.imgUrl"
         @load="drawTile"
       />
@@ -138,24 +138,32 @@ const drawTile = () => {
     const playerColor = String(
       PlayerColors[point.playerId as keyof typeof PlayerColors]
     )
-    ctx.fillStyle = playerColor
-    ctx.strokeStyle = playerColor
 
-    // Рисуем круг (точку)
+    // Белый ореол для читаемости на фоне тайла
+    ctx.save()
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
+    ctx.shadowBlur = 4
     ctx.beginPath()
-    ctx.arc(x, y, 10, 0, Math.PI * 2)
+    ctx.arc(x, y, 11, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
     ctx.fill()
 
-    // Опционально: добавляем обводку для лучшей видимости
+    // Цветное ядро маркера
+    ctx.shadowBlur = 0
     ctx.beginPath()
-    ctx.arc(x, y, 10, 0, Math.PI * 2)
+    ctx.arc(x, y, 8.5, 0, Math.PI * 2)
+    ctx.fillStyle = playerColor
+    ctx.fill()
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)'
     ctx.stroke()
+    ctx.restore()
   })
 }
 
 watch(
   () => props.followers,
-  (value) => {
+  () => {
     nextTick(() => {
       drawTile()
     })
@@ -165,7 +173,7 @@ watch(
 
 watch(
   () => props.tile,
-  (value) => {
+  () => {
     nextTick(() => {
       drawTile()
     })

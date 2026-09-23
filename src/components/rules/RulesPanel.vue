@@ -25,7 +25,7 @@
             variant="ghost"
             :color="activeSection === section.id ? 'primary' : 'neutral'"
             :class="[
-              'justify-start border-l-2 px-5 py-2 text-left text-[14px] leading-snug transition-colors duration-150',
+              'justify-start border-l-2 px-5 py-2 text-left text-[15px] leading-snug transition-colors duration-150',
               activeSection === section.id
                 ? '!border-primary bg-primary-soft !text-primary'
                 : 'border-transparent text-text hover:bg-surface hover:text-primary',
@@ -49,7 +49,7 @@
             size="xs"
             :variant="activeSection === section.id ? 'solid' : 'outline'"
             :color="activeSection === section.id ? 'primary' : 'neutral'"
-            class="shrink-0 rounded-full px-3 py-1 text-[13px] whitespace-nowrap transition-colors duration-150"
+            class="shrink-0 rounded-full px-3 py-1 text-[14px] whitespace-nowrap transition-colors duration-150"
             @click="scrollToSection(section.id)"
           >
             {{ section.title }}
@@ -68,7 +68,7 @@
             class="mb-8 last:mb-4"
           >
             <h2
-              class="mb-3 border-b border-border pb-2 text-xl font-semibold text-text"
+              class="mb-3 border-b border-border pb-2 text-[1.5rem] font-semibold text-text"
             >
               {{ section.title }}
             </h2>

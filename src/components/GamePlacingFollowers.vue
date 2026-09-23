@@ -5,34 +5,42 @@
     :initial-x="700"
     :initial-y="400"
   >
-    <UCard
-      class="min-w-[200px] shadow-card"
-      :ui="{ root: 'rounded-lg', body: 'p-4' }"
+    <div
+      class="panel-parchment min-w-[220px] max-w-[300px] p-4 text-text shadow-card"
     >
+      <div class="mb-2.5 flex items-center gap-2">
+        <UIcon name="i-lucide-person-standing" class="h-5 w-5 text-gold-dark" />
+        <span class="title-medieval text-[1rem] leading-none">
+          Поставить подданного
+        </span>
+      </div>
       <div
         v-if="gameBoard.availableFollowersPlaces.length === 0"
         class="flex flex-col gap-2"
       >
-        <div class="mb-2 text-text">Нет доступных клеток</div>
+        <div class="mb-1 text-text-muted">Нет доступных клеток</div>
         <UButton
           block
           variant="soft"
           color="neutral"
-          class="font-medium"
+          class="cursor-pointer font-semibold"
           @click="gameBoard.isMyTurn && GameService.skipFollower"
         >
           Отменить
         </UButton>
       </div>
-      <div v-else class="flex flex-col gap-1">
+      <div v-else class="flex flex-col gap-1.5">
         <UButton
           v-for="(place, index) in gameBoard.availableFollowersPlaces"
           :key="index"
           block
           variant="ghost"
-          class="rounded-lg text-center"
+          class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
           @click.stop="gameBoard.isMyTurn && GameService.placeFollower(place)"
         >
+          <template #leading>
+            <UIcon :name="placeIcon(place)" class="h-4 w-4 text-gold-dark" />
+          </template>
           <template v-if="place.temporaryObject?.isMonastery"
             >Монастырь</template
           >
@@ -42,7 +50,7 @@
           </template>
         </UButton>
       </div>
-    </UCard>
+    </div>
   </Draggable>
 </template>
 
@@ -50,7 +58,7 @@
 import type { IGameBoard } from '@/types/game'
 import type { PointType, PointDirection } from '@server/modules/types'
 import Draggable from '@/components/Draggable.vue'
-import UCard from '@nuxt/ui/components/Card.vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 
@@ -82,5 +90,22 @@ const pointDirectionTitle = (direction?: PointDirection) => {
   }
 
   return directionMap[direction ?? '']
+}
+
+const placeIcon = (place: {
+  temporaryObject?: { isMonastery?: boolean }
+  point?: { pointType?: PointType }
+}) => {
+  if (place.temporaryObject?.isMonastery) return 'i-lucide-church'
+  switch (place.point?.pointType) {
+    case 'city':
+      return 'i-lucide-castle'
+    case 'road':
+      return 'i-lucide-route'
+    case 'field':
+      return 'i-lucide-sprout'
+    default:
+      return 'i-lucide-person-standing'
+  }
 }
 </script>

@@ -1,71 +1,62 @@
 <template>
-  <UCard
-    class="overflow-hidden rounded-lg shadow-strong"
-    :ui="{ root: 'overflow-hidden rounded-lg', body: 'p-0' }"
-  >
+  <div class="panel-parchment w-[270px] overflow-hidden text-text shadow-card">
     <div
-      :class="
-        playerBackgroundColorClass(
-          gameBoard.gameIsEnded
-            ? winnerPlayer.color
-            : gameBoard.currentPlayer?.color
-        )
-      "
-      class="px-2.5 py-2 text-center text-[1.4em] font-medium text-black"
+      :class="playerBackgroundColorClass(headerColor)"
+      class="flex items-center justify-center gap-2 px-3 py-2.5"
     >
-      <template v-if="gameBoard.gameIsEnded">
-        Победитель: {{ winnerPlayer.name }}
-      </template>
-      <template v-else> Ходит {{ gameBoard.currentPlayer?.name }} </template>
+      <UIcon
+        :name="gameBoard.gameIsEnded ? 'i-lucide-crown' : 'i-lucide-footprints'"
+        class="h-5 w-5 text-black/70"
+      />
+      <span
+        class="title-medieval truncate text-lg leading-none font-bold text-black"
+      >
+        {{
+          gameBoard.gameIsEnded
+            ? winnerPlayer.name
+            : gameBoard.currentPlayer?.name
+        }}
+      </span>
     </div>
-    <div>
-      <div v-for="player in [...gameBoard.players]" :key="player.id">
-        <div class="px-2.5 py-2">
-          <h2
-            class="m-0 text-[1.2em] whitespace-nowrap text-black"
-          >
-            <span :class="playerTextColorClass(player.color)">{{
-              player.name
-            }}</span>
-            -
-            {{ gameBoard.scores[player.id] }}
-            <span
-              v-for="n in gameBoard.playersFollowers[player.id]
-                .ordinaryFollowers"
-              :key="n"
-              >+</span
-            >
-          </h2>
-        </div>
+
+    <div class="divide-y divide-border/70 px-2 py-1">
+      <div
+        v-for="player in [...gameBoard.players]"
+        :key="player.id"
+        class="flex items-center gap-3 px-2 py-2.5"
+      >
+        <span
+          class="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/20"
+          :class="playerBackgroundColorClass(player.color)"
+        ></span>
+        <span class="flex-1 truncate text-[1.05rem] font-semibold text-text">
+          {{ player.name }}
+        </span>
+        <span class="flex items-center gap-1">
+          <span
+            v-for="n in gameBoard.playersFollowers[player.id].ordinaryFollowers"
+            :key="n"
+            class="inline-block h-2.5 w-2.5 rounded-[3px] border border-black/25"
+            :class="playerBackgroundColorClass(player.color)"
+          />
+        </span>
+        <span class="text-[1.1rem] font-bold tabular-nums text-text">
+          {{ gameBoard.scores[player.id] }}
+        </span>
       </div>
     </div>
-  </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
-import UCard from '@nuxt/ui/components/Card.vue'
-import type { IGameBoard } from '@/types/game'
-import type { CompletedObjects, PlayerId } from '@server/modules/types'
 import { computed } from 'vue'
-import {
-  playerBackgroundColorClass,
-  playerTextColorClass,
-} from '@/utils/colors'
+import UIcon from '@nuxt/ui/components/Icon.vue'
+import type { IGameBoard } from '@/types/game'
+import { playerBackgroundColorClass } from '@/utils/colors'
 
 const props = defineProps<{
   gameBoard: IGameBoard
 }>()
-
-const getCompletedObjectsForPlayer = (
-  objectType: keyof CompletedObjects,
-  playerId: PlayerId
-) => {
-  return (
-    props.gameBoard?.completedObjects[objectType].filter(
-      (object) => object.score?.players[playerId]
-    ) || []
-  )
-}
 
 const winnerPlayer = computed(() => {
   let winner = { name: '', color: null as string | null, score: 0 }
@@ -80,5 +71,11 @@ const winnerPlayer = computed(() => {
     }
   })
   return winner
+})
+
+const headerColor = computed(() => {
+  return props.gameBoard.gameIsEnded
+    ? winnerPlayer.value.color
+    : props.gameBoard.currentPlayer?.color
 })
 </script>
