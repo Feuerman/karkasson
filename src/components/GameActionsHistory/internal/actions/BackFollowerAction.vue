@@ -1,10 +1,7 @@
 <template>
   <ActionRow icon="i-lucide-rotate-ccw">
     <strong class="mr-[3px] text-text">Возврат подданных.</strong>
-    <span
-      v-for="(count, playerId) in followersByPlayer"
-      :key="playerId"
-    >
+    <span v-for="(count, playerId) in followersByPlayer" :key="playerId">
       <PlayerName :color="playerColor(playerId)">
         {{ playerName(playerId) }} — {{ count }},&nbsp;
       </PlayerName>
@@ -28,10 +25,7 @@ const { action, players } = defineProps<{
 }>()
 
 const followersByPlayer = computed(() =>
-  countBy(
-    action.actionData.followers,
-    (follower) => String(follower.playerId)
-  )
+  countBy(action.actionData.followers, (follower) => String(follower.playerId))
 )
 
 const playerColor = (playerId: string | number) =>

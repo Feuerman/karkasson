@@ -1,6 +1,9 @@
 <template>
   <ActionRow icon="i-lucide-person-standing">
-    <strong class="mr-[3px] text-text">Выставлен подданный.</strong>
+    <strong class="mr-[3px] text-text">
+      Выставлен
+      {{ action.actionData.followerType === 'abbot' ? 'аббат' : 'подданный' }}.
+    </strong>
     <PlayerName :color="action.initiator?.color">
       {{ action.initiator?.name }}.
     </PlayerName>
@@ -11,12 +14,13 @@
         :col="action.actionData.point.x"
         @zoom="forwardZoom"
       />
-      на объект {{ action.actionData.point.pointType }}
+      на объект {{ objectName }}
     </span>
   </ActionRow>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
 import ActionRow from '../ActionRow.vue'
@@ -30,6 +34,12 @@ const { action } = defineProps<{
 const emit = defineEmits<{
   zoom: [row: number, col: number]
 }>()
+
+const objectName = computed(() =>
+  action.actionData.temporaryObject?.isMonastery
+    ? 'монастырь'
+    : action.actionData.point.pointType
+)
 
 const forwardZoom = (row: number, col: number) => {
   emit('zoom', row, col)

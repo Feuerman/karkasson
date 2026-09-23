@@ -1,6 +1,7 @@
 import type { IGameBoard } from '../../modules/GameManager'
 import type {
   AvailableFollowerPlace,
+  FollowerType,
   GridTile,
   Tile,
 } from '../../modules/types'
@@ -128,7 +129,15 @@ export function registerGameHandlers({
   socket.on(
     'placeFollower',
     (
-      { gameId, place }: { gameId: string; place: AvailableFollowerPlace },
+      {
+        gameId,
+        place,
+        followerType = 'follower',
+      }: {
+        gameId: string
+        place: AvailableFollowerPlace
+        followerType?: FollowerType
+      },
       callback: SocketCallback
     ) => {
       const game = service.getGame(gameId)
@@ -144,7 +153,7 @@ export function registerGameHandlers({
       try {
         void service.saveGame(gameId)
 
-        game.placeFollower(place)
+        game.placeFollower(place, followerType)
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
         callback?.({ success: true, game })
@@ -152,6 +161,40 @@ export function registerGameHandlers({
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         console.error('Error placing follower:', error)
+        callback?.({
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+  )
+
+  socket.on(
+    'recallAbbot',
+    ({ gameId }: { gameId: string }, callback: SocketCallback) => {
+      const game = service.getGame(gameId)
+      if (!game) {
+        callback?.({ error: 'Game not found' })
+        return
+      }
+      if (!isPlayersTurn(game, socket.id)) {
+        callback?.({ error: "Not player's turn" })
+        return
+      }
+
+      try {
+        void service.saveGame(gameId)
+
+        if (!game.recallAbbot()) {
+          throw new Error('У игрока нет аббата на доске')
+        }
+
+        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        callback?.({ success: true, game })
+
+        // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
+        maybeContinueWithComputerMove(io, service, game, gameId)
+      } catch (error) {
+        console.error('Error recalling abbot:', error)
         callback?.({
           error: error instanceof Error ? error.message : String(error),
         })

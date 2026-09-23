@@ -89,6 +89,7 @@ const drawTile = () => {
       return {
         ...follower.point,
         playerId: follower.playerId,
+        isAbbot: follower.isAbbot,
       }
     })
     .filter(
@@ -148,6 +149,20 @@ const drawTile = () => {
     ctx.lineWidth = 1.5
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)'
     ctx.stroke()
+
+    // Аббат отмечается «клерикальным» крестом в ядре маркера
+    if (point.isAbbot) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
+      ctx.lineWidth = 2
+      const arm = 3.2
+      ctx.beginPath()
+      ctx.moveTo(x - arm, y)
+      ctx.lineTo(x + arm, y)
+      ctx.moveTo(x, y - arm)
+      ctx.lineTo(x, y + arm)
+      ctx.stroke()
+    }
+
     ctx.restore()
   })
 }

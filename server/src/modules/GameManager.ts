@@ -1,7 +1,7 @@
 import tiles from '../data/tiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
-import { calcCityScore, calcRoadScore } from './scoring'
+import { calcCityScore, calcMonasteryPoints, calcRoadScore } from './scoring'
 import {
   ActionTypes,
   ObjectTypes,
@@ -10,6 +10,7 @@ import {
   type BaseObject,
   type CompletedObjects,
   type FollowerCount,
+  type FollowerType,
   type GridTile,
   type ObjectFollower,
   type Player,
@@ -38,7 +39,9 @@ export interface PlaceTileActionData {
   tileIndex: number
 }
 
-export interface PlaceFollowerActionData extends AvailableFollowerPlace {}
+export interface PlaceFollowerActionData extends AvailableFollowerPlace {
+  followerType?: FollowerType
+}
 
 export interface AddingScoresActionData {
   objectType: ObjectTypes
@@ -99,8 +102,12 @@ export interface IGameBoard {
   tilePlacesStats: TilePlacesStats
   startGame(): void
   autoPlay(): Promise<void>
-  placeFollower(availablePlace: AvailableFollowerPlace): void
+  placeFollower(
+    availablePlace: AvailableFollowerPlace,
+    followerType?: FollowerType
+  ): void
   skipFollower(): void
+  recallAbbot(): boolean
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   autoPlaceTile(): Promise<void>
   calcScoreForCity(city: BaseObject): ScoreForObject
@@ -108,7 +115,10 @@ export interface IGameBoard {
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
-  simulatePlaceFollower(place: AvailableFollowerPlace): boolean
+  simulatePlaceFollower(
+    place: AvailableFollowerPlace,
+    followerType?: FollowerType
+  ): boolean
 }
 
 export class GameManager implements IGameBoard {
@@ -259,16 +269,19 @@ export class GameManager implements IGameBoard {
     if (!currentPlayer) return
     const tile = this.currentTile
 
-    if (!this.playersFollowers[currentPlayer.id].ordinaryFollowers) {
+    const followerPool = this.playersFollowers[currentPlayer.id]
+    if (
+      followerPool &&
+      !followerPool.ordinaryFollowers &&
+      !followerPool.monks
+    ) {
       this.endTurn()
       return
     }
 
-    const sides: (SideName | undefined)[] = Object.keys(
-      tile.sides
-    ) as SideName[]
+    const sides: PointDirection[] = Object.keys(tile.sides) as SideName[]
     if (tile.isMonastery) {
-      sides.push(undefined)
+      sides.push('center')
     }
 
     const candidates: {
@@ -280,7 +293,7 @@ export class GameManager implements IGameBoard {
           x: tile.x,
           y: tile.y,
           direction: side,
-          pointType: side ? tile.sides[side] : undefined,
+          pointType: side === 'center' ? undefined : tile.sides[side],
         },
         temporaryObject: this.findObjectByPoint(
           this.temporaryObjects,
@@ -435,9 +448,13 @@ export class GameManager implements IGameBoard {
 
   goPlaceFollower() {
     const currentPlayer = this.currentPlayer
+    const followerPool = currentPlayer
+      ? this.playersFollowers[currentPlayer.id]
+      : null
     if (
       !currentPlayer ||
-      !this.playersFollowers[currentPlayer.id].ordinaryFollowers
+      !followerPool ||
+      (!followerPool.ordinaryFollowers && !followerPool.monks)
     ) {
       this.endTurn()
     } else {
@@ -446,18 +463,19 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  placeFollower(availablePlace: AvailableFollowerPlace) {
+  placeFollower(
+    availablePlace: AvailableFollowerPlace,
+    followerType: FollowerType = 'follower'
+  ) {
     if (this.gameIsEnded) return
     const currentPlayer = this.currentPlayer
     if (!currentPlayer) return
 
-    // Check if player has followers available
-    if (!this.playersFollowers[currentPlayer.id]?.ordinaryFollowers) {
+    const followerPool = this.playersFollowers[currentPlayer.id]
+    if (!followerPool) {
       this.skipFollower()
       return
     }
-
-    this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
 
     const temporaryObject = this.findObjectByPoint(
       this.temporaryObjects,
@@ -471,10 +489,29 @@ export class GameManager implements IGameBoard {
       return
     }
 
+    // Валидация пула и целевого объекта до списания фишки
+    const isAbbot = followerType === 'abbot'
+    if (isAbbot) {
+      if (!followerPool.monks || !temporaryObject.isMonastery) {
+        this.skipFollower()
+        return
+      }
+    } else if (!followerPool.ordinaryFollowers) {
+      this.skipFollower()
+      return
+    }
+
+    if (isAbbot) {
+      this.playersFollowers[currentPlayer.id].monks -= 1
+    } else {
+      this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
+    }
+
     temporaryObject.followers.push({
       playerId: currentPlayer.id,
       objectId: temporaryObject.id,
       point: availablePlace.point,
+      isAbbot: isAbbot || undefined,
     })
 
     this.placedFollowers.push({
@@ -482,13 +519,17 @@ export class GameManager implements IGameBoard {
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
       isMonastery: availablePlace.temporaryObject.isMonastery,
+      isAbbot: isAbbot || undefined,
     })
 
     this.availableFollowersPlaces = []
 
     this.actionsHistory.push({
       actionType: ActionTypes.PLACE_FOLLOWER,
-      actionData: { ...availablePlace },
+      actionData: {
+        ...availablePlace,
+        followerType: isAbbot ? 'abbot' : 'follower',
+      },
       initiator: currentPlayer,
     })
 
@@ -498,6 +539,70 @@ export class GameManager implements IGameBoard {
   skipFollower() {
     this.availableFollowersPlaces = []
     this.endTurn()
+  }
+
+  /**
+   * Отзыв аббата в ход владельца: аббат снимается с монастыря (завершённого
+   * или нет) и начисляются очки за «незавершённый» монастырь — 1 очко за сам
+   * тайл и по 1 очку за каждую занятую клетку в окрестности 3×3. Ход не
+   * расходуется: игрок после отзыва продолжает свой ход.
+   */
+  recallAbbot(): boolean {
+    if (this.gameIsEnded) return false
+    const currentPlayer = this.currentPlayer
+    if (!currentPlayer) return false
+
+    const playerKey = String(currentPlayer.id)
+    const monasteries = [
+      ...this.temporaryObjects.monasteries,
+      ...this.completedObjects.monasteries,
+    ]
+    const monastery = monasteries.find((m) =>
+      m.followers.some((f) => f.isAbbot && String(f.playerId) === playerKey)
+    )
+    if (!monastery) return false
+
+    const abbot = monastery.followers.find(
+      (f) => f.isAbbot && String(f.playerId) === playerKey
+    )
+    if (!abbot) return false
+
+    const points = calcMonasteryPoints(this.tilePlacesStats, monastery)
+    this.scores[currentPlayer.id] =
+      (this.scores[currentPlayer.id] ?? 0) + points
+
+    this.actionsHistory.push({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType: ObjectTypes.MONASTERY,
+        objectData: monastery,
+        score: {
+          objectId: monastery.id,
+          players: { [currentPlayer.id]: points },
+          total: points,
+        },
+      },
+    })
+
+    monastery.followers = monastery.followers.filter((f) => f !== abbot)
+    const placedIndex = this.placedFollowers.findIndex(
+      (f) =>
+        f.isAbbot &&
+        f.objectId === monastery.id &&
+        String(f.playerId) === playerKey
+    )
+    if (placedIndex !== -1) {
+      this.placedFollowers.splice(placedIndex, 1)
+    }
+
+    this.playersFollowers[currentPlayer.id].monks += 1
+
+    this.actionsHistory.push({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: { followers: [abbot] },
+    })
+
+    return true
   }
 
   findObjectByPoint(
@@ -633,7 +738,15 @@ export class GameManager implements IGameBoard {
         followers: [],
         id: 'id' + Math.random(),
         isMonastery: true,
-        points: [{ x: tile.x, y: tile.y, rowIndex: tile.y, tileIndex: tile.x }],
+        points: [
+          {
+            x: tile.x,
+            y: tile.y,
+            direction: 'center',
+            rowIndex: tile.y,
+            tileIndex: tile.x,
+          },
+        ],
       })
     }
 
@@ -682,6 +795,10 @@ export class GameManager implements IGameBoard {
   calcScoreForMonasteries(monasteries: BaseObject[]) {
     monasteries.forEach((monastery) => {
       monastery.followers.forEach((follower) => {
+        // Аббат не приносит очков при завершении монастыря и не возвращается
+        // в запас: он ждёт отзыва владельцем (recallAbbot).
+        if (follower.isAbbot) return
+
         this.scores[follower.playerId] += 9
 
         this.actionsHistory.push({
@@ -979,24 +1096,36 @@ export class GameManager implements IGameBoard {
     if (this.isEmptyGrid()) return true
     if (this.tilePlacesStats[rowIndex]?.[tileIndex]) {
       return false
-    } else {
-      const adjacentTiles = [
-        this.tilePlacesStats[rowIndex - 1]?.[tileIndex]?.sides?.south,
-        this.tilePlacesStats[rowIndex]?.[tileIndex + 1]?.sides?.west,
-        this.tilePlacesStats[rowIndex + 1]?.[tileIndex]?.sides?.north,
-        this.tilePlacesStats[rowIndex]?.[tileIndex - 1]?.sides?.east,
-      ]
-
-      if (adjacentTiles.some((pointType) => Boolean(pointType))) {
-        const sides = Object.keys(tile.sides) as SideName[]
-        return adjacentTiles.every(
-          (adjacentPointType, index) =>
-            !adjacentPointType || adjacentPointType === tile.sides[sides[index]]
-        )
-      } else {
-        return false
-      }
     }
+
+    // Явное сопоставление сторон по направлению, без опоры на порядок ключей
+    // `tile.sides`: клиентский rotateSides возвращает объект в порядке
+    // {north, west, south, east}, поэтому индексация по Object.keys ломала
+    // валидацию для повёрнутых тайлов (east/west менялись местами).
+    const matches = [
+      {
+        adjacent: this.tilePlacesStats[rowIndex - 1]?.[tileIndex]?.sides?.south,
+        own: tile.sides.north,
+      },
+      {
+        adjacent: this.tilePlacesStats[rowIndex]?.[tileIndex + 1]?.sides?.west,
+        own: tile.sides.east,
+      },
+      {
+        adjacent: this.tilePlacesStats[rowIndex + 1]?.[tileIndex]?.sides?.north,
+        own: tile.sides.south,
+      },
+      {
+        adjacent: this.tilePlacesStats[rowIndex]?.[tileIndex - 1]?.sides?.east,
+        own: tile.sides.west,
+      },
+    ]
+
+    if (!matches.some(({ adjacent }) => Boolean(adjacent))) {
+      return false
+    }
+
+    return matches.every(({ adjacent, own }) => !adjacent || adjacent === own)
   }
 
   isOppositePoint(point: Point, oppositePoint: Point): boolean {
@@ -1125,26 +1254,44 @@ export class GameManager implements IGameBoard {
     return true
   }
 
-  simulatePlaceFollower(availablePlace: AvailableFollowerPlace): boolean {
+  simulatePlaceFollower(
+    availablePlace: AvailableFollowerPlace,
+    followerType: FollowerType = 'follower'
+  ): boolean {
     const currentPlayer = this.currentPlayer
-    if (
-      !currentPlayer ||
-      !this.playersFollowers[currentPlayer.id]?.ordinaryFollowers
-    ) {
+    const followerPool = currentPlayer
+      ? this.playersFollowers[currentPlayer.id]
+      : null
+    if (!currentPlayer || !followerPool) return false
+
+    const isAbbot = followerType === 'abbot'
+    if (isAbbot) {
+      if (!followerPool.monks || !availablePlace.temporaryObject.isMonastery) {
+        return false
+      }
+    } else if (!followerPool.ordinaryFollowers) {
       return false
     }
 
-    this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
+    if (isAbbot) {
+      this.playersFollowers[currentPlayer.id].monks -= 1
+    } else {
+      this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
+    }
+
     availablePlace.temporaryObject.followers.push({
       playerId: currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
+      isAbbot: isAbbot || undefined,
     })
 
     this.placedFollowers.push({
       playerId: currentPlayer.id,
       objectId: availablePlace.temporaryObject.id,
       point: availablePlace.point,
+      isMonastery: availablePlace.temporaryObject.isMonastery,
+      isAbbot: isAbbot || undefined,
     })
 
     return true

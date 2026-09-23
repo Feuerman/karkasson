@@ -1,6 +1,7 @@
 import type { IGameBoard } from './GameManager'
 import type {
   AvailableFollowerPlace,
+  FollowerType,
   ObjectFollower,
   Tile,
   TileSides,
@@ -12,6 +13,7 @@ export interface SimulationMove {
   tileIndex: number
   rotation: number
   followerPlace?: AvailableFollowerPlace
+  followerType?: FollowerType
 }
 
 export interface SimulationResult {
@@ -47,7 +49,8 @@ export class GameSimulatorModule {
     tileIndex: number,
     rotation: number,
     followerPlace?: AvailableFollowerPlace,
-    gameState?: IGameBoard
+    gameState?: IGameBoard,
+    followerType: FollowerType = 'follower'
   ): SimulationResult {
     // Create a copy of the game state
     const clonedGameState = (gameState ?? this.gameState).clone()
@@ -64,8 +67,10 @@ export class GameSimulatorModule {
 
     // If follower placement is specified, try to place it
     if (followerPlace) {
-      const followerPlaced =
-        clonedGameState.simulatePlaceFollower(followerPlace)
+      const followerPlaced = clonedGameState.simulatePlaceFollower(
+        followerPlace,
+        followerType
+      )
       if (!followerPlaced) {
         return { score: -1, moves: [] }
       }
@@ -75,7 +80,9 @@ export class GameSimulatorModule {
 
     return {
       score,
-      moves: [{ tile, rowIndex, tileIndex, rotation, followerPlace }],
+      moves: [
+        { tile, rowIndex, tileIndex, rotation, followerPlace, followerType },
+      ],
     }
   }
 
@@ -107,17 +114,27 @@ export class GameSimulatorModule {
         const gameState = this.gameState.clone()
         if (gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)) {
           for (const place of gameState.availableFollowersPlaces) {
-            const resultWithFollower = this.simulateMove(
-              rotatedTile,
-              rowIndex,
-              tileIndex,
-              rotation,
-              place,
-              gameState
-            )
-            if (resultWithFollower.score > bestScore) {
-              bestScore = resultWithFollower.score
-              bestMoves = resultWithFollower.moves
+            const followerTypes: FollowerType[] = ['follower']
+            const pool =
+              gameState.playersFollowers[gameState.currentPlayer?.id ?? '']
+            if (place.temporaryObject.isMonastery && pool?.monks) {
+              followerTypes.push('abbot')
+            }
+
+            for (const followerType of followerTypes) {
+              const resultWithFollower = this.simulateMove(
+                rotatedTile,
+                rowIndex,
+                tileIndex,
+                rotation,
+                place,
+                gameState,
+                followerType
+              )
+              if (resultWithFollower.score > bestScore) {
+                bestScore = resultWithFollower.score
+                bestMoves = resultWithFollower.moves
+              }
             }
           }
         }

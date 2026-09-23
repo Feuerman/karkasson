@@ -43,6 +43,7 @@ export interface ObjectFollowerSnapshot {
   playerId: number | string
   objectId: string
   point: ObjectPoint
+  isAbbot?: boolean
 }
 
 export interface ObjectScoreSnapshot {
@@ -75,6 +76,7 @@ export interface PlacedFollowerSnapshot {
   objectId: string
   point: ObjectPoint
   isMonastery?: boolean
+  isAbbot?: boolean
 }
 
 export interface FollowerCountSnapshot {
@@ -520,6 +522,8 @@ export function recomputeExpectedScores(
 
   for (const monastery of completed.monasteries) {
     for (const follower of monastery.followers) {
+      // Аббат на завершённом монастыре очков не приносит (он ждёт отзыва)
+      if (follower.isAbbot) continue
       credit(follower.playerId, 9)
     }
   }
@@ -590,6 +594,7 @@ export function assertFollowerInvariants(
 
   let totalPlaced = 0
   let totalOrdinary = 0
+  let totalMonks = 0
 
   // Завершённое строение снимает все свои фишки с доски (возврат в запас).
   // Поэтому ни одна фишка из placedFollowers не может ссылаться на объект,
@@ -606,6 +611,9 @@ export function assertFollowerInvariants(
     }
   }
   for (const follower of state.placedFollowers) {
+    // Аббат остаётся на завершённом монастыре до отзыва владельцем —
+    // для него ссылка на завершённый объект допустима.
+    if (follower.isAbbot) continue
     expect(completedObjectIds.has(follower.objectId)).toBe(false)
   }
 
@@ -615,21 +623,25 @@ export function assertFollowerInvariants(
     ).length
     const remaining =
       state.playersFollowers[playerId(player.id)]?.ordinaryFollowers
+    const monks = state.playersFollowers[playerId(player.id)]?.monks
     if (remaining === undefined) continue
 
     expect(remaining).toBeGreaterThanOrEqual(0)
     expect(remaining).toBeLessThanOrEqual(7)
+    expect(monks).toBeGreaterThanOrEqual(0)
+    expect(monks).toBeLessThanOrEqual(1)
 
     if (perPlayer) {
-      expect(placedCount + remaining).toBe(7)
+      expect(placedCount + remaining + (monks ?? 0)).toBe(8)
     }
 
     totalPlaced += placedCount
     totalOrdinary += remaining
+    totalMonks += monks ?? 0
   }
 
-  const totalAvailable = 7 * state.players.length
-  expect(totalPlaced + totalOrdinary).toBe(totalAvailable)
+  const totalAvailable = 8 * state.players.length
+  expect(totalPlaced + totalOrdinary + totalMonks).toBe(totalAvailable)
 }
 
 // ------------------------------------------------------- полная партия

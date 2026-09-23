@@ -30,10 +30,14 @@ export interface Point {
   precisionY?: number
 }
 
+/** Тип фишки: обычный подданный или аббат (только на монастырь) */
+export type FollowerType = 'follower' | 'abbot'
+
 export interface ObjectFollower {
   playerId: PlayerId
   objectId: string
   point: Point
+  isAbbot?: boolean
 }
 
 export interface PlacedFollower {
@@ -41,6 +45,7 @@ export interface PlacedFollower {
   objectId: string
   point: Point
   isMonastery?: boolean
+  isAbbot?: boolean
 }
 
 export interface ScoreForObject {
