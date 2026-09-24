@@ -29,11 +29,11 @@
         v-if="!showLobby"
         color="success"
         icon="i-lucide-arrow-left"
-        class="group fixed right-8 top-8 z-[9999] flex cursor-pointer items-center justify-center gap-2.5 px-2.5 py-1 text-base text-white"
+        class="btn-primary-action group fixed right-8 top-8 z-[9999] min-h-11 cursor-pointer gap-2.5 rounded-xl px-3 py-1.5 text-base shadow-strong"
         @click="goInLobby"
       >
         <span
-          class="block w-0 overflow-hidden whitespace-nowrap transition-[width] duration-200 group-hover:w-[145px]"
+          class="block w-0 overflow-hidden whitespace-nowrap text-center transition-[width] duration-200 group-hover:w-[145px] group-focus-visible:w-[145px]"
           >Выйти из игры</span
         >
       </UButton>
@@ -73,7 +73,7 @@
           <UButton
             v-if="gameState.isMyTurn"
             color="success"
-            class="absolute -top-[30px] left-1/2 z-10 -translate-x-1/2 cursor-pointer px-2.5 py-1 text-[14px] text-white"
+            class="btn-primary-action absolute -top-[34px] left-1/2 z-10 min-h-8 -translate-x-1/2 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1 text-[14px] font-semibold shadow-soft"
             @mousedown.stop
             @click="
               gameState.isMyTurn && placeTile(localCurrentTile, hoveredTile)
@@ -88,7 +88,7 @@
             <UButton
               color="primary"
               icon="i-lucide-rotate-ccw"
-              class="flex h-6 w-6 cursor-pointer items-center justify-center !p-0 text-white"
+              class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
               @click.stop.prevent="
@@ -103,7 +103,7 @@
             <UButton
               color="primary"
               icon="i-lucide-rotate-cw"
-              class="flex h-6 w-6 cursor-pointer items-center justify-center !p-0 text-white"
+              class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
               @click.stop.prevent="
@@ -173,7 +173,7 @@
         color="primary"
         icon="i-lucide-minimize-2"
         title="Сбросить масштаб"
-        class="fixed bottom-4 right-4 z-[3000] flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-white shadow-strong"
+        class="btn-primary-action fixed bottom-4 right-4 z-[3000] min-h-10 cursor-pointer gap-2 rounded-lg px-3 py-2 text-sm font-semibold shadow-strong"
         @click="resetZoom"
       >
         100%

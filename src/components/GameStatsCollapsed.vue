@@ -7,7 +7,7 @@
       size="sm"
       variant="soft"
       color="neutral"
-      class="self-start px-4 py-1.5 font-medium"
+      class="btn-secondary min-h-9 self-start rounded-lg px-4 py-1.5 font-medium"
       @click="isOpened = !isOpened"
     >
       {{ !isOpened ? 'Показать' : 'Скрыть' }}

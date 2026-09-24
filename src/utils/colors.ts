@@ -3,42 +3,42 @@ const playerColorMap: Record<
   { text: string; bg: string; border: string }
 > = {
   coral: {
-    text: 'text-player-coral',
+    text: 'text-player-coral-text',
     bg: 'bg-player-coral',
     border: 'border-player-coral',
   },
   skyblue: {
-    text: 'text-player-skyblue',
+    text: 'text-player-skyblue-text',
     bg: 'bg-player-skyblue',
     border: 'border-player-skyblue',
   },
   lime: {
-    text: 'text-player-lime',
+    text: 'text-player-lime-text',
     bg: 'bg-player-lime',
     border: 'border-player-lime',
   },
   gold: {
-    text: 'text-player-gold',
+    text: 'text-player-gold-text',
     bg: 'bg-player-gold',
     border: 'border-player-gold',
   },
   orchid: {
-    text: 'text-player-orchid',
+    text: 'text-player-orchid-text',
     bg: 'bg-player-orchid',
     border: 'border-player-orchid',
   },
   teal: {
-    text: 'text-player-teal',
+    text: 'text-player-teal-text',
     bg: 'bg-player-teal',
     border: 'border-player-teal',
   },
   salmon: {
-    text: 'text-player-salmon',
+    text: 'text-player-salmon-text',
     bg: 'bg-player-salmon',
     border: 'border-player-salmon',
   },
   slateblue: {
-    text: 'text-player-slateblue',
+    text: 'text-player-slateblue-text',
     bg: 'bg-player-slateblue',
     border: 'border-player-slateblue',
   },

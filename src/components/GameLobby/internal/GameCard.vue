@@ -53,7 +53,7 @@
     </div>
 
     <UButton
-      class="flex w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-gold-dark/60 bg-gold/15 text-base text-[#f7e7bb] sm:w-[180px]"
+      class="flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-gold-dark/60 bg-gold/15 text-center text-base leading-tight font-semibold text-[#fff2d2] hover:bg-gold/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:w-[180px]"
       color="neutral"
       @click="onJoin"
     >

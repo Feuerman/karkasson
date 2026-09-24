@@ -9,7 +9,11 @@
         :key="savedGame.id"
         class="flex items-center justify-between gap-2"
       >
-        <UButton variant="outline" color="neutral" class="flex-1">
+        <UButton
+          variant="outline"
+          color="neutral"
+          class="btn-secondary min-h-10 flex-1 rounded-lg px-3 font-medium"
+        >
           {{ savedGame.name }}
         </UButton>
         <UButton
@@ -17,11 +21,16 @@
           color="error"
           icon="i-lucide-x"
           square
-          class="justify-center"
+          class="flex h-10 w-10 items-center justify-center rounded-lg text-danger-dark hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
         />
       </div>
       <UInput v-model="savedGameName" type="text" placeholder="Название" />
-      <UButton color="primary" icon="i-lucide-save" label="Save Game" />
+      <UButton
+        color="primary"
+        icon="i-lucide-save"
+        label="Save Game"
+        class="btn-primary-action min-h-10 rounded-lg px-4 font-semibold"
+      />
     </UCard>
   </Draggable>
 </template>

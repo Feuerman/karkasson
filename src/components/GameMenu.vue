@@ -8,7 +8,7 @@
         color="primary"
         icon="i-lucide-scroll-text"
         label="Меню"
-        class="cursor-pointer rounded-full px-5 text-white shadow-soft"
+        class="btn-primary-action min-h-11 cursor-pointer gap-2 rounded-full px-5 font-semibold shadow-soft"
       />
     </UDropdownMenu>
   </div>

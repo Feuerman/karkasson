@@ -49,7 +49,7 @@
             size="xs"
             :variant="activeSection === section.id ? 'solid' : 'outline'"
             :color="activeSection === section.id ? 'primary' : 'neutral'"
-            class="shrink-0 rounded-full px-3 py-1 text-[14px] whitespace-nowrap transition-colors duration-150"
+            class="btn-tab shrink-0 rounded-full px-3 py-1 text-[14px] whitespace-nowrap transition-colors duration-150"
             @click="scrollToSection(section.id)"
           >
             {{ section.title }}
@@ -87,7 +87,7 @@
         <UButton
           variant="soft"
           color="neutral"
-          class="px-3 py-2 font-medium"
+          class="btn-secondary min-h-10 rounded-lg px-4 py-2 font-medium"
           @click="onClose"
         >
           Закрыть

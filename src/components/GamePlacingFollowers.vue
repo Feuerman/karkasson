@@ -23,7 +23,7 @@
           block
           variant="soft"
           color="neutral"
-          class="cursor-pointer font-semibold"
+          class="btn-secondary min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
           @click="gameBoard.isMyTurn && GameService.skipFollower"
         >
           Отменить
@@ -43,7 +43,7 @@
               v-if="place.temporaryObject?.isMonastery"
               block
               variant="ghost"
-              class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
               @click.stop="
                 gameBoard.isMyTurn && placeFollower(place, 'follower')
@@ -60,7 +60,7 @@
             <UButton
               block
               variant="ghost"
-              class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || abbotAvailable === 0"
               @click.stop="gameBoard.isMyTurn && placeFollower(place, 'abbot')"
             >
@@ -82,7 +82,7 @@
             :key="`${index}-ordinary`"
             block
             variant="ghost"
-            class="cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text hover:bg-surface-soft"
+            class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
             :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
             @click.stop="gameBoard.isMyTurn && placeFollower(place, 'follower')"
           >

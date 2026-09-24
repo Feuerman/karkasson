@@ -58,6 +58,16 @@
   --color-player-salmon: #fa8072;
   --color-player-slateblue: #6a5acd;
 
+  /* Darker player tones for readable labels on parchment surfaces */
+  --color-player-coral-text: #b33b1d;
+  --color-player-skyblue-text: #187392;
+  --color-player-lime-text: #287b24;
+  --color-player-gold-text: #8d6500;
+  --color-player-orchid-text: #a13b98;
+  --color-player-teal-text: #006b68;
+  --color-player-salmon-text: #b8443c;
+  --color-player-slateblue-text: #5144ad;
+
   --font-sans: 'Alegreya', Georgia, 'Times New Roman', serif;
   --font-display: 'Alegreya SC', 'Alegreya', Georgia, 'Times New Roman', serif;
 
@@ -137,6 +147,9 @@
 
   /* Wooden-plank buttons: "Начать игру" / "Отключиться" */
   .btn-stone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid #241a0c;
     border-radius: 10px;
     outline: none;
@@ -145,6 +158,8 @@
     color: #f3e7c8;
     font-family: var(--font-display);
     letter-spacing: 0.04em;
+    line-height: 1.25;
+    text-align: center;
     text-transform: uppercase;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
     background-image: linear-gradient(
@@ -179,6 +194,107 @@
         inset 0 2px 5px rgba(0, 0, 0, 0.35);
       transform: translateY(0);
     }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-gold);
+      outline-offset: 3px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.65);
+      opacity: 0.65;
+      transform: none;
+    }
+  }
+
+  /* High-contrast, consistently centered labels for important game actions */
+  .btn-primary-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid #6f2f17 !important;
+    background: linear-gradient(180deg, #a94d27 0%, #85391d 100%) !important;
+    color: #fff9ed !important;
+    text-align: center;
+    line-height: 1.25;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(180deg, #bb5a30 0%, #954322 100%) !important;
+    }
+
+    &:active:not(:disabled) {
+      background: #713018 !important;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-gold);
+      outline-offset: 3px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+
+  .btn-secondary {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid var(--color-border-strong) !important;
+    background: linear-gradient(180deg, #fff9eb 0%, #eee1c4 100%) !important;
+    color: var(--color-wood-dark) !important;
+    text-align: center;
+    line-height: 1.25;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(180deg, #f7ebd0 0%, #e7d4ad 100%) !important;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--color-gold-dark);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+  }
+
+  .btn-choice {
+    display: flex !important;
+    min-height: 2.5rem;
+    width: 100%;
+    align-items: center !important;
+    text-align: left;
+    line-height: 1.3;
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-surface-soft) !important;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-gold-dark);
+      outline-offset: -2px;
+    }
+
+    &:disabled {
+      color: var(--color-text-muted) !important;
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+  }
+
+  .btn-tab {
+    display: inline-flex !important;
+    min-height: 2rem;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center;
+    line-height: 1.2;
   }
 
   /* Green felt board: soft lighting + subtle cloth grid */
