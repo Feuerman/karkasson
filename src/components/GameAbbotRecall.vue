@@ -22,7 +22,7 @@
         block
         color="primary"
         variant="soft"
-        class="cursor-pointer font-semibold"
+        class="btn-primary-action min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
         @click="recall"
       >
         Забрать аббата

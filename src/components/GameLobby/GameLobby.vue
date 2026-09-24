@@ -37,7 +37,7 @@
           />
           <UButton
             color="primary"
-            class="cursor-pointer px-6 py-2.5 text-base text-white"
+            class="btn-primary-action min-h-11 cursor-pointer gap-2 rounded-lg px-6 py-2.5 text-base font-semibold shadow-soft"
             @click="emit('createGame')"
           >
             <template #leading>
@@ -104,13 +104,13 @@
 
         <div class="mt-2 flex flex-wrap justify-center gap-4">
           <UButton
-            class="btn-stone min-w-[200px] px-7 py-3 text-base font-bold"
+            class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             @click="emit('leaveGame')"
           >
             Отключиться
           </UButton>
           <UButton
-            class="btn-stone min-w-[200px] px-7 py-3 text-base font-bold"
+            class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             @click="startGame"
           >
             Начать игру

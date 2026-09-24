@@ -31,7 +31,7 @@
       variant="outline"
       color="neutral"
       :class="[
-        'flex h-10 w-[150px] shrink-0 items-center justify-center whitespace-nowrap px-4 text-base font-semibold text-text',
+        'flex min-h-10 w-[150px] shrink-0 items-center justify-center whitespace-nowrap px-4 text-center text-base leading-tight font-semibold text-text',
         canToggle ? '' : 'invisible',
       ]"
       :ui="{
