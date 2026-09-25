@@ -9,12 +9,7 @@ import {
 } from 'firebase/database'
 import { firebaseConfig } from '../config'
 import type { IGameBoard } from './GameManager'
-
-function parseGame(raw: unknown): IGameBoard {
-  return typeof raw === 'string'
-    ? (JSON.parse(raw) as IGameBoard)
-    : (raw as IGameBoard)
-}
+import { deserializeGameState, serializeGameState } from './gameSave'
 
 /** Абстракция хранилища игр, чтобы сервер можно было тестировать без Firebase */
 export interface IGameDatabase {
@@ -35,10 +30,13 @@ class GameDatabase implements IGameDatabase {
 
   // Сохранение состояния игры
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
+    if (gameState.id !== gameId) {
+      throw new Error('Game id does not match its storage key')
+    }
     gameState.lastUpdate = Date.now()
     await set(
       ref(this.firebaseDatabase, `games/${gameId}`),
-      JSON.stringify(gameState)
+      serializeGameState(gameState)
     )
   }
 
@@ -48,7 +46,7 @@ class GameDatabase implements IGameDatabase {
     if (!snapshot.exists()) {
       return null
     }
-    return parseGame(snapshot.val())
+    return deserializeGameState(snapshot.val())
   }
 
   // Получение всех сохраненных игр
@@ -57,13 +55,26 @@ class GameDatabase implements IGameDatabase {
     if (!snapshot.exists()) {
       return []
     }
-    return Object.values(snapshot.val() as Record<string, unknown>).map(
-      parseGame
-    )
+    const savedGames: IGameBoard[] = []
+    for (const [gameId, rawGame] of Object.entries(
+      snapshot.val() as Record<string, unknown>
+    )) {
+      try {
+        savedGames.push(deserializeGameState(rawGame))
+      } catch (error) {
+        console.error(`Ignoring invalid saved game "${gameId}":`, error)
+      }
+    }
+    return savedGames
   }
 
   async saveAllGames(games: IGameBoard[]): Promise<void> {
-    await set(ref(this.firebaseDatabase, 'games/'), games)
+    const saves = games.reduce<Record<string, string>>((acc, game) => {
+      if (!game.id) return acc
+      acc[game.id] = serializeGameState(game)
+      return acc
+    }, {})
+    await set(ref(this.firebaseDatabase, 'games/'), saves)
   }
 
   // Удаление игры

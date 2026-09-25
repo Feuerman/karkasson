@@ -51,6 +51,15 @@ export function registerLobbyHandlers({
   socket.on(
     'joinGame',
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
+      const existingGame = service.getGame(gameId)
+      if (existingGame?.gameIsEnded) {
+        socket.join(gameId)
+        const game = service.formatGameData(existingGame)
+        socket.emit('gameUpdated', game)
+        callback?.({ success: true, game })
+        return
+      }
+
       const deviceId = service.getDeviceBySocketId(socket.id)
       const result = service.joinFirstFreeSlot(gameId, socket.id, deviceId)
 

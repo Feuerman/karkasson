@@ -186,4 +186,60 @@ describe('Лобби', () => {
     )
     expect(game.players[1].name).toBe('Robert')
   })
+
+  it('завершённую игру можно загрузить для просмотра без занятия слота', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    expect(game).toBeTruthy()
+    if (!game) throw new Error('Лобби не создано')
+    game.gameIsStarted = true
+    game.gameIsEnded = true
+    game.currentPlayer = null
+    game.currentTile = null
+    await server.handle.gameService.saveGame(lobby.gameId)
+
+    const observer = new TestClient(server.url, 'device-observer')
+    clients.push(observer)
+    await observer.connect()
+    observer.registerDevice()
+
+    const response = await observer.emitAck<{
+      success: boolean
+      game: TestGameData
+    }>('joinGame', { gameId: lobby.gameId })
+
+    expect(response.success).toBe(true)
+    expect(response.game.gameIsEnded).toBe(true)
+    expect(
+      game.players.every((player) => player.socketId !== observer.id)
+    ).toBe(true)
+  })
+
+  it('завершённые партии идут раньше остальных, от новых к старым', async () => {
+    server = await startTestServer()
+    const first = await createLobbyWithPlayers(server.url)
+    const second = await createLobbyWithPlayers(server.url)
+    clients.push(first.creator, first.joiner, second.creator, second.joiner)
+
+    const olderEnded = server.handle.gameService.getGame(first.gameId)
+    const newerEnded = server.handle.gameService.getGame(second.gameId)
+    if (!olderEnded || !newerEnded) throw new Error('Лобби не созданы')
+    olderEnded.gameIsEnded = true
+    olderEnded.lastUpdate = 10
+    newerEnded.gameIsEnded = true
+    newerEnded.lastUpdate = 20
+
+    const active = server.handle.gameService.createLobby('socket-active')
+    active.lastUpdate = 30
+
+    const ids = server.handle.gameService
+      .formatGamesList()
+      .map((gameSummary) => gameSummary.id)
+
+    expect(ids.slice(0, 2)).toEqual([second.gameId, first.gameId])
+    expect(ids[2]).toBe(active.id)
+  })
 })

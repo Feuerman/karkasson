@@ -563,7 +563,7 @@ const rejoinGame = async (gameId: string) => {
 }
 
 const playersReconnectProcess = computed(() => {
-  return reconnectingPlayers.value?.length > 0
+  return !gameState.value.gameIsEnded && reconnectingPlayers.value?.length > 0
 })
 
 const reconnectingPlayers = computed(() => {

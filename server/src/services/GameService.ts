@@ -1,4 +1,5 @@
 import { GameManager, type IGameBoard } from '../modules/GameManager'
+import { deserializeGameState } from '../modules/gameSave'
 import type { IGameDatabase } from '../modules/Database'
 import {
   playerColorForIndex,
@@ -149,10 +150,11 @@ export class GameService {
       score: 0,
     }))
 
-    const game = { id: gameId, players } as IGameBoard & { id: string }
+    const game = new GameManager({ players, startImmediately: false })
+    game.id = gameId
     this.games[gameId] = game
     this.lobbyOwners[gameId] = deviceId ?? socketId
-    return game
+    return game as IGameBoard & { id: string }
   }
 
   // ------------------------------------------------------------------ players
@@ -324,16 +326,22 @@ export class GameService {
   async loadSavedGames(): Promise<void> {
     const savedGames = await this.db.getAllGames()
 
-    savedGames.forEach((savedGame) => {
-      if (!savedGame.id) return
-      const game = new GameManager({ players: savedGame.players })
-      Object.assign(game, savedGame)
-      game.temporaryObjects.gardens ??= []
-      game.completedObjects.gardens ??= []
-      this.games[savedGame.id] = game
-      const owner = savedGame.players.find((player) => player.socketId)
-      if (owner?.socketId) {
-        this.lobbyOwners[savedGame.id] = owner.deviceId ?? owner.socketId
+    savedGames.forEach((rawSavedGame) => {
+      try {
+        const savedGame = deserializeGameState(rawSavedGame)
+        const gameId = savedGame.id
+        if (!gameId) return
+
+        const game = GameManager.restore(savedGame)
+        game.temporaryObjects.gardens ??= []
+        game.completedObjects.gardens ??= []
+        this.games[gameId] = game
+        const owner = savedGame.players.find((player) => player.socketId)
+        if (owner?.socketId) {
+          this.lobbyOwners[gameId] = owner.deviceId ?? owner.socketId
+        }
+      } catch (error) {
+        console.error('Ignoring invalid saved game:', error)
       }
     })
   }
@@ -390,22 +398,30 @@ export class GameService {
   }
 
   formatGamesList(games: IGameBoard[] = this.allGames()): GameSummary[] {
-    return games.map((game) => ({
-      id: game.id,
-      players: game.players.map((player) => ({
-        id: player.id,
-        name: player.name,
-        color: player.color,
-        socketId: player.socketId,
-        deviceId: player.deviceId,
-      })),
-      currentPlayer: game.currentPlayer?.id ?? null,
-      gameIsEnded: game.gameIsEnded,
-      moveCounter: game.moveCounter,
-      scores: game.scores,
-      gameIsStarted: game.gameIsStarted,
-      lastUpdate: game.lastUpdate,
-    }))
+    return games
+      .map((game) => ({
+        id: game.id,
+        players: game.players.map((player) => ({
+          id: player.id,
+          name: player.name,
+          color: player.color,
+          socketId: player.socketId,
+          deviceId: player.deviceId,
+        })),
+        currentPlayer: game.currentPlayer?.id ?? null,
+        gameIsEnded: game.gameIsEnded,
+        moveCounter: game.moveCounter,
+        scores: game.scores,
+        gameIsStarted: game.gameIsStarted,
+        lastUpdate: game.lastUpdate,
+      }))
+      .sort((left, right) => {
+        if (left.gameIsEnded !== right.gameIsEnded) {
+          return left.gameIsEnded ? -1 : 1
+        }
+        if (left.gameIsEnded) return right.lastUpdate - left.lastUpdate
+        return 0
+      })
   }
 
   /** Список игр: сохранённые из базы, дополненные играми из памяти */

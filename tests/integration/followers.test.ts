@@ -47,12 +47,17 @@ describe('Размещение фишек', () => {
 
     const beforeOrdinary =
       preState!.playersFollowers![playerId(aliceId)]!.ordinaryFollowers
-    const place = chooseFollowerPlace(offerGame!.availableFollowersPlaces!)
+    const offeredPlaces = offerGame!.availableFollowersPlaces!
+    const place = chooseFollowerPlace(offeredPlaces)
 
     const placed = await creator.emitAck<{
       success: boolean
       game: GameStateSnapshot
-    }>('placeFollower', { gameId, place })
+    }>('placeFollower', {
+      gameId,
+      place,
+      followerType: place.temporaryObject.isGarden ? 'abbot' : 'follower',
+    })
 
     const afterGame = placed.game
     const afterKey = playerId(aliceId)

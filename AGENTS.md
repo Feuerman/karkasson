@@ -83,7 +83,8 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   (`isCorrectTilePosition`), слияние/завершение объектов (`checkRoads`/
   `checkCities`/`checkMonasteries`/`checkGardens`, `mergeRoads`/`mergeCities`,
   `checkComplete*`), пулы фишек, `actionsHistory`, а также симуляцию
-  (`simulatePlaceTile`/`simulatePlaceFollower`) и `clone()` для ИИ.
+  (`simulatePlaceTile`/`simulatePlaceFollower`), `clone()` для ИИ и
+  `GameManager.restore()` для восстановления сериализованного состояния.
 - **`scoring.ts`** — чистые функции подсчёта очков: `distributeScore` (очки
   лидерам объекта), `calcRoadScore` (уникальные тайлы), `calcCityScore`
   (уникальные тайлы ×2 + щиты ×2), `calcMonasteryPoints`/`calcGardenPoints`
@@ -95,8 +96,8 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   невыставленные фишки). Возвращает `SimulationResult { score, moves }`.
 - **`Database.ts`** — интерфейс `IGameDatabase` (`saveGame`/`getGame`/
   `getAllGames`/`saveAllGames`/`deleteGame`) и реализация `GameDatabase` на
-  Firebase Realtime DB (состояние сериализуется в JSON). Синглтон
-  `gameDatabase`.
+  Firebase Realtime DB. **`gameSave.ts`** сериализует состояние в versioned
+  JSON envelope и мигрирует legacy-сохранения. Синглтон `gameDatabase`.
 
 #### Сервисы (`server/src/services/`)
 
@@ -298,7 +299,9 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   `emitAndWait`. REST/axios не используется.
 - **Алиасы**: `@/*` → `src/*`, `@server/*` → `server/src/*`.
 - **Персистентность — `server/src/modules/Database.ts`** (`IGameDatabase`).
-  В тестах — `tests/integration/helpers/inMemoryDatabase.ts`.
+  Схема и миграции — `server/src/modules/gameSave.ts`; при добавлении нового
+  формата увеличивать `GAME_SAVE_SCHEMA_VERSION` и сохранять поддержку старой
+  версии. В тестах — `tests/integration/helpers/inMemoryDatabase.ts`.
 - **UI-кит — Nuxt UI v4** (компоненты `U*`). Токены/классы — в
   `src/assets/main.css`. Цвета игроков — `src/utils/colors.ts` + серверный
   `PlayerColors` — менять синхронно.
@@ -352,7 +355,7 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   `server.ts` (startTestServer), `frontend.ts` (реальный Vite-фронтенд),
   `inMemoryDatabase.ts`, `lobby.ts`, `gameplay.ts`.
 - Состав (`tests/`):
-  - `unit/` — `scoring.test.ts`, `rulesExamples.test.ts`;
+  - `unit/` — `scoring.test.ts`, `rulesExamples.test.ts`, `gameSave.test.ts`;
   - `integration/` — `lobby`, `startGame`, `gameplay`, `followers`,
     `scoring`, `reconnect`, `persistence`, `gameActions`, `computerOnly`,
     `clientGameService`, `serverFrontend`, `gameManagerPlacement`,

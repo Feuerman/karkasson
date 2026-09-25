@@ -14,6 +14,7 @@ export const joinButtonLabel = (game: GameSummary): string => {
 }
 
 export const isRejoinable = (game: GameSummary, deviceId: string): boolean =>
+  !game.gameIsEnded &&
   game.players?.some((player) => player.deviceId === deviceId)
 
 export const canToggleSlot = (player: Player, deviceId: string): boolean =>

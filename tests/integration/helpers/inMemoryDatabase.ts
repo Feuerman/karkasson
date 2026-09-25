@@ -1,5 +1,9 @@
 import type { IGameBoard } from '../../../server/src/modules/GameManager'
 import type { IGameDatabase } from '../../../server/src/modules/Database'
+import {
+  deserializeGameState,
+  serializeGameState,
+} from '../../../server/src/modules/gameSave'
 
 /**
  * Хранилище игр в памяти вместо Firebase.
@@ -16,21 +20,27 @@ export function createInMemoryStore(): InMemoryStore {
 
 export class InMemoryDatabase implements IGameDatabase {
   saveError: Error | null = null
+  readError: Error | null = null
 
   constructor(private readonly store: InMemoryStore = { games: {} }) {}
 
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
     if (this.saveError) throw this.saveError
-    const state = JSON.parse(JSON.stringify(gameState)) as IGameBoard
+    if (gameState.id !== gameId) {
+      throw new Error('Game id does not match its storage key')
+    }
+    const state = deserializeGameState(serializeGameState(gameState))
     state.lastUpdate = Date.now()
     this.store.games[gameId] = state
   }
 
   async getGame(gameId: string): Promise<IGameBoard | null> {
+    if (this.readError) throw this.readError
     return this.store.games[gameId] ?? null
   }
 
   async getAllGames(): Promise<IGameBoard[]> {
+    if (this.readError) throw this.readError
     return Object.keys(this.store.games)
       .map((id) => this.store.games[id])
       .filter(Boolean)
