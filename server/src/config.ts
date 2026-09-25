@@ -2,6 +2,41 @@ export const PORT = Number(process.env.PORT) || 3001
 
 export const ADMIN_UI_ORIGIN = 'https://admin.socket.io'
 
+export interface SocketAdminUIOptions {
+  auth: {
+    type: 'basic'
+    username: string
+    password: string
+  }
+  mode: 'development' | 'production'
+  readonly: boolean
+}
+
+export function getSocketAdminUIOptions(
+  environment: NodeJS.ProcessEnv = process.env
+): SocketAdminUIOptions | null {
+  const username = environment.SOCKET_ADMIN_UI_USERNAME?.trim()
+  const password = environment.SOCKET_ADMIN_UI_PASSWORD_HASH?.trim()
+
+  if (!username && !password) return null
+  if (!username || !password) {
+    throw new Error(
+      'SOCKET_ADMIN_UI_USERNAME and SOCKET_ADMIN_UI_PASSWORD_HASH must both be set'
+    )
+  }
+
+  const readonly = environment.SOCKET_ADMIN_UI_READONLY
+  if (readonly && readonly !== 'true' && readonly !== 'false') {
+    throw new Error('SOCKET_ADMIN_UI_READONLY must be "true" or "false"')
+  }
+
+  return {
+    auth: { type: 'basic', username, password },
+    mode: environment.NODE_ENV === 'production' ? 'production' : 'development',
+    readonly: readonly !== 'false',
+  }
+}
+
 // Игра удаляется, если её не обновляли дольше получаса
 export const GAME_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
 

@@ -182,13 +182,25 @@
         100%
       </UButton>
       <GameMenu :items="menuItems" @select="onMenuSelect" />
-      <RulesPanel v-model:open="showRules" :doc="baseGameRules" />
+      <RulesPanel
+        v-if="rulesDocument"
+        v-model:open="showRules"
+        :doc="rulesDocument"
+      />
     </div>
   </UApp>
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory'
@@ -196,13 +208,11 @@ import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
 import GameAbbotRecall from './components/GameAbbotRecall.vue'
 import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
-import RulesPanel from './components/rules/RulesPanel.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
-import { baseGameRules } from './rules/baseGame'
 import { notifyError, throttle } from './utils/common'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
@@ -213,6 +223,11 @@ import { useBoardPan } from './composables/useBoardPan'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import type { Player, Point } from '@server/modules/types'
+import type { RulesDocument } from './rules/types'
+
+const RulesPanel = defineAsyncComponent(
+  () => import('./components/rules/RulesPanel.vue')
+)
 
 const ghostPreviewRef = ref<HTMLElement | null>(null)
 const ghostFrameRef = ref<HTMLElement | null>(null)
@@ -581,13 +596,20 @@ const playersList = ref<Player[]>([])
 const currentGame = ref<IGame | null>(null)
 
 const showRules = ref(false)
+const rulesDocument = ref<RulesDocument | null>(null)
 const menuItems: GameMenuItem[] = [
   { id: 'rules', label: 'Правила игры', icon: 'i-lucide-circle-help' },
 ]
 
-const onMenuSelect = (id: string) => {
+const onMenuSelect = async (id: string) => {
   if (id === 'rules') {
-    showRules.value = true
+    try {
+      const { baseGameRules } = await import('./rules/baseGame')
+      rulesDocument.value = baseGameRules
+      showRules.value = true
+    } catch (error: unknown) {
+      notifyError(error)
+    }
   }
 }
 

@@ -1,7 +1,8 @@
 import express from 'express'
 import http from 'http'
 import { Server } from 'socket.io'
-import { ADMIN_UI_ORIGIN } from './config'
+import { instrument } from '@socket.io/admin-ui'
+import { ADMIN_UI_ORIGIN, getSocketAdminUIOptions } from './config'
 import type { IGameDatabase } from './modules/Database'
 import { GameService } from './services/GameService'
 import { registerSocketHandlers } from './socket/router'
@@ -40,10 +41,15 @@ export function createGameServer(
   })
 
   if (adminUI) {
-    // Админку подключаем лениво: в тестах она не нужна и тянет лишние deps
-    void import('@socket.io/admin-ui').then(({ instrument }) => {
-      instrument(io, { auth: false })
-    })
+    const adminUIOptions = getSocketAdminUIOptions()
+
+    if (adminUIOptions) {
+      instrument(io, adminUIOptions)
+    } else {
+      console.warn(
+        'Socket.IO Admin UI is disabled: configure its username and password hash'
+      )
+    }
   }
 
   const gameService = new GameService(db)

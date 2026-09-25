@@ -36,5 +36,19 @@ export default defineConfig({
   build: {
     copyPublicDir: true,
     publicDir: 'public',
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor',
+              test: /node_modules/,
+              minSize: 20_000,
+              maxSize: 350_000,
+            },
+          ],
+        },
+      },
+    },
   },
 })

@@ -64,7 +64,7 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | ---- | ---------- |
 | `index.ts` | прод-бутстрап: `server.listen`, загрузка сохранённых партий, периодическая чистка «зависших» игр |
 | `app.ts` | фабрика `createGameServer(db, opts)` — собирает Express + Socket.IO **без** прослушивания порта; используется и продом, и тестами |
-| `config.ts` | `PORT`, `ADMIN_UI_ORIGIN`, `GAME_INACTIVITY_TIMEOUT_MS`, `STALE_GAMES_CHECK_MS`, `COMPUTER_MOVE_DELAY_MS`, `firebaseConfig` |
+| `config.ts` | `PORT`, `ADMIN_UI_ORIGIN`, credentials/config Admin UI, `GAME_INACTIVITY_TIMEOUT_MS`, `STALE_GAMES_CHECK_MS`, `COMPUTER_MOVE_DELAY_MS`, `firebaseConfig` |
 
 #### Домен и правила (`server/src/modules/`)
 
