@@ -244,6 +244,16 @@ pnpm test
 | `VITE_SERVER_URL`        | клиент   | `https://karkasson.onrender.com`    |
 | `PORT`                   | сервер   | `3001`                              |
 | `COMPUTER_MOVE_DELAY_MS` | сервер   | `1000`                              |
+| `SOCKET_ADMIN_UI_USERNAME` | сервер | не задано — Admin UI выключена      |
+| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена |
+| `SOCKET_ADMIN_UI_READONLY` | сервер | `true`                              |
+
+Для подключения к [Socket.IO Admin UI](https://admin.socket.io/) задайте обе
+переменные `SOCKET_ADMIN_UI_USERNAME` и `SOCKET_ADMIN_UI_PASSWORD_HASH`.
+Пароль должен быть bcrypt-хешем (например, созданным через `bcryptjs`); при
+отсутствии любой из переменных админка не запускается. По умолчанию включён
+режим только для чтения. Операции управления сокетами можно явно разрешить,
+задав `SOCKET_ADMIN_UI_READONLY=false`.
 
 ## Деплой
 

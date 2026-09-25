@@ -33,11 +33,20 @@ function startStaleGamesCleanup() {
 server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`)
 
-  await gameService.loadSavedGames()
-  console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
+  try {
+    await gameService.loadSavedGames()
+    console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
+  } catch (error: unknown) {
+    console.error('Failed to load saved games:', error)
+    server.close(() => process.exit(1))
+    return
+  }
 
   const cleanupTimer = startStaleGamesCleanup()
+  let isShuttingDown = false
   const shutdown = () => {
+    if (isShuttingDown) return
+    isShuttingDown = true
     clearInterval(cleanupTimer)
     void gameService
       .flushGames()
