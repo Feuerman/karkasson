@@ -292,10 +292,6 @@ const updateSelectedPlacingPoint = throttle(
   300
 )
 
-const updateCurrentTile = throttle(async (tile: ITile) => {
-  await GameService.updateCurrentTile(tile)
-}, 300)
-
 const handleTileClick = (rowIndex: number, tileIndex: number) => {
   if (gameState.value.isMyTurn) {
     hoveredTile.value.rowIndex = rowIndex
@@ -463,7 +459,9 @@ const rotateLocalTile = (
 ) => {
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
-  updateCurrentTile(newTile)
+  void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
+    notifyError(error, 'Не удалось повернуть плитку на сервере')
+  })
 }
 
 const placeTile = async (

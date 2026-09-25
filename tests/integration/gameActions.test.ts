@@ -60,7 +60,7 @@ describe('Действия в игре: валидация ходов', () => {
     await expect(
       lobby.joiner.emitAck('updateCurrentTile', {
         gameId,
-        tile: move!.tile,
+        rotation: move!.tile.rotation,
       })
     ).rejects.toThrow("Not player's turn")
 
@@ -106,7 +106,7 @@ describe('Действия в игре: валидация ходов', () => {
     const updated = await lobby.creator.emitAck<{
       success: boolean
       game: { currentTile: TileSnapshot | null }
-    }>('updateCurrentTile', { gameId, tile: move!.tile })
+    }>('updateCurrentTile', { gameId, rotation: move!.tile.rotation })
     expect(updated.success).toBe(true)
     expect(updated.game.currentTile?.sides).toEqual(move!.tile.sides)
 
@@ -156,13 +156,132 @@ describe('Действия в игре: валидация ходов', () => {
     await expect(
       lobby.creator.emitAck('placeTile', {
         gameId,
-        tile: invalid!.tile,
+        rotation: invalid!.tile.rotation,
         position: {
           rowIndex: invalid!.place.rowIndex,
           tileIndex: invalid!.place.tileIndex,
         },
       })
     ).rejects.toThrow('Невозможно разместить тайл на данной позиции')
+  })
+
+  it('сервер игнорирует подменённый тайл и сохраняет состояние до ack', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+    const state = await startGame(lobby.creator, gameId)
+    const move = findValidPlacement(state as GameStateSnapshot)
+    expect(move).not.toBeNull()
+
+    const before = server.handle.gameService.getGame(gameId)?.currentTile
+    const originalSave = server.db.saveGame.bind(server.db)
+    const saveGate = new Promise<void>((resolve) => setTimeout(resolve, 100))
+    server.db.saveGame = async (id, gameState) => {
+      await saveGate
+      await originalSave(id, gameState)
+    }
+
+    const placing = lobby.creator.emitAck<{
+      success: boolean
+      game: TestGameData
+    }>('placeTile', {
+      gameId,
+      rotation: move!.tile.rotation,
+      position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
+      tile: { ...move!.tile, id: 'INVALID', sides: {} },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(server.handle.gameService.getGame(gameId)?.currentTile).not.toBe(
+      before
+    )
+    const savedBeforeMove = await server.db.getGame(gameId)
+    expect(
+      savedBeforeMove?.tilePlacesStats[move!.rowIndex]?.[move!.tileIndex]
+    ).toBeUndefined()
+
+    const response = await placing
+    expect(response.success).toBe(true)
+    const placed =
+      response.game.tilePlacesStats[move!.rowIndex]?.[move!.tileIndex]
+    expect(placed?.id).toBe(before?.id)
+    const savedAfterMove = await server.db.getGame(gameId)
+    expect(
+      savedAfterMove?.tilePlacesStats[move!.rowIndex]?.[move!.tileIndex]?.id
+    ).toBe(before?.id)
+  })
+
+  it('ошибка записи откатывает действие и не подтверждает ход', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+    const state = await startGame(lobby.creator, gameId)
+    const move = findValidPlacement(state as GameStateSnapshot)
+    expect(move).not.toBeNull()
+    const beforeTiles = Object.values(state.tilePlacesStats).reduce(
+      (count, row) => count + Object.keys(row ?? {}).length,
+      0
+    )
+
+    server.db.saveError = new Error('storage unavailable')
+    await expect(
+      lobby.creator.emitAck('placeTile', {
+        gameId,
+        rotation: move!.tile.rotation,
+        position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
+      })
+    ).rejects.toThrow('storage unavailable')
+
+    const current = server.handle.gameService.getGame(gameId)
+    expect(current?.tilePlacesStats[move!.rowIndex]?.[move!.tileIndex]).toBe(
+      undefined
+    )
+    expect(
+      Object.values(current?.tilePlacesStats ?? {}).reduce(
+        (count, row) => count + Object.keys(row ?? {}).length,
+        0
+      )
+    ).toBe(beforeTiles)
+  })
+
+  it('последовательные сохранения одной игры не записываются вразнобой', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    expect(game).toBeTruthy()
+
+    const savedStates: number[] = []
+    server.db.saveGame = async (_gameId, state) => {
+      const value = state.moveCounter
+      if (value === 1) await new Promise((resolve) => setTimeout(resolve, 40))
+      savedStates.push(value)
+    }
+
+    if (game) game.moveCounter = 1
+    const first = server.handle.gameService.saveGame(lobby.gameId)
+    if (game) game.moveCounter = 2
+    const second = server.handle.gameService.saveGame(lobby.gameId)
+    await Promise.all([first, second])
+
+    expect(savedStates).toEqual([1, 2])
+  })
+
+  it('участник не может управлять чужими слотами или начинать лобби', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+
+    await expect(
+      lobby.joiner.emitAck('addPlayer', {
+        gameId,
+        name: 'Mallory',
+        index: 2,
+      })
+    ).rejects.toThrow('Недостаточно прав')
+
+    await expect(lobby.joiner.emitAck('startGame', { gameId })).rejects.toThrow(
+      'Только создатель лобби'
+    )
   })
 
   it('leaveGame в начатой игре освобождает сокет, но сохраняет deviceId', async () => {
@@ -232,13 +351,15 @@ async function makeAliceTurn(
   const move = findValidPlacement(state)
   if (!move) throw new Error('Не найдено легальное место для текущего тайла')
 
-  await creator.emitAck('updateCurrentTile', { gameId, tile: move.tile })
+  await creator.emitAck('updateCurrentTile', {
+    gameId,
+    rotation: move.tile.rotation,
+  })
   const placed = await creator.emitAck<{
     success: boolean
     game: TestGameData & { isPlacingFollower?: boolean }
   }>('placeTile', {
     gameId,
-    tile: move.tile,
     position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
   })
   expect(placed.success).toBe(true)

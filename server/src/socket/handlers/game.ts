@@ -2,9 +2,9 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type {
   AvailableFollowerPlace,
   FollowerType,
-  GridTile,
   Tile,
 } from '../../modules/types'
+import tiles from '../../data/tiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 
@@ -19,6 +19,40 @@ function isPlayersTurn(game: IGameBoard, socketId: string): boolean {
   return playerIndexesForSocket(game, socketId).some(
     (index) => index === game.currentPlayerIndex
   )
+}
+
+function isValidPosition(position: { rowIndex: number; tileIndex: number }) {
+  return (
+    Number.isInteger(position.rowIndex) && Number.isInteger(position.tileIndex)
+  )
+}
+
+function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
+  const currentTile = game.currentTile
+  if (!currentTile || ![0, 90, 180, 270].includes(rotation)) return false
+
+  const definition = tiles.find((tile) => tile.id === currentTile.id)
+  if (!definition) return false
+
+  let sides = { ...definition.sides }
+  for (let turn = 0; turn < rotation / 90; turn++) {
+    sides = {
+      north: sides.west,
+      east: sides.north,
+      south: sides.east,
+      west: sides.south,
+    }
+  }
+
+  const rotatedTile: Tile = {
+    ...currentTile,
+    ...definition,
+    rotation,
+    sides,
+    hasGarden: currentTile.hasGarden,
+  }
+  game.currentTile = { ...currentTile, ...rotatedTile }
+  return true
 }
 
 export function registerGameHandlers({
@@ -57,7 +91,11 @@ export function registerGameHandlers({
   socket.on(
     'updateCurrentTile',
     (
-      { gameId, tile }: { gameId: string; tile: Tile },
+      {
+        gameId,
+        rotation,
+        tile,
+      }: { gameId: string; rotation?: number; tile?: Pick<Tile, 'rotation'> },
       callback: SocketCallback
     ) => {
       const game = service.getGame(gameId)
@@ -70,8 +108,15 @@ export function registerGameHandlers({
         return
       }
 
-      // Координаты появятся при размещении тайла (placeTile)
-      game.currentTile = tile as GridTile
+      const requestedRotation = rotation ?? tile?.rotation
+      if (
+        game.isPlacingFollower ||
+        typeof requestedRotation !== 'number' ||
+        !setCurrentTileRotation(game, requestedRotation)
+      ) {
+        callback?.({ error: 'Invalid tile rotation' })
+        return
+      }
       io.to(gameId).emit('gameUpdated', service.formatGameData(game))
       callback?.({ success: true, game })
     }
@@ -79,14 +124,14 @@ export function registerGameHandlers({
 
   socket.on(
     'placeTile',
-    (
+    async (
       {
         gameId,
-        tile,
+        rotation,
         position,
       }: {
         gameId: string
-        tile: Tile
+        rotation?: number
         position: { rowIndex: number; tileIndex: number }
       },
       callback: SocketCallback
@@ -100,17 +145,35 @@ export function registerGameHandlers({
         callback?.({ error: "Not player's turn" })
         return
       }
+      if (game.isPlacingFollower || !game.currentTile) {
+        callback?.({ error: 'No tile is waiting to be placed' })
+        return
+      }
+      if (!isValidPosition(position)) {
+        callback?.({ error: 'Invalid tile position' })
+        return
+      }
 
+      const previousState = game.clone()
       try {
-        void service.saveGame(gameId)
-
+        if (rotation !== undefined && !setCurrentTileRotation(game, rotation)) {
+          callback?.({ error: 'Invalid tile rotation' })
+          return
+        }
         const isValidMove = game.placeTile(
-          tile,
+          game.currentTile,
           position.rowIndex,
           position.tileIndex
         )
         if (!isValidMove) {
           throw new Error('Невозможно разместить тайл на данной позиции')
+        }
+
+        try {
+          await service.saveGame(gameId)
+        } catch (error) {
+          game.copyStateFrom(previousState)
+          throw error
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
@@ -128,7 +191,7 @@ export function registerGameHandlers({
 
   socket.on(
     'placeFollower',
-    (
+    async (
       {
         gameId,
         place,
@@ -150,10 +213,43 @@ export function registerGameHandlers({
         return
       }
 
+      const previousState = game.clone()
       try {
-        void service.saveGame(gameId)
+        const availablePlace = game.availableFollowersPlaces.find(
+          (candidate) =>
+            candidate.temporaryObject.id === place?.temporaryObject?.id &&
+            candidate.point.x === place?.point?.x &&
+            candidate.point.y === place?.point?.y &&
+            candidate.point.direction === place?.point?.direction
+        )
+        if (!availablePlace || !['follower', 'abbot'].includes(followerType)) {
+          throw new Error('Invalid follower placement')
+        }
+        if (
+          followerType === 'abbot' &&
+          !(
+            availablePlace.temporaryObject.isMonastery ||
+            availablePlace.temporaryObject.isGarden
+          )
+        ) {
+          throw new Error(
+            'An abbot can only be placed on a monastery or garden'
+          )
+        }
+        if (
+          followerType === 'follower' &&
+          availablePlace.temporaryObject.isGarden
+        ) {
+          throw new Error('A follower cannot be placed on a garden')
+        }
 
-        game.placeFollower(place, followerType)
+        game.placeFollower(availablePlace, followerType)
+        try {
+          await service.saveGame(gameId)
+        } catch (error) {
+          game.copyStateFrom(previousState)
+          throw error
+        }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
         callback?.({ success: true, game })
@@ -170,7 +266,7 @@ export function registerGameHandlers({
 
   socket.on(
     'recallAbbot',
-    ({ gameId }: { gameId: string }, callback: SocketCallback) => {
+    async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
         callback?.({ error: 'Game not found' })
@@ -181,11 +277,16 @@ export function registerGameHandlers({
         return
       }
 
+      const previousState = game.clone()
       try {
-        void service.saveGame(gameId)
-
         if (!game.recallAbbot()) {
           throw new Error('У игрока нет аббата на доске')
+        }
+        try {
+          await service.saveGame(gameId)
+        } catch (error) {
+          game.copyStateFrom(previousState)
+          throw error
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
@@ -275,7 +376,7 @@ export function registerGameHandlers({
 
   socket.on(
     'skipFollower',
-    ({ gameId }: { gameId: string }, callback: SocketCallback) => {
+    async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
         callback?.({ error: 'Game not found' })
@@ -286,10 +387,15 @@ export function registerGameHandlers({
         return
       }
 
+      const previousState = game.clone()
       try {
-        void service.saveGame(gameId)
-
         game.skipFollower()
+        try {
+          await service.saveGame(gameId)
+        } catch (error) {
+          game.copyStateFrom(previousState)
+          throw error
+        }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
         callback?.({ success: true, game })

@@ -15,9 +15,12 @@ export function createInMemoryStore(): InMemoryStore {
 }
 
 export class InMemoryDatabase implements IGameDatabase {
+  saveError: Error | null = null
+
   constructor(private readonly store: InMemoryStore = { games: {} }) {}
 
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
+    if (this.saveError) throw this.saveError
     const state = JSON.parse(JSON.stringify(gameState)) as IGameBoard
     state.lastUpdate = Date.now()
     this.store.games[gameId] = state

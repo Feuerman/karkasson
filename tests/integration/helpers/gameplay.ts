@@ -114,6 +114,10 @@ export interface GameStateSnapshot {
   }
   completedObjects?: CompletedObjectsSnapshot
   placingPoint?: { rowIndex: number; tileIndex: number }
+  actionsHistory?: Array<{
+    actionType: string
+    initiator?: { socketId?: string | null; deviceId?: string | null } | null
+  }>
 }
 
 export interface ValidMove {
@@ -334,14 +338,16 @@ export async function makeHumanMove(
 
   // Как и фронтенд, синхронизируем повёрнутый тайл с сервером,
   // чтобы «подсказки» для фишек совпадали с реально размещённым тайлом.
-  await client.emitAck('updateCurrentTile', { gameId, tile: move.tile })
+  await client.emitAck('updateCurrentTile', {
+    gameId,
+    rotation: move.tile.rotation,
+  })
 
   const placed = await client.emitAck<{
     success: boolean
     game: GameStateSnapshot
   }>('placeTile', {
     gameId,
-    tile: move.tile,
     position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
   })
 
@@ -354,7 +360,13 @@ export async function makeHumanMove(
       const follower = await client.emitAck<{
         success: boolean
         game: GameStateSnapshot
-      }>('placeFollower', { gameId, place: placedFollower })
+      }>('placeFollower', {
+        gameId,
+        place: placedFollower,
+        followerType: placedFollower.temporaryObject.isGarden
+          ? 'abbot'
+          : 'follower',
+      })
       game = follower.game
     } else {
       const skipped = await client.emitAck<{
@@ -397,13 +409,15 @@ export async function driveTurnsUntilFollowerOffer(
     const move = findValidPlacement(state)
     if (!move) throw new Error('Не найдено легальное место для текущего тайла')
 
-    await client.emitAck('updateCurrentTile', { gameId, tile: move.tile })
+    await client.emitAck('updateCurrentTile', {
+      gameId,
+      rotation: move.tile.rotation,
+    })
     const placed = await client.emitAck<{
       success: boolean
       game: GameStateSnapshot
     }>('placeTile', {
       gameId,
-      tile: move.tile,
       position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
     })
 

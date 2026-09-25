@@ -77,7 +77,7 @@ describe('Запуск игры', () => {
       game: TestGameData & { isPlacingFollower?: boolean }
     }>('placeTile', {
       gameId: lobby.gameId,
-      tile: move!.tile,
+      rotation: move!.tile.rotation,
       position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
     })
     expect(placed.success).toBe(true)

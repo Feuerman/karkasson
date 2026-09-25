@@ -119,6 +119,7 @@ export interface IGameBoard {
   calcScoreForRoad(road: BaseObject): ScoreForObject
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
+  copyStateFrom(source: IGameBoard): void
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   simulatePlaceFollower(
     place: AvailableFollowerPlace,
@@ -150,6 +151,7 @@ export class GameManager implements IGameBoard {
   moveCounter: number
   actionsHistory: GameAction[]
   lastUpdate = 0
+  placingPoint?: { rowIndex: number; tileIndex: number }
 
   constructor(params: { players?: Player[] } = {}) {
     const players = params.players ?? []
@@ -298,6 +300,22 @@ export class GameManager implements IGameBoard {
       return
     }
 
+    this.availableFollowersPlaces = this.findAvailableFollowersPlaces(tile)
+
+    if (this.availableFollowersPlaces.length) {
+      this.goPlaceFollower()
+    } else {
+      this.endTurn()
+    }
+  }
+
+  private findAvailableFollowersPlaces(
+    tile: GridTile
+  ): AvailableFollowerPlace[] {
+    const currentPlayer = this.currentPlayer
+    if (!currentPlayer) return []
+    const followerPool = this.playersFollowers[currentPlayer.id]
+
     const sides: PointDirection[] = Object.keys(tile.sides) as SideName[]
     if (tile.isMonastery || tile.hasGarden) {
       sides.push('center')
@@ -323,26 +341,18 @@ export class GameManager implements IGameBoard {
       }
     })
 
-    this.availableFollowersPlaces = candidates.filter(
-      (place): place is AvailableFollowerPlace => {
-        const object = place.temporaryObject
-        if (object === undefined || object.followers.length !== 0) {
-          return false
-        }
-        // На сад можно поставить только аббата — предлагаем его лишь при
-        // наличии свободного аббата в запасе.
-        if (object.isGarden && !followerPool?.monks) {
-          return false
-        }
-        return true
+    return candidates.filter((place): place is AvailableFollowerPlace => {
+      const object = place.temporaryObject
+      if (object === undefined || object.followers.length !== 0) {
+        return false
       }
-    )
-
-    if (this.availableFollowersPlaces.length) {
-      this.goPlaceFollower()
-    } else {
-      this.endTurn()
-    }
+      // На сад можно поставить только аббата — предлагаем его лишь при
+      // наличии свободного аббата в запасе.
+      if (object.isGarden && !followerPool?.monks) {
+        return false
+      }
+      return true
+    })
   }
 
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
@@ -679,15 +689,29 @@ export class GameManager implements IGameBoard {
 
     if (result.moves.length) {
       const move = result.moves[0]
+      const currentTile = this.currentTile
+      if (!currentTile) return
+      let rotatedTile: Tile = { ...currentTile, rotation: 0 }
+      for (let turn = 0; turn < move.rotation / 90; turn++) {
+        rotatedTile = this.rotateTile(rotatedTile)
+      }
       const tilePlaced = this.placeTile(
-        move.tile,
+        rotatedTile,
         move.rowIndex,
         move.tileIndex
       )
       if (!tilePlaced) return
 
-      if (this.availableFollowersPlaces.length) {
-        this.placeFollower(this.availableFollowersPlaces[0])
+      if (move.followerPlace && move.followerType) {
+        const actualPlace = this.availableFollowersPlaces.find(
+          (place) =>
+            place.point.x === move.followerPlace?.point.x &&
+            place.point.y === move.followerPlace?.point.y &&
+            place.point.direction === move.followerPlace?.point.direction
+        )
+        if (actualPlace) this.placeFollower(actualPlace, move.followerType)
+      } else if (this.availableFollowersPlaces.length) {
+        this.skipFollower()
       }
     } else {
       // If no valid moves found, get a new tile and try again
@@ -1340,6 +1364,7 @@ export class GameManager implements IGameBoard {
   clone(): IGameBoard {
     const clone = new GameManager({ players: this.players })
 
+    clone.id = this.id
     clone.gridSize = [...this.gridSize]
     clone.gameIsStarted = this.gameIsStarted
     clone.gameIsEnded = this.gameIsEnded
@@ -1361,9 +1386,18 @@ export class GameManager implements IGameBoard {
     clone.lastPlacement = deepClone(this.lastPlacement)
     clone.tileHistory = deepClone(this.tileHistory)
     clone.tilePlacesStats = deepClone(this.tilePlacesStats)
+    clone.currentPlayerIndex = this.currentPlayerIndex
+    clone.moveCounter = this.moveCounter
+    clone.actionsHistory = deepClone(this.actionsHistory)
+    clone.placingPoint = this.placingPoint
     clone.lastUpdate = this.lastUpdate
 
     return clone
+  }
+
+  copyStateFrom(source: IGameBoard): void {
+    const clone = source.clone()
+    Object.assign(this, clone)
   }
 
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
@@ -1385,6 +1419,9 @@ export class GameManager implements IGameBoard {
     this.tilePlacesStats[rowIndex][tileIndex] = placedTile
 
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
+    const placedGridTile = this.tilePlacesStats[rowIndex][tileIndex]
+    this.availableFollowersPlaces =
+      this.findAvailableFollowersPlaces(placedGridTile)
     return true
   }
 

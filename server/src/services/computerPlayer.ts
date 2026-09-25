@@ -17,6 +17,17 @@ export function isComputerPlayer(player: Player): boolean {
  * за один и тот же ход и могут разместить один тайл несколько раз.
  */
 const pendingMoveTimers = new Map<string, NodeJS.Timeout>()
+const runningMoveChains = new Set<string>()
+
+export function cancelComputerMove(gameId: string): void {
+  const timer = pendingMoveTimers.get(gameId)
+  if (timer) clearTimeout(timer)
+  pendingMoveTimers.delete(gameId)
+}
+
+export function cancelAllComputerMoves(gameIds: string[]): void {
+  gameIds.forEach(cancelComputerMove)
+}
 
 /** Запускает ход компьютера с небольшой задержкой */
 export function scheduleComputerMove(
@@ -25,7 +36,7 @@ export function scheduleComputerMove(
   gameId: string,
   delay = COMPUTER_MOVE_DELAY_MS
 ): void {
-  if (pendingMoveTimers.has(gameId)) return
+  if (pendingMoveTimers.has(gameId) || runningMoveChains.has(gameId)) return
 
   const timer = setTimeout(() => {
     pendingMoveTimers.delete(gameId)
@@ -60,11 +71,37 @@ export async function runComputerMoves(
   service: GameService,
   gameId: string
 ): Promise<void> {
+  if (runningMoveChains.has(gameId)) return
   const game = service.getGame(gameId)
   if (!game || game.gameIsEnded || !game.currentPlayer) return
   if (!isComputerPlayer(game.currentPlayer)) return
 
-  const currentPlayerId: PlayerId = game.currentPlayer.id
+  runningMoveChains.add(gameId)
+  try {
+    await processComputerMoves(io, service, gameId)
+  } finally {
+    runningMoveChains.delete(gameId)
+    const currentGame = service.getGame(gameId)
+    if (
+      currentGame?.currentPlayer &&
+      isComputerPlayer(currentGame.currentPlayer) &&
+      !currentGame.gameIsEnded &&
+      !pendingMoveTimers.has(gameId)
+    ) {
+      scheduleComputerMove(io, service, gameId)
+    }
+  }
+}
+
+async function processComputerMoves(
+  io: Server,
+  service: GameService,
+  gameId: string
+): Promise<void> {
+  const game = service.getGame(gameId)
+  if (!game || game.gameIsEnded || !game.currentPlayer) return
+  const activePlayerId: PlayerId = game.currentPlayer.id
+  const previousState = game.clone()
 
   try {
     await game.autoPlaceTile()
@@ -72,23 +109,23 @@ export async function runComputerMoves(
     const updatedGame = service.getGame(gameId)
     if (!updatedGame) return
 
-    io.to(gameId).emit('gameUpdated', service.formatGameData(updatedGame))
-
     if (updatedGame.gameIsEnded) {
       await service.saveGame(gameId)
+      io.to(gameId).emit('gameUpdated', service.formatGameData(updatedGame))
       io.emit('updateGamesList', service.formatGamesList())
       return
     }
 
-    const nextPlayer = updatedGame.getNextPlayer(currentPlayerId)
     await service.saveGame(gameId)
+    io.to(gameId).emit('gameUpdated', service.formatGameData(updatedGame))
 
-    await sleep(COMPUTER_MOVE_DELAY_MS)
-
+    const nextPlayer = updatedGame.getNextPlayer(activePlayerId)
     if (nextPlayer && isComputerPlayer(nextPlayer)) {
-      await runComputerMoves(io, service, gameId)
+      await sleep(COMPUTER_MOVE_DELAY_MS)
+      await processComputerMoves(io, service, gameId)
     }
   } catch (error) {
+    game.copyStateFrom(previousState)
     console.error('Error in runComputerMoves:', error)
     io.to(gameId).emit('gameError', {
       message: 'Error processing computer move',

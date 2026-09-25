@@ -117,7 +117,7 @@ import RulesExampleGrid from './RulesExampleGrid.vue'
 import UAlert from '@nuxt/ui/components/Alert.vue'
 import type { RulesBlock, RulesCalloutTone } from '@/rules/types'
 
-const props = defineProps({
+defineProps({
   block: {
     type: Object as () => RulesBlock,
     required: true,

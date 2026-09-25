@@ -13,7 +13,7 @@ import GameStats from '@/components/GameStats.vue'
 import Draggable from '@/components/Draggable.vue'
 import type { IGameBoard } from '@/types/game'
 
-const props = defineProps({
+defineProps({
   gameBoard: {
     type: Object as () => IGameBoard,
     required: true,

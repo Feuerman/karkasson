@@ -53,7 +53,14 @@ export function createGameServer(
   const close = () =>
     new Promise<void>((resolve) => {
       io.close(() => {
-        server.close(() => resolve())
+        void gameService
+          .flushGames()
+          .catch((error: unknown) => {
+            console.error('Failed to flush games on shutdown:', error)
+          })
+          .finally(() => {
+            server.close(() => resolve())
+          })
       })
     })
 

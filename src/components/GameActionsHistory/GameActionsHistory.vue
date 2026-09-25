@@ -65,7 +65,7 @@ import PlaceFollowerAction from './internal/actions/PlaceFollowerAction.vue'
 import AddingScoresAction from './internal/actions/AddingScoresAction.vue'
 import BackFollowerAction from './internal/actions/BackFollowerAction.vue'
 
-const props = defineProps<{
+defineProps<{
   gameBoard: IGameBoard
 }>()
 

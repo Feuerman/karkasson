@@ -95,7 +95,6 @@ describe('Последовательность ходов', () => {
     await expect(
       lobby.joiner.emitAck('placeTile', {
         gameId,
-        tile: move!.tile,
         position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
       })
     ).rejects.toThrow("Not player's turn")

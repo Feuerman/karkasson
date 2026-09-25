@@ -39,6 +39,7 @@ describe('Полностью автоматическая партия (4 ком
     const { gameId } = (await creator.waitForEvent('gameCreated')) as {
       gameId: string
     }
+    // Создатель освобождает свой слот; все игровые места занимают компьютеры.
     await creator.emitAck('removePlayer', { gameId, index: 0, name: null })
     for (let index = 0; index < 4; index++) {
       await creator.emitAck('addPlayer', { gameId, name: null, index })
@@ -66,6 +67,14 @@ describe('Полностью автоматическая партия (4 ком
     const ended = endedPayload as GameStateSnapshot
     expect(ended.gameIsEnded).toBe(true)
     expect(countPlacedTiles(ended.tilePlacesStats)).toBe(72)
+    expect(
+      ended.actionsHistory?.filter(
+        (action) =>
+          action.actionType === 'PLACE_FOLLOWER' &&
+          !action.initiator?.socketId &&
+          !action.initiator?.deviceId
+      ).length
+    ).toBeGreaterThan(0)
 
     // Очки согласуются с завершёнными строениями, фишки не потеряны
     verifyScoringAgainstServer(ended)

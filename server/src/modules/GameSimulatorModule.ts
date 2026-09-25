@@ -36,10 +36,8 @@ function rotateSides(sides: TileSides, times: number): TileSides {
 
 export class GameSimulatorModule {
   private gameState: IGameBoard
-  private originalState: IGameBoard
 
   constructor(gameBoard: IGameBoard) {
-    this.originalState = gameBoard
     this.gameState = gameBoard.clone()
   }
 
@@ -94,7 +92,11 @@ export class GameSimulatorModule {
       for (let rotation = 0; rotation < 360; rotation += 90) {
         const turns = rotation / 90
         const rotatedSides = rotateSides(tile.sides, turns)
-        const rotatedTile: Tile = { ...tile, rotation, sides: rotatedSides }
+        const rotatedTile: Tile = {
+          ...tile,
+          rotation: (tile.rotation + rotation) % 360,
+          sides: rotatedSides,
+        }
 
         // Сначала оцениваем ход без подданного
         const resultWithoutFollower = this.simulateMove(
@@ -107,10 +109,16 @@ export class GameSimulatorModule {
         )
         if (resultWithoutFollower.score > bestScore) {
           bestScore = resultWithoutFollower.score
-          bestMoves = resultWithoutFollower.moves
+          bestMoves = resultWithoutFollower.moves.map((move) => ({
+            ...move,
+            rotation: (tile.rotation + rotation) % 360,
+          }))
         }
 
-        // ... и для симуляции с подданным
+        // ... и для симуляции с подданным. Тайла здесь уже стоит на доске:
+        // повторная попытка simulateMove размещает его второй раз в ту же
+        // клетку, поэтому фишку нужно симулировать непосредственно в этом
+        // состоянии.
         const gameState = this.gameState.clone()
         if (gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)) {
           for (const place of gameState.availableFollowersPlaces) {
@@ -128,19 +136,30 @@ export class GameSimulatorModule {
             }
 
             for (const followerType of followerTypes) {
-              const resultWithFollower = this.simulateMove(
-                rotatedTile,
-                rowIndex,
-                tileIndex,
-                rotation,
-                place,
-                gameState,
-                followerType
-              )
-              if (resultWithFollower.score > bestScore) {
-                bestScore = resultWithFollower.score
-                bestMoves = resultWithFollower.moves
+              const stateWithFollower = gameState.clone()
+              if (
+                !stateWithFollower.simulatePlaceFollower(place, followerType)
+              ) {
+                continue
               }
+
+              const score = this.calculateScore(stateWithFollower)
+              if (score <= bestScore) continue
+
+              bestScore = score
+              bestMoves = [
+                {
+                  tile: rotatedTile,
+                  rowIndex,
+                  tileIndex,
+                  rotation: (tile.rotation + rotation) % 360,
+                  followerPlace: {
+                    point: place.point,
+                    temporaryObject: { ...place.temporaryObject },
+                  },
+                  followerType,
+                },
+              ]
             }
           }
         }
@@ -158,11 +177,6 @@ export class GameSimulatorModule {
 
     const currentPlayer = gameState.currentPlayer
     if (!currentPlayer) return score
-
-    // Бонус, если подданные ещё не выставлены
-    if (gameState.playersFollowers[currentPlayer.id].ordinaryFollowers === 7) {
-      return score + 10
-    }
 
     const countPlayerObjects = (followers: ObjectFollower[]) =>
       new Set(

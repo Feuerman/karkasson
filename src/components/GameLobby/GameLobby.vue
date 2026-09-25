@@ -224,8 +224,12 @@ function toggleButton(player: Player, index: number) {
   }
 }
 
-function startGame() {
-  GameService.startGame()
-  emit('startGame')
+async function startGame() {
+  try {
+    await GameService.startGame()
+    emit('startGame')
+  } catch (error) {
+    notifyError(error)
+  }
 }
 </script>

@@ -156,7 +156,7 @@ describe('Клиентское приложение (GameService)', () => {
     const move = findValidPlacement(started as unknown as GameStateSnapshot)
     expect(move).not.toBeNull()
 
-    const updated = await alice.updateCurrentTile(move!.tile)
+    const updated = await alice.setCurrentTileRotation(move!.tile.rotation)
     expect(updated).toMatchObject({ success: true })
 
     const placed = await alice.placeTile(move!.tile, {
