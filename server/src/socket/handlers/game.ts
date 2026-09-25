@@ -84,7 +84,7 @@ export function registerGameHandlers({
         tileIndex: point.tileIndex,
       }
       io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-      callback?.({ success: true, game })
+      callback?.({ success: true, game: service.formatGameData(game) })
     }
   )
 
@@ -118,7 +118,7 @@ export function registerGameHandlers({
         return
       }
       io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-      callback?.({ success: true, game })
+      callback?.({ success: true, game: service.formatGameData(game) })
     }
   )
 
@@ -177,7 +177,7 @@ export function registerGameHandlers({
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-        callback?.({ success: true, game })
+        callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
@@ -252,7 +252,7 @@ export function registerGameHandlers({
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-        callback?.({ success: true, game })
+        callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
@@ -290,7 +290,7 @@ export function registerGameHandlers({
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-        callback?.({ success: true, game })
+        callback?.({ success: true, game: service.formatGameData(game) })
 
         // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
         maybeContinueWithComputerMove(io, service, game, gameId)
@@ -398,7 +398,7 @@ export function registerGameHandlers({
         }
 
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
-        callback?.({ success: true, game })
+        callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {

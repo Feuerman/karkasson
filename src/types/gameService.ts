@@ -1,13 +1,13 @@
 import type { IGame, ITile } from './game'
 import type { Socket } from 'socket.io-client'
 import type { GameSummary } from '@server/services/GameService'
+import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { SocketAck, AvailablePlacement } from './socket'
 
 export interface IGameService {
   socket: Socket | null
   connect: () => void
   onGameUpdated: (callback: (game: IGame) => void) => void
-  onPlayerDisconnected: (callback: () => void) => void
   selectPlacingPoint: (point: {
     rowIndex: number
     tileIndex: number
@@ -18,13 +18,13 @@ export interface IGameService {
     position: { rowIndex: number; tileIndex: number }
   ) => Promise<SocketAck>
   placeFollower: (
-    place: unknown,
+    place: AvailableFollowerPlace,
     followerType?: 'follower' | 'abbot'
   ) => Promise<SocketAck>
   recallAbbot: () => Promise<SocketAck>
   getGamesList: () => Promise<GameSummary[]>
   joinGame: (gameId: string) => Promise<IGame>
-  leaveGame: () => Promise<void>
+  leaveGame: () => Promise<SocketAck>
   createGame: () => Promise<IGame>
   rejoinGame: (gameId: string) => Promise<IGame>
   checkAvailablePlacements: (position: {

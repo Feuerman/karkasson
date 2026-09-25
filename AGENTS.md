@@ -133,11 +133,11 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 
 #### Данные
 
-- **`data/tiles.ts`** — **авторитетные** определения тайлов `A`–`V` (`count`,
+- **`data/tiles.ts`** — **авторитетные** определения тайлов `A`–`X` (`count`,
   `sides`, `isMonastery`, `withShield`, `isSolidCity`, `imgUrl`) и конфиг
   `gardenTileCounts` (сады — признак на копиях тайлов, а не отдельный тайл).
-  Стартовый тайл — `D`. Дубликат на клиенте — `src/data/tiles.ts` (обновлять
-  оба).
+  Стартовый тайл — `D`. Клиентский `src/data/tiles.ts` переэкспортирует эти
+  данные и не содержит отдельную копию.
 
 ### Клиент (`src/`)
 
@@ -145,14 +145,14 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | ---- | ---------- |
 | `main.js` | точка входа: `createApp(App)` + Pinia + Nuxt UI (`app.use(ui)`) |
 | `App.vue` | корневой оркестратор (~600 строк): держит состояние игры, встраивает лобби, доску, превью тайла, поворот, размещение, реконнект-оверлей |
-| `modules/GameService.ts` | обёртка Socket.IO; класс `GameService` + default-экспорт синглтона. Паттерны `emitAck` (ack-колбэк) и `emitAndWait` (событийный) |
+| `modules/GameService.ts` | обёртка Socket.IO; класс `GameService` + default-экспорт синглтона. Команды используют ack-колбэк `emitAck` |
 | `modules/draggableRegistry.ts` | `placeCollisionFree` — безопасное размещение перетаскиваемых элементов без наложений |
 | `modules/types.ts` | **мёртвый код** (не импортируется): типы давно берутся из `@server/*` |
 | `composables/useBoardPan.ts` | панорама/зум доски (перетаскивание, колесо 0.5×–3×, сброс) |
 | `plugins/notification.ts` | `notificationService.success/error/warning/info` (default export), bridge на тосты Nuxt UI |
-| `types/socket.ts` | `SocketAck`, `GamesListResponse`, `PlacementsResponse`, `AvailablePlacement`, `GameCreatedPayload`, `PlayerIdsPayload` |
+| `types/socket.ts` | типы Socket.IO ack-ответов и payload событий сервера, включая `CreateGameResponse` |
 | `types/game.ts` | `IGameBoard = GameData & { isMyTurn }`, `IGame`, `LobbyGame`, `ITile` |
-| `types/gameService.ts` | интерфейс `IGameService` (частично устарел — `placeFollower: unknown`) |
+| `types/gameService.ts` | интерфейс `IGameService` |
 | `data/tiles.ts` | **зеркало** `server/src/data/tiles.ts` |
 | `rules/` | данные панели «Правила игры»: `types.ts`, `baseGame.ts`, `examples.ts` |
 | `utils/` | `tiles.ts` (`TILE_SIZE`, повороты), `board.ts` (`scrollToTile`/`pulseTile`), `labels.ts` (подписи/иконки), `colors.ts` (маппер цвета в Tailwind-классы), `common.ts` (`notifyError`, `clamp`, `pluralForm`, `countBy`) |
@@ -177,7 +177,8 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 
 ## Доменная модель и система координат
 
-- **Сетка** `gridSize = [30, 30]`. Состояние тайлов — `tilePlacesStats:
+- **Сетка**: сервер задаёт `gridSize = [30, 30]`; клиент строит отображение по
+  полученному `game.gridSize`. Состояние тайлов — `tilePlacesStats:
   Record<rowIndex, Record<tileIndex, GridTile>>`. Соглашение: **`rowIndex` =
   строка (Y), `tileIndex` = колонка (X)**. Внутри `GridTile` дублируется
   `x = tileIndex`, `y = rowIndex`.
@@ -236,17 +237,17 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | ------- | ------- | --------------------- | ------- | ----- |
 | `registerDevice` | `{ deviceId }` | — | connection | — |
 | `disconnect` | `reason` | — | connection | — |
-| `rejoinGame` | `{ gameId, deviceId }` | `gameUpdated` / `error` | connection | — |
+| `rejoinGame` | `{ gameId, deviceId }` | ack `{ game }`, `gameUpdated` / `error` | connection | — |
 | `getGamesList` | (callback первым аргументом) | ack `{ games }` | lobby | — |
-| `createGame` | — | `gameCreated { gameId, game }` | lobby | — |
-| `joinGame` | `{ gameId }` | `gameUpdated` | lobby | — |
+| `createGame` | — | ack `{ success, gameId, game }`, событие `gameCreated { gameId, game }` | lobby | — |
+| `joinGame` | `{ gameId }` | ack `{ success, game }`, `gameUpdated` | lobby | — |
 | `addPlayer` | `{ gameId, name, index }` | ack `{ success, game }` | lobby | — |
 | `removePlayer` | `{ gameId, index, name }` | ack `{ success, game }` | lobby | — |
-| `startGame` | `{ gameId }` | `gameUpdated` | lobby | — |
-| `leaveGame` | `{ gameId }` | `gameUpdated` / `gameDeleted` | lobby | — |
-| `selectPlacingPoint` | `{ gameId, point }` | ack `{ success, game }` | game | `isPlayersTurn` |
-| `updateCurrentTile` | `{ gameId, tile }` | ack `{ success, game }` | game | `isPlayersTurn` |
-| `placeTile` | `{ gameId, tile, position }` | ack `{ success, game }` | game | `isPlayersTurn` |
+| `startGame` | `{ gameId }` | ack `{ success, game }`, `gameUpdated` | lobby | — |
+| `leaveGame` | `{ gameId }` | ack `{ success, game }`, `gameUpdated` / `gameDeleted` | lobby | — |
+| `selectPlacingPoint` | `{ gameId, point: { rowIndex, tileIndex } }` | ack `{ success, game }` | game | `isPlayersTurn` |
+| `updateCurrentTile` | `{ gameId, rotation }` | ack `{ success, game }` | game | `isPlayersTurn` |
+| `placeTile` | `{ gameId, rotation, position: { rowIndex, tileIndex } }` | ack `{ success, game }` | game | `isPlayersTurn` |
 | `placeFollower` | `{ gameId, place, followerType? }` | ack `{ success, game }` | game | `isPlayersTurn` |
 | `recallAbbot` | `{ gameId }` | ack `{ success, game }` | game | `isPlayersTurn` |
 | `checkAvailablePlacements` | `{ gameId, position: { row, col } }` | ack `{ placements }` | game | — |
@@ -260,7 +261,8 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | `gameCreated` | `{ gameId, game }` | создание лобби |
 | `updateGamesList` | `GameSummary[]` | изменение списка игр (broadcast всем) |
 | `gameDeleted` | — | удаление партии |
-| `playerTemporaryDisconnected` | `{ deviceId, playerIds }` | временный разрыв игрока |
+| `playerTemporaryDisconnected` | `{ deviceId?, playerIds: Player[] }` | временный разрыв игрока |
+| `playerReconnected` | — | **не реализовано сервером**; не подписываться на событие |
 | `error` | строка | ошибка (показывается как toast) |
 | `gameError` | `{ message }` | ошибка в цепочке ходов ИИ (клиентом **не обрабатывается**) |
 
@@ -269,8 +271,9 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 - **Ack** (`emitAck`): клиент шлёт `event(payload, callback)`, сервер отвечает
   `callback({ success, game })` или `callback({ error })`. Ошибки в
   `response.error` → reject промиса.
-- **Событийный** (`emitAndWait`): `createGame`/`joinGame`/`rejoinGame` ждут
-  `gameCreated`/`gameUpdated`, ошибки ловят через `error`.
+- `gameUpdated` и `updateGamesList` — уведомления для синхронизации состояния;
+  клиентские команды подтверждаются ack-ответом и не используют эти события
+  вместо подтверждения.
 - Особый случай: `getGamesList` принимает **только callback без payload**
   (`emit(event, callback)`).
 
@@ -295,8 +298,8 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 - **Сокет-слой — `server/src/socket/`**; каждый ход защищён `isPlayersTurn`.
 - **Сервисный слой — `server/src/services/`** (`GameService.ts`,
   `computerPlayer.ts`).
-- **Транспорт клиента — `src/modules/GameService.ts`**: `emitAck` /
-  `emitAndWait`. REST/axios не используется.
+- **Транспорт клиента — `src/modules/GameService.ts`**: `emitAck` для команд;
+  широковещательные события используются для синхронизации. REST/axios не используется.
 - **Алиасы**: `@/*` → `src/*`, `@server/*` → `server/src/*`.
 - **Персистентность — `server/src/modules/Database.ts`** (`IGameDatabase`).
   Схема и миграции — `server/src/modules/gameSave.ts`; при добавлении нового
@@ -386,11 +389,9 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   слои entities/features/widgets задним числом.
 - **Теги git отстают**: последний тег `v1.1.0`, `package.json` уже `1.13.0`.
   Версию брать из `package.json`/CHANGELOG.
-- **Дублирование данных плиток**: `server/src/data/tiles.ts` (авторитетные) и
-  `src/data/tiles.ts` (зеркало) — обновлять оба.
+- **Данные плиток**: источник истины — `server/src/data/tiles.ts`; клиентский
+  `src/data/tiles.ts` только переэкспортирует их.
 - **Мёртвый код клиента**: `src/modules/types.ts` (не импортируется),
-  `GameService.onPlayerDisconnected` (слушает несуществующее событие
-  `playerDisconnected` — сервер шлёт `playerTemporaryDisconnected`),
   `src/types/gameService.ts` (интерфейс с `placeFollower: unknown`). Не
   «чинить походя» без задачи, но при рефакторинге — удалять.
 - **Порядок ключей `sides`**: клиентский `rotateSides` возвращает

@@ -1,4 +1,5 @@
 import type { GameSummary, GameData } from '@server/services/GameService'
+import type { Player } from '@server/modules/types'
 
 export interface SocketAckBase {
   error?: string
@@ -35,7 +36,12 @@ export interface GameCreatedPayload {
   game: GameData
 }
 
-export interface PlayerIdsPayload {
-  deviceId: string
-  playerIds: (string | number)[]
+export interface CreateGameResponse extends SocketAckBase {
+  gameId: string
+  game: GameData
+}
+
+export interface PlayerTemporaryDisconnectedPayload {
+  deviceId?: string
+  playerIds: Player[]
 }
