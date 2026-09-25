@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { GameManager } from '../../server/src/modules/GameManager'
 import { TestClient } from './helpers/client'
 import {
   countPlacedTiles,
@@ -136,5 +137,33 @@ describe('Сохранение данных лобби', () => {
     expect(second.game.gameIsStarted).toBe(true)
     expect(second.game.gameIsEnded).toBe(false)
     expect(second.game.moveCounter).toBeGreaterThanOrEqual(beforeMoveCounter)
+  })
+
+  it('повреждённое сохранение не мешает восстановлению остальных партий', async () => {
+    const store = createInMemoryStore()
+    const validGame = new GameManager({ players: [] })
+    validGame.id = 'valid-game'
+    store.games['invalid-game'] = '{invalid-json' as unknown as GameManager
+    store.games['valid-game'] = JSON.parse(
+      JSON.stringify(validGame)
+    ) as GameManager
+
+    server = await startTestServer(store)
+    await server.handle.gameService.loadSavedGames()
+
+    expect(server.handle.gameService.getGame('valid-game')?.id).toBe(
+      'valid-game'
+    )
+    expect(server.handle.gameService.getGame('invalid-game')).toBeUndefined()
+  })
+
+  it('отказывает в загрузке базы и не подменяет ошибку пустым списком', async () => {
+    const store = createInMemoryStore()
+    server = await startTestServer(store)
+    server.db.readError = new Error('database unavailable')
+
+    await expect(server.handle.gameService.loadSavedGames()).rejects.toThrow(
+      'database unavailable'
+    )
   })
 })

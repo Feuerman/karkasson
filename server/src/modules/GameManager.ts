@@ -153,7 +153,7 @@ export class GameManager implements IGameBoard {
   lastUpdate = 0
   placingPoint?: { rowIndex: number; tileIndex: number }
 
-  constructor(params: { players?: Player[] } = {}) {
+  constructor(params: { players?: Player[]; startImmediately?: boolean } = {}) {
     const players = params.players ?? []
 
     this.gameIsStarted = false
@@ -189,7 +189,7 @@ export class GameManager implements IGameBoard {
     this.initTilesList()
     this.initPlayers(players)
 
-    this.startGame()
+    if (params.startImmediately !== false) this.startGame()
   }
 
   initTilesList() {
@@ -1393,6 +1393,15 @@ export class GameManager implements IGameBoard {
     clone.lastUpdate = this.lastUpdate
 
     return clone
+  }
+
+  static restore(savedGame: IGameBoard): GameManager {
+    const game = new GameManager({
+      players: savedGame.players,
+      startImmediately: false,
+    })
+    Object.assign(game, savedGame)
+    return game
   }
 
   copyStateFrom(source: IGameBoard): void {

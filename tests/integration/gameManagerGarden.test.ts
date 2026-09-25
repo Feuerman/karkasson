@@ -78,7 +78,10 @@ describe('Сад (оба игрока-человека, фиксированна
   it('колода помечает ровно по одной копии каждого тайла сада из конфига', () => {
     const game = new GameManager({ players: makePlayers() })
 
-    const gardenTiles = game.tilesList.filter((tile) => tile.hasGarden)
+    // A garden tile can already be drawn as currentTile during construction.
+    const gardenTiles = [...game.tilesList, ...game.tileHistory].filter(
+      (tile) => tile.hasGarden
+    )
     const counts: Record<string, number> = {}
     for (const tile of gardenTiles) {
       counts[tile.id] = (counts[tile.id] ?? 0) + 1
