@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { DraggableRegistry } from '@/modules/draggableRegistry'
 
 const props = defineProps({
@@ -71,7 +71,9 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
+onBeforeUnmount(() => {
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', stopDrag)
   DraggableRegistry.unregister(props.draggableId)
 })
 

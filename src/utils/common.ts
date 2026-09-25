@@ -67,7 +67,8 @@ export const throttle = <T extends (...args: never[]) => void>(
   delay: number
 ) => {
   let timeout: NodeJS.Timeout | null = null
-  return (...args: Parameters<T>) => {
+
+  const throttled = (...args: Parameters<T>) => {
     if (timeout) {
       clearTimeout(timeout)
     }
@@ -76,4 +77,13 @@ export const throttle = <T extends (...args: never[]) => void>(
       timeout = null
     }, delay)
   }
+
+  throttled.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout)
+      timeout = null
+    }
+  }
+
+  return throttled
 }

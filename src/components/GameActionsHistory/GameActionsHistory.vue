@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
+import { onBeforeUnmount } from 'vue'
 import { ActionTypes } from '@server/modules/types'
 import type { BaseObject } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
@@ -73,12 +74,19 @@ const emits = defineEmits<{
   highlightObject: [objectData: BaseObject]
 }>()
 
+let cancelTilePulse: (() => void) | undefined
+
+onBeforeUnmount(() => {
+  cancelTilePulse?.()
+})
+
 const forwardHighlightObject = (objectData: BaseObject) => {
   emits('highlightObject', objectData)
 }
 
 const zoomToCoordinates = (rowIndex: number, tileIndex: number) => {
   scrollToTile(rowIndex, tileIndex)
-  pulseTile(rowIndex, tileIndex)
+  cancelTilePulse?.()
+  cancelTilePulse = pulseTile(rowIndex, tileIndex)
 }
 </script>

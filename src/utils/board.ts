@@ -23,12 +23,21 @@ export const scrollToTile = (
   })
 }
 
-export const pulseTile = (rowIndex: number, tileIndex: number): void => {
+export const pulseTile = (
+  rowIndex: number,
+  tileIndex: number
+): (() => void) => {
   const element = findTileElement(rowIndex, tileIndex)
-  if (!element) return
+  if (!element) return () => undefined
 
   element.classList.add('tile-pulse')
-  setTimeout(() => {
+
+  const timeout = setTimeout(() => {
     element.classList.remove('tile-pulse')
   }, 1000)
+
+  return () => {
+    clearTimeout(timeout)
+    element.classList.remove('tile-pulse')
+  }
 }

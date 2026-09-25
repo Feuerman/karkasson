@@ -211,7 +211,9 @@ export class GameService implements IGameService {
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
-    this.socket?.on('gameUpdated', callback)
+    const socket = this.socket
+    socket?.on('gameUpdated', callback)
+    return () => socket?.off('gameUpdated', callback)
   }
 
   async selectPlacingPoint({

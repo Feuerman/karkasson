@@ -145,7 +145,7 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | ---- | ---------- |
 | `main.js` | точка входа: `createApp(App)` + Pinia + Nuxt UI (`app.use(ui)`) |
 | `App.vue` | корневой оркестратор (~600 строк): держит состояние игры, встраивает лобби, доску, превью тайла, поворот, размещение, реконнект-оверлей |
-| `modules/GameService.ts` | обёртка Socket.IO; класс `GameService` + default-экспорт синглтона. Команды используют ack-колбэк `emitAck` |
+| `modules/GameService.ts` | обёртка Socket.IO; класс `GameService` + default-экспорт синглтона. Команды используют ack-колбэк `emitAck`, подписки возвращают функцию отписки |
 | `modules/draggableRegistry.ts` | `placeCollisionFree` — безопасное размещение перетаскиваемых элементов без наложений |
 | `modules/types.ts` | **мёртвый код** (не импортируется): типы давно берутся из `@server/*` |
 | `composables/useBoardPan.ts` | панорама/зум доски (перетаскивание, колесо 0.5×–3×, сброс) |
