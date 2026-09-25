@@ -117,6 +117,27 @@ describe('Клиентское приложение (GameService)', () => {
     expect(found!.players[0].name).toBe('Alice')
   })
 
+  it('снимает подписку gameUpdated по возвращённой функции cleanup', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-listener-cleanup',
+    })
+    services.push(client)
+
+    client.connect()
+    await waitUntilConnected(client)
+
+    const listener = () => undefined
+    const unsubscribe = client.onGameUpdated(listener)
+
+    expect(client.socket?.listeners('gameUpdated')).toContain(listener)
+
+    unsubscribe()
+
+    expect(client.socket?.listeners('gameUpdated')).not.toContain(listener)
+  })
+
   it('играет ход через клиентский сервис и получает отказ вне очереди', async () => {
     server = await startTestServer()
     const alice = new GameService({

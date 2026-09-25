@@ -188,7 +188,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import TileView from './components/TileView.vue'
 import GameControls from './components/GameControls.vue'
 import GameActionsHistory from './components/GameActionsHistory'
@@ -349,7 +349,22 @@ const syncLocalTile = (tile?: ITile | null) => {
   localCurrentTile.value = { ...tile } as ITile
 }
 
+let activeGameId: string | undefined
+let gameUpdateTimeout: ReturnType<typeof setTimeout> | undefined
+let cleanupSocketListeners: (() => void) | undefined
+
+const clearGameUpdateTimeout = () => {
+  clearTimeout(gameUpdateTimeout)
+  gameUpdateTimeout = undefined
+}
+
 const onGameStart = (gameData: IGame) => {
+  if (activeGameId !== gameData.id) {
+    activeGameId = gameData.id
+    updateSelectedPlacingPoint.cancel()
+    clearGameUpdateTimeout()
+  }
+
   applyGameState(gameData)
 
   showLobby.value = false
@@ -369,56 +384,67 @@ const onGameStart = (gameData: IGame) => {
   if (gameData.id) {
     handleGameCreated(gameData.id)
   }
+}
 
-  GameService.onGameUpdated((updatedGame: IGame) => {
-    const isMyTurn = applyGameState(updatedGame)
+const onGameUpdated = (updatedGame: IGame) => {
+  if (!updatedGame.gameIsStarted) {
+    playersList.value = updatedGame.players
+    return
+  }
 
-    if (
-      !isMyTurn &&
-      (updatedGame.placingPoint?.rowIndex !== hoveredTile.value.rowIndex ||
-        updatedGame.placingPoint?.tileIndex !== hoveredTile.value.tileIndex)
-    ) {
-      hoveredTile.value = updatedGame.placingPoint || {
-        rowIndex: undefined,
-        tileIndex: undefined,
-      }
+  if (!gameState.value.gameIsStarted || activeGameId !== updatedGame.id) {
+    onGameStart(updatedGame)
+    return
+  }
 
-      zoomToTile(hoveredTile.value)
+  const isMyTurn = applyGameState(updatedGame)
 
-      setTimeout(() => {
-        const targetTile = findTileElement(
-          hoveredTile.value.rowIndex ?? -1,
-          hoveredTile.value.tileIndex ?? -1
-        )
-        const targetTileRect = targetTile?.getBoundingClientRect()
+  if (
+    !isMyTurn &&
+    (updatedGame.placingPoint?.rowIndex !== hoveredTile.value.rowIndex ||
+      updatedGame.placingPoint?.tileIndex !== hoveredTile.value.tileIndex)
+  ) {
+    hoveredTile.value = updatedGame.placingPoint || {
+      rowIndex: undefined,
+      tileIndex: undefined,
+    }
 
-        if (targetTileRect) {
-          currentStatePosition.value = {
-            x: targetTileRect.left,
-            y: targetTileRect.top,
-          }
+    zoomToTile(hoveredTile.value)
+    clearGameUpdateTimeout()
+    gameUpdateTimeout = setTimeout(() => {
+      gameUpdateTimeout = undefined
+      const targetTile = findTileElement(
+        hoveredTile.value.rowIndex ?? -1,
+        hoveredTile.value.tileIndex ?? -1
+      )
+      const targetTileRect = targetTile?.getBoundingClientRect()
+
+      if (targetTileRect) {
+        currentStatePosition.value = {
+          x: targetTileRect.left,
+          y: targetTileRect.top,
         }
-      }, 1000)
-    }
+      }
+    }, 1000)
+  }
 
-    if (
-      !isMyTurn &&
-      (localCurrentTile.value.id !== updatedGame.currentTile?.id ||
-        localCurrentTile.value.rotation !== updatedGame.currentTile?.rotation)
-    ) {
-      syncLocalTile(updatedGame.currentTile)
-    }
+  if (
+    !isMyTurn &&
+    (localCurrentTile.value.id !== updatedGame.currentTile?.id ||
+      localCurrentTile.value.rotation !== updatedGame.currentTile?.rotation)
+  ) {
+    syncLocalTile(updatedGame.currentTile)
+  }
 
-    if (localCurrentTile.value.id !== updatedGame.currentTile?.id) {
-      syncLocalTile(updatedGame.currentTile)
+  if (localCurrentTile.value.id !== updatedGame.currentTile?.id) {
+    syncLocalTile(updatedGame.currentTile)
 
-      hoveredTile.value =
-        updatedGame.placingPoint?.rowIndex !== undefined &&
-        updatedGame.placingPoint?.tileIndex !== undefined
-          ? updatedGame.placingPoint
-          : hoveredTile.value
-    }
-  })
+    hoveredTile.value =
+      updatedGame.placingPoint?.rowIndex !== undefined &&
+      updatedGame.placingPoint?.tileIndex !== undefined
+        ? updatedGame.placingPoint
+        : hoveredTile.value
+  }
 }
 
 const handleGameCreated = (gameId: string) => {
@@ -488,6 +514,9 @@ const joinGame = async (gameId: string) => {
 const leaveGame = async () => {
   try {
     await GameService.leaveGame()
+    activeGameId = undefined
+    updateSelectedPlacingPoint.cancel()
+    clearGameUpdateTimeout()
     playersList.value = []
     currentGame.value = null
     getGamesList()
@@ -500,6 +529,9 @@ const goInLobby = async () => {
   try {
     await GameService.leaveGame()
 
+    activeGameId = undefined
+    updateSelectedPlacingPoint.cancel()
+    clearGameUpdateTimeout()
     showLobby.value = true
     currentGame.value = null
     playersList.value = []
@@ -559,24 +591,32 @@ const onMenuSelect = (id: string) => {
   }
 }
 
+onBeforeUnmount(() => {
+  cleanupSocketListeners?.()
+  cleanupSocketListeners = undefined
+  updateSelectedPlacingPoint.cancel()
+  clearGameUpdateTimeout()
+})
+
 onMounted(async () => {
   GameService.connect()
 
-  GameService.onGameUpdated((game: IGame) => {
-    playersList.value = game.players
-    if (game.gameIsStarted && !gameState.value.gameIsStarted) {
-      onGameStart(game)
-    }
-  })
+  const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
+  const socket = GameService.socket
+  const onGamesListUpdated = (gamesList: GameSummary[]) => {
+    updateLocalGamesList(gamesList)
+  }
+  const onConnect = () => {
+    void getGamesList()
+  }
 
-  if (GameService.socket) {
-    GameService.socket.on('updateGamesList', (gamesList: GameSummary[]) => {
-      updateLocalGamesList(gamesList)
-    })
+  socket?.on('updateGamesList', onGamesListUpdated)
+  socket?.on('connect', onConnect)
 
-    GameService.socket.on('connect', () => {
-      getGamesList()
-    })
+  cleanupSocketListeners = () => {
+    unsubscribeGameUpdated()
+    socket?.off('updateGamesList', onGamesListUpdated)
+    socket?.off('connect', onConnect)
   }
 })
 </script>

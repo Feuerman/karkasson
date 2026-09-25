@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import GameService from '@/modules/GameService'
 import { notifyError } from '@/utils/common'
 import type { IGame, IGameBoard, LobbyGame } from '@/types/game'
@@ -167,6 +167,7 @@ const gameService = GameService
 const currentPlayerName = ref('')
 const showEndedGames = ref(false)
 const isLoadingGames = ref(true)
+let initialLoadingTimeout: ReturnType<typeof setTimeout> | undefined
 
 const computedGamesList = computed<LobbyGame[]>(() =>
   showEndedGames.value
@@ -176,9 +177,14 @@ const computedGamesList = computed<LobbyGame[]>(() =>
 
 onMounted(() => {
   // Simulate initial games loading
-  setTimeout(() => {
+  initialLoadingTimeout = setTimeout(() => {
+    initialLoadingTimeout = undefined
     isLoadingGames.value = false
   }, 1000)
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(initialLoadingTimeout)
 })
 
 function joinGame(gameId: string | undefined) {
