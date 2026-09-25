@@ -1,4 +1,4 @@
-import { ComponentPublicInstance } from 'vue'
+import 'vue'
 
 declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {

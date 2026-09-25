@@ -47,7 +47,9 @@ export function registerConnectionHandlers({
       service.releasePlayerSlot(gameId, socket.id)
       io.to(gameId).emit('gameUpdated', service.formatGameData(game))
     } else {
-      service.deleteGame(gameId)
+      void service.deleteGame(gameId).catch((error: unknown) => {
+        console.error('Failed to delete game:', error)
+      })
       io.to(gameId).emit('gameDeleted')
       io.emit('updateGamesList', service.formatGamesList())
     }
@@ -55,10 +57,20 @@ export function registerConnectionHandlers({
 
   socket.on(
     'rejoinGame',
-    ({ gameId, deviceId }: { gameId: string; deviceId: string }) => {
+    (
+      { gameId, deviceId }: { gameId: string; deviceId: string },
+      callbackOrPayload?:
+        ((response: { error?: string; game?: unknown }) => void) | unknown,
+      maybeCallback?: (response: { error?: string; game?: unknown }) => void
+    ) => {
+      const callback =
+        typeof callbackOrPayload === 'function'
+          ? callbackOrPayload
+          : maybeCallback
       const result = service.rejoinGame(gameId, deviceId, socket.id)
       if (!result) {
         socket.emit('error', 'Game not found')
+        callback?.({ error: 'Game not found' })
         return
       }
 
@@ -68,7 +80,10 @@ export function registerConnectionHandlers({
         io.to(gameId).emit('gameUpdated', service.formatGameData(game))
       } else {
         socket.emit('error', 'Player not found in game')
+        callback?.({ error: 'Player not found in game' })
+        return
       }
+      callback?.({ game: service.formatGameData(game) })
 
       if (game.gameIsStarted) {
         const allPlayersConnected = game.players.every(

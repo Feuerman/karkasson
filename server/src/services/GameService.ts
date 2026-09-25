@@ -65,8 +65,22 @@ export interface JoinResult {
 export class GameService {
   private games: Record<string, IGameBoard> = {}
   private deviceToSocketMap: Record<string, string> = {}
+  private lobbyOwners: Record<string, string> = {}
+  private readonly pendingSaves = new Map<string, Promise<void>>()
 
   constructor(private readonly db: IGameDatabase) {}
+
+  restoreGame(gameId: string, game: IGameBoard): void {
+    this.games[gameId] = game
+  }
+
+  async flushGames(): Promise<void> {
+    const gameIds = this.allGames()
+      .map((game) => game.id)
+      .filter((gameId): gameId is string => Boolean(gameId))
+    await Promise.all(gameIds.map((gameId) => this.saveGame(gameId)))
+    await Promise.all(this.pendingSaves.values())
+  }
 
   // ------------------------------------------------------------------ devices
 
@@ -96,19 +110,34 @@ export class GameService {
     )
   }
 
-  deleteGame(gameId: string): void {
+  async deleteGame(gameId: string): Promise<void> {
+    const pendingSave = this.pendingSaves.get(gameId)
+    if (pendingSave) await pendingSave
+    await this.db.deleteGame(gameId)
     delete this.games[gameId]
-    void this.db.deleteGame(gameId)
+    delete this.lobbyOwners[gameId]
   }
 
   saveGame(gameId: string): Promise<void> {
     const game = this.games[gameId]
     if (!game) return Promise.resolve()
-    return this.db.saveGame(gameId, game)
+    const snapshot =
+      typeof game.clone === 'function'
+        ? game.clone()
+        : (JSON.parse(JSON.stringify(game)) as IGameBoard)
+    const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
+    const save = previousSave.then(() => this.db.saveGame(gameId, snapshot))
+    const trackedSave = save.finally(() => {
+      if (this.pendingSaves.get(gameId) === trackedSave) {
+        this.pendingSaves.delete(gameId)
+      }
+    })
+    this.pendingSaves.set(gameId, trackedSave)
+    return trackedSave
   }
 
   createLobby(socketId: string): IGameBoard & { id: string } {
-    const gameId = Math.random().toString(36).substring(7)
+    const gameId = globalThis.crypto.randomUUID()
     const deviceId = this.getDeviceBySocketId(socketId)
 
     const players: Player[] = Array.from({ length: 8 }, (_, i) => ({
@@ -122,6 +151,7 @@ export class GameService {
 
     const game = { id: gameId, players } as IGameBoard & { id: string }
     this.games[gameId] = game
+    this.lobbyOwners[gameId] = deviceId ?? socketId
     return game
   }
 
@@ -142,6 +172,28 @@ export class GameService {
     } else {
       player.name = playerNameForIndex(index)
     }
+  }
+
+  canEditLobbySlot(gameId: string, socketId: string, index: number): boolean {
+    const game = this.games[gameId]
+    if (!game || game.gameIsStarted || !Number.isInteger(index)) return false
+
+    const targetPlayer = game.players[index]
+    if (!targetPlayer) return false
+
+    const ownerId = this.lobbyOwners[gameId]
+    const isOwner =
+      ownerId === socketId || ownerId === this.getDeviceBySocketId(socketId)
+    return isOwner || targetPlayer.socketId === socketId
+  }
+
+  canStartLobby(gameId: string, socketId: string): boolean {
+    const game = this.games[gameId]
+    if (!game || game.gameIsStarted) return false
+    const ownerId = this.lobbyOwners[gameId]
+    return (
+      ownerId === socketId || ownerId === this.getDeviceBySocketId(socketId)
+    )
   }
 
   removePlayer(gameId: string, index: number, name: string | null) {
@@ -166,6 +218,10 @@ export class GameService {
   ): JoinResult | { game: IGameBoard; playerIndex: number } {
     const game = this.games[gameId]
     if (!game) return { error: 'Game not found' }
+    if (game.gameIsStarted) return { error: 'Игра уже началась' }
+    if (game.players.some((player) => player.socketId === socketId)) {
+      return { error: 'Вы уже присоединились к игре' }
+    }
     if (game.players.every((p) => p.socketId)) {
       return { error: 'Все слоты заняты' }
     }
@@ -275,11 +331,15 @@ export class GameService {
       game.temporaryObjects.gardens ??= []
       game.completedObjects.gardens ??= []
       this.games[savedGame.id] = game
+      const owner = savedGame.players.find((player) => player.socketId)
+      if (owner?.socketId) {
+        this.lobbyOwners[savedGame.id] = owner.deviceId ?? owner.socketId
+      }
     })
   }
 
   /** Удаляет игры, которые не обновлялись дольше указанного времени */
-  deleteStaleGames(timeoutMs: number): string[] {
+  async deleteStaleGames(timeoutMs: number): Promise<string[]> {
     const deletedGameIds: string[] = []
 
     for (const [gameId, game] of Object.entries(this.games)) {
@@ -290,8 +350,8 @@ export class GameService {
       }
       if (Date.now() - game.lastUpdate > timeoutMs) {
         console.log('Deleting stale game:', gameId)
+        await this.deleteGame(gameId)
         deletedGameIds.push(gameId)
-        this.deleteGame(gameId)
       }
     }
 

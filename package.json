@@ -11,7 +11,8 @@
     "test": "vitest run --config vitest.integration.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "type-check": "vue-tsc --noEmit",
-    "lint": "eslint . --ext .vue,.js,.ts --fix",
+    "lint": "eslint . --ext .vue,.js,.ts",
+    "lint:fix": "eslint . --ext .vue,.js,.ts --fix",
     "format": "prettier --write ."
   },
   "dependencies": {

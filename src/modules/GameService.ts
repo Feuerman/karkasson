@@ -67,9 +67,14 @@ export class GameService implements IGameService {
         return
       }
 
+      const timeout = setTimeout(() => {
+        reject(new Error(`Таймаут ожидания ответа сервера: ${event}`))
+      }, 15_000)
+
       const callback = (response: SocketAck) => {
+        clearTimeout(timeout)
         if (response.error) {
-          reject(response.error)
+          reject(new Error(response.error))
         } else {
           resolve(response as T)
         }
@@ -95,9 +100,28 @@ export class GameService implements IGameService {
         return
       }
 
-      this.socket.once('error', (error: Error) => reject(error))
-      this.socket.once(successEvent, (data: T) => resolve(data))
-      this.socket.emit(sendEvent, payload)
+      const socket = this.socket
+      const timeout = setTimeout(() => {
+        cleanup()
+        reject(new Error(`Таймаут ожидания события: ${successEvent}`))
+      }, 15_000)
+      const onError = (error: string | Error) => {
+        cleanup()
+        reject(error instanceof Error ? error : new Error(error))
+      }
+      const onSuccess = (data: T) => {
+        cleanup()
+        resolve(data)
+      }
+      const cleanup = () => {
+        clearTimeout(timeout)
+        socket.off('error', onError)
+        socket.off(successEvent, onSuccess)
+      }
+
+      socket.once('error', onError)
+      socket.once(successEvent, onSuccess)
+      socket.emit(sendEvent, payload)
     })
   }
 
@@ -177,10 +201,8 @@ export class GameService implements IGameService {
   }
 
   async createGame() {
-    const { gameId, game } = await this.emitAndWait<GameCreatedPayload>(
-      'createGame',
-      'gameCreated'
-    )
+    const response = await this.emitAck<GameCreatedPayload>('createGame')
+    const { gameId, game } = response
     this.gameId = gameId
     return game
   }
@@ -202,25 +224,27 @@ export class GameService implements IGameService {
   }
 
   startGame() {
-    this.socket?.emit('startGame', { gameId: this.gameId })
+    return this.emitAck<{ game: GameData }>('startGame', {
+      gameId: this.gameId,
+    }).then((response) => response.game)
   }
 
   async joinGame(gameId: string, playerName?: string) {
-    const game = await this.emitAndWait<GameData>('joinGame', 'gameUpdated', {
+    const response = await this.emitAck<{ game: GameData }>('joinGame', {
       gameId,
       playerName,
     })
     this.gameId = gameId
-    return game
+    return response.game
   }
 
   async rejoinGame(gameId: string) {
-    const game = await this.emitAndWait<GameData>('rejoinGame', 'gameUpdated', {
+    const response = await this.emitAck<{ game: GameData }>('rejoinGame', {
       gameId,
       deviceId: this.deviceId,
     })
     this.gameId = gameId
-    return game
+    return response.game
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
@@ -247,7 +271,14 @@ export class GameService implements IGameService {
   async updateCurrentTile(tile: Tile | GridTile) {
     return this.emitAck<SocketAck>('updateCurrentTile', {
       gameId: this.gameId,
-      tile,
+      rotation: tile.rotation,
+    })
+  }
+
+  setCurrentTileRotation(rotation: number) {
+    return this.emitAck<SocketAck>('updateCurrentTile', {
+      gameId: this.gameId,
+      rotation,
     })
   }
 
@@ -257,7 +288,7 @@ export class GameService implements IGameService {
   ) {
     return this.emitAck<SocketAck>('placeTile', {
       gameId: this.gameId,
-      tile,
+      rotation: tile.rotation,
       position,
     })
   }
@@ -268,7 +299,10 @@ export class GameService implements IGameService {
   ) {
     return this.emitAck<SocketAck>('placeFollower', {
       gameId: this.gameId,
-      place,
+      place: {
+        point: place.point,
+        temporaryObject: { id: place.temporaryObject.id },
+      },
       followerType,
     })
   }
@@ -305,7 +339,7 @@ export class GameService implements IGameService {
   }
 
   leaveGame() {
-    this.socket?.emit('leaveGame', { gameId: this.gameId })
+    return this.emitAck<SocketAck>('leaveGame', { gameId: this.gameId })
   }
 }
 

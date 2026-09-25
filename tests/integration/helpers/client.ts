@@ -121,39 +121,30 @@ export class TestClient {
     if (existing.found) return existing.payload
 
     return new Promise((resolve, reject) => {
-      let timer: NodeJS.Timeout | undefined
-      let waiter: Waiter | undefined
-
-      const cleanup = () => {
-        if (timer) clearTimeout(timer)
-        if (waiter) {
-          const pending = this.waiters.get(event)
-          if (pending) {
-            const index = pending.indexOf(waiter)
-            if (index !== -1) pending.splice(index, 1)
-          }
-        }
-      }
-
-      waiter = {
+      const timer = setTimeout(() => {
+        waiter.reject(new Error(`Timeout waiting for event "${event}"`))
+      }, timeoutMs)
+      const waiter: Waiter = {
         predicate,
-        cleanup,
+        cleanup: () => {
+          clearTimeout(timer)
+          const pending = this.waiters.get(event)
+          if (!pending) return
+          const index = pending.indexOf(waiter)
+          if (index !== -1) pending.splice(index, 1)
+        },
         resolve: (payload) => {
-          cleanup()
+          waiter.cleanup()
           resolve(payload)
         },
         reject: (error) => {
-          cleanup()
+          waiter.cleanup()
           reject(error)
         },
       }
 
       if (!this.waiters.has(event)) this.waiters.set(event, [])
       this.waiters.get(event)!.push(waiter)
-
-      timer = setTimeout(() => {
-        waiter!.reject(new Error(`Timeout waiting for event "${event}"`))
-      }, timeoutMs)
     })
   }
 

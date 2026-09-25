@@ -11,19 +11,23 @@ const { server, io, gameService } = createGameServer(gameDatabase, {
 })
 
 function startStaleGamesCleanup() {
-  setInterval(() => {
-    const deletedGameIds = gameService.deleteStaleGames(
-      GAME_INACTIVITY_TIMEOUT_MS
-    )
+  const timer = setInterval(() => {
+    void gameService
+      .deleteStaleGames(GAME_INACTIVITY_TIMEOUT_MS)
+      .then((deletedGameIds) => {
+        deletedGameIds.forEach((gameId) => {
+          io.to(gameId).emit('gameDeleted')
+        })
 
-    deletedGameIds.forEach((gameId) => {
-      io.to(gameId).emit('gameDeleted')
-    })
-
-    if (deletedGameIds.length) {
-      io.emit('updateGamesList', gameService.formatGamesList())
-    }
+        if (deletedGameIds.length) {
+          io.emit('updateGamesList', gameService.formatGamesList())
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to clean stale games:', error)
+      })
   }, STALE_GAMES_CHECK_MS)
+  return timer
 }
 
 server.listen(PORT, async () => {
@@ -32,5 +36,19 @@ server.listen(PORT, async () => {
   await gameService.loadSavedGames()
   console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
 
-  startStaleGamesCleanup()
+  const cleanupTimer = startStaleGamesCleanup()
+  const shutdown = () => {
+    clearInterval(cleanupTimer)
+    void gameService
+      .flushGames()
+      .catch((error: unknown) => {
+        console.error('Failed to flush games during shutdown:', error)
+      })
+      .finally(() => {
+        io.close()
+      })
+  }
+
+  process.once('SIGINT', shutdown)
+  process.once('SIGTERM', shutdown)
 })
