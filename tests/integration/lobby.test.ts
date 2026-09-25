@@ -89,9 +89,12 @@ describe('Лобби', () => {
     creator.registerDevice()
 
     creator.emit('createGame')
-    const { gameId } = (await creator.waitForEvent('gameCreated')) as {
+    const { gameId, game } = (await creator.waitForEvent('gameCreated')) as {
       gameId: string
+      game: TestGameData
     }
+    expect(gameId).toBeTruthy()
+    expect(game.gridSize).toEqual([30, 30])
 
     // Заполняем все 8 слотов реальными игроками + пробуем зайти девятым
     const others: TestClient[] = []

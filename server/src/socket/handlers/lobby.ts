@@ -38,7 +38,10 @@ export function registerLobbyHandlers({
         return
       }
       socket.join(game.id)
-      socket.emit('gameCreated', { gameId: game.id, game })
+      socket.emit('gameCreated', {
+        gameId: game.id,
+        game: service.formatGameData(game),
+      })
       callback?.({
         success: true,
         gameId: game.id,
@@ -124,7 +127,10 @@ export function registerLobbyHandlers({
         return
       }
       io.to(gameId).emit('gameUpdated', service.formatGameData(currentGame))
-      callback?.({ success: true, game: currentGame })
+      callback?.({
+        success: true,
+        game: service.formatGameData(currentGame),
+      })
     }
   )
 
@@ -158,7 +164,10 @@ export function registerLobbyHandlers({
         return
       }
       io.to(gameId).emit('gameUpdated', service.formatGameData(currentGame))
-      callback?.({ success: true, game: currentGame })
+      callback?.({
+        success: true,
+        game: service.formatGameData(currentGame),
+      })
     }
   )
 

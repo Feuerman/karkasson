@@ -104,6 +104,7 @@ describe('Клиентское приложение (GameService)', () => {
     const created = await alice.createGame()
     expect(alice.gameId).toBeTruthy()
     expect(created.id).toBe(alice.gameId)
+    expect(created.gridSize).toEqual([30, 30])
 
     await alice.addPlayer({ name: 'Alice', index: 0 })
 

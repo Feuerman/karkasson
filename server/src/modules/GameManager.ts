@@ -2,6 +2,11 @@ import tiles, { gardenTileCounts } from '../data/tiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
 import {
+  getPrecisionCoordinates,
+  isCorrectTilePosition,
+  isOppositePoint,
+} from './gameGeometry'
+import {
   calcCityScore,
   calcGardenPoints,
   calcMonasteryPoints,
@@ -1251,67 +1256,21 @@ export class GameManager implements IGameBoard {
     rowIndex: number,
     tileIndex: number
   ): boolean {
-    if (this.isEmptyGrid()) return true
-    if (this.tilePlacesStats[rowIndex]?.[tileIndex]) {
-      return false
-    }
-
-    // Явное сопоставление сторон по направлению, без опоры на порядок ключей
-    // `tile.sides`: клиентский rotateSides возвращает объект в порядке
-    // {north, west, south, east}, поэтому индексация по Object.keys ломала
-    // валидацию для повёрнутых тайлов (east/west менялись местами).
-    const matches = [
-      {
-        adjacent: this.tilePlacesStats[rowIndex - 1]?.[tileIndex]?.sides?.south,
-        own: tile.sides.north,
-      },
-      {
-        adjacent: this.tilePlacesStats[rowIndex]?.[tileIndex + 1]?.sides?.west,
-        own: tile.sides.east,
-      },
-      {
-        adjacent: this.tilePlacesStats[rowIndex + 1]?.[tileIndex]?.sides?.north,
-        own: tile.sides.south,
-      },
-      {
-        adjacent: this.tilePlacesStats[rowIndex]?.[tileIndex - 1]?.sides?.east,
-        own: tile.sides.west,
-      },
-    ]
-
-    if (!matches.some(({ adjacent }) => Boolean(adjacent))) {
-      return false
-    }
-
-    return matches.every(({ adjacent, own }) => !adjacent || adjacent === own)
-  }
-
-  isOppositePoint(point: Point, oppositePoint: Point): boolean {
-    const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
-    const oppositePointPrecisionCoordinates =
-      this.getPrecisionCoordinates(oppositePoint)
-
-    return (
-      pointPrecisionCoordinates.x === oppositePointPrecisionCoordinates.x &&
-      pointPrecisionCoordinates.y === oppositePointPrecisionCoordinates.y
+    return isCorrectTilePosition(
+      tile,
+      rowIndex,
+      tileIndex,
+      this.tilePlacesStats,
+      this.isEmptyGrid()
     )
   }
 
+  isOppositePoint(point: Point, oppositePoint: Point): boolean {
+    return isOppositePoint(point, oppositePoint)
+  }
+
   getPrecisionCoordinates(point: Point): { x: number; y: number } {
-    let x = point.x
-    let y = point.y
-
-    if (point.direction === 'north') {
-      y -= 0.5
-    } else if (point.direction === 'south') {
-      y += 0.5
-    } else if (point.direction === 'east') {
-      x += 0.5
-    } else if (point.direction === 'west') {
-      x -= 0.5
-    }
-
-    return { x, y }
+    return getPrecisionCoordinates(point)
   }
 
   rotateTile(tile: Tile, direction: RotationDirection = 'clockwise'): Tile {

@@ -133,7 +133,10 @@
         <div ref="sizeBoxRef">
           <div
             ref="planeRef"
-            class="grid origin-top-left grid-cols-[repeat(50,115px)] gap-2.5 p-2.5"
+            class="grid origin-top-left gap-2.5 p-2.5"
+            :style="{
+              gridTemplateColumns: `repeat(${gridDimensions[0]}, 115px)`,
+            }"
           >
             <div
               v-for="(row, rowIndex) in defaultGrid"
@@ -241,11 +244,12 @@ const {
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
 
-const defaultGrid = ref([
-  ...Array(50)
-    .fill(null)
-    .map(() => Array(50).fill(null)),
-])
+const gridDimensions = computed(() => gameState.value.gridSize ?? [30, 30])
+const defaultGrid = computed(() =>
+  Array.from({ length: gridDimensions.value[1] ?? 30 }, () =>
+    Array.from({ length: gridDimensions.value[0] ?? 30 }, () => null)
+  )
+)
 
 const currentStatePosition = ref({
   x: window.innerWidth / 2,
@@ -415,38 +419,6 @@ const onGameStart = (gameData: IGame) => {
           : hoveredTile.value
     }
   })
-
-  if (GameService.socket) {
-    GameService.socket.on(
-      'playerTemporaryDisconnected',
-      ({
-        deviceId: _deviceId,
-        playerIds: _playerIds,
-      }: {
-        deviceId: string
-        playerIds: (string | number)[]
-      }) => {
-        // console.log('Player temporarily disconnected:', { deviceId, playerIds });
-      }
-    )
-
-    GameService.socket.on(
-      'playerReconnected',
-      ({
-        deviceId,
-        playerIds,
-      }: {
-        deviceId: string
-        playerIds: (string | number)[]
-      }) => {
-        console.log('Player reconnected:', { deviceId, playerIds })
-      }
-    )
-
-    GameService.socket.on('playerDisconnected', () => {
-      showLobby.value = true
-    })
-  }
 }
 
 const handleGameCreated = (gameId: string) => {
@@ -606,9 +578,5 @@ onMounted(async () => {
       getGamesList()
     })
   }
-
-  GameService.onPlayerDisconnected(() => {
-    console.log('Player disconnected, resetting lobby state')
-  })
 })
 </script>

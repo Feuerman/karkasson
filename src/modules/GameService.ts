@@ -8,7 +8,7 @@ import type {
   GamesListResponse,
   AvailablePlacement,
   PlacementsResponse,
-  GameCreatedPayload,
+  CreateGameResponse,
 } from '@/types/socket'
 
 export interface IGameService {
@@ -88,43 +88,6 @@ export class GameService implements IGameService {
     })
   }
 
-  /** Event-based: emit → ждём successEvent, ошибки ловим через 'error'. */
-  private emitAndWait<T>(
-    sendEvent: string,
-    successEvent: string,
-    payload: SocketPayload = {}
-  ): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject(this.getNotConnectedError())
-        return
-      }
-
-      const socket = this.socket
-      const timeout = setTimeout(() => {
-        cleanup()
-        reject(new Error(`Таймаут ожидания события: ${successEvent}`))
-      }, 15_000)
-      const onError = (error: string | Error) => {
-        cleanup()
-        reject(error instanceof Error ? error : new Error(error))
-      }
-      const onSuccess = (data: T) => {
-        cleanup()
-        resolve(data)
-      }
-      const cleanup = () => {
-        clearTimeout(timeout)
-        socket.off('error', onError)
-        socket.off(successEvent, onSuccess)
-      }
-
-      socket.once('error', onError)
-      socket.once(successEvent, onSuccess)
-      socket.emit(sendEvent, payload)
-    })
-  }
-
   connect() {
     console.log('Attempting to connect to server...')
     if (this.socket?.connected) {
@@ -201,7 +164,7 @@ export class GameService implements IGameService {
   }
 
   async createGame() {
-    const response = await this.emitAck<GameCreatedPayload>('createGame')
+    const response = await this.emitAck<CreateGameResponse>('createGame')
     const { gameId, game } = response
     this.gameId = gameId
     return game
@@ -249,10 +212,6 @@ export class GameService implements IGameService {
 
   onGameUpdated(callback: (game: GameData) => void) {
     this.socket?.on('gameUpdated', callback)
-  }
-
-  onPlayerDisconnected(callback: () => void) {
-    this.socket?.on('playerDisconnected', callback)
   }
 
   async selectPlacingPoint({

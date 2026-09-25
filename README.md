@@ -82,7 +82,7 @@
 │   ├── rules/                # данные правил и примеры раскладок
 │   ├── types/                # клиентские типы (game, socket, gameService)
 │   ├── utils/                # tiles, board, labels, colors, common
-│   ├── data/tiles.ts         # зеркало определений плиток (A–V)
+│   ├── data/tiles.ts         # реэкспорт определений плиток с сервера
 │   └── assets/               # main.css (токены темы), изображения плиток
 ├── server/                   # Игровой сервер (pnpm workspace)
 │   └── src/
@@ -119,15 +119,15 @@
 ### Транспорт клиент ↔ сервер
 
 Весь обмен — Socket.IO (`transports: ['websocket']`), REST не используется.
-Клиентский `GameService` (`src/modules/GameService.ts`) предоставляет два паттерна:
+Клиентский `GameService` (`src/modules/GameService.ts`) использует
+`emitAck(event, payload?)` для команд: промис резолвится ack-ответом и
+реджектится при `{ error }`. События `gameUpdated`, `updateGamesList`,
+`gameDeleted`, `playerTemporaryDisconnected` и `gameError` используются для
+синхронизации и уведомлений, а не как подтверждение команды. `createGame`
+также отправляет событие `gameCreated` с `{ gameId, game }`.
 
-- `emitAck(event, payload?)` — запрос с ack-колбэком; промис резолвится
-  ответом и реджектится при `{ error }`;
-- `emitAndWait(sendEvent, successEvent, payload)` — событийный запрос
-  (ждёт событие успеха или `error`).
-
-Сервер в ответ шлёт широковещательные события `gameUpdated`,
-`updateGamesList`, `gameDeleted`, `playerTemporaryDisconnected`.
+Сетка доски (`gridSize`) задаётся сервером; клиент строит отображение по
+полученному размеру.
 
 ### Игровой цикл и валидация
 
