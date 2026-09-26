@@ -143,16 +143,14 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 
 | Путь | Назначение |
 | ---- | ---------- |
-| `main.js` | точка входа: `createApp(App)` + Pinia + Nuxt UI (`app.use(ui)`) |
+| `main.js` | точка входа: `createApp(App)` + Nuxt UI (`app.use(ui)`) |
 | `App.vue` | корневой оркестратор (~600 строк): держит состояние игры, встраивает лобби, доску, превью тайла, поворот, размещение, реконнект-оверлей |
 | `modules/GameService.ts` | обёртка Socket.IO; класс `GameService` + default-экспорт синглтона. Команды используют ack-колбэк `emitAck`, подписки возвращают функцию отписки |
 | `modules/draggableRegistry.ts` | `placeCollisionFree` — безопасное размещение перетаскиваемых элементов без наложений |
-| `modules/types.ts` | **мёртвый код** (не импортируется): типы давно берутся из `@server/*` |
 | `composables/useBoardPan.ts` | панорама/зум доски (перетаскивание, колесо 0.5×–3×, сброс) |
 | `plugins/notification.ts` | `notificationService.success/error/warning/info` (default export), bridge на тосты Nuxt UI |
 | `types/socket.ts` | типы Socket.IO ack-ответов и payload событий сервера, включая `CreateGameResponse` |
 | `types/game.ts` | `IGameBoard = GameData & { isMyTurn }`, `IGame`, `LobbyGame`, `ITile` |
-| `types/gameService.ts` | интерфейс `IGameService` |
 | `data/tiles.ts` | **зеркало** `server/src/data/tiles.ts` |
 | `rules/` | данные панели «Правила игры»: `types.ts`, `baseGame.ts`, `examples.ts` |
 | `utils/` | `tiles.ts` (`TILE_SIZE`, повороты), `board.ts` (`scrollToTile`/`pulseTile`), `labels.ts` (подписи/иконки), `colors.ts` (маппер цвета в Tailwind-классы), `common.ts` (`notifyError`, `clamp`, `pluralForm`, `countBy`) |
@@ -173,7 +171,7 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   и фишек на canvas), `TilesList.vue` (колода), `Draggable.vue`,
   `SavedGames.vue`, `GameMenu.vue`, `ToastBridge.vue` (мост уведомлений),
   `rules/` (`RulesPanel`, `RulesBlockRenderer`, `RulesExampleGrid`),
-  `icons/` (дефолтные заглушки Vite).
+  `icons/` (иконки интерфейса).
 
 ## Доменная модель и система координат
 
@@ -380,20 +378,15 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 - **Firebase-конфиг закоммичен** в `server/src/config.ts`. Считать несекретным
   (правила — на стороне Firebase), но **не добавлять туда ключи/токены**;
   auth — выносить в env.
-- **Неиспользуемые зависимости**: `axios` (клиент), `bcryptjs`/`jsonwebtoken`
-  (сервер) — не импортируются. Аутентификации нет: идентичность = `deviceId`
-  в localStorage.
+- **Аутентификации игроков нет**: идентичность = `deviceId` в localStorage.
 - **`docs/` отсутствует**: `opencode.json` ссылается на `docs/` (FSD, auth,
   forms…), которой нет. Не полагаться на неё; при создании — согласовать.
 - **Архитектура не FSD**: плоские Vue-компоненты + слоёный сервер. Не вводить
   слои entities/features/widgets задним числом.
-- **Теги git отстают**: последний тег `v1.1.0`, `package.json` уже `1.13.0`.
+- **Теги git отстают**: последний тег `v1.1.0`, `package.json` уже `1.14.1`.
   Версию брать из `package.json`/CHANGELOG.
 - **Данные плиток**: источник истины — `server/src/data/tiles.ts`; клиентский
   `src/data/tiles.ts` только переэкспортирует их.
-- **Мёртвый код клиента**: `src/modules/types.ts` (не импортируется),
-  `src/types/gameService.ts` (интерфейс с `placeFollower: unknown`). Не
-  «чинить походя» без задачи, но при рефакторинге — удалять.
 - **Порядок ключей `sides`**: клиентский `rotateSides` возвращает
   `{north, west, south, east}` — не опираться на порядок ключей.
 - **CI собирает только клиент**; сервер деплоится вручную (Render).

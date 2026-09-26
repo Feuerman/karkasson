@@ -1,7 +1,7 @@
 {
   "name": "carcasson_ex",
   "description": "Онлайн-игра «Каркассон»: Vue 3 клиент и игровой сервер на Node.js/Socket.IO",
-  "version": "1.14.0",
+  "version": "1.14.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,11 +17,8 @@
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.2",
-    "axios": "^1.9.0",
-    "pinia": "^3.0.3",
     "socket.io-client": "^4.7.2",
-    "vue": "^3.3.4",
-    "vue-router": "^4.5.1"
+    "vue": "^3.3.4"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -29,17 +26,12 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "@vitejs/plugin-vue": "^6.0.9",
-    "@vueuse/core": "^10.7.1",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.2",
     "eslint-plugin-vue": "^9.19.2",
-    "express": "^4.18.2",
     "prettier": "^3.1.1",
-    "sass": "^1.69.5",
-    "socket.io": "^4.7.2",
     "tailwindcss": "^4.3.3",
-    "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "vite": "^8.3.0",
     "vite-plugin-vue-devtools": "^8.2.1",

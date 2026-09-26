@@ -6,13 +6,6 @@ import ui from '@nuxt/ui/vite'
 
 export default defineConfig({
   base: '/karkasson/',
-  css: {
-    preprocessorOptions: {
-      scss: {
-        api: 'modern-compiler',
-      },
-    },
-  },
   plugins: [
     vue({
       script: {
