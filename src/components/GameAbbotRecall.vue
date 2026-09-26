@@ -15,7 +15,7 @@
         </span>
       </div>
       <p class="mb-2 text-[13px] text-text-muted">
-        Снять аббата с монастыря и получить
+        Снять аббата с {{ abbotLocation }} и получить
         {{ potentialPoints }} очк{{ pluralSuffix }}.
       </p>
       <UButton
@@ -61,6 +61,10 @@ const myAbbot = computed(() => {
 })
 
 const showRecall = computed(() => myAbbot.value !== null)
+
+const abbotLocation = computed(() =>
+  myAbbot.value?.isGarden ? 'сада' : 'монастыря'
+)
 
 const potentialPoints = computed(() => {
   const abbot = myAbbot.value

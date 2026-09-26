@@ -6,7 +6,7 @@
       <div class="flex items-center gap-2 text-[#f3e7c8]">
         <UIcon name="i-lucide-flag" class="h-[18px] w-[18px] text-gold" />
         <span class="title-medieval text-base tracking-wide">
-          Игра № {{ game.id }}
+          Партия «{{ lobbyName }}»
         </span>
       </div>
 
@@ -68,6 +68,7 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
+import { computed } from 'vue'
 import type { LobbyGame } from '@/types/game'
 import { playerBackgroundColorClass } from '@/utils/colors'
 import GameStatus from './GameStatus.vue'
@@ -77,6 +78,10 @@ const props = defineProps<{
   game: LobbyGame
   deviceId: string
 }>()
+
+const lobbyName = computed(
+  () => props.game.players.find((player) => player.name)?.name ?? 'Каркассон'
+)
 
 const emit = defineEmits<{
   join: [gameId: string]
