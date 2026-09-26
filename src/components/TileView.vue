@@ -111,6 +111,51 @@ const roadPositions: Record<
   },
 }
 
+const cityPositions: Record<
+  string,
+  Partial<Record<SideDirection, [number, number]>>
+> = {
+  C: {
+    north: [0.5, 0.35],
+    east: [0.65, 0.5],
+    south: [0.5, 0.65],
+    west: [0.35, 0.5],
+  },
+  D: { north: [0.5, 0.3] },
+  E: { north: [0.5, 0.3] },
+  F: { east: [0.73, 0.48], west: [0.27, 0.52] },
+  G: { east: [0.73, 0.48], west: [0.27, 0.52] },
+  H: { north: [0.5, 0.3], south: [0.5, 0.7] },
+  I: { north: [0.7, 0.3], west: [0.3, 0.7] },
+  J: { north: [0.5, 0.3] },
+  K: { north: [0.5, 0.3] },
+  L: { north: [0.5, 0.3] },
+  M: { north: [0.7, 0.3], east: [0.7, 0.3] },
+  N: { north: [0.7, 0.3], east: [0.7, 0.3] },
+  O: { north: [0.3, 0.3], west: [0.3, 0.3] },
+  P: { north: [0.3, 0.3], west: [0.3, 0.3] },
+  Q: {
+    north: [0.5, 0.31],
+    east: [0.69, 0.5],
+    west: [0.31, 0.5],
+  },
+  R: {
+    north: [0.5, 0.31],
+    east: [0.69, 0.5],
+    west: [0.31, 0.5],
+  },
+  S: {
+    north: [0.5, 0.28],
+    east: [0.74, 0.5],
+    west: [0.26, 0.5],
+  },
+  T: {
+    north: [0.5, 0.28],
+    east: [0.74, 0.5],
+    west: [0.26, 0.5],
+  },
+}
+
 const gardenPositions: Record<string, [number, number]> = {
   E: [0.5, 0.78],
   H: [0.5, 0.5],
@@ -158,6 +203,11 @@ const getFollowerPosition = (
   if (pointType === 'road') {
     const [x, y] = roadPositions[tileId]?.[featureDirection] ?? [0.5, 0.5]
     return [x * props.size, y * props.size]
+  }
+
+  if (pointType === 'city') {
+    const position = cityPositions[tileId]?.[featureDirection]
+    if (position) return [position[0] * props.size, position[1] * props.size]
   }
 
   const radius = props.size * (pointType === 'city' ? 0.32 : 0.25)
