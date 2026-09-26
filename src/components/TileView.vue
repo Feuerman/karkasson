@@ -14,6 +14,7 @@
         ref="canvas"
         :width="size"
         :height="size"
+        :class="rotateClass"
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.08] transition-transform duration-200 ease-in-out"
       ></canvas>
       <div
@@ -90,110 +91,85 @@ const roadPositions: Record<
   string,
   Partial<Record<SideDirection, [number, number]>>
 > = {
-  A: { south: [0.64, 0.73] },
-  D: { east: [0.74, 0.5], west: [0.26, 0.5] },
-  J: { east: [0.72, 0.61], south: [0.62, 0.76] },
-  K: { south: [0.5, 0.77], west: [0.23, 0.55] },
-  L: { east: [0.72, 0.5], south: [0.5, 0.72], west: [0.28, 0.5] },
-  O: { east: [0.73, 0.56], south: [0.57, 0.74] },
-  P: { east: [0.73, 0.56], south: [0.57, 0.74] },
-  S: { south: [0.5, 0.74] },
-  T: { south: [0.5, 0.74] },
-  U: { north: [0.5, 0.27], south: [0.5, 0.73] },
-  V: { south: [0.64, 0.78], west: [0.22, 0.47] },
-  W: { east: [0.72, 0.5], south: [0.5, 0.72], west: [0.28, 0.5] },
+  A: { south: [0.62, 0.72] },
+  D: { east: [0.75, 0.64], west: [0.25, 0.64] },
+  J: { east: [0.77, 0.6], south: [0.6, 0.78] },
+  K: { south: [0.5, 0.78], west: [0.23, 0.53] },
+  L: { east: [0.78, 0.55], south: [0.5, 0.78], west: [0.22, 0.55] },
+  O: { east: [0.76, 0.55], south: [0.55, 0.76] },
+  P: { east: [0.76, 0.55], south: [0.55, 0.76] },
+  S: { south: [0.5, 0.76] },
+  T: { south: [0.5, 0.76] },
+  U: { north: [0.5, 0.57], south: [0.5, 0.57] },
+  V: { south: [0.56, 0.78], west: [0.2, 0.52] },
+  W: { east: [0.78, 0.5], south: [0.5, 0.78], west: [0.22, 0.5] },
   X: {
-    north: [0.5, 0.28],
-    east: [0.72, 0.5],
-    south: [0.5, 0.72],
-    west: [0.28, 0.5],
+    north: [0.5, 0.22],
+    east: [0.78, 0.5],
+    south: [0.5, 0.78],
+    west: [0.22, 0.5],
   },
 }
 
 const gardenPositions: Record<string, [number, number]> = {
-  E: [0.5, 0.68],
-  H: [0.25, 0.5],
-  I: [0.7, 0.7],
-  M: [0.3, 0.7],
-  N: [0.3, 0.7],
-  R: [0.28, 0.7],
-  U: [0.7, 0.5],
-  V: [0.7, 0.35],
+  E: [0.5, 0.78],
+  H: [0.5, 0.5],
+  I: [0.74, 0.74],
+  M: [0.26, 0.74],
+  N: [0.26, 0.74],
+  R: [0.5, 0.78],
+  U: [0.74, 0.5],
+  V: [0.74, 0.3],
 }
 
 const getCanonicalDirection = (
-  direction: string | undefined,
+  direction: SideDirection,
   rotation: number
-): SideDirection | undefined => {
-  if (!direction || direction === 'center') return undefined
-  const directionIndex = sideDirections.indexOf(direction as SideDirection)
-  if (directionIndex < 0) return undefined
-
+): SideDirection => {
+  const directionIndex = sideDirections.indexOf(direction)
   const rotationSteps = Math.round(rotation / 90)
   const baseIndex = (directionIndex - rotationSteps + 4) % 4
   return sideDirections[baseIndex]
-}
-
-const rotatePosition = (
-  x: number,
-  y: number,
-  rotation: number
-): [number, number] => {
-  const center = props.size / 2
-  const normalizedRotation = ((rotation % 360) + 360) % 360
-  const rotationSteps = Math.round(normalizedRotation / 90) % 4
-  const offsetX = x - center
-  const offsetY = y - center
-
-  switch (rotationSteps) {
-    case 1:
-      return [center - offsetY, center + offsetX]
-    case 2:
-      return [center - offsetX, center - offsetY]
-    case 3:
-      return [center + offsetY, center - offsetX]
-    default:
-      return [x, y]
-  }
 }
 
 const getFollowerPosition = (
   point: PlacedFollower['point'],
   tileId: string,
   rotation: number,
-  isGarden: boolean | undefined
+  isGarden: boolean | undefined,
+  pointType: PlacedFollower['point']['pointType']
 ): [number, number] => {
   const center = props.size / 2
   if (point.direction === 'center') {
-    const [x, y] = isGarden
-      ? (gardenPositions[tileId] ?? [0.5, 0.5])
-      : [0.5, 0.5]
-    return rotatePosition(x * props.size, y * props.size, rotation)
+    if (!isGarden) return [center, center]
+    const [x, y] = gardenPositions[tileId] ?? [0.5, 0.5]
+    return [x * props.size, y * props.size]
   }
 
-  const featureDirection = getCanonicalDirection(point.direction, rotation)
-  if (!featureDirection) return [center, center]
-
-  if (point.pointType === 'road') {
-    const position = roadPositions[tileId]?.[featureDirection]
-    if (!position) return [center, center]
-    return rotatePosition(
-      position[0] * props.size,
-      position[1] * props.size,
-      rotation
-    )
+  if (!sideDirections.includes(point.direction as SideDirection)) {
+    return [center, center]
   }
 
-  const radius = props.size * (point.pointType === 'city' ? 0.32 : 0.25)
+  const featureDirection = getCanonicalDirection(
+    point.direction as SideDirection,
+    rotation
+  )
+
+  if (pointType === 'road') {
+    const [x, y] = roadPositions[tileId]?.[featureDirection] ?? [0.5, 0.5]
+    return [x * props.size, y * props.size]
+  }
+
+  const radius = props.size * (pointType === 'city' ? 0.32 : 0.25)
   switch (featureDirection) {
     case 'north':
-      return rotatePosition(center, center - radius, rotation)
+      return [center, center - radius]
     case 'east':
-      return rotatePosition(center + radius, center, rotation)
+      return [center + radius, center]
     case 'south':
-      return rotatePosition(center, center + radius, rotation)
+      return [center, center + radius]
     case 'west':
-      return rotatePosition(center - radius, center, rotation)
+      return [center - radius, center]
   }
 }
 
@@ -224,11 +200,16 @@ const drawTile = () => {
 
   // Рисуем каждую точку с учетом направления
   highlightPoints.forEach((point) => {
+    const tileSideType =
+      point.direction && point.direction !== 'center' && props.tile?.sides
+        ? props.tile.sides[point.direction]
+        : undefined
     const [x, y] = getFollowerPosition(
       point,
       String(props.tile?.id ?? ''),
       Number(props.tile?.rotation ?? 0),
-      point.isGarden
+      point.isGarden,
+      point.pointType ?? tileSideType
     )
 
     const playerColor = String(
