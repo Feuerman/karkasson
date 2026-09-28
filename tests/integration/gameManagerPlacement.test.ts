@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
-import type { Player, Tile } from '../../server/src/modules/types'
+import type {
+  BaseObject,
+  Point,
+  Player,
+  Tile,
+} from '../../server/src/modules/types'
 
 function makePlayers(): Player[] {
   return [
@@ -62,4 +67,357 @@ describe('Размещение тайла не зависит от порядк�
     // Запад должен быть road (E.east), а тут city — размещение невалидно.
     expect(game.isCorrectTilePosition(tile, 15, 16)).toBe(false)
   })
+})
+
+describe('Проверка размещения и возврата подданных', () => {
+  it('сохраняет отдельные городские сегменты на тайле F', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    const tile = {
+      id: 'F',
+      rotation: 0,
+      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
+      cityGroups: [['east'], ['west']],
+      x: 15,
+      y: 15,
+    }
+    game.tilePlacesStats[15] = {
+      15: {
+        ...tile,
+      },
+    }
+
+    game.checkGridAfterPlacingTile(15, 15)
+
+    expect(game.temporaryObjects.cities).toHaveLength(2)
+  })
+
+  it.each(['city', 'road'] as const)(
+    'не позволяет повторно занять уже занятую связанную %s',
+    (feature) => {
+      const game = new GameManager({ players: makePlayers() })
+      game.temporaryObjects.cities = []
+      game.temporaryObjects.roads = []
+      const point: Point = {
+        x: 15,
+        y: 15,
+        direction: feature === 'city' ? 'north' : 'east',
+        pointType: feature,
+      }
+      const object: BaseObject = {
+        id: `occupied-${feature}`,
+        points: [point],
+        followers: [
+          {
+            playerId: 1,
+            objectId: `occupied-${feature}`,
+            point,
+          },
+        ],
+      }
+      game.temporaryObjects[feature === 'city' ? 'cities' : 'roads'].push(
+        object
+      )
+      const forgedPlace = {
+        point,
+        temporaryObject: { ...object, followers: [] },
+      }
+      const followersBefore = game.playersFollowers[1]?.ordinaryFollowers
+
+      expect(game.simulatePlaceFollower(forgedPlace)).toBe(false)
+      expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(followersBefore)
+      expect(game.placedFollowers).toHaveLength(0)
+    }
+  )
+
+  it('запрещает ставить второго подданного на объединяемые группы одного тайла', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    const firstPoint: Point = { x: 15, y: 15, direction: 'north' }
+    const secondPoint: Point = { x: 15, y: 15, direction: 'east' }
+    const city: BaseObject = {
+      id: 'shared-city',
+      points: [firstPoint, secondPoint],
+      followers: [{ playerId: 1, objectId: 'shared-city', point: firstPoint }],
+    }
+    game.tilePlacesStats[15] = {
+      15: {
+        id: 'M',
+        rotation: 0,
+        x: 15,
+        y: 15,
+        sides: { north: 'city', east: 'city', south: 'field', west: 'field' },
+        cityGroups: [['north', 'east']],
+      },
+    }
+    game.temporaryObjects.cities.push(city)
+    const place = {
+      point: secondPoint,
+      temporaryObject: { ...city, followers: [] },
+    }
+
+    expect(game.simulatePlaceFollower(place)).toBe(false)
+    expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(7)
+    expect(game.placedFollowers).toHaveLength(0)
+  })
+
+  it('оставляет две несвязанные области города H разными объектами', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    game.tilePlacesStats[15] = {
+      15: {
+        id: 'H',
+        rotation: 0,
+        x: 15,
+        y: 15,
+        sides: { north: 'city', east: 'field', south: 'city', west: 'field' },
+      },
+    }
+
+    game.checkGridAfterPlacingTile(15, 15)
+
+    expect(game.temporaryObjects.cities).toHaveLength(2)
+    const northCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'north')
+    )
+    const southCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'south')
+    )
+    expect(northCity).toBeDefined()
+    expect(southCity).toBeDefined()
+    expect(northCity).not.toBe(southCity)
+  })
+
+  it('разделяет ветви дороги тайла D', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    game.tilePlacesStats[15] = {
+      15: {
+        id: 'D',
+        rotation: 0,
+        x: 15,
+        y: 15,
+        sides: { north: 'city', east: 'road', south: 'field', west: 'road' },
+        roadGroups: [['east'], ['west']],
+        cityGroups: [['north']],
+      },
+    }
+
+    game.checkGridAfterPlacingTile(15, 15)
+
+    expect(game.temporaryObjects.roads).toHaveLength(2)
+  })
+
+  it('учитывает объединённый город F при размещении подданных', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    const tile: Tile = {
+      id: 'F',
+      rotation: 0,
+      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
+    }
+    game.tilePlacesStats[15] = {
+      15: { ...tile, x: 15, y: 15 },
+    }
+    game.checkGridAfterPlacingTile(15, 15)
+    const westCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'west')
+    )
+    const eastCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'east')
+    )
+    expect(westCity).toBeDefined()
+    expect(eastCity).toBe(westCity)
+    if (!westCity || !eastCity) return
+
+    const eastPlace = {
+      point: { x: 15, y: 15, direction: 'east' as const },
+      temporaryObject: eastCity,
+    }
+    game.currentPlayer = game.players[1] ?? null
+    game.currentPlayerIndex = 1
+    expect(game.simulatePlaceFollower(eastPlace)).toBe(true)
+    const westPlace = {
+      point: { x: 15, y: 15, direction: 'west' as const },
+      temporaryObject: westCity,
+    }
+    game.currentPlayer = game.players[0] ?? null
+    game.currentPlayerIndex = 0
+    expect(game.simulatePlaceFollower(westPlace)).toBe(false)
+  })
+
+  it('не объединяет сплошной город тайла C с несколькими городами', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    game.tilePlacesStats[15] = {
+      15: {
+        id: 'C',
+        rotation: 0,
+        x: 15,
+        y: 15,
+        sides: { north: 'city', east: 'city', south: 'city', west: 'city' },
+      },
+    }
+
+    game.checkGridAfterPlacingTile(15, 15)
+
+    expect(game.temporaryObjects.cities).toHaveLength(1)
+    expect(game.temporaryObjects.cities[0]?.points).toHaveLength(4)
+  })
+
+  it('разрешает выставлять фишку в обе стороны прямой дороги D', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    const tile: Tile = {
+      id: 'D',
+      rotation: 0,
+      sides: { north: 'city', east: 'road', south: 'field', west: 'road' },
+    }
+    game.tilePlacesStats[15] = {
+      15: { ...tile, x: 15, y: 15 },
+    }
+    game.checkGridAfterPlacingTile(15, 15)
+    const eastRoad = game.temporaryObjects.roads.find((road) =>
+      road.points.some((point) => point.direction === 'east')
+    )
+    const westRoad = game.temporaryObjects.roads.find((road) =>
+      road.points.some((point) => point.direction === 'west')
+    )
+    expect(eastRoad).toBeDefined()
+    expect(westRoad).not.toBe(eastRoad)
+    if (!eastRoad || !westRoad) return
+
+    expect(
+      game.simulatePlaceFollower(
+        game.availableFollowersPlaces.find(
+          (place) => place.point.direction === 'east'
+        ) ?? {
+          point: { x: 15, y: 15, direction: 'east' },
+          temporaryObject: eastRoad,
+        }
+      )
+    ).toBe(true)
+    game.currentPlayer = game.players[1] ?? null
+    game.currentPlayerIndex = 1
+    expect(
+      game.simulatePlaceFollower(
+        game.availableFollowersPlaces.find(
+          (place) => place.point.direction === 'west'
+        ) ?? {
+          point: { x: 15, y: 15, direction: 'west' },
+          temporaryObject: westRoad,
+        }
+      )
+    ).toBe(true)
+  })
+
+  it('не позволяет изменить заявку, подменив занятый объект города', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.temporaryObjects.cities = []
+    game.temporaryObjects.roads = []
+    game.temporaryObjects.monasteries = []
+    game.temporaryObjects.gardens = []
+    const tile: Tile = {
+      id: 'F',
+      rotation: 0,
+      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
+    }
+    game.tilePlacesStats[15] = {
+      15: { ...tile, x: 15, y: 15 },
+    }
+    game.checkGridAfterPlacingTile(15, 15)
+    const eastCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'east')
+    )
+    const westCity = game.temporaryObjects.cities.find((city) =>
+      city.points.some((point) => point.direction === 'west')
+    )
+    expect(eastCity).toBeDefined()
+    expect(westCity).toBeDefined()
+    expect(eastCity).toBe(westCity)
+    if (!eastCity || !westCity) return
+
+    const eastFollowerPlace = game.availableFollowersPlaces.find(
+      (place) => place.point.direction === 'east'
+    )
+    expect(eastFollowerPlace).toBeUndefined()
+    const followersBefore = game.playersFollowers[1]?.ordinaryFollowers
+    expect(
+      game.simulatePlaceFollower({
+        point: { x: 15, y: 15, direction: 'east' },
+        temporaryObject: {
+          ...westCity,
+          id: 'forged-city',
+          followers: [],
+        },
+      })
+    ).toBe(false)
+    expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(followersBefore)
+  })
+
+  it.each(['city', 'road'] as const)(
+    'убирает маркер при завершении %s, даже если ID объекта изменился',
+    (feature) => {
+      const game = new GameManager({ players: makePlayers() })
+      game.temporaryObjects.cities = []
+      game.temporaryObjects.roads = []
+      const followerPoint = {
+        x: 14,
+        y: 15,
+        direction: feature === 'city' ? 'north' : 'east',
+      } as const
+      const object: BaseObject = {
+        id: `completed-${feature}`,
+        points: [
+          followerPoint,
+          feature === 'city'
+            ? { x: 14, y: 14, direction: 'south' }
+            : { x: 15, y: 15, direction: 'west' },
+        ],
+        followers: [
+          {
+            playerId: 1,
+            objectId: 'old-merged-id',
+            point: followerPoint,
+          },
+        ],
+      }
+      game.playersFollowers[1]!.ordinaryFollowers = 6
+      game.temporaryObjects[feature === 'city' ? 'cities' : 'roads'].push(
+        object
+      )
+      game.placedFollowers.push({
+        playerId: 1,
+        objectId: 'old-merged-id',
+        point: followerPoint,
+      })
+
+      if (feature === 'city') game.checkCompleteCity(object)
+      else game.checkCompleteRoad(object)
+
+      expect(game.placedFollowers).toHaveLength(0)
+      expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(7)
+    }
+  )
 })

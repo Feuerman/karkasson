@@ -130,6 +130,11 @@ export interface IGameBoard {
     place: AvailableFollowerPlace,
     followerType?: FollowerType
   ): boolean
+  getTileFeatureGroups(tile: Tile, feature: 'city' | 'road'): SideName[][]
+  rotateTileGroups(
+    groups: SideName[][] | undefined,
+    turns: number
+  ): SideName[][] | undefined
 }
 
 export class GameManager implements IGameBoard {
@@ -351,6 +356,32 @@ export class GameManager implements IGameBoard {
       if (object === undefined || object.followers.length !== 0) {
         return false
       }
+      const side = place.point.direction
+      if (side && side !== 'center') {
+        const tileSideType = tile.sides[side]
+        const featureGroups = this.getTileFeatureGroups(
+          tile,
+          tileSideType === 'city' ? 'city' : 'road'
+        )
+        const group = featureGroups.find((directions) =>
+          directions.includes(side)
+        ) ?? [side]
+        const connectedObjects = group
+          .map((direction) =>
+            this.findObjectByPoint(
+              this.temporaryObjects,
+              tile.x,
+              tile.y,
+              direction
+            )
+          )
+          .filter((candidate): candidate is BaseObject => Boolean(candidate))
+        if (
+          connectedObjects.some((candidate) => candidate.followers.length > 0)
+        ) {
+          return false
+        }
+      }
       // На сад можно поставить только аббата — предлагаем его лишь при
       // наличии свободного аббата в запасе.
       if (object.isGarden && !followerPool?.monks) {
@@ -510,10 +541,10 @@ export class GameManager implements IGameBoard {
     followerType: FollowerType = 'follower'
   ) {
     if (this.gameIsEnded) return
-    const currentPlayer = this.currentPlayer
-    if (!currentPlayer) return
+    const activePlayer = this.currentPlayer
+    if (!activePlayer) return
 
-    const followerPool = this.playersFollowers[currentPlayer.id]
+    const followerPool = this.playersFollowers[activePlayer.id]
     if (!followerPool) {
       this.skipFollower()
       return
@@ -526,7 +557,15 @@ export class GameManager implements IGameBoard {
       availablePlace.point.direction
     )
 
-    if (!temporaryObject) {
+    if (
+      !temporaryObject ||
+      temporaryObject.id !== availablePlace.temporaryObject.id ||
+      temporaryObject.followers.length > 0
+    ) {
+      this.skipFollower()
+      return
+    }
+    if (!this.isFollowerPlacementAvailable(availablePlace, temporaryObject)) {
       this.skipFollower()
       return
     }
@@ -548,24 +587,24 @@ export class GameManager implements IGameBoard {
     }
 
     if (isAbbot) {
-      this.playersFollowers[currentPlayer.id].monks -= 1
+      this.playersFollowers[activePlayer.id].monks -= 1
     } else {
-      this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
+      this.playersFollowers[activePlayer.id].ordinaryFollowers -= 1
     }
 
     temporaryObject.followers.push({
-      playerId: currentPlayer.id,
+      playerId: activePlayer.id,
       objectId: temporaryObject.id,
       point: availablePlace.point,
       isAbbot: isAbbot || undefined,
     })
 
     this.placedFollowers.push({
-      playerId: currentPlayer.id,
-      objectId: availablePlace.temporaryObject.id,
+      playerId: activePlayer.id,
+      objectId: temporaryObject.id,
       point: availablePlace.point,
-      isMonastery: availablePlace.temporaryObject.isMonastery,
-      isGarden: availablePlace.temporaryObject.isGarden,
+      isMonastery: temporaryObject.isMonastery,
+      isGarden: temporaryObject.isGarden,
       isAbbot: isAbbot || undefined,
     })
 
@@ -577,7 +616,7 @@ export class GameManager implements IGameBoard {
         ...availablePlace,
         followerType: isAbbot ? 'abbot' : 'follower',
       },
-      initiator: currentPlayer,
+      initiator: activePlayer,
     })
 
     this.endTurn()
@@ -785,7 +824,24 @@ export class GameManager implements IGameBoard {
         }
       })
 
-    this.checkRoads(roadsPoints)
+    const roadGroups = this.getTileFeatureGroups(tile, 'road').map(
+      (directions) =>
+        roadsPoints.filter(
+          (point) =>
+            point.direction !== undefined &&
+            directions.includes(point.direction as SideName)
+        )
+    )
+    roadsPoints.forEach((point) => {
+      if (
+        !roadGroups.some((group) =>
+          group.some((groupPoint) => groupPoint.direction === point.direction)
+        )
+      ) {
+        roadGroups.push([point])
+      }
+    })
+    this.checkRoads(roadsPoints, roadGroups)
 
     const citiesPoints: Point[] = Object.entries(tile.sides)
       .filter(([, pointType]) => pointType === 'city')
@@ -798,7 +854,24 @@ export class GameManager implements IGameBoard {
         }
       })
 
-    this.checkCities(citiesPoints, tile.isSolidCity)
+    const cityGroups = this.getTileFeatureGroups(tile, 'city').map(
+      (directions) =>
+        citiesPoints.filter(
+          (point) =>
+            point.direction !== undefined &&
+            directions.includes(point.direction as SideName)
+        )
+    )
+    citiesPoints.forEach((point) => {
+      if (
+        !cityGroups.some((group) =>
+          group.some((groupPoint) => groupPoint.direction === point.direction)
+        )
+      ) {
+        cityGroups.push([point])
+      }
+    })
+    this.checkCities(citiesPoints, cityGroups)
 
     this.checkMonasteries(tile)
 
@@ -887,13 +960,7 @@ export class GameManager implements IGameBoard {
           },
         })
         this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        this.placedFollowers.splice(
-          this.placedFollowers.findIndex(
-            (f) =>
-              f.playerId === follower.playerId && f.objectId === monastery.id
-          ),
-          1
-        )
+        this.removePlacedFollower(follower)
         this.actionsHistory.push({
           actionType: ActionTypes.BACK_FOLLOWER,
           actionData: { followers: [follower] },
@@ -978,12 +1045,7 @@ export class GameManager implements IGameBoard {
           },
         })
         this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        this.placedFollowers.splice(
-          this.placedFollowers.findIndex(
-            (f) => f.playerId === follower.playerId && f.objectId === garden.id
-          ),
-          1
-        )
+        this.removePlacedFollower(follower)
         this.actionsHistory.push({
           actionType: ActionTypes.BACK_FOLLOWER,
           actionData: { followers: [follower] },
@@ -992,36 +1054,23 @@ export class GameManager implements IGameBoard {
     })
   }
 
-  checkRoads(roadsPoints: Point[]) {
-    if (roadsPoints.length === 2) {
-      const roadsIds = roadsPoints
-        .map((roadPoint) => {
-          return this.temporaryObjects.roads.find((road) =>
-            road.points.find((point) => this.isOppositePoint(point, roadPoint))
-          )?.id
-        })
-        .filter((id): id is string => Boolean(id))
+  checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
+    const groups = connectedGroups ?? roadsPoints.map((point) => [point])
+    groups.forEach((group) => {
+      if (!group.length) return
 
-      if (roadsIds.length) {
-        this.mergeRoads(roadsIds, roadsPoints)
-      } else {
-        this.temporaryObjects.roads.push({
-          id: 'id' + Math.random(),
-          points: roadsPoints,
-          followers: [],
-        })
-      }
-    } else {
-      roadsPoints.forEach((roadPoint) => {
-        const roadsIds = this.temporaryObjects.roads
+      const roadsIds = new Set(
+        this.temporaryObjects.roads
           .filter((road) =>
-            road.points.find((point) => this.isOppositePoint(point, roadPoint))
+            road.points.some((point) =>
+              group.some((roadPoint) => this.isOppositePoint(point, roadPoint))
+            )
           )
           .map((road) => road.id)
+      )
 
-        this.mergeRoads(roadsIds, [roadPoint])
-      })
-    }
+      this.mergeRoads([...roadsIds], group)
+    })
   }
 
   mergeRoads(roadsIds: string[], roadsPoints: Point[]) {
@@ -1090,12 +1139,7 @@ export class GameManager implements IGameBoard {
 
     road.followers.forEach((follower) => {
       this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-      this.placedFollowers.splice(
-        this.placedFollowers.findIndex(
-          (f) => f.playerId === follower.playerId && f.objectId === road.id
-        ),
-        1
-      )
+      this.removePlacedFollower(follower)
     })
 
     if (road.followers.length) {
@@ -1124,36 +1168,23 @@ export class GameManager implements IGameBoard {
     return calcRoadScore(this.tilePlacesStats, road, this.scores)
   }
 
-  checkCities(citiesPoints: Point[], isSolidCity?: boolean) {
-    if (isSolidCity) {
-      const citiesIds = citiesPoints
-        .map((cityPoint) => {
-          return this.temporaryObjects.cities.find((city) =>
-            city.points.find((point) => this.isOppositePoint(point, cityPoint))
-          )?.id
-        })
-        .filter((id): id is string => Boolean(id))
+  checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
+    const groups = connectedGroups ?? citiesPoints.map((point) => [point])
+    groups.forEach((group) => {
+      if (!group.length) return
 
-      if (citiesIds.length) {
-        this.mergeCities(citiesIds, citiesPoints)
-      } else {
-        this.temporaryObjects.cities.push({
-          id: 'id' + Math.random(),
-          points: citiesPoints,
-          followers: [],
-        })
-      }
-    } else {
-      citiesPoints.forEach((cityPoint) => {
-        const citiesIds = this.temporaryObjects.cities
+      const citiesIds = new Set(
+        this.temporaryObjects.cities
           .filter((city) =>
-            city.points.find((point) => this.isOppositePoint(point, cityPoint))
+            city.points.some((point) =>
+              group.some((cityPoint) => this.isOppositePoint(point, cityPoint))
+            )
           )
           .map((city) => city.id)
+      )
 
-        this.mergeCities(citiesIds, [cityPoint])
-      })
-    }
+      this.mergeCities([...citiesIds], group)
+    })
   }
 
   mergeCities(citiesIds: string[], citiesPoints: Point[]) {
@@ -1224,12 +1255,7 @@ export class GameManager implements IGameBoard {
 
     city.followers.forEach((follower) => {
       this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-      this.placedFollowers.splice(
-        this.placedFollowers.findIndex(
-          (f) => f.playerId === follower.playerId && f.objectId === city.id
-        ),
-        1
-      )
+      this.removePlacedFollower(follower)
     })
 
     if (city.followers.length) {
@@ -1242,6 +1268,66 @@ export class GameManager implements IGameBoard {
 
   calcScoreForCity(city: BaseObject, _isCompleted = true): ScoreForObject {
     return calcCityScore(this.tilePlacesStats, city, this.scores)
+  }
+
+  private removePlacedFollower(follower: ObjectFollower) {
+    const index = this.placedFollowers.findIndex(
+      (placed) =>
+        String(placed.playerId) === String(follower.playerId) &&
+        placed.point.x === follower.point.x &&
+        placed.point.y === follower.point.y &&
+        placed.point.direction === follower.point.direction &&
+        Boolean(placed.isAbbot) === Boolean(follower.isAbbot)
+    )
+    if (index >= 0) this.placedFollowers.splice(index, 1)
+  }
+
+  private isFollowerPlacementAvailable(
+    place: AvailableFollowerPlace,
+    object: BaseObject
+  ): boolean {
+    const side = place.point.direction
+    if (!side || side === 'center') return object.followers.length === 0
+
+    const tile = this.tilePlacesStats[place.point.y]?.[place.point.x]
+    if (!tile) return false
+    const type = tile.sides[side]
+    const groups = this.getTileFeatureGroups(
+      tile,
+      type === 'city' ? 'city' : 'road'
+    )
+    const group = groups.find((directions) => directions.includes(side)) ?? [
+      side,
+    ]
+
+    return group.every((direction) => {
+      const connectedObject = this.findObjectByPoint(
+        this.temporaryObjects,
+        place.point.x,
+        place.point.y,
+        direction
+      )
+      if (connectedObject) return connectedObject.followers.length === 0
+      return object.followers.length === 0
+    })
+  }
+
+  private reassignFollowerObjectIds(
+    followers: ObjectFollower[],
+    objectId: string
+  ) {
+    for (const follower of followers) {
+      follower.objectId = objectId
+      const placed = this.placedFollowers.find(
+        (candidate) =>
+          String(candidate.playerId) === String(follower.playerId) &&
+          candidate.point.x === follower.point.x &&
+          candidate.point.y === follower.point.y &&
+          candidate.point.direction === follower.point.direction &&
+          Boolean(candidate.isAbbot) === Boolean(follower.isAbbot)
+      )
+      if (placed) placed.objectId = objectId
+    }
   }
 
   getCompletedObjectsForPlayer(
@@ -1262,6 +1348,19 @@ export class GameManager implements IGameBoard {
       tileIndex,
       this.tilePlacesStats,
       this.isEmptyGrid()
+    )
+  }
+
+  getTileFeatureGroups(tile: Tile, feature: 'city' | 'road'): SideName[][] {
+    const groups = feature === 'city' ? tile.cityGroups : tile.roadGroups
+    if (groups?.length) return groups
+
+    const definition = tiles.find(({ id }) => id === tile.id)
+    const definitionGroups =
+      feature === 'city' ? definition?.cityGroups : definition?.roadGroups
+    return (
+      this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
+      []
     )
   }
 
@@ -1288,6 +1387,14 @@ export class GameManager implements IGameBoard {
         south: processedTile.sides.east,
         east: processedTile.sides.north,
       }
+      processedTile.roadGroups = this.rotateTileGroups(
+        processedTile.roadGroups,
+        1
+      )
+      processedTile.cityGroups = this.rotateTileGroups(
+        processedTile.cityGroups,
+        1
+      )
     } else {
       if (processedTile.rotation - 90 < 0) {
         processedTile.rotation = 360
@@ -1301,9 +1408,41 @@ export class GameManager implements IGameBoard {
         south: processedTile.sides.west,
         east: processedTile.sides.south,
       }
+      processedTile.roadGroups = this.rotateTileGroups(
+        processedTile.roadGroups,
+        3
+      )
+      processedTile.cityGroups = this.rotateTileGroups(
+        processedTile.cityGroups,
+        3
+      )
     }
 
     return processedTile
+  }
+
+  rotateTileGroups(
+    groups: SideName[][] | undefined,
+    turns: number
+  ): SideName[][] | undefined {
+    if (!groups) return groups
+    const clockwise: Record<SideName, SideName> = {
+      north: 'east',
+      east: 'south',
+      south: 'west',
+      west: 'north',
+    }
+    return groups
+      .map((group) =>
+        group.map((side) => {
+          let rotatedSide = side
+          for (let turn = 0; turn < turns; turn++) {
+            rotatedSide = clockwise[rotatedSide]
+          }
+          return rotatedSide
+        })
+      )
+      .filter((group) => group.length > 0)
   }
 
   async autoPlay(): Promise<void> {
@@ -1403,20 +1542,30 @@ export class GameManager implements IGameBoard {
       : null
     if (!currentPlayer || !followerPool) return false
 
+    const targetObject = this.findObjectByPoint(
+      this.temporaryObjects,
+      availablePlace.point.x,
+      availablePlace.point.y,
+      availablePlace.point.direction
+    )
+    if (
+      !targetObject ||
+      targetObject.id !== availablePlace.temporaryObject.id ||
+      targetObject.followers.length > 0
+    ) {
+      return false
+    }
+    if (!this.isFollowerPlacementAvailable(availablePlace, targetObject)) {
+      return false
+    }
+
     const isAbbot = followerType === 'abbot'
     const isCenterFeature = Boolean(
-      availablePlace.temporaryObject.isMonastery ||
-      availablePlace.temporaryObject.isGarden
+      targetObject.isMonastery || targetObject.isGarden
     )
     if (isAbbot) {
-      if (!followerPool.monks || !isCenterFeature) {
-        return false
-      }
-    } else if (
-      !followerPool.ordinaryFollowers ||
-      availablePlace.temporaryObject.isGarden
-    ) {
-      // На сад можно поставить только аббата
+      if (!followerPool.monks || !isCenterFeature) return false
+    } else if (!followerPool.ordinaryFollowers || targetObject.isGarden) {
       return false
     }
 
@@ -1426,19 +1575,19 @@ export class GameManager implements IGameBoard {
       this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
     }
 
-    availablePlace.temporaryObject.followers.push({
+    targetObject.followers.push({
       playerId: currentPlayer.id,
-      objectId: availablePlace.temporaryObject.id,
+      objectId: targetObject.id,
       point: availablePlace.point,
       isAbbot: isAbbot || undefined,
     })
 
     this.placedFollowers.push({
       playerId: currentPlayer.id,
-      objectId: availablePlace.temporaryObject.id,
+      objectId: targetObject.id,
       point: availablePlace.point,
-      isMonastery: availablePlace.temporaryObject.isMonastery,
-      isGarden: availablePlace.temporaryObject.isGarden,
+      isMonastery: targetObject.isMonastery,
+      isGarden: targetObject.isGarden,
       isAbbot: isAbbot || undefined,
     })
 

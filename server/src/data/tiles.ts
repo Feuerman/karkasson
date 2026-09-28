@@ -13,6 +13,8 @@ export const tiles: {
   isMonastery?: boolean
   withShield?: boolean
   isSolidCity?: boolean
+  roadGroups?: ('north' | 'east' | 'south' | 'west')[][]
+  cityGroups?: ('north' | 'east' | 'south' | 'west')[][]
   imgUrl: string
 }[] = [
   {
@@ -51,6 +53,7 @@ export const tiles: {
       south: 'city',
       west: 'city',
     },
+    cityGroups: [['north', 'east', 'south', 'west']],
     withShield: true,
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_C.png',
@@ -65,6 +68,8 @@ export const tiles: {
       south: 'field',
       west: 'road',
     },
+    roadGroups: [['east'], ['west']],
+    cityGroups: [['north']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_D.png',
   },
   {
@@ -89,6 +94,7 @@ export const tiles: {
       south: 'field',
       west: 'city',
     },
+    cityGroups: [['east', 'west']],
     withShield: true,
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_F.png',
@@ -103,6 +109,7 @@ export const tiles: {
       south: 'field',
       west: 'city',
     },
+    cityGroups: [['east', 'west']],
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_G.png',
   },
@@ -116,6 +123,7 @@ export const tiles: {
       south: 'city',
       west: 'field',
     },
+    cityGroups: [['north'], ['south']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_H.png',
   },
   {
@@ -128,6 +136,7 @@ export const tiles: {
       south: 'field',
       west: 'city',
     },
+    cityGroups: [['north', 'west']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_I.png',
   },
   {
@@ -140,6 +149,8 @@ export const tiles: {
       south: 'road',
       west: 'field',
     },
+    roadGroups: [['east', 'south']],
+    cityGroups: [['north']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_J.png',
   },
   {
@@ -152,6 +163,8 @@ export const tiles: {
       south: 'road',
       west: 'road',
     },
+    roadGroups: [['south', 'west']],
+    cityGroups: [['north']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_K.png',
   },
   {
@@ -164,6 +177,8 @@ export const tiles: {
       south: 'road',
       west: 'road',
     },
+    roadGroups: [['east', 'south', 'west']],
+    cityGroups: [['north']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_L.png',
   },
   {
@@ -176,6 +191,7 @@ export const tiles: {
       south: 'field',
       west: 'field',
     },
+    cityGroups: [['north', 'east']],
     withShield: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_M.png',
   },
@@ -189,6 +205,7 @@ export const tiles: {
       south: 'field',
       west: 'field',
     },
+    cityGroups: [['north', 'east']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_N.png',
   },
   {
@@ -201,6 +218,8 @@ export const tiles: {
       south: 'road',
       west: 'city',
     },
+    roadGroups: [['east', 'south']],
+    cityGroups: [['north', 'west']],
     withShield: true,
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_O.png',
@@ -215,6 +234,8 @@ export const tiles: {
       south: 'road',
       west: 'city',
     },
+    roadGroups: [['east', 'south']],
+    cityGroups: [['north', 'west']],
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_P.png',
   },
@@ -228,6 +249,7 @@ export const tiles: {
       south: 'field',
       west: 'city',
     },
+    cityGroups: [['north', 'east', 'west']],
     withShield: true,
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_Q.png',
@@ -242,6 +264,7 @@ export const tiles: {
       south: 'field',
       west: 'city',
     },
+    cityGroups: [['north', 'east', 'west']],
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_R.png',
   },
@@ -255,6 +278,7 @@ export const tiles: {
       south: 'road',
       west: 'city',
     },
+    cityGroups: [['north', 'east', 'west']],
     withShield: true,
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_S.png',
@@ -269,6 +293,7 @@ export const tiles: {
       south: 'road',
       west: 'city',
     },
+    cityGroups: [['north', 'east', 'west']],
     isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_T.png',
   },
@@ -282,6 +307,7 @@ export const tiles: {
       south: 'road',
       west: 'field',
     },
+    roadGroups: [['north', 'south']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_U.png',
   },
   {
@@ -294,6 +320,7 @@ export const tiles: {
       south: 'road',
       west: 'road',
     },
+    roadGroups: [['south', 'west']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_V.png',
   },
   {
@@ -306,6 +333,7 @@ export const tiles: {
       south: 'road',
       west: 'road',
     },
+    roadGroups: [['east', 'south', 'west']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_W.png',
   },
   {
@@ -318,6 +346,7 @@ export const tiles: {
       south: 'road',
       west: 'road',
     },
+    roadGroups: [['north', 'east', 'south', 'west']],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_X.png',
   },
 ]
