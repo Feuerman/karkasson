@@ -300,7 +300,10 @@ export async function waitForHumanTurnOrEnd(
       event = await client.waitForEvent('gameUpdated', () => true, quietMs)
     } catch {
       if (lastPlayerState) return lastPlayerState
-      throw new Error(`Ход игрока ${playerIdValue} так и не наступил`)
+      // Пока ход игрока ещё не наблюдался, quietMs — лишь интервал опроса.
+      // Цепочка ИИ может молчать дольше этого интервала, особенно под нагрузкой
+      // CI; продолжаем ждать до общего timeoutMs.
+      continue
     }
 
     const game = event as GameStateSnapshot
@@ -432,6 +435,8 @@ export async function driveTurnsUntilFollowerOffer(
       }>('skipFollower', { gameId })
       game = skipped.game
     }
+
+    state = game
   }
 
   return { preState: null, offerGame: null }
@@ -757,7 +762,7 @@ export async function playFullGame(
     }
 
     state = await waitForHumanTurnOrEnd(client, aliceId, {
-      initialState: state,
+      initialState: game,
     })
     processState(state)
   }
