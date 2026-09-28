@@ -2,8 +2,9 @@
   <Draggable
     v-if="showRecall"
     draggable-id="abbot-recall"
-    :initial-x="400"
-    :initial-y="10"
+    :initial-x="initialX"
+    :initial-y="16"
+    :drag-enabled="dragEnabled"
   >
     <div
       class="panel-parchment min-w-[220px] max-w-[300px] p-3 text-text shadow-card"
@@ -44,7 +45,13 @@ const props = defineProps({
     type: Object as () => IGameBoard,
     required: true,
   },
+  dragEnabled: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const initialX = Math.max(0, (window.innerWidth - 260) / 2)
 
 const myAbbot = computed(() => {
   const board = props.gameBoard

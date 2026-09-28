@@ -4,6 +4,7 @@
     draggable-id="placing-followers"
     :initial-x="700"
     :initial-y="400"
+    :drag-enabled="dragEnabled"
   >
     <div
       class="panel-parchment min-w-[220px] max-w-[300px] p-4 text-text shadow-card"
@@ -116,6 +117,10 @@ const props = defineProps({
   gameBoard: {
     type: Object as () => IGameBoard,
     required: true,
+  },
+  dragEnabled: {
+    type: Boolean,
+    default: false,
   },
 })
 

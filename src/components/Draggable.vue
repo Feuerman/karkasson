@@ -5,28 +5,15 @@
     :class="
       isDragging
         ? 'pointer-events-none transition-none'
-        : 'pointer-events-auto transition-transform duration-200 ease'
+        : [
+            'pointer-events-auto transition-transform duration-200 ease',
+            dragEnabled && !disabled ? 'cursor-grab' : '',
+          ]
     "
     :style="dragStyle"
+    @mousedown="startDrag"
   >
-    <template v-if="isNoneStyle">
-      <div @mousedown="startDrag">
-        <slot />
-      </div>
-    </template>
-    <template v-else>
-      <div
-        v-if="!disabled"
-        :class="
-          isDragging
-            ? 'cursor-grabbing bg-[#45a049]'
-            : 'cursor-move bg-success/70'
-        "
-        class="absolute left-1/2 top-[calc(100%_-_2px)] flex h-3 w-[30px] -translate-x-1/2 items-center justify-center overflow-hidden rounded-lg text-xs font-bold text-white shadow-soft transition-colors duration-300 after:absolute after:-left-1 after:-top-1 after:h-[calc(100%_+_8px)] after:w-[calc(100%_+_8px)] after:bg-black/10 after:content-['']"
-        @mousedown="startDrag"
-      />
-      <slot />
-    </template>
+    <slot />
   </div>
 </template>
 
@@ -40,6 +27,8 @@ const props = defineProps({
   draggableId: { type: String, default: '' },
   isNoneStyle: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  dragEnabled: { type: Boolean, default: true },
+  rightOffset: { type: Number, default: null },
 })
 
 const emit = defineEmits(['drag', 'drag-start', 'drag-end'])
@@ -59,6 +48,13 @@ onMounted(async () => {
     elementSize.value = {
       width: rect.width,
       height: rect.height,
+    }
+
+    if (props.rightOffset !== null) {
+      dragPosition.value.x = Math.max(
+        16,
+        window.innerWidth - rect.width - props.rightOffset
+      )
     }
 
     dragPosition.value = DraggableRegistry.placeCollisionFree(
@@ -102,7 +98,13 @@ watch(
 )
 
 const startDrag = (event: MouseEvent) => {
-  if (!draggableElement.value || props.disabled) return
+  if (!draggableElement.value || props.disabled || !props.dragEnabled) return
+  if (
+    event.target instanceof Element &&
+    event.target.closest('button, a, input, textarea, select, [data-no-drag]')
+  ) {
+    return
+  }
   isDragging.value = true
   startPos.value = {
     x: event.clientX,

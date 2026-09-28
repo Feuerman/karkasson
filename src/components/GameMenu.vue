@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-4 left-4 z-[9998]">
+  <div>
     <UDropdownMenu
       :items="dropdownItems"
       :content="{ side: 'top', sideOffset: 8, collisionPadding: 8 }"

@@ -25,18 +25,6 @@
           </UBadge>
         </div>
       </div>
-      <UButton
-        v-if="!showLobby"
-        color="success"
-        icon="i-lucide-arrow-left"
-        class="btn-primary-action group fixed right-8 top-8 z-[9999] min-h-11 cursor-pointer gap-2.5 rounded-xl px-3 py-1.5 text-base shadow-strong"
-        @click="goInLobby"
-      >
-        <span
-          class="block w-0 overflow-hidden whitespace-nowrap text-center transition-[width] duration-200 group-hover:w-[145px] group-focus-visible:w-[145px]"
-          >Выйти из игры</span
-        >
-      </UButton>
       <GameLobby
         v-if="showLobby"
         :game="gameState"
@@ -51,13 +39,20 @@
         @create-game="createGame"
         @update-games-list="getGamesList"
       />
-      <GameControls :game-board="gameState" />
+      <GameControls :game-board="gameState" :drag-enabled="isLayoutEditMode" />
       <GameActionsHistory
         :game-board="gameState"
+        :drag-enabled="isLayoutEditMode"
         @highlight-object="highlightObject"
       />
-      <GamePlacingFollowers :game-board="gameState" />
-      <GameAbbotRecall :game-board="gameState" />
+      <GamePlacingFollowers
+        :game-board="gameState"
+        :drag-enabled="isLayoutEditMode"
+      />
+      <GameAbbotRecall
+        :game-board="gameState"
+        :drag-enabled="isLayoutEditMode"
+      />
       <Draggable
         v-if="!gameState.isPlacingFollower && !gameState.gameIsEnded"
         is-none-style
@@ -163,6 +158,7 @@
                 <TileView
                   :tile="gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]"
                   :followers="gameState.placedFollowers"
+                  :players="gameState.players"
                   :highlight-points="highlightPoints"
                   :size="115"
                 />
@@ -181,7 +177,37 @@
       >
         100%
       </UButton>
-      <GameMenu :items="menuItems" @select="onMenuSelect" />
+      <div class="fixed bottom-4 left-4 z-[9998] flex items-center gap-2">
+        <GameMenu :items="menuItems" @select="onMenuSelect" />
+        <UButton
+          v-if="!showLobby"
+          color="primary"
+          :icon="
+            isLayoutEditMode ? 'i-lucide-check' : 'i-lucide-panels-top-left'
+          "
+          :aria-pressed="isLayoutEditMode"
+          :aria-label="
+            isLayoutEditMode ? 'Завершить настройку окон' : 'Настроить окна'
+          "
+          class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
+          @click="isLayoutEditMode = !isLayoutEditMode"
+        >
+          <span class="hidden sm:inline">
+            {{ isLayoutEditMode ? 'Готово' : 'Настроить окна' }}
+          </span>
+        </UButton>
+        <UButton
+          v-if="!showLobby"
+          color="primary"
+          icon="i-lucide-arrow-left"
+          aria-label="Выйти из игры"
+          title="Выйти из игры"
+          class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
+          @click="goInLobby"
+        >
+          <span class="hidden sm:inline">Выйти из игры</span>
+        </UButton>
+      </div>
       <RulesPanel
         v-if="rulesDocument"
         v-model:open="showRules"
@@ -294,6 +320,7 @@ const EMPTY_TILE: ITile = {
 const localCurrentTile = ref<ITile>({ ...EMPTY_TILE })
 
 const showLobby = ref(true)
+const isLayoutEditMode = ref(false)
 
 watch(
   () => [gameState.value.isPlacingFollower, localCurrentTile.value.id],

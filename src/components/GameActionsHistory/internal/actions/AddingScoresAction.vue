@@ -10,9 +10,12 @@
       :key="playerId"
     >
       <PlayerName :color="playerColor(playerId)">
-        {{ playerName(playerId) }} — {{ score ?? 0 }}
-        {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
+        {{ playerName(playerId) }}
       </PlayerName>
+      <strong class="text-[.95rem] font-bold text-text">
+        — {{ score ?? 0 }}
+        {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
+      </strong>
     </span>
   </ActionRow>
 </template>

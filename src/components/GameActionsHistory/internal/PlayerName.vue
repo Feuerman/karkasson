@@ -1,5 +1,7 @@
 <template>
-  <span :class="playerTextColorClass(color)"><slot /></span>
+  <span :class="playerTextColorClass(color)" class="text-[.95rem] font-bold"
+    ><slot
+  /></span>
 </template>
 
 <script setup lang="ts">
