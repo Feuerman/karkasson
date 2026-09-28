@@ -108,6 +108,7 @@ describe('Сад (оба игрока-человека, фиксированна
 
     // Обычный подданный на сад не ставится: ход пропускается, фишка не списана
     stashDeck(game)
+    game.availableFollowersPlaces = [gardenPlace!]
     game.placeFollower(gardenPlace!, 'follower')
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,

@@ -92,6 +92,10 @@ export interface Tile {
   withShield?: boolean
   isMonastery?: boolean
   hasGarden?: boolean
+  /** Связанные между собой участки дороги на этой плитке. */
+  roadGroups?: SideName[][]
+  /** Связанные между собой участки города на этой плитке. */
+  cityGroups?: SideName[][]
 }
 
 export interface GridTile extends Tile {

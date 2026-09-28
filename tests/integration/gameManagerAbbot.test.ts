@@ -153,6 +153,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     expect(monasteryPlace).toBeTruthy()
 
     stashDeck(game)
+    game.availableFollowersPlaces = [roadPlace!]
     // Попытка поставить аббата на дорогу (не монастырь)
     game.placeFollower(roadPlace!, 'abbot')
 
@@ -176,6 +177,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     const monasteryPlace = game.availableFollowersPlaces.find(
       (place) => place.temporaryObject.isMonastery
     )!
+    game.availableFollowersPlaces = [monasteryPlace]
     stashDeck(game)
     game.placeFollower(monasteryPlace, 'abbot')
 
@@ -258,6 +260,7 @@ describe('Аббат (оба игрока-человека, фиксирован
       (place) => place.temporaryObject.isMonastery
     )!
     stashDeck(game)
+    game.availableFollowersPlaces = [monasteryPlace]
     game.placeFollower(monasteryPlace, 'abbot')
 
     // Заполняем 3×3 вокруг аббата: ходы чередуются, Боб и Алиса
@@ -291,7 +294,7 @@ describe('Аббат (оба игрока-человека, фиксирован
         : placeMonastery(game, turn.row, turn.col)
       expect(placed).toBe(true)
       stashDeck(game)
-      game.skipFollower()
+      if (game.isPlacingFollower) game.skipFollower()
     }
 
     // Завершение НЕ начислило очков Алисе и не вернуло аббата

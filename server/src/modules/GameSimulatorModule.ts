@@ -96,6 +96,8 @@ export class GameSimulatorModule {
           ...tile,
           rotation: (tile.rotation + rotation) % 360,
           sides: rotatedSides,
+          roadGroups: this.gameState.rotateTileGroups(tile.roadGroups, turns),
+          cityGroups: this.gameState.rotateTileGroups(tile.cityGroups, turns),
         }
 
         // Сначала оцениваем ход без подданного
