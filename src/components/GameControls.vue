@@ -1,9 +1,10 @@
 <template>
   <Draggable
     v-if="gameBoard.gameIsStarted"
-    draggable-id="game-controls"
-    :initial-x="600"
-    :initial-y="10"
+    draggable-id="player-stats"
+    :initial-x="16"
+    :initial-y="16"
+    :drag-enabled="dragEnabled"
   >
     <GameStats :game-board="gameBoard" />
   </Draggable>
@@ -17,6 +18,10 @@ defineProps({
   gameBoard: {
     type: Object as () => IGameBoard,
     required: true,
+  },
+  dragEnabled: {
+    type: Boolean,
+    default: false,
   },
 })
 </script>

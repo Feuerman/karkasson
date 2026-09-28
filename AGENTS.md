@@ -33,6 +33,15 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 Перед завершением задачи обязательно прогнать `pnpm run type-check` и
 `pnpm test`; по возможности — `pnpm run lint`.
 
+Для **каждого изменения** перед завершением проверь достаточность тестов:
+сопоставь изменённое поведение с существующими проверками, добавь или
+обнови тесты для поведения, которое ими не покрыто, и затем запусти подходящие
+проверки. Ориентируйся на регрессионное поведение, а не только на успешную
+компиляцию. Для документационных и конфигурационных изменений оцени тесты по
+затрагиваемым последствиям; если исполняемого поведения нет, укажи это в
+итоговом отчёте. Обязательные `type-check` и полный `pnpm test` остаются
+неизменными.
+
 ## Рабочий подход
 
 - При работе с клиентом действуй как эксперт по фронтенд-разработке на Vue 3.
@@ -43,6 +52,11 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   предложением.
 - Перед реализацией изучи существующие решения и следуй принятым в проекте
   паттернам. Предпочитай переиспользовать код, а не дублировать его.
+- Перед сдачей сверь каждый изменённый сценарий с тестами. Чистые функции
+  проверяй unit-тестами, серверные сценарии — интеграционными тестами, а
+  клиентские взаимодействия — соответствующими проверками поведения; при
+  обнаружении пробела сначала дополни тесты, а не считай type-check/build
+  достаточным подтверждением.
 - Учитывай вероятные следующие изменения: делай решение пригодным для
   повторного использования, но не усложняй его абстракциями без конкретной
   необходимости.
@@ -153,7 +167,7 @@ pnpm, деплой клиента — GitHub Pages через Actions.
 | `types/game.ts` | `IGameBoard = GameData & { isMyTurn }`, `IGame`, `LobbyGame`, `ITile` |
 | `data/tiles.ts` | **зеркало** `server/src/data/tiles.ts` |
 | `rules/` | данные панели «Правила игры»: `types.ts`, `baseGame.ts`, `examples.ts` |
-| `utils/` | `tiles.ts` (`TILE_SIZE`, повороты), `board.ts` (`scrollToTile`/`pulseTile`), `labels.ts` (подписи/иконки), `colors.ts` (маппер цвета в Tailwind-классы), `common.ts` (`notifyError`, `clamp`, `pluralForm`, `countBy`) |
+| `utils/` | `tiles.ts` (`TILE_SIZE`, повороты), `board.ts` (`scrollToTile`/`pulseTile`), `labels.ts` (подписи/иконки), `colors.ts` (цвета игроков для UI и canvas), `followerPositions.ts` (расположение маркеров на тайлах с учётом поворота), `common.ts` (`notifyError`, `clamp`, `pluralForm`, `countBy`) |
 | `assets/main.css` | дизайн-токены Tailwind v4 `@theme`, классы `panel-parchment`/`btn-stone`/`board-surface`/`title-medieval`, цвета `--color-player-*` |
 
 #### Компоненты (`src/components/`)
@@ -163,8 +177,12 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   `LobbyHeader`, `LoadingState`, `helpers.ts` — чистые функции).
 - **`GameActionsHistory/`** — лента действий: `GameActionsHistory.vue` +
   `internal/actions/` (`PlaceTileAction`, `PlaceFollowerAction`,
-  `BackFollowerAction`, `AddingScoresAction`), `ActionRow`,
+  `BackFollowerAction`, `AddingScoresAction`), сворачиваемая и прокручиваемая
+  лента, `ActionRow`,
   `ActionCoordinates`, `PlayerName`, `players.ts`.
+- **`Draggable.vue`** — перемещаемые игровые панели; перетаскивание
+  включается в режиме настройки окон, интерактивные контролы и содержимое с
+  `data-no-drag` не начинают drag.
 - **Прочее**: `GameControls.vue` (панель управления), `GameStats.vue` /
   `GameStatsCollapsed.vue`, `GamePlacingFollowers.vue` (выбор точки/типа
   фишки), `GameAbbotRecall.vue` (отзыв аббата), `TileView.vue` (рендер тайла
@@ -334,7 +352,14 @@ pnpm, деплой клиента — GitHub Pages через Actions.
   (`Server`, `Client`, `Changelog:`). Conventional commits **не используются**.
 - **Версии и CHANGELOG**: SemVer в `package.json`; каждый релиз — запись в
   `CHANGELOG.md` (Keep a Changelog, Russian), обычно коммитом `Changelog: ...`.
-  Значимое изменение без записи — недоделка.
+  Перед каждым пушем изменений продукта (игровое поведение, клиентский
+  интерфейс или пользовательские возможности — то есть почти все обычные
+  изменения) обнови changelog, подними версию по SemVer и включи релизный
+  коммит `Changelog: Выпустить версию X.Y.Z` в тот же push. Только изменения,
+  целиком ограниченные документацией, внутренним tooling или техническим
+  обслуживанием без влияния на продукт, могут не требовать нового релиза;
+  если есть сомнение — выпускай patch-версию. Значимое изменение без записи —
+  недоделка.
 - **Типы клиентских сокетов** — в `src/types/socket.ts`; при добавлении
   события обновить: клиентский метод в `GameService`, обработчик на сервере,
   тип.
