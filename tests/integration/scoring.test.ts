@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { IGameBoard } from '../../server/src/modules/GameManager'
 import { TestClient } from './helpers/client'
 import {
@@ -7,6 +7,8 @@ import {
   createLobbyWithSingleHuman,
   playFullGame,
   verifyScoringAgainstServer,
+  waitForHumanTurnOrEnd,
+  type GameStateSnapshot,
 } from './helpers/gameplay'
 import {
   startTestServer,
@@ -27,6 +29,27 @@ describe('Подсчёт очков и полная партия', () => {
       await stopTestServer(server)
       server = undefined
     }
+  })
+
+  it('продолжает ждать после интервала тишины до наступления хода человека', async () => {
+    const game = {
+      gameIsStarted: true,
+      gameIsEnded: false,
+      currentPlayer: { id: 1 },
+      isPlacingFollower: false,
+    } as GameStateSnapshot
+    let waitCount = 0
+    const waitForEvent = vi.fn(async () => {
+      waitCount++
+      if (waitCount === 2) return game
+      throw new Error('quiet interval elapsed')
+    })
+    const client = { waitForEvent } as unknown as TestClient
+
+    await expect(
+      waitForHumanTurnOrEnd(client, 1, { quietMs: 10, timeoutMs: 100 })
+    ).resolves.toBe(game)
+    expect(waitCount).toBe(3)
   })
 
   /** Ожидает, пока сохранённая в БД игра не пройдёт проверку */
