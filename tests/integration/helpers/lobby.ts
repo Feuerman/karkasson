@@ -28,6 +28,7 @@ export interface TestGameData {
   } | null
   gameIsStarted: boolean
   gameIsEnded: boolean
+  finalScoringEnabled: boolean
   moveCounter: number
   scores: Record<string, number>
   tilesList: unknown[]

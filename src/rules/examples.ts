@@ -1,4 +1,4 @@
-import { tiles } from '@/data/tiles'
+import { gardenTileCounts, tiles } from '@/data/tiles'
 import type { TileSideType } from '@server/modules/types'
 import type {
   RulesGridCell,
@@ -45,6 +45,17 @@ export const rot = (id: string, rotation: RulesRotation = 0): RulesTileRef => {
     throw new Error(`[rules] Неизвестный id тайла в примере: ${id}`)
   }
   return { id, rotation, imgUrl: data.imgUrl }
+}
+
+/** Тайл с садом для наглядных примеров правил. */
+export const garden = (
+  id: string,
+  rotation: RulesRotation = 0
+): RulesTileRef => {
+  if (!gardenTileCounts[id]) {
+    throw new Error(`[rules] Для тайла ${id} не предусмотрен сад`)
+  }
+  return { ...rot(id, rotation), hasGarden: true }
 }
 
 /** Клетка сетки из тайла с произвольным набором маркеров. */
@@ -141,9 +152,13 @@ export const validateExampleGrid = (
       ;(tile.markers ?? []).forEach((marker) => {
         if (marker.kind === 'follower' || marker.kind === 'no') {
           if (marker.direction === 'center') {
-            if (!tileDataById(tile.id)?.isMonastery) {
+            if (
+              !tileDataById(tile.id)?.isMonastery &&
+              !tile.hasGarden &&
+              !gardenTileCounts[tile.id]
+            ) {
               errors.push(
-                `[${exampleId}] маркер «center» на (${x},${y}) — тайл не монастырь`
+                `[${exampleId}] маркер «center» на (${x},${y}) — тайл не монастырь и не сад`
               )
             }
           } else {

@@ -15,7 +15,7 @@ export interface IGameService {
   deviceId: string
   connect: () => void
   disconnect: () => void
-  createGame: () => Promise<GameData>
+  createGame: (options?: CreateGameOptions) => Promise<GameData>
   joinGame: (gameId: string, playerName?: string) => Promise<GameData>
 }
 
@@ -24,6 +24,10 @@ export type SocketPayload = Record<string, unknown>
 export interface GameServiceOptions {
   serverUrl?: string
   deviceId?: string
+}
+
+export interface CreateGameOptions {
+  finalScoringEnabled?: boolean
 }
 
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
@@ -161,8 +165,10 @@ export class GameService implements IGameService {
     return this.gamesList
   }
 
-  async createGame() {
-    const response = await this.emitAck<CreateGameResponse>('createGame')
+  async createGame(options: CreateGameOptions = {}) {
+    const response = await this.emitAck<CreateGameResponse>('createGame', {
+      finalScoringEnabled: options.finalScoringEnabled,
+    })
     const { gameId, game } = response
     this.gameId = gameId
     return game

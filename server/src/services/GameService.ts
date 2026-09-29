@@ -39,6 +39,7 @@ export interface GameData {
   currentPlayerIndex: number
   availableFollowersPlaces: IGameBoard['availableFollowersPlaces']
   gameIsEnded: boolean
+  finalScoringEnabled: boolean
   moveCounter: number
   id: string | undefined
   roomCode?: string
@@ -150,7 +151,10 @@ export class GameService {
     return trackedSave
   }
 
-  createLobby(socketId: string): IGameBoard & { id: string } {
+  createLobby(
+    socketId: string,
+    options: { finalScoringEnabled?: boolean } = {}
+  ): IGameBoard & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
     const deviceId = this.getDeviceBySocketId(socketId)
 
@@ -163,7 +167,11 @@ export class GameService {
       score: 0,
     }))
 
-    const game = new GameManager({ players, startImmediately: false })
+    const game = new GameManager({
+      players,
+      startImmediately: false,
+      finalScoringEnabled: options.finalScoringEnabled,
+    })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
     this.games[gameId] = game
@@ -262,7 +270,10 @@ export class GameService {
     if (!game) return undefined
 
     const activePlayers = game.players.filter((p) => Boolean(p.name))
-    const newGame = new GameManager({ players: activePlayers })
+    const newGame = new GameManager({
+      players: activePlayers,
+      finalScoringEnabled: game.finalScoringEnabled,
+    })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
     this.games[gameId] = newGame
@@ -423,6 +434,7 @@ export class GameService {
       currentPlayerIndex: game.currentPlayerIndex,
       availableFollowersPlaces: game.availableFollowersPlaces,
       gameIsEnded: game.gameIsEnded,
+      finalScoringEnabled: game.finalScoringEnabled,
       moveCounter: game.moveCounter,
       id: game.id,
       roomCode: game.roomCode,

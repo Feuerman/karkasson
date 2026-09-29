@@ -38,6 +38,16 @@ test('игрок создаёт лобби, занимает слот и нач�
     })
     await expect(createGameButton).toBeVisible()
     await createGameButton.click()
+    await expect(
+      page.getByRole('heading', { name: 'Создание игры' })
+    ).toBeVisible()
+
+    const finalScoringCheckbox = page.getByRole('checkbox', {
+      name: 'Финальный подсчёт очков',
+    })
+    await expect(finalScoringCheckbox).not.toBeChecked()
+    await finalScoringCheckbox.check()
+    await page.getByRole('button', { name: 'Создать игру' }).click()
 
     await expect(
       page.getByRole('button', { name: 'Начать игру' })
@@ -46,6 +56,7 @@ test('игрок создаёт лобби, занимает слот и нач�
       page.getByRole('heading', { name: /Комната № \d{6}/ })
     ).toBeVisible()
     await expect.poll(() => gameServer.gameService.allGames().length).toBe(1)
+    expect(gameServer.gameService.allGames()[0]?.finalScoringEnabled).toBe(true)
 
     const availableSlots = page.getByRole('checkbox')
     await expect(availableSlots).toHaveCount(8)
@@ -60,6 +71,7 @@ test('игрок создаёт лобби, занимает слот и нач�
       .toBe(4)
 
     await page.getByRole('button', { name: 'Начать игру' }).click()
+    await expect(page.getByText('Ваш ход')).toBeVisible()
     await expect(
       page.locator("[data-row-index='15'][data-tile-index='15']")
     ).toBeVisible()
@@ -90,15 +102,21 @@ test('игрок находит комнату и подключается по 
     await creatorPage
       .getByRole('button', { name: 'Создать новую игру' })
       .click()
+    await creatorPage.getByRole('button', { name: 'Создать игру' }).click()
     await expect(
       creatorPage.getByRole('heading', { name: /Комната № \d{6}/ })
     ).toBeVisible()
 
     const roomCode = gameServer.gameService.allGames()[0]?.roomCode
     if (!roomCode) throw new Error('Номер комнаты не создан')
-    await creatorPage.close()
+    const creatorDeviceId = await creatorPage.evaluate(() =>
+      localStorage.getItem('deviceId')
+    )
 
     const guestPage = await guestContext.newPage()
+    await guestPage.addInitScript(() => {
+      localStorage.setItem('deviceId', 'unrelated-guest-device')
+    })
     await guestPage.goto(frontend.url)
     const roomSearch = guestPage.getByRole('searchbox', {
       name: 'Найти комнату по номеру',
@@ -109,6 +127,13 @@ test('игрок находит комнату и подключается по 
     await expect(
       guestPage.getByRole('heading', { name: `Комната № ${roomCode}` })
     ).toBeVisible()
+    const guestDeviceId = await guestPage.evaluate(() =>
+      localStorage.getItem('deviceId')
+    )
+    expect(guestDeviceId).not.toBe(creatorDeviceId)
+    await expect(
+      guestPage.getByRole('button', { name: 'Начать игру' })
+    ).toHaveCount(0)
   } finally {
     await creatorContext.close()
     await guestContext.close()

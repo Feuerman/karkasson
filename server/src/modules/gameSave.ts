@@ -1,6 +1,6 @@
 import { GameManager, type IGameBoard } from './GameManager'
 
-export const GAME_SAVE_SCHEMA_VERSION = 1
+export const GAME_SAVE_SCHEMA_VERSION = 2
 
 interface VersionedGameSave {
   schemaVersion: number
@@ -73,6 +73,10 @@ function restoreLegacyLobby(value: Record<string, unknown>): IGameBoard {
   const lobby = new GameManager({
     players: value.players as IGameBoard['players'],
     startImmediately: false,
+    finalScoringEnabled:
+      typeof value.finalScoringEnabled === 'boolean'
+        ? value.finalScoringEnabled
+        : false,
   })
   lobby.id = value.id as string
   return lobby
@@ -195,11 +199,18 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   }
 
   validatePlayers(value)
+  if (
+    value.finalScoringEnabled !== undefined &&
+    typeof value.finalScoringEnabled !== 'boolean'
+  ) {
+    throw new Error('Game save contains an invalid final scoring option')
+  }
   if (isLegacyLobby(value)) return restoreLegacyLobby(value)
 
   validateTileLists(value)
   validateObjectCollections(value)
   validateRequiredGameState(value)
+  value.finalScoringEnabled ??= false
   return value as unknown as IGameBoard
 }
 
@@ -218,7 +229,10 @@ export function deserializeGameState(raw: unknown): IGameBoard {
   if (!isRecord(parsed)) throw new Error('Game save must be an object')
 
   if ('schemaVersion' in parsed) {
-    if (parsed.schemaVersion !== GAME_SAVE_SCHEMA_VERSION) {
+    if (
+      parsed.schemaVersion !== 1 &&
+      parsed.schemaVersion !== GAME_SAVE_SCHEMA_VERSION
+    ) {
       throw new Error(
         `Unsupported game save schema version: ${String(parsed.schemaVersion)}`
       )
