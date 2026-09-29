@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
 import {
   calcCityScore,
   calcGardenPoints,
@@ -49,6 +50,59 @@ function follower(playerId: number, objectId: string) {
 }
 
 describe('calcRoadScore', () => {
+  it('удваивает очки завершённой дороги с таверной только в дополнении', () => {
+    const board = boardOf([
+      [0, 0],
+      [0, 1],
+    ])
+    const road: BaseObject = {
+      id: 'inn-road',
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+      followers: [follower(1, 'inn-road')],
+      hasInn: true,
+    }
+    const scores = scoresOf()
+
+    expect(calcRoadScore(board, road, scores, true, false).total).toBe(2)
+    expect(calcRoadScore(board, road, scores, true, true).total).toBe(4)
+  })
+
+  it('незавершённая дорога с таверной не приносит финальных очков', () => {
+    const road: BaseObject = {
+      id: 'unfinished-inn-road',
+      points: [{ x: 0, y: 0 }],
+      followers: [follower(1, 'unfinished-inn-road')],
+      hasInn: true,
+    }
+    const scores = scoresOf()
+
+    expect(
+      calcRoadScore(boardOf([[0, 0]]), road, scores, false, true).total
+    ).toBe(0)
+    expect(scores[1]).toBe(0)
+  })
+
+  it('большой подданный считается за два только для включённого дополнения', () => {
+    const road: BaseObject = {
+      id: 'majority-road',
+      points: [{ x: 0, y: 0 }],
+      followers: [
+        { ...follower(1, 'majority-road'), isBigFollower: true },
+        follower(2, 'majority-road'),
+      ],
+    }
+
+    expect(
+      calcRoadScore(boardOf([[0, 0]]), road, {}, true, false, false).players
+    ).toEqual({ 1: 1, 2: 1 })
+    expect(
+      calcRoadScore(boardOf([[0, 0]]), road, {}, true, true, true).players
+    ).toEqual({ 1: 1 })
+  })
+
   it('дорога из 3 тайлов с одним подданным даёт 3 очка владельцу', () => {
     const board = boardOf([
       [0, 0],
@@ -156,6 +210,61 @@ describe('calcRoadScore', () => {
 })
 
 describe('calcCityScore', () => {
+  it('считает герб только в соответствующей группе города на IAC-P', () => {
+    const tileDefinition = innsAndCathedralsTiles.find(
+      ({ id }) => id === 'IAC-P'
+    )
+    if (!tileDefinition) throw new Error('Tile IAC-P is missing')
+    const board = boardOf([
+      [0, 0, { ...tileDefinition, rotation: 0, x: 0, y: 0 }],
+    ])
+    const shieldedCity: BaseObject = {
+      id: 'shielded-city',
+      points: [{ x: 0, y: 0, direction: 'north' }],
+      followers: [follower(1, 'shielded-city')],
+    }
+    const otherCity: BaseObject = {
+      id: 'other-city',
+      points: [{ x: 0, y: 0, direction: 'south' }],
+      followers: [follower(2, 'other-city')],
+    }
+
+    expect(calcCityScore(board, shieldedCity, {}).total).toBe(4)
+    expect(calcCityScore(board, otherCity, {}).total).toBe(2)
+  })
+
+  it('утраивает завершённый город с собором с учётом гербов', () => {
+    const city: BaseObject = {
+      id: 'cathedral-city',
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+      followers: [follower(1, 'cathedral-city')],
+      hasCathedral: true,
+    }
+    const board = boardOf([
+      [0, 0],
+      [0, 1, { withShield: true }],
+    ])
+
+    expect(calcCityScore(board, city, {}, true, false).total).toBe(6)
+    expect(calcCityScore(board, city, {}, true, true).total).toBe(18)
+  })
+
+  it('незавершённый город с собором не приносит финальных очков', () => {
+    const city: BaseObject = {
+      id: 'unfinished-cathedral',
+      points: [{ x: 0, y: 0 }],
+      followers: [follower(1, 'unfinished-cathedral')],
+      hasCathedral: true,
+    }
+
+    expect(calcCityScore(boardOf([[0, 0]]), city, {}, false, true).total).toBe(
+      0
+    )
+  })
+
   it('город из 1 тайла без герба даёт 2 очка', () => {
     const board = boardOf([[0, 0]])
     const city: BaseObject = {

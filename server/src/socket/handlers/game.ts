@@ -6,6 +6,7 @@ import type {
 } from '../../modules/types'
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
+import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 
@@ -32,7 +33,11 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
   const currentTile = game.currentTile
   if (!currentTile || ![0, 90, 180, 270].includes(rotation)) return false
 
-  const definition = tiles.find((tile) => tile.id === currentTile.id)
+  const definition =
+    tiles.find((tile) => tile.id === currentTile.id) ??
+    (game.rules.expansions.innsAndCathedrals
+      ? innsAndCathedralsTiles.find((tile) => tile.id === currentTile.id)
+      : undefined)
   if (!definition) return false
 
   const quarterTurns = rotation / 90
@@ -45,6 +50,10 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
     sides,
     roadGroups: rotateTileGroups(definition.roadGroups, quarterTurns),
     cityGroups: rotateTileGroups(definition.cityGroups, quarterTurns),
+    cityShieldGroups: rotateTileGroups(
+      definition.cityShieldGroups,
+      quarterTurns
+    ),
     hasGarden: currentTile.hasGarden,
   }
   game.currentTile = { ...currentTile, ...rotatedTile }
@@ -219,7 +228,10 @@ export function registerGameHandlers({
             candidate.point.direction === place?.point?.direction &&
             candidate.point.pointType === place?.point?.pointType
         )
-        if (!availablePlace || !['follower', 'abbot'].includes(followerType)) {
+        if (
+          !availablePlace ||
+          !['follower', 'bigFollower', 'abbot'].includes(followerType)
+        ) {
           throw new Error('Invalid follower placement')
         }
         if (
@@ -232,6 +244,12 @@ export function registerGameHandlers({
           throw new Error(
             'An abbot can only be placed on a monastery or garden'
           )
+        }
+        if (
+          followerType === 'bigFollower' &&
+          !game.rules.expansions.innsAndCathedrals
+        ) {
+          throw new Error('The big follower expansion is not enabled')
         }
         if (
           followerType === 'follower' &&

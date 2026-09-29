@@ -28,6 +28,9 @@ export interface TileSnapshot {
   withShield?: boolean
   isMonastery?: boolean
   hasGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
+  expansion?: 'innsAndCathedrals'
   imgUrl?: string
 }
 
@@ -45,6 +48,7 @@ export interface ObjectFollowerSnapshot {
   objectId: string
   point: ObjectPoint
   isAbbot?: boolean
+  isBigFollower?: boolean
 }
 
 export interface ObjectScoreSnapshot {
@@ -59,6 +63,9 @@ export interface BaseObjectSnapshot {
   followers: ObjectFollowerSnapshot[]
   isMonastery?: boolean
   isGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
+  expansion?: 'innsAndCathedrals'
   score?: ObjectScoreSnapshot
 }
 
@@ -85,6 +92,7 @@ export interface PlacedFollowerSnapshot {
 
 export interface FollowerCountSnapshot {
   ordinaryFollowers: number
+  bigFollowers?: number
   monks: number
 }
 

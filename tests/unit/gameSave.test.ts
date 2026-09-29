@@ -20,6 +20,19 @@ describe('Схема сохранения игры', () => {
     expect(saved.state.id).toBe('game-1')
   })
 
+  it('сохраняет набор тайлов и фишек выбранного дополнения', () => {
+    const game = new GameManager({
+      players: [],
+      startImmediately: false,
+      innsAndCathedralsEnabled: true,
+    })
+    game.id = 'expansion-save'
+    const restored = deserializeGameState(serializeGameState(game))
+
+    expect(restored.rules.expansions.innsAndCathedrals).toBe(true)
+    expect(restored.tilesList).toHaveLength(90)
+  })
+
   it('читает legacy-сохранение без envelope версии и добавляет gardens', () => {
     const game = new GameManager({ players: [] })
     game.id = 'legacy-game'
@@ -35,6 +48,7 @@ describe('Схема сохранения игры', () => {
     expect(restored.temporaryObjects.gardens).toEqual([])
     expect(restored.completedObjects.gardens).toEqual([])
     expect(restored.finalScoringEnabled).toBe(false)
+    expect(restored.rules.expansions.innsAndCathedrals).toBe(false)
   })
 
   it('читает сохранение версии 1 и выключает новую настройку по умолчанию', () => {
@@ -52,6 +66,7 @@ describe('Схема сохранения игры', () => {
     })
 
     expect(restored.finalScoringEnabled).toBe(false)
+    expect(restored.rules.expansions.innsAndCathedrals).toBe(false)
   })
 
   it('восстанавливает legacy-лобби, сохранённое до появления полного состояния', () => {
@@ -117,6 +132,19 @@ describe('Схема сохранения игры', () => {
     >
     pools['1'].ordinaryFollowers = -1
     expect(() => deserializeGameState(validState)).toThrow('follower pool')
+
+    const invalidBigFollowerPool = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    const invalidPools = invalidBigFollowerPool.playersFollowers as Record<
+      string,
+      Record<string, number>
+    >
+    invalidPools['1'].bigFollowers = -1
+    expect(() => deserializeGameState(invalidBigFollowerPool)).toThrow(
+      'follower pool'
+    )
   })
 
   it.each([

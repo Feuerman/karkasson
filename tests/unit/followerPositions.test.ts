@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { tiles } from '../../server/src/data/tiles'
+import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
 import {
   getFollowerPosition,
   isTileId,
   type TileId,
 } from '../../src/utils/followerPositions'
 
-const tileIds = tiles.map((tile) => tile.id)
+const allTiles = [...tiles, ...innsAndCathedralsTiles]
+const tileIds = allTiles.map((tile) => tile.id)
 const directions = ['north', 'east', 'south', 'west'] as const
 
 function rotatePosition(
@@ -46,12 +48,13 @@ function getUnrotatedDirection(
 
 describe('follower positions', () => {
   it('has a position mapping for each base tile image', () => {
-    expect(tileIds).toHaveLength(24)
+    expect(tiles).toHaveLength(24)
+    expect(innsAndCathedralsTiles).toHaveLength(18)
     tileIds.forEach((tileId) => expect(isTileId(tileId)).toBe(true))
   })
 
   it('maps every road and city entry to a matching side on the source tile', () => {
-    for (const tile of tiles) {
+    for (const tile of allTiles) {
       const tileId = tile.id as TileId
       for (const [direction, featureType] of Object.entries(tile.sides)) {
         if (featureType !== 'road' && featureType !== 'city') continue
@@ -76,7 +79,7 @@ describe('follower positions', () => {
   })
 
   it('rotates every road and city marker with its tile', () => {
-    for (const tile of tiles) {
+    for (const tile of allTiles) {
       const tileId = tile.id as TileId
       for (const direction of directions) {
         const featureType = tile.sides[direction]

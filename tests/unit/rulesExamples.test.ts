@@ -23,6 +23,18 @@ function collectExamples(docs: { sections: { blocks: unknown[] }[] }[]) {
 }
 
 describe('примеры правил', () => {
+  it('делит правила на базовую игру и отдельный раздел дополнения', () => {
+    expect(baseGameRules.sections.map(({ title }) => title)).toEqual([
+      'Базовая игра',
+      'Таверны и соборы',
+    ])
+
+    const expansionSection = baseGameRules.sections[1]
+    expect(
+      expansionSection?.blocks.some((block) => block.type === 'example')
+    ).toBe(true)
+  })
+
   it('все сетки примеров корректны (грани совпадают, маркеры осмысленны)', () => {
     const examples = collectExamples([baseGameRules])
     expect(examples.length).toBeGreaterThan(0)

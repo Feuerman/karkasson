@@ -108,6 +108,18 @@
           Если включить опцию, в конце партии очки начислятся за незавершённые
           дороги, города, монастыри и сады. По умолчанию выключено.
         </p>
+        <UCheckbox
+          label="Таверны и соборы"
+          color="primary"
+          :model-value="innsAndCathedralsEnabled"
+          :ui="{ label: '!text-base' }"
+          class="mt-4 text-base text-text"
+          @update:model-value="innsAndCathedralsEnabled = Boolean($event)"
+        />
+        <p class="mt-2 text-sm leading-relaxed text-text-muted">
+          Добавляет 18 тайлов дополнения и большого подданного. По умолчанию
+          выключено.
+        </p>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-3">
@@ -146,6 +158,16 @@
         Финальный подсчёт очков:
         <strong class="text-text">
           {{ currentGame.finalScoringEnabled ? 'включён' : 'выключен' }}
+        </strong>
+      </p>
+      <p class="text-center text-sm text-text-muted">
+        Таверны и соборы:
+        <strong class="text-text">
+          {{
+            currentGame.rules?.expansions.innsAndCathedrals
+              ? 'включены'
+              : 'выключены'
+          }}
         </strong>
       </p>
 
@@ -191,6 +213,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import GameService from '@/modules/GameService'
+import type { CreateGameOptions } from '@/modules/GameService'
 import { notifyError } from '@/utils/common'
 import type { IGame, IGameBoard, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
@@ -221,7 +244,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  createGame: [finalScoringEnabled: boolean]
+  createGame: [options: CreateGameOptions]
   joinGame: [gameId: string]
   rejoinGame: [gameId: string]
   leaveGame: []
@@ -247,6 +270,7 @@ const isLobbyCreator = computed(() => {
 const currentPlayerName = ref('')
 const showEndedGames = ref(false)
 const finalScoringEnabled = ref(false)
+const innsAndCathedralsEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const isLoadingGames = ref(true)
@@ -268,7 +292,10 @@ function joinByRoomCode() {
 
 function createGame() {
   isCreateGameModalOpen.value = false
-  emit('createGame', finalScoringEnabled.value)
+  emit('createGame', {
+    finalScoringEnabled: finalScoringEnabled.value,
+    innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,
+  })
 }
 
 onMounted(() => {

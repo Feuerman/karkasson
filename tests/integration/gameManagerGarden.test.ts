@@ -12,7 +12,7 @@ import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 
 function gardenTile(): Tile {
   return {
-    id: 'G',
+    id: 'test-garden',
     rotation: 0,
     sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
     hasGarden: true,
@@ -41,7 +41,7 @@ function makePlayers(): Player[] {
 }
 
 const stashDeck = (game: GameManager) => {
-  game.tilesList = [{ ...gardenTile(), id: 'B', hasGarden: false }]
+  game.tilesList = [{ ...gardenTile(), id: 'test-field', hasGarden: false }]
 }
 
 function placeGarden(game: GameManager, row: number, col: number): boolean {
@@ -91,6 +91,23 @@ describe('Сад (оба игрока-человека, фиксированна
     expect(counts).toEqual({ E: 1, H: 1, I: 1, M: 1, N: 1, R: 1, U: 1, V: 1 })
     // Ни один тайл с садом не является монастырём
     expect(gardenTiles.every((tile) => !tile.isMonastery)).toBe(true)
+  })
+
+  it('добавляет сады дополнения в колоду вместе с базовыми садами', () => {
+    const game = new GameManager({
+      players: makePlayers(),
+      innsAndCathedralsEnabled: true,
+    })
+    const gardenTiles = [...game.tilesList, ...game.tileHistory].filter(
+      (tile) => tile.hasGarden
+    )
+    const counts: Record<string, number> = {}
+    for (const tile of gardenTiles) {
+      counts[tile.id] = (counts[tile.id] ?? 0) + 1
+    }
+
+    expect(gardenTiles).toHaveLength(10)
+    expect(counts).toMatchObject({ 'IAC-B': 1, 'IAC-H': 1 })
   })
 
   it('на сад ставится только аббат: обычный подданный отклоняется', () => {
@@ -173,12 +190,18 @@ describe('Сад (оба игрока-человека, фиксированна
       { row: 17, col: 16 },
     ]
 
-    for (const turn of turns) {
+    for (const [turnIndex, turn] of turns.entries()) {
       stashDeck(game)
+      game.players = [...game.players.slice(0, 2)]
+      game.currentPlayer = game.players[turnIndex % 2 === 0 ? 1 : 0] ?? null
+      game.currentPlayerIndex = turnIndex % 2 === 0 ? 1 : 0
       const placed = turn.sides
         ? placeTileWithSides(game, turn.sides, turn.row, turn.col)
         : placeFieldTile(game, turn.row, turn.col)
-      expect(placed).toBe(true)
+      expect(
+        placed,
+        `failed synthetic turn ${turnIndex}: ${turn.row},${turn.col}, grid=${JSON.stringify(game.tilePlacesStats)}`
+      ).toBe(true)
       if (game.isPlacingFollower) {
         stashDeck(game)
         game.skipFollower()

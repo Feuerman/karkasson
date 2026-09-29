@@ -1,6 +1,14 @@
 import { GameManager, type IGameBoard } from './GameManager'
+import tiles from '../data/tiles'
+import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
+import type { GameRules } from './types'
 
-export const GAME_SAVE_SCHEMA_VERSION = 2
+export const GAME_SAVE_SCHEMA_VERSION = 3
+
+const DEFAULT_RULES: GameRules = {
+  finalScoringEnabled: false,
+  expansions: { innsAndCathedrals: false },
+}
 
 interface VersionedGameSave {
   schemaVersion: number
@@ -78,6 +86,15 @@ function restoreLegacyLobby(value: Record<string, unknown>): IGameBoard {
         ? value.finalScoringEnabled
         : false,
   })
+  const rules = lobby.rules ?? structuredClone(DEFAULT_RULES)
+  rules.finalScoringEnabled = lobby.finalScoringEnabled
+  lobby.rules = rules
+  if (
+    typeof value.finalScoringEnabled === 'boolean' &&
+    typeof lobby.rules === 'object'
+  ) {
+    lobby.rules.finalScoringEnabled = value.finalScoringEnabled
+  }
   lobby.id = value.id as string
   return lobby
 }
@@ -185,7 +202,10 @@ function validateRequiredGameState(value: Record<string, unknown>): void {
         Number.isInteger(pool.ordinaryFollowers) &&
         Number.isInteger(pool.monks) &&
         Number(pool.ordinaryFollowers) >= 0 &&
-        Number(pool.monks) >= 0
+        Number(pool.monks) >= 0 &&
+        (pool.bigFollowers === undefined ||
+          (Number.isInteger(pool.bigFollowers) &&
+            Number(pool.bigFollowers) >= 0))
     )
   ) {
     throw new Error('Game save contains an invalid follower pool')
@@ -211,6 +231,47 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   validateObjectCollections(value)
   validateRequiredGameState(value)
   value.finalScoringEnabled ??= false
+  const rules = isRecord(value.rules) ? value.rules : {}
+  const expansions = isRecord(rules.expansions) ? rules.expansions : {}
+  if (
+    (rules.finalScoringEnabled !== undefined &&
+      typeof rules.finalScoringEnabled !== 'boolean') ||
+    (expansions.innsAndCathedrals !== undefined &&
+      typeof expansions.innsAndCathedrals !== 'boolean')
+  ) {
+    throw new Error('Game save contains invalid rules')
+  }
+  const normalizedRules: GameRules = {
+    finalScoringEnabled: value.finalScoringEnabled === true,
+    expansions: {
+      innsAndCathedrals: expansions.innsAndCathedrals === true,
+    },
+  }
+  value.rules = normalizedRules
+  if (normalizedRules.expansions.innsAndCathedrals) {
+    const allowedTileIds = new Set([
+      ...tiles.map((tile) => tile.id),
+      ...innsAndCathedralsTiles.map((tile) => tile.id),
+    ])
+    const tileCollections = [value.tilesList, value.tileHistory]
+    for (const collection of tileCollections) {
+      if (
+        Array.isArray(collection) &&
+        collection.some(
+          (tile) => isRecord(tile) && !allowedTileIds.has(String(tile.id))
+        )
+      ) {
+        throw new Error('Game save contains an invalid tile')
+      }
+    }
+  }
+  if (isRecord(value.playersFollowers)) {
+    for (const pool of Object.values(value.playersFollowers)) {
+      if (isRecord(pool) && normalizedRules.expansions.innsAndCathedrals) {
+        pool.bigFollowers ??= 1
+      }
+    }
+  }
   return value as unknown as IGameBoard
 }
 
@@ -231,6 +292,7 @@ export function deserializeGameState(raw: unknown): IGameBoard {
   if ('schemaVersion' in parsed) {
     if (
       parsed.schemaVersion !== 1 &&
+      parsed.schemaVersion !== 2 &&
       parsed.schemaVersion !== GAME_SAVE_SCHEMA_VERSION
     ) {
       throw new Error(

@@ -7,6 +7,7 @@ import {
   playerNameForIndex,
   type Player,
   type PlayerId,
+  type GameRules,
   type Scores,
 } from '../modules/types'
 
@@ -28,6 +29,7 @@ export interface GameSummary {
   scores: Scores
   gameIsStarted: boolean
   lastUpdate: number
+  rules: GameRules
 }
 
 export interface GameData {
@@ -40,6 +42,7 @@ export interface GameData {
   availableFollowersPlaces: IGameBoard['availableFollowersPlaces']
   gameIsEnded: boolean
   finalScoringEnabled: boolean
+  rules: GameRules
   moveCounter: number
   id: string | undefined
   roomCode?: string
@@ -153,7 +156,10 @@ export class GameService {
 
   createLobby(
     socketId: string,
-    options: { finalScoringEnabled?: boolean } = {}
+    options: {
+      finalScoringEnabled?: boolean
+      innsAndCathedralsEnabled?: boolean
+    } = {}
   ): IGameBoard & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
     const deviceId = this.getDeviceBySocketId(socketId)
@@ -171,6 +177,7 @@ export class GameService {
       players,
       startImmediately: false,
       finalScoringEnabled: options.finalScoringEnabled,
+      innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
     })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
@@ -273,6 +280,8 @@ export class GameService {
     const newGame = new GameManager({
       players: activePlayers,
       finalScoringEnabled: game.finalScoringEnabled,
+      innsAndCathedralsEnabled:
+        game.rules?.expansions?.innsAndCathedrals ?? false,
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
@@ -380,6 +389,15 @@ export class GameService {
         if (game.currentPlayer) game.currentPlayer.socketId = null
         game.temporaryObjects.gardens ??= []
         game.completedObjects.gardens ??= []
+        game.rules ??= {
+          finalScoringEnabled: game.finalScoringEnabled ?? false,
+          expansions: { innsAndCathedrals: false },
+        }
+        game.rules.expansions ??= { innsAndCathedrals: false }
+        game.rules.expansions.innsAndCathedrals ??= false
+        for (const pool of Object.values(game.playersFollowers)) {
+          pool.bigFollowers ??= 0
+        }
         this.games[gameId] = game
       } catch (error) {
         console.error('Ignoring invalid saved game:', error)
@@ -435,6 +453,7 @@ export class GameService {
       availableFollowersPlaces: game.availableFollowersPlaces,
       gameIsEnded: game.gameIsEnded,
       finalScoringEnabled: game.finalScoringEnabled,
+      rules: game.rules,
       moveCounter: game.moveCounter,
       id: game.id,
       roomCode: game.roomCode,
@@ -473,6 +492,7 @@ export class GameService {
         scores: game.scores,
         gameIsStarted: game.gameIsStarted,
         lastUpdate: game.lastUpdate,
+        rules: game.rules,
       }))
       .sort((left, right) => {
         if (left.gameIsEnded !== right.gameIsEnded) {

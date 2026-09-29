@@ -26,6 +26,24 @@ export type TileId =
   | 'V'
   | 'W'
   | 'X'
+  | 'IAC-A'
+  | 'IAC-B'
+  | 'IAC-C'
+  | 'IAC-D'
+  | 'IAC-E'
+  | 'IAC-F'
+  | 'IAC-G'
+  | 'IAC-H'
+  | 'IAC-I'
+  | 'IAC-J'
+  | 'IAC-Ka'
+  | 'IAC-Kb'
+  | 'IAC-L'
+  | 'IAC-M'
+  | 'IAC-N'
+  | 'IAC-O'
+  | 'IAC-P'
+  | 'IAC-Q'
 
 type Position = [number, number]
 type FeaturePositions = Partial<Record<SideDirection, Position>>
@@ -64,6 +82,24 @@ const roadPositions: Record<TileId, FeaturePositions> = {
     south: [0.5, 0.82],
     west: [0.18, 0.5],
   },
+  'IAC-A': { south: [0.5, 0.82], west: [0.18, 0.5] },
+  'IAC-B': { east: [0.5, 0.5], west: [0.5, 0.5] },
+  'IAC-C': { east: [0.82, 0.5], south: [0.5, 0.82], west: [0.18, 0.5] },
+  'IAC-D': {},
+  'IAC-E': { north: [0.5, 0.18], south: [0.5, 0.82] },
+  'IAC-F': { east: [0.82, 0.5] },
+  'IAC-G': {},
+  'IAC-H': {},
+  'IAC-I': { east: [0.82, 0.5], west: [0.18, 0.5] },
+  'IAC-J': { south: [0.5, 0.82], west: [0.18, 0.5] },
+  'IAC-Ka': {},
+  'IAC-Kb': {},
+  'IAC-L': { east: [0.82, 0.5] },
+  'IAC-M': { south: [0.5, 0.82], west: [0.18, 0.5] },
+  'IAC-N': { east: [0.82, 0.5], south: [0.5, 0.82] },
+  'IAC-O': { north: [0.5, 0.18], east: [0.82, 0.5] },
+  'IAC-P': {},
+  'IAC-Q': {},
 }
 
 const cityPositions: Record<TileId, FeaturePositions> = {
@@ -96,6 +132,48 @@ const cityPositions: Record<TileId, FeaturePositions> = {
   V: {},
   W: {},
   X: {},
+  'IAC-A': {},
+  'IAC-B': {},
+  'IAC-C': {},
+  'IAC-D': {},
+  'IAC-E': {},
+  'IAC-F': { north: [0.5, 0.18], west: [0.18, 0.5] },
+  'IAC-G': { north: [0.5, 0.18] },
+  'IAC-H': {
+    north: [0.5, 0.18],
+    east: [0.76, 0.5],
+    south: [0.5, 0.82],
+    west: [0.24, 0.5],
+  },
+  'IAC-I': { north: [0.5, 0.18], south: [0.5, 0.82] },
+  'IAC-J': {},
+  'IAC-Ka': {
+    north: [0.5, 0.18],
+    east: [0.76, 0.5],
+    south: [0.5, 0.82],
+    west: [0.24, 0.5],
+  },
+  'IAC-Kb': {
+    north: [0.5, 0.18],
+    east: [0.76, 0.5],
+    south: [0.5, 0.82],
+    west: [0.24, 0.5],
+  },
+  'IAC-L': { north: [0.24, 0.24], west: [0.24, 0.24] },
+  'IAC-M': {},
+  'IAC-N': {},
+  'IAC-O': {},
+  'IAC-P': {
+    north: [0.5, 0.18],
+    east: [0.76, 0.5],
+    south: [0.5, 0.82],
+    west: [0.24, 0.5],
+  },
+  'IAC-Q': {
+    north: [0.5, 0.18],
+    east: [0.76, 0.5],
+    west: [0.24, 0.5],
+  },
 }
 
 const gardenPositions: Partial<Record<TileId, Position>> = {

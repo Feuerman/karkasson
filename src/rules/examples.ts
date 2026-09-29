@@ -1,4 +1,5 @@
 import { gardenTileCounts, tiles } from '@/data/tiles'
+import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import type { TileSideType } from '@server/modules/types'
 import type {
   RulesGridCell,
@@ -27,7 +28,10 @@ const OPPOSITE: Record<CompassDirection, CompassDirection> = {
 }
 
 const tileDataById = (id: string) => {
-  return tiles.find((tile) => tile.id === id)
+  return (
+    tiles.find((tile) => tile.id === id) ??
+    innsAndCathedralsTiles.find((tile) => tile.id === id)
+  )
 }
 
 const withMarkers = (tile: RulesTileRef, markers: RulesMarker[]) => ({
@@ -44,7 +48,13 @@ export const rot = (id: string, rotation: RulesRotation = 0): RulesTileRef => {
   if (!data) {
     throw new Error(`[rules] Неизвестный id тайла в примере: ${id}`)
   }
-  return { id, rotation, imgUrl: data.imgUrl }
+  return {
+    id,
+    rotation,
+    imgUrl: data.imgUrl,
+    ...(data.hasInn ? { hasInn: true } : {}),
+    ...(data.hasCathedral ? { hasCathedral: true } : {}),
+  }
 }
 
 /** Тайл с садом для наглядных примеров правил. */

@@ -28,6 +28,7 @@ export interface GameServiceOptions {
 
 export interface CreateGameOptions {
   finalScoringEnabled?: boolean
+  innsAndCathedralsEnabled?: boolean
 }
 
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
@@ -168,6 +169,7 @@ export class GameService implements IGameService {
   async createGame(options: CreateGameOptions = {}) {
     const response = await this.emitAck<CreateGameResponse>('createGame', {
       finalScoringEnabled: options.finalScoringEnabled,
+      innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
     })
     const { gameId, game } = response
     this.gameId = gameId
@@ -253,7 +255,7 @@ export class GameService implements IGameService {
 
   placeFollower(
     place: AvailableFollowerPlace,
-    followerType: 'follower' | 'abbot' = 'follower'
+    followerType: 'follower' | 'bigFollower' | 'abbot' = 'follower'
   ) {
     return this.emitAck<SocketAck>('placeFollower', {
       gameId: this.gameId,

@@ -43,6 +43,16 @@
             />
             {{ gameBoard.playersFollowers[player.id].ordinaryFollowers }}
           </span>
+          <span
+            v-if="
+              gameBoard.playersFollowers[player.id].bigFollowers !== undefined
+            "
+            class="flex items-center gap-1"
+            :title="`${gameBoard.playersFollowers[player.id].bigFollowers ?? 0} больших подданных в запасе`"
+          >
+            <UIcon name="i-lucide-users-round" class="h-4 w-4 text-gold-dark" />
+            {{ gameBoard.playersFollowers[player.id].bigFollowers ?? 0 }}
+          </span>
           <UIcon
             name="i-lucide-church"
             class="ml-1 h-4 w-4"

@@ -37,8 +37,11 @@
           >
             <span
               v-if="marker.kind === 'follower'"
-              class="block h-4 w-4 rounded-full ring-2 ring-white shadow-soft"
-              :class="followerColorClass(marker.color)"
+              class="block rounded-full ring-2 ring-white shadow-soft"
+              :class="[
+                marker.isBig ? 'h-6 w-6' : 'h-4 w-4',
+                followerColorClass(marker.color),
+              ]"
             ></span>
             <span
               v-else-if="marker.kind === 'no'"

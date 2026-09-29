@@ -42,6 +42,7 @@ describe('Лобби', () => {
     expect(game.roomCode).toMatch(/^\d{6}$/)
     expect(game.gameIsStarted).toBeFalsy()
     expect(game.finalScoringEnabled).toBe(false)
+    expect(game.rules?.expansions.innsAndCathedrals).toBe(false)
 
     const [alice, bob, aiP1, aiP2] = game.players
 

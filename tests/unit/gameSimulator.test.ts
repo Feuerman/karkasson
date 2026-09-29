@@ -22,12 +22,16 @@ function follower(playerId: number, objectId: string): ObjectFollower {
 
 function gameState(
   overrides: Partial<
-    Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects'>
+    Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'>
   > = {}
-): Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects'> {
+): Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'> {
   return {
     scores: { 1: 4, 2: 6 },
     currentPlayer,
+    rules: {
+      finalScoringEnabled: false,
+      expansions: { innsAndCathedrals: false },
+    },
     temporaryObjects: {
       cities: [],
       roads: [],
@@ -56,7 +60,7 @@ describe('calculateHeuristicScore', () => {
     expect(calculateHeuristicScore(state)).toBe(19)
   })
 
-  it('counts distinct owned object ids and ignores other players', () => {
+  it('counts owned followers and ignores other players', () => {
     const state = gameState({
       temporaryObjects: {
         cities: [
@@ -73,7 +77,7 @@ describe('calculateHeuristicScore', () => {
       },
     })
 
-    expect(calculateHeuristicScore(state)).toBe(14)
+    expect(calculateHeuristicScore(state)).toBe(16)
   })
 
   it('returns accumulated scores when there is no current player', () => {
