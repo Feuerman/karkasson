@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
-import serverApp from '../../server/src/app'
+import serverApp from '../../server/dist/app.js'
 import { InMemoryDatabase } from '../integration/helpers/inMemoryDatabase'
 import {
   startTestFrontend,
