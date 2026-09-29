@@ -944,25 +944,16 @@ export class GameManager implements IGameBoard {
     featurePoints: Point[],
     feature: LinearFeatureKind
   ): Point[][] {
-    const groups = this.getTileFeatureGroups(tile, feature).map((directions) =>
-      featurePoints.filter(
-        (point) =>
-          point.direction !== undefined &&
-          directions.includes(point.direction as SideName)
-      )
-    )
-
-    featurePoints.forEach((point) => {
-      if (
-        !groups.some((group) =>
-          group.some((groupPoint) => groupPoint.direction === point.direction)
+    const featureGroups = this.getTileFeatureGroups(tile, feature)
+    return featureGroups
+      .map((directions) =>
+        featurePoints.filter(
+          (point) =>
+            point.direction !== undefined &&
+            directions.includes(point.direction as SideName)
         )
-      ) {
-        groups.push([point])
-      }
-    })
-
-    return groups
+      )
+      .filter((group) => group.length > 0)
   }
 
   private checkCompletedCentralObjects(kind: CentralObjectKind) {
@@ -1249,16 +1240,47 @@ export class GameManager implements IGameBoard {
   }
 
   getTileFeatureGroups(tile: Tile, feature: 'city' | 'road'): SideName[][] {
-    const groups = feature === 'city' ? tile.cityGroups : tile.roadGroups
-    if (groups?.length) return groups
+    const featureSides = (Object.keys(tile.sides) as SideName[]).filter(
+      (side) => tile.sides[side] === feature
+    )
 
+    // Все ответвления дороги, сходящиеся в перекрёстке, заканчиваются на
+    // нём независимо друг от друга. Правило определяется формой тайла, а не
+    // его ID или вручную заданной группой в каталоге.
+    if (feature === 'road' && featureSides.length >= 3) {
+      return featureSides.map((side) => [side])
+    }
+
+    const tileGroups = feature === 'city' ? tile.cityGroups : tile.roadGroups
     const definition = tiles.find(({ id }) => id === tile.id)
     const definitionGroups =
       feature === 'city' ? definition?.cityGroups : definition?.roadGroups
-    return (
+    const groups =
+      tileGroups ??
       this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
       []
-    )
+
+    // Каталожные группы описывают соединения, а стороны без группы остаются
+    // отдельными сегментами. Нормализация не допускает дублирования стороны
+    // или включения в группу стороны другого типа.
+    const assigned = new Set<SideName>()
+    const normalizedGroups = groups
+      .map((group) =>
+        group.filter((side) => {
+          if (!featureSides.includes(side) || assigned.has(side)) {
+            return false
+          }
+          assigned.add(side)
+          return true
+        })
+      )
+      .filter((group) => group.length > 0)
+
+    for (const side of featureSides) {
+      if (!assigned.has(side)) normalizedGroups.push([side])
+    }
+
+    return normalizedGroups
   }
 
   isOppositePoint(point: Point, oppositePoint: Point): boolean {

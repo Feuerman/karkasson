@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import tiles from '../../server/src/data/tiles'
 import { GameManager } from '../../server/src/modules/GameManager'
 import type {
   BaseObject,
@@ -70,6 +71,254 @@ describe('Размещение тайла не зависит от порядк�
 })
 
 describe('Проверка размещения и возврата подданных', () => {
+  it.each([
+    {
+      id: 'L',
+      sides: { north: 'city', east: 'road', south: 'road', west: 'road' },
+      expectedDirections: ['north', 'south', 'west'],
+    },
+    {
+      id: 'W',
+      sides: { north: 'field', east: 'road', south: 'road', west: 'road' },
+      expectedDirections: ['south', 'west'],
+    },
+    {
+      id: 'X',
+      sides: { north: 'road', east: 'road', south: 'road', west: 'road' },
+      expectedDirections: ['north', 'south', 'west'],
+    },
+  ] as const)(
+    'оставляет свободные ответвления перекрёстка $id доступными, если восточная дорога занята',
+    ({ id, sides, expectedDirections }) => {
+      const game = new GameManager({
+        players: makePlayers(),
+        startImmediately: false,
+      })
+      const x = 15
+      const y = 15
+      game.currentPlayer = game.players[0] ?? null
+      game.currentPlayerIndex = 0
+      game.currentTile = { id, rotation: 0, sides, x, y }
+
+      const neighbors = {
+        north: { x, y: y - 1, toward: 'south', away: 'north' },
+        east: { x: x + 1, y, toward: 'west', away: 'east' },
+        south: { x, y: y + 1, toward: 'north', away: 'south' },
+        west: { x: x - 1, y, toward: 'east', away: 'west' },
+      } as const
+
+      for (const direction of ['north', 'east', 'south', 'west'] as const) {
+        if (sides[direction] !== 'road') continue
+
+        const neighbor = neighbors[direction]
+        const neighborSides = {
+          north: 'field',
+          east: 'field',
+          south: 'field',
+          west: 'field',
+          [neighbor.toward]: 'road',
+        }
+        const row = game.tilePlacesStats[neighbor.y] ?? {}
+        row[neighbor.x] = {
+          id: `neighbor-${direction}`,
+          rotation: 0,
+          x: neighbor.x,
+          y: neighbor.y,
+          sides: neighborSides,
+        }
+        game.tilePlacesStats[neighbor.y] = row
+
+        const point = {
+          x: neighbor.x,
+          y: neighbor.y,
+          direction: neighbor.toward,
+        }
+        game.temporaryObjects.roads.push({
+          id: `road-${direction}`,
+          points: [point, { ...point, direction: neighbor.away }],
+          followers:
+            direction === 'east'
+              ? [
+                  {
+                    playerId: 2,
+                    objectId: `road-${direction}`,
+                    point,
+                  },
+                ]
+              : [],
+        })
+      }
+
+      expect(game.placeTile(game.currentTile, y, x)).toBe(true)
+
+      expect(game.isPlacingFollower).toBe(true)
+      expect(
+        game.availableFollowersPlaces.map((place) => place.point.direction)
+      ).toEqual(expectedDirections)
+    }
+  )
+
+  it('нормализует стороны каждого каталожного тайла в группы без пропусков и дублей', () => {
+    const game = new GameManager({
+      players: makePlayers(),
+      startImmediately: false,
+    })
+
+    for (const definition of tiles) {
+      for (const feature of ['road', 'city'] as const) {
+        for (let turns = 0; turns < 4; turns += 1) {
+          let rotatedTile = { ...definition, rotation: 0 }
+          for (let turn = 0; turn < turns; turn += 1) {
+            rotatedTile = game.rotateTile(rotatedTile)
+          }
+          const featureSides = (
+            Object.keys(rotatedTile.sides) as (keyof typeof rotatedTile.sides)[]
+          ).filter((side) => rotatedTile.sides[side] === feature)
+          const groups = game.getTileFeatureGroups(rotatedTile, feature)
+          const groupedSides = groups.flat()
+
+          expect(groupedSides.sort()).toEqual([...featureSides].sort())
+          expect(new Set(groupedSides).size).toBe(groupedSides.length)
+
+          if (feature === 'road' && featureSides.length >= 3) {
+            expect(groups.every((group) => group.length === 1)).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
+  it('предлагает все незанятые группы для всех типов каталожных тайлов и поворотов', () => {
+    for (const definition of tiles) {
+      for (let turns = 0; turns < 4; turns += 1) {
+        const game = new GameManager({
+          players: makePlayers(),
+          startImmediately: false,
+        })
+        let tile = { ...definition, rotation: 0 }
+        for (let turn = 0; turn < turns; turn += 1) {
+          tile = game.rotateTile(tile)
+        }
+        const x = 15
+        const y = 15
+        const gridTile = { ...tile, x, y }
+        game.currentPlayer = game.players[0] ?? null
+        game.currentPlayerIndex = 0
+        game.currentTile = gridTile
+
+        const expectedDirections: string[] = []
+        for (const feature of ['road', 'city'] as const) {
+          const collection = feature === 'road' ? 'roads' : 'cities'
+          const groups = game.getTileFeatureGroups(gridTile, feature)
+          groups.forEach((group, groupIndex) => {
+            const points = group.map((direction) => ({
+              x,
+              y,
+              direction,
+              pointType: feature,
+            }))
+            const objectId = `${definition.id}-${turns}-${feature}-${groupIndex}`
+            game.temporaryObjects[collection].push({
+              id: objectId,
+              points,
+              followers:
+                groupIndex === 0
+                  ? [
+                      {
+                        playerId: 2,
+                        objectId,
+                        point: points[0] ?? { x, y },
+                      },
+                    ]
+                  : [],
+            })
+            if (groupIndex > 0) expectedDirections.push(...group)
+          })
+        }
+
+        if (gridTile.isMonastery || gridTile.hasGarden) {
+          expectedDirections.push('center')
+        }
+        expect(game.simulatePlaceTile(gridTile, y, x)).toBe(true)
+
+        expect(
+          game.availableFollowersPlaces
+            .map((place) => place.point.direction)
+            .sort()
+        ).toEqual(expectedDirections.sort())
+      }
+    }
+  })
+
+  it.each([
+    {
+      id: 'P',
+      occupiedFeature: 'road',
+      expectedAvailable: ['north', 'west'],
+    },
+    {
+      id: 'P',
+      occupiedFeature: 'city',
+      expectedAvailable: ['east', 'south'],
+    },
+    {
+      id: 'H',
+      occupiedFeature: 'city',
+      expectedAvailable: ['south'],
+    },
+  ] as const)(
+    'сохраняет доступность независимых групп на смешанном/городском тайле $id при занятой группе $occupiedFeature',
+    ({ id, occupiedFeature, expectedAvailable }) => {
+      const game = new GameManager({
+        players: makePlayers(),
+        startImmediately: false,
+      })
+      const definition = tiles.find((tile) => tile.id === id)
+      if (!definition) throw new Error(`Tile ${id} is missing`)
+      const tile = { ...definition, rotation: 0, x: 15, y: 15 }
+      game.currentPlayer = game.players[0] ?? null
+      game.currentPlayerIndex = 0
+      game.currentTile = tile
+
+      for (const feature of ['road', 'city'] as const) {
+        const collection = feature === 'road' ? 'roads' : 'cities'
+        const groups = game.getTileFeatureGroups(tile, feature)
+        groups.forEach((group, index) => {
+          const points = group.map((direction) => ({
+            x: tile.x,
+            y: tile.y,
+            direction,
+            pointType: feature,
+          }))
+          const isOccupied = feature === occupiedFeature && index === 0
+          const object: BaseObject = {
+            id: `${id}-${feature}-${index}`,
+            points,
+            followers: isOccupied
+              ? [
+                  {
+                    playerId: 2,
+                    objectId: `${id}-${feature}-${index}`,
+                    point: points[0] ?? { x: tile.x, y: tile.y },
+                  },
+                ]
+              : [],
+          }
+          game.temporaryObjects[collection].push(object)
+        })
+      }
+
+      game.checkAvailableFollowers()
+
+      expect(game.isPlacingFollower).toBe(true)
+      expect(
+        game.availableFollowersPlaces
+          .map((place) => place.point.direction)
+          .sort()
+      ).toEqual([...expectedAvailable].sort())
+    }
+  )
+
   it('сохраняет отдельные городские сегменты на тайле F', () => {
     const game = new GameManager({ players: makePlayers() })
     game.temporaryObjects.cities = []

@@ -1,9 +1,5 @@
 import type { IGameBoard } from '../../../server/src/modules/GameManager'
 import type { IGameDatabase } from '../../../server/src/modules/Database'
-import {
-  deserializeGameState,
-  serializeGameState,
-} from '../../../server/src/modules/gameSave'
 
 /**
  * Хранилище игр в памяти вместо Firebase.
@@ -29,7 +25,7 @@ export class InMemoryDatabase implements IGameDatabase {
     if (gameState.id !== gameId) {
       throw new Error('Game id does not match its storage key')
     }
-    const state = deserializeGameState(serializeGameState(gameState))
+    const state = JSON.parse(JSON.stringify(gameState)) as IGameBoard
     state.lastUpdate = Date.now()
     this.store.games[gameId] = state
   }
