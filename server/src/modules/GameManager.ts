@@ -1346,51 +1346,17 @@ export class GameManager implements IGameBoard {
   }
 
   clone(): IGameBoard {
-    const clone = new GameManager({ players: this.players })
-
-    clone.id = this.id
-    clone.gridSize = [...this.gridSize]
-    clone.gameIsStarted = this.gameIsStarted
-    clone.gameIsEnded = this.gameIsEnded
-    clone.isPlacingFollower = this.isPlacingFollower
-
-    clone.availablePlacesTiles = deepClone(this.availablePlacesTiles)
-    clone.tilesList = deepClone(this.tilesList)
-    clone.currentTile = this.currentTile ? deepClone(this.currentTile) : null
-    clone.players = deepClone(this.players)
-    clone.currentPlayer = this.currentPlayer
-      ? deepClone(this.currentPlayer)
-      : null
-    clone.playersFollowers = deepClone(this.playersFollowers)
-    clone.temporaryObjects = deepClone(this.temporaryObjects)
-    clone.completedObjects = deepClone(this.completedObjects)
-    clone.scores = deepClone(this.scores)
-    clone.availableFollowersPlaces = deepClone(this.availableFollowersPlaces)
-    clone.placedFollowers = deepClone(this.placedFollowers)
-    clone.lastPlacement = deepClone(this.lastPlacement)
-    clone.tileHistory = deepClone(this.tileHistory)
-    clone.tilePlacesStats = deepClone(this.tilePlacesStats)
-    clone.currentPlayerIndex = this.currentPlayerIndex
-    clone.moveCounter = this.moveCounter
-    clone.actionsHistory = deepClone(this.actionsHistory)
-    clone.placingPoint = this.placingPoint
-    clone.lastUpdate = this.lastUpdate
-
-    return clone
+    return GameManager.restore(this)
   }
 
   static restore(savedGame: IGameBoard): GameManager {
-    const game = new GameManager({
-      players: savedGame.players,
-      startImmediately: false,
-    })
-    Object.assign(game, savedGame)
+    const game = new GameManager({ startImmediately: false })
+    Object.assign(game, deepClone(savedGame))
     return game
   }
 
   copyStateFrom(source: IGameBoard): void {
-    const clone = source.clone()
-    Object.assign(this, clone)
+    Object.assign(this, deepClone(source))
   }
 
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
