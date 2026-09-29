@@ -5,8 +5,8 @@ import type {
   FollowerType,
   ObjectFollower,
   Tile,
-  TileSides,
 } from './types'
+import { rotateTileGroups, rotateTileSides } from './tileRotation'
 
 export interface SimulationMove {
   tile: Tile
@@ -74,19 +74,6 @@ export function calculateHeuristicScore(gameState: HeuristicGameState): number {
   )
 }
 
-function rotateSides(sides: TileSides, times: number): TileSides {
-  let result = { ...sides }
-  for (let i = 0; i < times; i++) {
-    result = {
-      north: result.west,
-      east: result.north,
-      south: result.east,
-      west: result.south,
-    }
-  }
-  return result
-}
-
 export class GameSimulatorModule {
   private gameState: IGameBoard
 
@@ -144,13 +131,13 @@ export class GameSimulatorModule {
     this.gameState.availablePlacesTiles.forEach(({ rowIndex, tileIndex }) => {
       for (let rotation = 0; rotation < 360; rotation += 90) {
         const turns = rotation / 90
-        const rotatedSides = rotateSides(tile.sides, turns)
+        const rotatedSides = rotateTileSides(tile.sides, turns)
         const rotatedTile: Tile = {
           ...tile,
           rotation: (tile.rotation + rotation) % 360,
           sides: rotatedSides,
-          roadGroups: this.gameState.rotateTileGroups(tile.roadGroups, turns),
-          cityGroups: this.gameState.rotateTileGroups(tile.cityGroups, turns),
+          roadGroups: rotateTileGroups(tile.roadGroups, turns),
+          cityGroups: rotateTileGroups(tile.cityGroups, turns),
         }
 
         // Сначала оцениваем ход без подданного

@@ -5,6 +5,7 @@ import type {
   SideName,
   Tile,
 } from '../../modules/types'
+import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../types'
@@ -35,23 +36,16 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
   const definition = tiles.find((tile) => tile.id === currentTile.id)
   if (!definition) return false
 
-  let sides = { ...definition.sides }
-  for (let turn = 0; turn < rotation / 90; turn++) {
-    sides = {
-      north: sides.west,
-      east: sides.north,
-      south: sides.east,
-      west: sides.south,
-    }
-  }
+  const quarterTurns = rotation / 90
+  const sides = rotateTileSides(definition.sides, quarterTurns)
 
   const rotatedTile: Tile = {
     ...currentTile,
     ...definition,
     rotation,
     sides,
-    roadGroups: game.rotateTileGroups(definition.roadGroups, rotation / 90),
-    cityGroups: game.rotateTileGroups(definition.cityGroups, rotation / 90),
+    roadGroups: rotateTileGroups(definition.roadGroups, quarterTurns),
+    cityGroups: rotateTileGroups(definition.cityGroups, quarterTurns),
     hasGarden: currentTile.hasGarden,
   }
   game.currentTile = { ...currentTile, ...rotatedTile }
