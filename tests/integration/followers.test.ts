@@ -14,6 +14,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
+import { FollowerType } from '../../server/src/modules/types'
 
 describe('Размещение фишек', () => {
   let server: RunningServer | undefined
@@ -56,7 +57,9 @@ describe('Размещение фишек', () => {
     }>('placeFollower', {
       gameId,
       place,
-      followerType: place.temporaryObject.isGarden ? 'abbot' : 'follower',
+      followerType: place.temporaryObject.isGarden
+        ? FollowerType.Abbot
+        : FollowerType.Follower,
     })
 
     const afterGame = placed.game

@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import { FollowerType, TileSideType } from '@server/modules/types'
 import { computed } from 'vue'
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
@@ -41,11 +42,19 @@ const objectName = computed(() =>
     : action.actionData.temporaryObject?.isGarden
       ? 'сад'
       : action.actionData.point.pointType
+        ? POINT_TYPE_OBJECT_CASE[action.actionData.point.pointType]
+        : 'объект'
 )
 
+const POINT_TYPE_OBJECT_CASE: Record<TileSideType, string> = {
+  [TileSideType.Field]: 'поле',
+  [TileSideType.Road]: 'дорогу',
+  [TileSideType.City]: 'город',
+}
+
 const followerName = computed(() => {
-  if (action.actionData.followerType === 'abbot') return 'аббат'
-  if (action.actionData.followerType === 'bigFollower')
+  if (action.actionData.followerType === FollowerType.Abbot) return 'аббат'
+  if (action.actionData.followerType === FollowerType.BigFollower)
     return 'большой подданный'
   return 'подданный'
 })

@@ -6,6 +6,7 @@ import type {
   ObjectFollower,
   Tile,
 } from './types'
+import { FollowerType as FollowerTypes, TileRotation } from './types'
 import { rotateTileGroups, rotateTileSides } from './tileRotation'
 
 export interface SimulationMove {
@@ -97,7 +98,7 @@ export class GameSimulatorModule {
     rotation: number,
     followerPlace?: AvailableFollowerPlace,
     gameState?: IGameBoard,
-    followerType: FollowerType = 'follower'
+    followerType: FollowerType = FollowerTypes.Follower
   ): SimulationResult {
     // Create a copy of the game state
     const clonedGameState = (gameState ?? this.gameState).clone()
@@ -138,8 +139,12 @@ export class GameSimulatorModule {
     let bestMoves: SimulationMove[] = []
 
     this.gameState.availablePlacesTiles.forEach(({ rowIndex, tileIndex }) => {
-      for (let rotation = 0; rotation < 360; rotation += 90) {
-        const turns = rotation / 90
+      for (
+        let rotation = TileRotation.None;
+        rotation < TileRotation.FullTurn;
+        rotation += TileRotation.QuarterTurn
+      ) {
+        const turns = rotation / TileRotation.QuarterTurn
         const rotatedSides = rotateTileSides(tile.sides, turns)
         const rotatedTile: Tile = {
           ...tile,
@@ -178,19 +183,19 @@ export class GameSimulatorModule {
               gameState.playersFollowers[gameState.currentPlayer?.id ?? '']
             const followerTypes: FollowerType[] = place.temporaryObject.isGarden
               ? []
-              : ['follower']
+              : [FollowerTypes.Follower]
             if (
               pool?.bigFollowers &&
               this.gameState.rules.expansions.innsAndCathedrals
             ) {
-              followerTypes.push('bigFollower')
+              followerTypes.push(FollowerTypes.BigFollower)
             }
             if (
               (place.temporaryObject.isMonastery ||
                 place.temporaryObject.isGarden) &&
               pool?.monks
             ) {
-              followerTypes.push('abbot')
+              followerTypes.push(FollowerTypes.Abbot)
             }
 
             for (const followerType of followerTypes) {

@@ -6,6 +6,7 @@ import {
   calcMonasteryPoints,
   calcRoadScore,
 } from '../../server/src/modules/scoring'
+import { SideName, TileId, TileSideType } from '../../server/src/modules/types'
 import type {
   BaseObject,
   GridTile,
@@ -21,11 +22,16 @@ import type {
 
 function gridTile(overrides: Partial<GridTile> = {}): GridTile {
   return {
-    id: 'T',
+    id: TileId.T,
     rotation: 0,
     x: 0,
     y: 0,
-    sides: { north: 'field', west: 'field', south: 'field', east: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+    },
     ...overrides,
   } as GridTile
 }
@@ -137,8 +143,8 @@ describe('calcRoadScore', () => {
     const road: BaseObject = {
       id: 'road-bend',
       points: [
-        { x: 0, y: 0, direction: 'east' },
-        { x: 1, y: 0, direction: 'west' },
+        { x: 0, y: 0, direction: SideName.East },
+        { x: 1, y: 0, direction: SideName.West },
       ],
       followers: [follower(2, 'road-bend')],
     }
@@ -212,7 +218,7 @@ describe('calcRoadScore', () => {
 describe('calcCityScore', () => {
   it('считает герб только в соответствующей группе города на IAC-P', () => {
     const tileDefinition = innsAndCathedralsTiles.find(
-      ({ id }) => id === 'IAC-P'
+      ({ id }) => id === TileId.IAC_P
     )
     if (!tileDefinition) throw new Error('Tile IAC-P is missing')
     const board = boardOf([
@@ -220,12 +226,12 @@ describe('calcCityScore', () => {
     ])
     const shieldedCity: BaseObject = {
       id: 'shielded-city',
-      points: [{ x: 0, y: 0, direction: 'north' }],
+      points: [{ x: 0, y: 0, direction: SideName.North }],
       followers: [follower(1, 'shielded-city')],
     }
     const otherCity: BaseObject = {
       id: 'other-city',
-      points: [{ x: 0, y: 0, direction: 'south' }],
+      points: [{ x: 0, y: 0, direction: SideName.South }],
       followers: [follower(2, 'other-city')],
     }
 
@@ -269,7 +275,7 @@ describe('calcCityScore', () => {
     const board = boardOf([[0, 0]])
     const city: BaseObject = {
       id: 'city-1',
-      points: [{ x: 0, y: 0, pointType: 'city' }],
+      points: [{ x: 0, y: 0, pointType: TileSideType.City }],
       followers: [follower(1, 'city-1')],
     }
 
@@ -290,8 +296,8 @@ describe('calcCityScore', () => {
     const city: BaseObject = {
       id: 'city-shield',
       points: [
-        { x: 0, y: 0, pointType: 'city' },
-        { x: 1, y: 0, pointType: 'city' },
+        { x: 0, y: 0, pointType: TileSideType.City },
+        { x: 1, y: 0, pointType: TileSideType.City },
       ],
       followers: [follower(1, 'city-shield')],
     }
@@ -316,9 +322,9 @@ describe('calcCityScore', () => {
     const city: BaseObject = {
       id: 'city-shield-2',
       points: [
-        { x: 0, y: 0, pointType: 'city' },
-        { x: 1, y: 0, pointType: 'city' },
-        { x: 2, y: 0, pointType: 'city' },
+        { x: 0, y: 0, pointType: TileSideType.City },
+        { x: 1, y: 0, pointType: TileSideType.City },
+        { x: 2, y: 0, pointType: TileSideType.City },
       ],
       followers: [follower(1, 'city-shield-2')],
     }
@@ -334,7 +340,7 @@ describe('calcCityScore', () => {
     const board = boardOf([[0, 0]])
     const city: BaseObject = {
       id: 'city-shared',
-      points: [{ x: 0, y: 0, pointType: 'city' }],
+      points: [{ x: 0, y: 0, pointType: TileSideType.City }],
       followers: [follower(1, 'city-shared'), follower(2, 'city-shared')],
     }
 
@@ -352,7 +358,7 @@ describe('calcCityScore', () => {
     const board = boardOf([[0, 0]])
     const city: BaseObject = {
       id: 'city-leader',
-      points: [{ x: 0, y: 0, pointType: 'city' }],
+      points: [{ x: 0, y: 0, pointType: TileSideType.City }],
       followers: [
         follower(1, 'city-leader'),
         follower(1, 'city-leader'),
@@ -377,8 +383,8 @@ describe('calcCityScore', () => {
     const city: BaseObject = {
       id: 'city-empty',
       points: [
-        { x: 0, y: 0, pointType: 'city' },
-        { x: 1, y: 0, pointType: 'city' },
+        { x: 0, y: 0, pointType: TileSideType.City },
+        { x: 1, y: 0, pointType: TileSideType.City },
       ],
       followers: [],
     }
@@ -398,7 +404,7 @@ describe('calcMonasteryPoints', () => {
     const board = boardOf([[0, 0]])
     const monastery: BaseObject = {
       id: 'monastery-1',
-      points: [{ x: 0, y: 0, pointType: 'city' }],
+      points: [{ x: 0, y: 0, pointType: TileSideType.City }],
       isMonastery: true,
       followers: [],
     }

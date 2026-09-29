@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import tiles from '../../server/src/data/tiles'
 import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
 import { GameManager } from '../../server/src/modules/GameManager'
+import {
+  PointDirection,
+  SideName,
+  TileId,
+  TileSideType,
+} from '../../server/src/modules/types'
 import type {
   BaseObject,
   Point,
@@ -39,13 +45,13 @@ describe('Размещение тайла не зависит от порядк�
     // восток задан городом, чтобы проверить, что east/west не перепутаны.
     // Порядок ключей — как у клиентского rotateSides: north, west, south, east.
     const rotatedTile: Tile = {
-      id: 'J',
+      id: TileId.J,
       rotation: 90,
       sides: {
-        north: 'field',
-        west: 'road',
-        south: 'field',
-        east: 'city',
+        [SideName.North]: TileSideType.Field,
+        [SideName.West]: TileSideType.Road,
+        [SideName.South]: TileSideType.Field,
+        [SideName.East]: TileSideType.City,
       },
     }
 
@@ -56,13 +62,13 @@ describe('Размещение тайла не зависит от порядк�
     const game = new GameManager({ players: makePlayers() })
 
     const tile: Tile = {
-      id: 'X',
+      id: TileId.X,
       rotation: 0,
       sides: {
-        north: 'field',
-        west: 'city',
-        south: 'field',
-        east: 'city',
+        [SideName.North]: TileSideType.Field,
+        [SideName.West]: TileSideType.City,
+        [SideName.South]: TileSideType.Field,
+        [SideName.East]: TileSideType.City,
       },
     }
 
@@ -74,19 +80,34 @@ describe('Размещение тайла не зависит от порядк�
 describe('Проверка размещения и возврата подданных', () => {
   it.each([
     {
-      id: 'L',
-      sides: { north: 'city', east: 'road', south: 'road', west: 'road' },
-      expectedDirections: ['north', 'south', 'west'],
+      id: TileId.L,
+      sides: {
+        [SideName.North]: TileSideType.City,
+        [SideName.East]: TileSideType.Road,
+        [SideName.South]: TileSideType.Road,
+        [SideName.West]: TileSideType.Road,
+      },
+      expectedDirections: [SideName.North, SideName.South, SideName.West],
     },
     {
-      id: 'W',
-      sides: { north: 'field', east: 'road', south: 'road', west: 'road' },
-      expectedDirections: ['south', 'west'],
+      id: TileId.W,
+      sides: {
+        [SideName.North]: TileSideType.Field,
+        [SideName.East]: TileSideType.Road,
+        [SideName.South]: TileSideType.Road,
+        [SideName.West]: TileSideType.Road,
+      },
+      expectedDirections: [SideName.South, SideName.West],
     },
     {
-      id: 'X',
-      sides: { north: 'road', east: 'road', south: 'road', west: 'road' },
-      expectedDirections: ['north', 'south', 'west'],
+      id: TileId.X,
+      sides: {
+        [SideName.North]: TileSideType.Road,
+        [SideName.East]: TileSideType.Road,
+        [SideName.South]: TileSideType.Road,
+        [SideName.West]: TileSideType.Road,
+      },
+      expectedDirections: [SideName.North, SideName.South, SideName.West],
     },
   ] as const)(
     'оставляет свободные ответвления перекрёстка $id доступными, если восточная дорога занята',
@@ -102,22 +123,47 @@ describe('Проверка размещения и возврата поддан
       game.currentTile = { id, rotation: 0, sides, x, y }
 
       const neighbors = {
-        north: { x, y: y - 1, toward: 'south', away: 'north' },
-        east: { x: x + 1, y, toward: 'west', away: 'east' },
-        south: { x, y: y + 1, toward: 'north', away: 'south' },
-        west: { x: x - 1, y, toward: 'east', away: 'west' },
+        [SideName.North]: {
+          x,
+          y: y - 1,
+          toward: SideName.South,
+          away: SideName.North,
+        },
+        [SideName.East]: {
+          x: x + 1,
+          y,
+          toward: SideName.West,
+          away: SideName.East,
+        },
+        [SideName.South]: {
+          x,
+          y: y + 1,
+          toward: SideName.North,
+          away: SideName.South,
+        },
+        [SideName.West]: {
+          x: x - 1,
+          y,
+          toward: SideName.East,
+          away: SideName.West,
+        },
       } as const
 
-      for (const direction of ['north', 'east', 'south', 'west'] as const) {
-        if (sides[direction] !== 'road') continue
+      for (const direction of [
+        SideName.North,
+        SideName.East,
+        SideName.South,
+        SideName.West,
+      ] as const) {
+        if (sides[direction] !== TileSideType.Road) continue
 
         const neighbor = neighbors[direction]
         const neighborSides = {
-          north: 'field',
-          east: 'field',
-          south: 'field',
-          west: 'field',
-          [neighbor.toward]: 'road',
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Field,
+          [neighbor.toward]: TileSideType.Road,
         }
         const row = game.tilePlacesStats[neighbor.y] ?? {}
         row[neighbor.x] = {
@@ -138,7 +184,7 @@ describe('Проверка размещения и возврата поддан
           id: `road-${direction}`,
           points: [point, { ...point, direction: neighbor.away }],
           followers:
-            direction === 'east'
+            direction === SideName.East
               ? [
                   {
                     playerId: 2,
@@ -166,7 +212,7 @@ describe('Проверка размещения и возврата поддан
     })
 
     for (const definition of tiles) {
-      for (const feature of ['road', 'city'] as const) {
+      for (const feature of [TileSideType.Road, TileSideType.City] as const) {
         for (let turns = 0; turns < 4; turns += 1) {
           let rotatedTile = { ...definition, rotation: 0 }
           for (let turn = 0; turn < turns; turn += 1) {
@@ -181,7 +227,7 @@ describe('Проверка размещения и возврата поддан
           expect(groupedSides.sort()).toEqual([...featureSides].sort())
           expect(new Set(groupedSides).size).toBe(groupedSides.length)
 
-          if (feature === 'road' && featureSides.length >= 3) {
+          if (feature === TileSideType.Road && featureSides.length >= 3) {
             expect(groups.every((group) => group.length === 1)).toBe(true)
           }
         }
@@ -197,7 +243,7 @@ describe('Проверка размещения и возврата поддан
     })
 
     for (const definition of innsAndCathedralsTiles) {
-      for (const feature of ['road', 'city'] as const) {
+      for (const feature of [TileSideType.Road, TileSideType.City] as const) {
         for (let turns = 0; turns < 4; turns += 1) {
           let rotatedTile = { ...definition, rotation: 0 }
           for (let turn = 0; turn < turns; turn += 1) {
@@ -226,68 +272,73 @@ describe('Проверка размещения и возврата поддан
       innsAndCathedralsEnabled: true,
     })
     const expectedGroups: Record<
-      string,
+      TileId,
       { road: string[][]; city: string[][] }
     > = {
-      'IAC-A': { road: [['south', 'west']], city: [] },
-      'IAC-B': { road: [['east', 'west']], city: [] },
-      'IAC-C': {
-        road: [['east'], ['south'], ['west']],
+      [TileId.IAC_A]: { road: [[SideName.South, SideName.West]], city: [] },
+      [TileId.IAC_B]: { road: [[SideName.East, SideName.West]], city: [] },
+      [TileId.IAC_C]: {
+        road: [[SideName.East], [SideName.South], [SideName.West]],
         city: [],
       },
-      'IAC-D': { road: [['east'], ['west']], city: [] },
-      'IAC-E': {
+      [TileId.IAC_D]: { road: [[SideName.East], [SideName.West]], city: [] },
+      [TileId.IAC_E]: {
         road: [
-          ['north', 'west'],
-          ['east', 'south'],
+          [SideName.North, SideName.West],
+          [SideName.East, SideName.South],
         ],
         city: [],
       },
-      'IAC-F': {
-        road: [['east']],
-        city: [['north', 'west']],
+      [TileId.IAC_F]: {
+        road: [[SideName.East]],
+        city: [[SideName.North, SideName.West]],
       },
-      'IAC-G': { road: [], city: [['west']] },
-      'IAC-H': {
+      [TileId.IAC_G]: { road: [], city: [[SideName.West]] },
+      [TileId.IAC_H]: {
         road: [],
-        city: [['north'], ['east'], ['south'], ['west']],
+        city: [
+          [SideName.North],
+          [SideName.East],
+          [SideName.South],
+          [SideName.West],
+        ],
       },
-      'IAC-I': {
-        road: [['east'], ['west']],
-        city: [['north'], ['south']],
+      [TileId.IAC_I]: {
+        road: [[SideName.East], [SideName.West]],
+        city: [[SideName.North], [SideName.South]],
       },
-      'IAC-J': { road: [['south']], city: [['north']] },
-      'IAC-Ka': {
+      [TileId.IAC_J]: { road: [[SideName.South]], city: [[SideName.North]] },
+      [TileId.IAC_Ka]: {
         road: [],
-        city: [['north', 'east', 'south', 'west']],
+        city: [[SideName.North, SideName.East, SideName.South, SideName.West]],
       },
-      'IAC-Kb': {
+      [TileId.IAC_Kb]: {
         road: [],
-        city: [['north', 'east', 'south', 'west']],
+        city: [[SideName.North, SideName.East, SideName.South, SideName.West]],
       },
-      'IAC-L': {
-        road: [['east', 'south']],
-        city: [['north', 'west']],
+      [TileId.IAC_L]: {
+        road: [[SideName.East, SideName.South]],
+        city: [[SideName.North, SideName.West]],
       },
-      'IAC-M': {
-        road: [['south', 'west']],
-        city: [['north']],
+      [TileId.IAC_M]: {
+        road: [[SideName.South, SideName.West]],
+        city: [[SideName.North]],
       },
-      'IAC-N': {
-        road: [['south']],
-        city: [['north', 'west']],
+      [TileId.IAC_N]: {
+        road: [[SideName.South]],
+        city: [[SideName.North, SideName.West]],
       },
-      'IAC-O': {
+      [TileId.IAC_O]: {
         road: [],
-        city: [['north'], ['east'], ['west']],
+        city: [[SideName.North], [SideName.East], [SideName.West]],
       },
-      'IAC-P': {
+      [TileId.IAC_P]: {
         road: [],
-        city: [['north', 'west'], ['south']],
+        city: [[SideName.North, SideName.West], [SideName.South]],
       },
-      'IAC-Q': {
-        road: [['north'], ['south']],
-        city: [['east', 'west']],
+      [TileId.IAC_Q]: {
+        road: [[SideName.North], [SideName.South]],
+        city: [[SideName.East, SideName.West]],
       },
     }
 
@@ -295,7 +346,7 @@ describe('Проверка размещения и возврата поддан
       innsAndCathedralsTiles.map(({ id }) => id).sort()
     )
     for (const definition of innsAndCathedralsTiles) {
-      for (const feature of ['road', 'city'] as const) {
+      for (const feature of [TileSideType.Road, TileSideType.City] as const) {
         expect(
           game.getTileFeatureGroups({ ...definition, rotation: 0 }, feature),
           `${definition.id} ${feature}`
@@ -303,14 +354,14 @@ describe('Проверка размещения и возврата поддан
       }
 
       const roadSides = Object.entries(definition.sides)
-        .filter(([, sideType]) => sideType === 'road')
+        .filter(([, sideType]) => sideType === TileSideType.Road)
         .map(([side]) => side)
       const citySides = Object.entries(definition.sides)
-        .filter(([, sideType]) => sideType === 'city')
+        .filter(([, sideType]) => sideType === TileSideType.City)
         .map(([side]) => side)
       for (const [feature, groups, validSides] of [
-        ['road', definition.roadGroups, roadSides],
-        ['city', definition.cityGroups, citySides],
+        [TileSideType.Road, definition.roadGroups, roadSides],
+        [TileSideType.City, definition.cityGroups, citySides],
         ['shield', definition.cityShieldGroups, citySides],
       ] as const) {
         for (const group of groups ?? []) {
@@ -336,27 +387,33 @@ describe('Проверка размещения и возврата поддан
     }
 
     expect(
-      game.getTileFeatureGroups(getExpansionTile('IAC-E'), 'road')
-    ).toEqual([
-      ['north', 'west'],
-      ['east', 'south'],
-    ])
-    expect(
-      game.getTileFeatureGroups(getExpansionTile('IAC-I'), 'road')
-    ).toEqual([['east'], ['west']])
-    expect(
       game.getTileFeatureGroups(
-        game.rotateTile(getExpansionTile('IAC-E')),
-        'road'
+        getExpansionTile(TileId.IAC_E),
+        TileSideType.Road
       )
     ).toEqual([
-      ['east', 'north'],
-      ['south', 'west'],
+      [SideName.North, SideName.West],
+      [SideName.East, SideName.South],
+    ])
+    expect(
+      game.getTileFeatureGroups(
+        getExpansionTile(TileId.IAC_I),
+        TileSideType.Road
+      )
+    ).toEqual([[SideName.East], [SideName.West]])
+    expect(
+      game.getTileFeatureGroups(
+        game.rotateTile(getExpansionTile(TileId.IAC_E)),
+        TileSideType.Road
+      )
+    ).toEqual([
+      [SideName.East, SideName.North],
+      [SideName.South, SideName.West],
     ])
   })
 
   it('описывает два отдельных города IAC-P и относит герб к одному из них', () => {
-    const tile = innsAndCathedralsTiles.find(({ id }) => id === 'IAC-P')
+    const tile = innsAndCathedralsTiles.find(({ id }) => id === TileId.IAC_P)
     if (!tile) throw new Error('Tile IAC-P is missing')
     const game = new GameManager({
       players: makePlayers(),
@@ -364,10 +421,10 @@ describe('Проверка размещения и возврата поддан
       rules: { expansions: { innsAndCathedrals: true } },
     })
 
-    expect(game.getTileFeatureGroups({ ...tile, rotation: 0 }, 'city')).toEqual(
-      [['north', 'west'], ['south']]
-    )
-    expect(tile.cityShieldGroups).toEqual([['north', 'west']])
+    expect(
+      game.getTileFeatureGroups({ ...tile, rotation: 0 }, TileSideType.City)
+    ).toEqual([[SideName.North, SideName.West], [SideName.South]])
+    expect(tile.cityShieldGroups).toEqual([[SideName.North, SideName.West]])
   })
 
   it('предлагает все незанятые группы для всех типов каталожных тайлов и поворотов', () => {
@@ -389,8 +446,8 @@ describe('Проверка размещения и возврата поддан
         game.currentTile = gridTile
 
         const expectedDirections: string[] = []
-        for (const feature of ['road', 'city'] as const) {
-          const collection = feature === 'road' ? 'roads' : 'cities'
+        for (const feature of [TileSideType.Road, TileSideType.City] as const) {
+          const collection = feature === TileSideType.Road ? 'roads' : 'cities'
           const groups = game.getTileFeatureGroups(gridTile, feature)
           groups.forEach((group, groupIndex) => {
             const points = group.map((direction) => ({
@@ -419,7 +476,7 @@ describe('Проверка размещения и возврата поддан
         }
 
         if (gridTile.isMonastery || gridTile.hasGarden) {
-          expectedDirections.push('center')
+          expectedDirections.push(PointDirection.Center)
         }
         expect(game.simulatePlaceTile(gridTile, y, x)).toBe(true)
 
@@ -434,19 +491,19 @@ describe('Проверка размещения и возврата поддан
 
   it.each([
     {
-      id: 'P',
-      occupiedFeature: 'road',
-      expectedAvailable: ['north', 'west'],
+      id: TileId.P,
+      occupiedFeature: TileSideType.Road,
+      expectedAvailable: [SideName.North, SideName.West],
     },
     {
-      id: 'P',
-      occupiedFeature: 'city',
-      expectedAvailable: ['east', 'south'],
+      id: TileId.P,
+      occupiedFeature: TileSideType.City,
+      expectedAvailable: [SideName.East, SideName.South],
     },
     {
-      id: 'H',
-      occupiedFeature: 'city',
-      expectedAvailable: ['south'],
+      id: TileId.H,
+      occupiedFeature: TileSideType.City,
+      expectedAvailable: [SideName.South],
     },
   ] as const)(
     'сохраняет доступность независимых групп на смешанном/городском тайле $id при занятой группе $occupiedFeature',
@@ -462,8 +519,8 @@ describe('Проверка размещения и возврата поддан
       game.currentPlayerIndex = 0
       game.currentTile = tile
 
-      for (const feature of ['road', 'city'] as const) {
-        const collection = feature === 'road' ? 'roads' : 'cities'
+      for (const feature of [TileSideType.Road, TileSideType.City] as const) {
+        const collection = feature === TileSideType.Road ? 'roads' : 'cities'
         const groups = game.getTileFeatureGroups(tile, feature)
         groups.forEach((group, index) => {
           const points = group.map((direction) => ({
@@ -508,10 +565,15 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.monasteries = []
     game.temporaryObjects.gardens = []
     const tile = {
-      id: 'F',
+      id: TileId.F,
       rotation: 0,
-      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
-      cityGroups: [['east'], ['west']],
+      sides: {
+        [SideName.North]: TileSideType.Field,
+        [SideName.East]: TileSideType.City,
+        [SideName.South]: TileSideType.Field,
+        [SideName.West]: TileSideType.City,
+      },
+      cityGroups: [[SideName.East], [SideName.West]],
       x: 15,
       y: 15,
     }
@@ -526,7 +588,7 @@ describe('Проверка размещения и возврата поддан
     expect(game.temporaryObjects.cities).toHaveLength(2)
   })
 
-  it.each(['city', 'road'] as const)(
+  it.each([TileSideType.City, TileSideType.Road] as const)(
     'не позволяет повторно занять уже занятую связанную %s',
     (feature) => {
       const game = new GameManager({ players: makePlayers() })
@@ -535,7 +597,8 @@ describe('Проверка размещения и возврата поддан
       const point: Point = {
         x: 15,
         y: 15,
-        direction: feature === 'city' ? 'north' : 'east',
+        direction:
+          feature === TileSideType.City ? SideName.North : SideName.East,
         pointType: feature,
       }
       const object: BaseObject = {
@@ -549,9 +612,9 @@ describe('Проверка размещения и возврата поддан
           },
         ],
       }
-      game.temporaryObjects[feature === 'city' ? 'cities' : 'roads'].push(
-        object
-      )
+      game.temporaryObjects[
+        feature === TileSideType.City ? 'cities' : 'roads'
+      ].push(object)
       const forgedPlace = {
         point,
         temporaryObject: { ...object, followers: [] },
@@ -570,8 +633,8 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.roads = []
     game.temporaryObjects.monasteries = []
     game.temporaryObjects.gardens = []
-    const firstPoint: Point = { x: 15, y: 15, direction: 'north' }
-    const secondPoint: Point = { x: 15, y: 15, direction: 'east' }
+    const firstPoint: Point = { x: 15, y: 15, direction: SideName.North }
+    const secondPoint: Point = { x: 15, y: 15, direction: SideName.East }
     const city: BaseObject = {
       id: 'shared-city',
       points: [firstPoint, secondPoint],
@@ -579,12 +642,17 @@ describe('Проверка размещения и возврата поддан
     }
     game.tilePlacesStats[15] = {
       15: {
-        id: 'M',
+        id: TileId.M,
         rotation: 0,
         x: 15,
         y: 15,
-        sides: { north: 'city', east: 'city', south: 'field', west: 'field' },
-        cityGroups: [['north', 'east']],
+        sides: {
+          [SideName.North]: TileSideType.City,
+          [SideName.East]: TileSideType.City,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Field,
+        },
+        cityGroups: [[SideName.North, SideName.East]],
       },
     }
     game.temporaryObjects.cities.push(city)
@@ -606,11 +674,16 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.gardens = []
     game.tilePlacesStats[15] = {
       15: {
-        id: 'H',
+        id: TileId.H,
         rotation: 0,
         x: 15,
         y: 15,
-        sides: { north: 'city', east: 'field', south: 'city', west: 'field' },
+        sides: {
+          [SideName.North]: TileSideType.City,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.City,
+          [SideName.West]: TileSideType.Field,
+        },
       },
     }
 
@@ -618,10 +691,10 @@ describe('Проверка размещения и возврата поддан
 
     expect(game.temporaryObjects.cities).toHaveLength(2)
     const northCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'north')
+      city.points.some((point) => point.direction === SideName.North)
     )
     const southCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'south')
+      city.points.some((point) => point.direction === SideName.South)
     )
     expect(northCity).toBeDefined()
     expect(southCity).toBeDefined()
@@ -636,13 +709,18 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.gardens = []
     game.tilePlacesStats[15] = {
       15: {
-        id: 'D',
+        id: TileId.D,
         rotation: 0,
         x: 15,
         y: 15,
-        sides: { north: 'city', east: 'road', south: 'field', west: 'road' },
-        roadGroups: [['east'], ['west']],
-        cityGroups: [['north']],
+        sides: {
+          [SideName.North]: TileSideType.City,
+          [SideName.East]: TileSideType.Road,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Road,
+        },
+        roadGroups: [[SideName.East], [SideName.West]],
+        cityGroups: [[SideName.North]],
       },
     }
 
@@ -658,33 +736,38 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.monasteries = []
     game.temporaryObjects.gardens = []
     const tile: Tile = {
-      id: 'F',
+      id: TileId.F,
       rotation: 0,
-      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
+      sides: {
+        [SideName.North]: TileSideType.Field,
+        [SideName.East]: TileSideType.City,
+        [SideName.South]: TileSideType.Field,
+        [SideName.West]: TileSideType.City,
+      },
     }
     game.tilePlacesStats[15] = {
       15: { ...tile, x: 15, y: 15 },
     }
     game.checkGridAfterPlacingTile(15, 15)
     const westCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'west')
+      city.points.some((point) => point.direction === SideName.West)
     )
     const eastCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'east')
+      city.points.some((point) => point.direction === SideName.East)
     )
     expect(westCity).toBeDefined()
     expect(eastCity).toBe(westCity)
     if (!westCity || !eastCity) return
 
     const eastPlace = {
-      point: { x: 15, y: 15, direction: 'east' as const },
+      point: { x: 15, y: 15, direction: SideName.East as const },
       temporaryObject: eastCity,
     }
     game.currentPlayer = game.players[1] ?? null
     game.currentPlayerIndex = 1
     expect(game.simulatePlaceFollower(eastPlace)).toBe(true)
     const westPlace = {
-      point: { x: 15, y: 15, direction: 'west' as const },
+      point: { x: 15, y: 15, direction: SideName.West as const },
       temporaryObject: westCity,
     }
     game.currentPlayer = game.players[0] ?? null
@@ -700,11 +783,16 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.gardens = []
     game.tilePlacesStats[15] = {
       15: {
-        id: 'C',
+        id: TileId.C,
         rotation: 0,
         x: 15,
         y: 15,
-        sides: { north: 'city', east: 'city', south: 'city', west: 'city' },
+        sides: {
+          [SideName.North]: TileSideType.City,
+          [SideName.East]: TileSideType.City,
+          [SideName.South]: TileSideType.City,
+          [SideName.West]: TileSideType.City,
+        },
       },
     }
 
@@ -721,19 +809,24 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.monasteries = []
     game.temporaryObjects.gardens = []
     const tile: Tile = {
-      id: 'D',
+      id: TileId.D,
       rotation: 0,
-      sides: { north: 'city', east: 'road', south: 'field', west: 'road' },
+      sides: {
+        [SideName.North]: TileSideType.City,
+        [SideName.East]: TileSideType.Road,
+        [SideName.South]: TileSideType.Field,
+        [SideName.West]: TileSideType.Road,
+      },
     }
     game.tilePlacesStats[15] = {
       15: { ...tile, x: 15, y: 15 },
     }
     game.checkGridAfterPlacingTile(15, 15)
     const eastRoad = game.temporaryObjects.roads.find((road) =>
-      road.points.some((point) => point.direction === 'east')
+      road.points.some((point) => point.direction === SideName.East)
     )
     const westRoad = game.temporaryObjects.roads.find((road) =>
-      road.points.some((point) => point.direction === 'west')
+      road.points.some((point) => point.direction === SideName.West)
     )
     expect(eastRoad).toBeDefined()
     expect(westRoad).not.toBe(eastRoad)
@@ -742,9 +835,9 @@ describe('Проверка размещения и возврата поддан
     expect(
       game.simulatePlaceFollower(
         game.availableFollowersPlaces.find(
-          (place) => place.point.direction === 'east'
+          (place) => place.point.direction === SideName.East
         ) ?? {
-          point: { x: 15, y: 15, direction: 'east' },
+          point: { x: 15, y: 15, direction: SideName.East },
           temporaryObject: eastRoad,
         }
       )
@@ -754,9 +847,9 @@ describe('Проверка размещения и возврата поддан
     expect(
       game.simulatePlaceFollower(
         game.availableFollowersPlaces.find(
-          (place) => place.point.direction === 'west'
+          (place) => place.point.direction === SideName.West
         ) ?? {
-          point: { x: 15, y: 15, direction: 'west' },
+          point: { x: 15, y: 15, direction: SideName.West },
           temporaryObject: westRoad,
         }
       )
@@ -770,19 +863,24 @@ describe('Проверка размещения и возврата поддан
     game.temporaryObjects.monasteries = []
     game.temporaryObjects.gardens = []
     const tile: Tile = {
-      id: 'F',
+      id: TileId.F,
       rotation: 0,
-      sides: { north: 'field', east: 'city', south: 'field', west: 'city' },
+      sides: {
+        [SideName.North]: TileSideType.Field,
+        [SideName.East]: TileSideType.City,
+        [SideName.South]: TileSideType.Field,
+        [SideName.West]: TileSideType.City,
+      },
     }
     game.tilePlacesStats[15] = {
       15: { ...tile, x: 15, y: 15 },
     }
     game.checkGridAfterPlacingTile(15, 15)
     const eastCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'east')
+      city.points.some((point) => point.direction === SideName.East)
     )
     const westCity = game.temporaryObjects.cities.find((city) =>
-      city.points.some((point) => point.direction === 'west')
+      city.points.some((point) => point.direction === SideName.West)
     )
     expect(eastCity).toBeDefined()
     expect(westCity).toBeDefined()
@@ -790,13 +888,13 @@ describe('Проверка размещения и возврата поддан
     if (!eastCity || !westCity) return
 
     const eastFollowerPlace = game.availableFollowersPlaces.find(
-      (place) => place.point.direction === 'east'
+      (place) => place.point.direction === SideName.East
     )
     expect(eastFollowerPlace).toBeUndefined()
     const followersBefore = game.playersFollowers[1]?.ordinaryFollowers
     expect(
       game.simulatePlaceFollower({
-        point: { x: 15, y: 15, direction: 'east' },
+        point: { x: 15, y: 15, direction: SideName.East },
         temporaryObject: {
           ...westCity,
           id: 'forged-city',
@@ -807,7 +905,7 @@ describe('Проверка размещения и возврата поддан
     expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(followersBefore)
   })
 
-  it.each(['city', 'road'] as const)(
+  it.each([TileSideType.City, TileSideType.Road] as const)(
     'убирает маркер при завершении %s, даже если ID объекта изменился',
     (feature) => {
       const game = new GameManager({ players: makePlayers() })
@@ -816,15 +914,16 @@ describe('Проверка размещения и возврата поддан
       const followerPoint = {
         x: 14,
         y: 15,
-        direction: feature === 'city' ? 'north' : 'east',
+        direction:
+          feature === TileSideType.City ? SideName.North : SideName.East,
       } as const
       const object: BaseObject = {
         id: `completed-${feature}`,
         points: [
           followerPoint,
-          feature === 'city'
-            ? { x: 14, y: 14, direction: 'south' }
-            : { x: 15, y: 15, direction: 'west' },
+          feature === TileSideType.City
+            ? { x: 14, y: 14, direction: SideName.South }
+            : { x: 15, y: 15, direction: SideName.West },
         ],
         followers: [
           {
@@ -835,16 +934,16 @@ describe('Проверка размещения и возврата поддан
         ],
       }
       game.playersFollowers[1]!.ordinaryFollowers = 6
-      game.temporaryObjects[feature === 'city' ? 'cities' : 'roads'].push(
-        object
-      )
+      game.temporaryObjects[
+        feature === TileSideType.City ? 'cities' : 'roads'
+      ].push(object)
       game.placedFollowers.push({
         playerId: 1,
         objectId: 'old-merged-id',
         point: followerPoint,
       })
 
-      if (feature === 'city') game.checkCompleteCity(object)
+      if (feature === TileSideType.City) game.checkCompleteCity(object)
       else game.checkCompleteRoad(object)
 
       expect(game.placedFollowers).toHaveLength(0)

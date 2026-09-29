@@ -1,10 +1,15 @@
-import type { SideName, TileSides } from './types'
+import {
+  SideName,
+  TileRotation,
+  type SideName as SideNameValue,
+  type TileSides,
+} from './types'
 
-const CLOCKWISE_SIDE: Record<SideName, SideName> = {
-  north: 'east',
-  east: 'south',
-  south: 'west',
-  west: 'north',
+const CLOCKWISE_SIDE: Record<SideNameValue, SideNameValue> = {
+  [SideName.North]: SideName.East,
+  [SideName.East]: SideName.South,
+  [SideName.South]: SideName.West,
+  [SideName.West]: SideName.North,
 }
 
 export function rotateTileSides(
@@ -12,14 +17,15 @@ export function rotateTileSides(
   quarterTurns: number
 ): TileSides {
   let rotatedSides = { ...sides }
-  const turns = ((quarterTurns % 4) + 4) % 4
+  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const turns = ((quarterTurns % turnCount) + turnCount) % turnCount
 
   for (let turn = 0; turn < turns; turn++) {
     rotatedSides = {
-      north: rotatedSides.west,
-      east: rotatedSides.north,
-      south: rotatedSides.east,
-      west: rotatedSides.south,
+      [SideName.North]: rotatedSides[SideName.West],
+      [SideName.East]: rotatedSides[SideName.North],
+      [SideName.South]: rotatedSides[SideName.East],
+      [SideName.West]: rotatedSides[SideName.South],
     }
   }
 
@@ -27,12 +33,13 @@ export function rotateTileSides(
 }
 
 export function rotateTileGroups(
-  groups: SideName[][] | undefined,
+  groups: SideNameValue[][] | undefined,
   quarterTurns: number
-): SideName[][] | undefined {
+): SideNameValue[][] | undefined {
   if (!groups) return groups
 
-  const turns = ((quarterTurns % 4) + 4) % 4
+  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const turns = ((quarterTurns % turnCount) + turnCount) % turnCount
   return groups
     .map((group) =>
       group.map((side) => {

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
-import { ActionTypes, ObjectTypes } from '../../server/src/modules/types'
+import {
+  ActionTypes,
+  FollowerType,
+  ObjectTypes,
+  PointDirection,
+  SideName,
+  TileId,
+  TileSideType,
+} from '../../server/src/modules/types'
 import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 
 /**
@@ -14,7 +22,12 @@ function gardenTile(): Tile {
   return {
     id: 'test-garden',
     rotation: 0,
-    sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
     hasGarden: true,
   }
 }
@@ -64,7 +77,12 @@ function placeFieldTile(game: GameManager, row: number, col: number): boolean {
   const tile: Tile = {
     id: 'test-field',
     rotation: 0,
-    sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
   }
   game.currentTile = { ...tile, x: col, y: row }
   return game.placeTile(game.currentTile, row, col)
@@ -107,7 +125,7 @@ describe('Сад (оба игрока-человека, фиксированна
     }
 
     expect(gardenTiles).toHaveLength(10)
-    expect(counts).toMatchObject({ 'IAC-B': 1, 'IAC-H': 1 })
+    expect(counts).toMatchObject({ [TileId.IAC_B]: 1, [TileId.IAC_H]: 1 })
   })
 
   it('на сад ставится только аббат: обычный подданный отклоняется', () => {
@@ -121,12 +139,12 @@ describe('Сад (оба игрока-человека, фиксированна
       (place) => place.temporaryObject.isGarden
     )
     expect(gardenPlace).toBeTruthy()
-    expect(gardenPlace!.point.direction).toBe('center')
+    expect(gardenPlace!.point.direction).toBe(PointDirection.Center)
 
     // Обычный подданный на сад не ставится: ход пропускается, фишка не списана
     stashDeck(game)
     game.availableFollowersPlaces = [gardenPlace!]
-    game.placeFollower(gardenPlace!, 'follower')
+    game.placeFollower(gardenPlace!, FollowerType.Follower)
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
       monks: 1,
@@ -144,7 +162,7 @@ describe('Сад (оба игрока-человека, фиксированна
       (place) => place.temporaryObject.isGarden
     )!
     stashDeck(game)
-    game.placeFollower(gardenPlace, 'abbot')
+    game.placeFollower(gardenPlace, FollowerType.Abbot)
 
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
@@ -170,7 +188,7 @@ describe('Сад (оба игрока-человека, фиксированна
       (place) => place.temporaryObject.isGarden
     )!
     stashDeck(game)
-    game.placeFollower(gardenPlace, 'abbot')
+    game.placeFollower(gardenPlace, FollowerType.Abbot)
 
     const turns: Array<{ row: number; col: number; sides?: TileSides }> = [
       { row: 16, col: 14 },
@@ -179,12 +197,22 @@ describe('Сад (оба игрока-человека, фиксированна
       {
         row: 15,
         col: 16,
-        sides: { north: 'field', east: 'field', south: 'field', west: 'road' },
+        sides: {
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Road,
+        },
       },
       {
         row: 15,
         col: 14,
-        sides: { north: 'road', east: 'road', south: 'field', west: 'field' },
+        sides: {
+          [SideName.North]: TileSideType.Road,
+          [SideName.East]: TileSideType.Road,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Field,
+        },
       },
       { row: 17, col: 14 },
       { row: 17, col: 16 },
@@ -231,14 +259,19 @@ describe('Сад (оба игрока-человека, фиксированна
       (place) => place.temporaryObject.isGarden
     )!
     stashDeck(game)
-    game.placeFollower(gardenPlace, 'abbot')
+    game.placeFollower(gardenPlace, FollowerType.Abbot)
 
     expect(game.currentPlayer!.id).toBe(2)
     stashDeck(game)
     expect(
       placeTileWithSides(
         game,
-        { north: 'field', east: 'field', south: 'city', west: 'road' },
+        {
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.City,
+          [SideName.West]: TileSideType.Road,
+        },
         14,
         15
       )

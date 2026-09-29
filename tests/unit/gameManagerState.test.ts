@@ -4,7 +4,11 @@ import {
   type IGameBoard,
 } from '../../server/src/modules/GameManager'
 import { serializeGameState } from '../../server/src/modules/gameSave'
-import type { Player } from '../../server/src/modules/types'
+import {
+  SideName,
+  TileSideType,
+  type Player,
+} from '../../server/src/modules/types'
 
 const players: Player[] = [
   {
@@ -46,11 +50,11 @@ function assertIndependentGameState(
   const row = copy.tilePlacesStats[15]
   const startingTile = row?.[15]
   if (!startingTile) throw new Error('Expected the starting tile')
-  startingTile.sides.east = 'city'
+  startingTile.sides[SideName.East] = TileSideType.City
 
   const tileInDeck = copy.tilesList[0]
   if (!tileInDeck) throw new Error('Expected tiles in the deck')
-  tileInDeck.sides.west = 'road'
+  tileInDeck.sides[SideName.West] = TileSideType.Road
 
   const copiedFirstPlayer = copy.players[0]
   if (!copiedFirstPlayer) throw new Error('Expected the first player')

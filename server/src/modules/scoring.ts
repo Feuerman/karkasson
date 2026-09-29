@@ -6,6 +6,7 @@ import type {
   Scores,
   TilePlacesStats,
 } from './types'
+import { ExpansionName, PointDirection } from './types'
 
 /**
  * Распределяет очки объекта между игроками-лидерами
@@ -69,7 +70,7 @@ export function calcRoadScore(
 ): ScoreForObject {
   const points = countUniqueTiles(tilePlacesStats, road.points)
   const adjustedPoints =
-    road.expansion === 'innsAndCathedrals' ||
+    road.expansion === ExpansionName.InnsAndCathedrals ||
     (innsAndCathedralsEnabled && road.hasInn)
       ? isCompleted
         ? points * 2
@@ -106,7 +107,7 @@ export function calcCityScore(
               cityPoint.x === point.x &&
               cityPoint.y === point.y &&
               cityPoint.direction !== undefined &&
-              cityPoint.direction !== 'center' &&
+              cityPoint.direction !== PointDirection.Center &&
               group.includes(cityPoint.direction)
           )
         )
@@ -121,7 +122,7 @@ export function calcCityScore(
   const basePoints =
     uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
   const points =
-    city.expansion === 'innsAndCathedrals' ||
+    city.expansion === ExpansionName.InnsAndCathedrals ||
     (innsAndCathedralsEnabled && city.hasCathedral)
       ? isCompleted
         ? basePoints * 3

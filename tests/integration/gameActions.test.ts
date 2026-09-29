@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { SideName } from '../../server/src/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -333,10 +334,10 @@ function rotateTileState(
   for (let i = 0; i < rotation; i++) {
     sides = {
       ...sides,
-      north: sides.west,
-      east: sides.north,
-      south: sides.east,
-      west: sides.south,
+      [SideName.North]: sides[SideName.West],
+      [SideName.East]: sides[SideName.North],
+      [SideName.South]: sides[SideName.East],
+      [SideName.West]: sides[SideName.South],
     }
   }
   return { ...tile, sides, rotation: (tile.rotation + rotation * 90) % 360 }

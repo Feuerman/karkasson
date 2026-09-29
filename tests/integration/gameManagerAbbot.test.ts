@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
-import { ActionTypes, ObjectTypes } from '../../server/src/modules/types'
+import {
+  ActionTypes,
+  FollowerType,
+  ObjectTypes,
+  SideName,
+  TileId,
+  TileSideType,
+} from '../../server/src/modules/types'
 import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 
 /**
@@ -11,10 +18,15 @@ import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 
 function monasteryTile(): Tile {
   return {
-    id: 'B',
+    id: TileId.B,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
     rotation: 0,
-    sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
     isMonastery: true,
   }
 }
@@ -22,10 +34,15 @@ function monasteryTile(): Tile {
 // «Монастырь с дорогой»: даёт и объект-монастырь, и дорогу
 function monasteryWithRoadTile(): Tile {
   return {
-    id: 'A',
+    id: TileId.A,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_A.png',
     rotation: 0,
-    sides: { north: 'field', east: 'field', south: 'road', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Road,
+      [SideName.West]: TileSideType.Field,
+    },
     isMonastery: true,
   }
 }
@@ -106,7 +123,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     })
 
     stashDeck(game)
-    game.placeFollower(monasteryPlace!, 'abbot')
+    game.placeFollower(monasteryPlace!, FollowerType.Abbot)
 
     // Аббат списан, обычные фишки не тронуты
     expect(game.playersFollowers[1]).toEqual({
@@ -129,7 +146,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     const action = game.actionsHistory[game.actionsHistory.length - 1]
     expect(action!.actionType).toBe(ActionTypes.PLACE_FOLLOWER)
     expect((action!.actionData as { followerType: string }).followerType).toBe(
-      'abbot'
+      FollowerType.Abbot
     )
 
     // Ход завершился и передан Бобу
@@ -144,7 +161,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     expect(placeMonasteryWithRoad(game)).toBe(true)
 
     const roadPlace = game.availableFollowersPlaces.find(
-      (place) => place.point.pointType === 'road'
+      (place) => place.point.pointType === TileSideType.Road
     )
     const monasteryPlace = game.availableFollowersPlaces.find(
       (place) => place.temporaryObject.isMonastery
@@ -155,7 +172,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     stashDeck(game)
     game.availableFollowersPlaces = [roadPlace!]
     // Попытка поставить аббата на дорогу (не монастырь)
-    game.placeFollower(roadPlace!, 'abbot')
+    game.placeFollower(roadPlace!, FollowerType.Abbot)
 
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
@@ -179,7 +196,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     )!
     game.availableFollowersPlaces = [monasteryPlace]
     stashDeck(game)
-    game.placeFollower(monasteryPlace, 'abbot')
+    game.placeFollower(monasteryPlace, FollowerType.Abbot)
 
     // Ход Боба 1: тайл в стороне от 3×3 аббата — (14,15), севернее E.
     // У стартового E north = city, поэтому юг тайла — город; западный тупик
@@ -189,7 +206,12 @@ describe('Аббат (оба игрока-человека, фиксирован
     expect(
       placeTileWithSides(
         game,
-        { north: 'field', east: 'field', south: 'city', west: 'road' },
+        {
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.City,
+          [SideName.West]: TileSideType.Road,
+        },
         14,
         15
       )
@@ -261,7 +283,7 @@ describe('Аббат (оба игрока-человека, фиксирован
     )!
     stashDeck(game)
     game.availableFollowersPlaces = [monasteryPlace]
-    game.placeFollower(monasteryPlace, 'abbot')
+    game.placeFollower(monasteryPlace, FollowerType.Abbot)
 
     // Заполняем 3×3 вокруг аббата: ходы чередуются, Боб и Алиса
     // просто пропускают выставление фишек.
@@ -272,12 +294,22 @@ describe('Аббат (оба игрока-человека, фиксирован
       {
         row: 15,
         col: 16,
-        sides: { north: 'field', east: 'field', south: 'field', west: 'road' },
+        sides: {
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Road,
+        },
       }, // Алиса (у E east = road)
       {
         row: 15,
         col: 14,
-        sides: { north: 'road', east: 'road', south: 'field', west: 'field' },
+        sides: {
+          [SideName.North]: TileSideType.Road,
+          [SideName.East]: TileSideType.Road,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Field,
+        },
       }, // Боб (у E west = road; северный тупик держит дорогу открытой)
       { row: 17, col: 14 }, // Алиса
       { row: 17, col: 16 }, // Боб — последняя клетка 3×3, монастырь завершён

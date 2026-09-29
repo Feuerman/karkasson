@@ -1,4 +1,14 @@
-import type { PointDirection } from '@server/modules/types'
+import type { PointDirection, TileId } from '@server/modules/types'
+
+export const RulesMarkerKind = {
+  Follower: 'follower',
+  Invalid: 'no',
+  New: 'new',
+  Completed: 'completed',
+} as const
+
+export type RulesMarkerKind =
+  (typeof RulesMarkerKind)[keyof typeof RulesMarkerKind]
 
 /** Допустимые повороты тайла (по часовой стрелке). */
 export type RulesRotation = 0 | 90 | 180 | 270
@@ -8,26 +18,26 @@ export type RulesMarkerColor = 'coral' | 'skyblue' | 'gold' | 'teal'
 
 /** Цветная точка подданного на грани тайла (или в центре монастыря). */
 export interface RulesMarkerFollower {
-  kind: 'follower'
+  kind: typeof RulesMarkerKind.Follower
   color: RulesMarkerColor
-  direction: PointDirection | 'center'
+  direction: PointDirection
   isBig?: boolean
 }
 
 /** Красный крестик: действие на этой позиции недопустимо. */
 export interface RulesMarkerInvalid {
-  kind: 'no'
-  direction: PointDirection | 'center'
+  kind: typeof RulesMarkerKind.Invalid
+  direction: PointDirection
 }
 
 /** Тайл только что выложен (последний ход): синяя пунктирная рамка. */
 export interface RulesMarkerNew {
-  kind: 'new'
+  kind: typeof RulesMarkerKind.New
 }
 
 /** Тайл относится к завершённому объекту: зелёная рамка. */
 export interface RulesMarkerCompleted {
-  kind: 'completed'
+  kind: typeof RulesMarkerKind.Completed
 }
 
 export type RulesMarker =
@@ -38,7 +48,7 @@ export type RulesMarker =
 
 /** Ссылка на тайл в примере. Достаточно id + поворота. */
 export interface RulesTileRef {
-  id: string
+  id: TileId
   rotation: RulesRotation
   imgUrl: string
   hasGarden?: boolean

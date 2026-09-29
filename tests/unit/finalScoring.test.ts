@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
+import {
+  ActionTypes,
+  ObjectTypes,
+  SideName,
+  TileSideType,
+} from '../../server/src/modules/types'
 import type {
   BaseObject,
   GridTile,
@@ -32,7 +38,12 @@ function tile(x: number, y: number, withShield = false): GridTile {
     y,
     rotation: 0,
     withShield,
-    sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
   }
 }
 
@@ -72,7 +83,7 @@ describe('Финальный подсчёт очков', () => {
 
     game.temporaryObjects.roads = [
       object(
-        'road',
+        ObjectTypes.ROAD,
         [
           { x: 10, y: 10 },
           { x: 11, y: 10 },
@@ -80,12 +91,16 @@ describe('Финальный подсчёт очков', () => {
         [1]
       ),
     ]
-    game.temporaryObjects.cities = [object('city', [{ x: 20, y: 20 }], [1, 2])]
+    game.temporaryObjects.cities = [
+      object(ObjectTypes.CITY, [{ x: 20, y: 20 }], [1, 2]),
+    ]
     game.temporaryObjects.monasteries = [
-      object('monastery', [{ x: 29, y: 29 }], [2], { isMonastery: true }),
+      object(ObjectTypes.MONASTERY, [{ x: 29, y: 29 }], [2], {
+        isMonastery: true,
+      }),
     ]
     game.temporaryObjects.gardens = [
-      object('garden', [{ x: 20, y: 20 }], [1], { isGarden: true }),
+      object(ObjectTypes.GARDEN, [{ x: 20, y: 20 }], [1], { isGarden: true }),
     ]
     game.tilesList = []
 
@@ -109,7 +124,7 @@ describe('Финальный подсчёт очков', () => {
     expect(game.completedObjects.gardens[0]?.score?.total).toBe(1)
     expect(
       game.actionsHistory.filter(
-        (action) => action.actionType === 'ADDING_SCORES'
+        (action) => action.actionType === ActionTypes.ADDING_SCORES
       )
     ).toHaveLength(4)
 
@@ -119,7 +134,9 @@ describe('Финальный подсчёт очков', () => {
 
   it('не начисляет очки в конце, если опция отключена', () => {
     const game = new GameManager({ players })
-    game.temporaryObjects.roads = [object('road', [{ x: 10, y: 10 }], [1])]
+    game.temporaryObjects.roads = [
+      object(ObjectTypes.ROAD, [{ x: 10, y: 10 }], [1]),
+    ]
     game.tilesList = []
 
     game.getRandomTileFromList()

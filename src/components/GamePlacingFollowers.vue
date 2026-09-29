@@ -38,7 +38,8 @@
               class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
               @click.stop="
-                gameBoard.isMyTurn && placeFollower(place, 'follower')
+                gameBoard.isMyTurn &&
+                placeFollower(place, FollowerType.Follower)
               "
             >
               <template #leading>
@@ -54,7 +55,9 @@
               variant="ghost"
               class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || abbotAvailable === 0"
-              @click.stop="gameBoard.isMyTurn && placeFollower(place, 'abbot')"
+              @click.stop="
+                gameBoard.isMyTurn && placeFollower(place, FollowerType.Abbot)
+              "
             >
               <template #leading>
                 <UIcon
@@ -78,7 +81,8 @@
               class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
               @click.stop="
-                gameBoard.isMyTurn && placeFollower(place, 'bigFollower')
+                gameBoard.isMyTurn &&
+                placeFollower(place, FollowerType.BigFollower)
               "
             >
               <template #leading>
@@ -97,7 +101,8 @@
               class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
               @click.stop="
-                gameBoard.isMyTurn && placeFollower(place, 'follower')
+                gameBoard.isMyTurn &&
+                placeFollower(place, FollowerType.Follower)
               "
             >
               <template #leading>
@@ -118,7 +123,8 @@
               class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
               :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
               @click.stop="
-                gameBoard.isMyTurn && placeFollower(place, 'bigFollower')
+                gameBoard.isMyTurn &&
+                placeFollower(place, FollowerType.BigFollower)
               "
             >
               <template #leading>
@@ -148,6 +154,7 @@
 
 <script setup lang="ts">
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
+import { FollowerType } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
 import Draggable from '@/components/Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
@@ -203,10 +210,7 @@ const followerPlaceTitle = (
   return `${title} — ${pointDirectionTitle(place.point.direction)}`
 }
 
-const placeFollower = (
-  place: AvailableFollowerPlace,
-  type: 'follower' | 'bigFollower' | 'abbot'
-) => {
+const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
   GameService.placeFollower(place, type)
 }
 </script>

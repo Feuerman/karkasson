@@ -2,14 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { tiles } from '../../server/src/data/tiles'
 import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
 import {
+  PointDirection,
+  SideName,
+  TileId,
+  TileSideType,
+} from '../../server/src/modules/types'
+import {
   getFollowerPosition,
   isTileId,
-  type TileId,
 } from '../../src/utils/followerPositions'
 
 const allTiles = [...tiles, ...innsAndCathedralsTiles]
 const tileIds = allTiles.map((tile) => tile.id)
-const directions = ['north', 'east', 'south', 'west'] as const
+const directions = [
+  SideName.North,
+  SideName.East,
+  SideName.South,
+  SideName.West,
+] as const
 
 function rotatePosition(
   [x, y]: [number, number],
@@ -57,11 +67,15 @@ describe('follower positions', () => {
     for (const tile of allTiles) {
       const tileId = tile.id as TileId
       for (const [direction, featureType] of Object.entries(tile.sides)) {
-        if (featureType !== 'road' && featureType !== 'city') continue
+        if (
+          featureType !== TileSideType.Road &&
+          featureType !== TileSideType.City
+        )
+          continue
 
         const position = getFollowerPosition(
           tileId,
-          direction as 'north' | 'east' | 'south' | 'west',
+          direction as (typeof directions)[number],
           0,
           featureType
         )
@@ -83,7 +97,11 @@ describe('follower positions', () => {
       const tileId = tile.id as TileId
       for (const direction of directions) {
         const featureType = tile.sides[direction]
-        if (featureType !== 'road' && featureType !== 'city') continue
+        if (
+          featureType !== TileSideType.Road &&
+          featureType !== TileSideType.City
+        )
+          continue
 
         for (const rotation of [0, 90, 180, 270]) {
           const unrotatedDirection = getUnrotatedDirection(direction, rotation)
@@ -104,14 +122,29 @@ describe('follower positions', () => {
   })
 
   it('rotates the follower position with the tile', () => {
-    const basePosition = getFollowerPosition('V', 'south', 0, 'road')
-    const clockwiseSidePosition = getFollowerPosition('V', 'west', 90, 'road')
-    const halfTurnPosition = getFollowerPosition('V', 'north', 180, 'road')
+    const basePosition = getFollowerPosition(
+      TileId.V,
+      SideName.South,
+      0,
+      TileSideType.Road
+    )
+    const clockwiseSidePosition = getFollowerPosition(
+      TileId.V,
+      SideName.West,
+      90,
+      TileSideType.Road
+    )
+    const halfTurnPosition = getFollowerPosition(
+      TileId.V,
+      SideName.North,
+      180,
+      TileSideType.Road
+    )
     const counterClockwiseSidePosition = getFollowerPosition(
-      'V',
-      'east',
+      TileId.V,
+      SideName.East,
       270,
-      'road'
+      TileSideType.Road
     )
 
     expect(basePosition).toEqual([0.5, 0.82])
@@ -121,13 +154,23 @@ describe('follower positions', () => {
   })
 
   it('places followers on separate city sections of tile I', () => {
-    const topCityPosition = getFollowerPosition('I', 'north', 0, 'city')
-    const leftCityPosition = getFollowerPosition('I', 'west', 0, 'city')
+    const topCityPosition = getFollowerPosition(
+      TileId.I,
+      SideName.North,
+      0,
+      TileSideType.City
+    )
+    const leftCityPosition = getFollowerPosition(
+      TileId.I,
+      SideName.West,
+      0,
+      TileSideType.City
+    )
     const rotatedBottomCityPosition = getFollowerPosition(
-      'I',
-      'south',
+      TileId.I,
+      SideName.South,
       270,
-      'city'
+      TileSideType.City
     )
 
     expect(topCityPosition).toEqual([0.5, 0.18])
@@ -137,16 +180,18 @@ describe('follower positions', () => {
   })
 
   it('puts monastery followers in the center and gardens off-center', () => {
-    expect(getFollowerPosition('B', 'center', 0, undefined)).toEqual([0.5, 0.5])
-    expect(getFollowerPosition('R', 'center', 0, undefined, true)).toEqual([
-      0.5, 0.78,
-    ])
+    expect(
+      getFollowerPosition(TileId.B, PointDirection.Center, 0, undefined)
+    ).toEqual([0.5, 0.5])
+    expect(
+      getFollowerPosition(TileId.R, PointDirection.Center, 0, undefined, true)
+    ).toEqual([0.5, 0.78])
   })
 
   it('rotates garden markers and rejects unknown tile ids', () => {
-    expect(getFollowerPosition('R', 'center', 90, undefined, true)).toEqual([
-      0.22, 0.5,
-    ])
+    expect(
+      getFollowerPosition(TileId.R, PointDirection.Center, 90, undefined, true)
+    ).toEqual([0.22, 0.5])
     expect(isTileId('unknown')).toBe(false)
   })
 })
