@@ -1,6 +1,7 @@
 import type { IGameBoard } from './GameManager'
 import type {
   AvailableFollowerPlace,
+  BaseObject,
   FollowerType,
   ObjectFollower,
   Tile,
@@ -19,6 +20,58 @@ export interface SimulationMove {
 export interface SimulationResult {
   score: number
   moves: SimulationMove[]
+}
+
+type HeuristicGameState = Pick<
+  IGameBoard,
+  'scores' | 'currentPlayer' | 'temporaryObjects'
+>
+
+function countOwnedObjectIds(
+  followers: ObjectFollower[],
+  playerId: number | string
+): number {
+  return new Set(
+    followers
+      .filter((follower) => follower.playerId === playerId)
+      .map((follower) => follower.objectId)
+  ).size
+}
+
+function scoreOwnedObjects(
+  objects: BaseObject[],
+  playerId: number | string,
+  weight: number
+): number {
+  return objects.reduce(
+    (score, object) =>
+      score + countOwnedObjectIds(object.followers, playerId) * weight,
+    0
+  )
+}
+
+export function calculateHeuristicScore(gameState: HeuristicGameState): number {
+  const completedScore = Object.values(gameState.scores).reduce(
+    (sum, value) => sum + value,
+    0
+  )
+
+  const currentPlayer = gameState.currentPlayer
+  if (!currentPlayer) return completedScore
+
+  const temporaryObjects = gameState.temporaryObjects
+  const weightedObjectGroups = [
+    [temporaryObjects.cities, 2],
+    [temporaryObjects.roads, 1],
+    [temporaryObjects.monasteries, 3],
+    [temporaryObjects.gardens, 3],
+  ] as const
+
+  return weightedObjectGroups.reduce(
+    (score, [objects, weight]) =>
+      score + scoreOwnedObjects(objects, currentPlayer.id, weight),
+    completedScore
+  )
 }
 
 function rotateSides(sides: TileSides, times: number): TileSides {
@@ -74,7 +127,7 @@ export class GameSimulatorModule {
       }
     }
 
-    const score = this.calculateScore(clonedGameState)
+    const score = calculateHeuristicScore(clonedGameState)
 
     return {
       score,
@@ -145,7 +198,7 @@ export class GameSimulatorModule {
                 continue
               }
 
-              const score = this.calculateScore(stateWithFollower)
+              const score = calculateHeuristicScore(stateWithFollower)
               if (score <= bestScore) continue
 
               bestScore = score
@@ -169,49 +222,5 @@ export class GameSimulatorModule {
     })
 
     return { score: bestScore, moves: bestMoves }
-  }
-
-  private calculateScore(gameState: IGameBoard): number {
-    let score = Object.values(gameState.scores).reduce(
-      (sum, value) => sum + value,
-      0
-    )
-
-    const currentPlayer = gameState.currentPlayer
-    if (!currentPlayer) return score
-
-    const countPlayerObjects = (followers: ObjectFollower[]) =>
-      new Set(
-        followers
-          .filter((f) => f.playerId === currentPlayer.id)
-          .map((f) => f.objectId)
-      ).size
-
-    // Город
-    for (const city of gameState.temporaryObjects.cities) {
-      if (city.followers.some((f) => f.playerId === currentPlayer.id)) {
-        score += 2 * countPlayerObjects(city.followers)
-      }
-    }
-    // Дорога
-    for (const road of gameState.temporaryObjects.roads) {
-      if (road.followers.some((f) => f.playerId === currentPlayer.id)) {
-        score += countPlayerObjects(road.followers)
-      }
-    }
-    // Монастырь
-    for (const monastery of gameState.temporaryObjects.monasteries) {
-      if (monastery.followers.some((f) => f.playerId === currentPlayer.id)) {
-        score += 3 * countPlayerObjects(monastery.followers)
-      }
-    }
-    // Сад
-    for (const garden of gameState.temporaryObjects.gardens) {
-      if (garden.followers.some((f) => f.playerId === currentPlayer.id)) {
-        score += 3 * countPlayerObjects(garden.followers)
-      }
-    }
-
-    return score
   }
 }
