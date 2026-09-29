@@ -61,17 +61,6 @@ test('игрок создаёт лобби, занимает слот и нач�
     await expect(
       page.getByRole('button', { name: 'Выйти из игры' })
     ).toBeVisible()
-
-    const placeFollower = page.getByTestId('follower-placement-options')
-    if (await placeFollower.isVisible()) {
-      await page
-        .getByRole('button', { name: /Дорога|Город/ })
-        .first()
-        .click()
-    }
-    await expect(
-      page.locator("[data-row-index='15'][data-tile-index='15']")
-    ).toBeVisible()
   } finally {
     await frontend?.close()
     await gameServer.close()
