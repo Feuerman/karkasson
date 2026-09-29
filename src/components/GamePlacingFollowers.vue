@@ -15,29 +15,19 @@
           Поставить подданного
         </span>
       </div>
-      <div
-        v-if="gameBoard.availableFollowersPlaces.length === 0"
-        class="flex flex-col gap-2"
-      >
-        <div class="mb-1 text-text-muted">Нет доступных клеток</div>
-        <UButton
-          block
-          variant="soft"
-          color="neutral"
-          class="btn-secondary min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
-          @click="gameBoard.isMyTurn && GameService.skipFollower"
-        >
-          Отменить
-        </UButton>
+      <div v-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
+        Нет доступных вариантов
       </div>
       <div v-else class="flex flex-col gap-1.5">
-        <template v-for="(place, index) in gameBoard.availableFollowersPlaces">
+        <template
+          v-for="({ place, sameTypeCount }, index) in groupedPlaces"
+          :key="`${place.temporaryObject.id}-${index}`"
+        >
           <div
             v-if="
               place.temporaryObject?.isMonastery ||
               place.temporaryObject?.isGarden
             "
-            :key="`${index}-monastery`"
             data-testid="follower-placement-options"
             class="flex flex-col gap-1.5"
           >
@@ -81,7 +71,6 @@
           </div>
           <UButton
             v-else
-            :key="`${index}-ordinary`"
             block
             variant="ghost"
             class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
@@ -91,11 +80,20 @@
             <template #leading>
               <UIcon :name="placeIcon(place)" class="h-4 w-4 text-gold-dark" />
             </template>
-            {{ pointTypeTitle(place.point.pointType) }}
-            {{ pointDirectionTitle(place.point.direction) }}
+            {{ followerPlaceTitle(place, sameTypeCount) }}
           </UButton>
         </template>
       </div>
+      <UButton
+        block
+        variant="soft"
+        color="neutral"
+        class="btn-secondary mt-2 min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
+        :disabled="!gameBoard.isMyTurn"
+        @click="gameBoard.isMyTurn && GameService.skipFollower()"
+      >
+        Пропустить выставление
+      </UButton>
     </div>
   </Draggable>
 </template>
@@ -112,6 +110,7 @@ import {
   pointDirectionTitle,
   pointTypeTitle,
 } from '@/utils/labels'
+import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -138,9 +137,21 @@ const meFollowers = computed(() => {
 
 const ordinaryAvailable = computed(() => meFollowers.value.ordinaryFollowers)
 const abbotAvailable = computed(() => meFollowers.value.monks)
+const groupedPlaces = computed(() =>
+  groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
+)
 
 const centerFeatureTitle = (place: AvailableFollowerPlace): string =>
   place.temporaryObject?.isGarden ? 'Сад' : 'Монастырь'
+
+const followerPlaceTitle = (
+  place: AvailableFollowerPlace,
+  sameTypeCount: number
+): string => {
+  const title = pointTypeTitle(place.point.pointType)
+  if (sameTypeCount === 1) return title
+  return `${title} — ${pointDirectionTitle(place.point.direction)}`
+}
 
 const placeFollower = (
   place: AvailableFollowerPlace,
