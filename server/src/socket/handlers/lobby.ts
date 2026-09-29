@@ -63,12 +63,19 @@ export function registerLobbyHandlers({
   socket.on(
     'joinGame',
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
-      const existingGame = service.getGame(gameId)
+      const existingGame = service.getGameByIdentifier(gameId)
+      const resolvedGameId = existingGame?.id
+      if (!existingGame || !resolvedGameId) {
+        const error = 'Game not found'
+        socket.emit('error', error)
+        callback?.({ error })
+        return
+      }
       if (
         existingGame?.gameIsEnded ||
         (existingGame?.gameIsStarted && isComputerOnlyGame(existingGame))
       ) {
-        socket.join(gameId)
+        socket.join(resolvedGameId)
         const game = service.formatGameData(existingGame)
         socket.emit('gameUpdated', game)
         callback?.({ success: true, game })
@@ -76,7 +83,11 @@ export function registerLobbyHandlers({
       }
 
       const deviceId = service.getDeviceBySocketId(socket.id)
-      const result = service.joinFirstFreeSlot(gameId, socket.id, deviceId)
+      const result = service.joinFirstFreeSlot(
+        resolvedGameId,
+        socket.id,
+        deviceId
+      )
 
       if ('error' in result) {
         socket.emit('error', result.error)
@@ -84,18 +95,21 @@ export function registerLobbyHandlers({
         return
       }
 
-      socket.join(gameId)
+      socket.join(resolvedGameId)
       try {
-        await service.saveGame(gameId)
+        await service.saveGame(resolvedGameId)
       } catch (error) {
-        service.releasePlayerSlot(gameId, socket.id)
-        socket.leave(gameId)
+        service.releasePlayerSlot(resolvedGameId, socket.id)
+        socket.leave(resolvedGameId)
         callback?.({
           error: error instanceof Error ? error.message : String(error),
         })
         return
       }
-      io.to(gameId).emit('gameUpdated', service.formatGameData(result.game))
+      io.to(resolvedGameId).emit(
+        'gameUpdated',
+        service.formatGameData(result.game)
+      )
       callback?.({ success: true, game: service.formatGameData(result.game) })
     }
   )

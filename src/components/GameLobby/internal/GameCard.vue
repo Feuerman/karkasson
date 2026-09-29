@@ -11,6 +11,13 @@
       </div>
 
       <span
+        class="rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-sm tracking-widest text-gold"
+        :aria-label="`Номер комнаты ${game.roomCode}`"
+      >
+        № {{ game.roomCode }}
+      </span>
+
+      <span
         v-if="game.isLastGame"
         class="flex items-center gap-1 rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs uppercase tracking-wide text-gold"
       >

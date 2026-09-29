@@ -93,6 +93,7 @@ describe('Сохранение данных лобби', () => {
     // Состояние легло в хранилище со всеми игроками
     const saved = await server.db.getGame(lobby.gameId)
     expect(saved?.id).toBe(lobby.gameId)
+    expect(saved?.roomCode).toMatch(/^\d{6}$/)
     expect(saved?.players[0]).toMatchObject({
       name: 'Alice',
       deviceId: 'device-creator',
@@ -119,6 +120,7 @@ describe('Сохранение данных лобби', () => {
 
     const restored = server.handle.gameService.getGame(lobby.gameId)
     expect(restored).toBeTruthy()
+    expect(restored?.roomCode).toBe(saved?.roomCode)
     expect(restored!.players[0].name).toBe('Alice')
     expect(restored!.players[1].name).toBe('Bob')
     expect(restored!.players[1].deviceId).toBe('device-joiner')
@@ -222,7 +224,8 @@ describe('Сохранение данных лобби', () => {
     await server.handle.gameService.saveGame(game.id)
 
     const beforeRestart = countPlacedTiles(
-      server.handle.gameService.formatGameData(game) as GameStateSnapshot
+      server.handle.gameService.formatGameData(game)
+        .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
     )
     const snapshot = JSON.parse(JSON.stringify(store)) as InMemoryStore
     await stopTestServer(server)
@@ -235,10 +238,10 @@ describe('Сохранение данных лобби', () => {
     expect(restored.players[0]?.socketId).toBeNull()
     expect(restored.players[1]?.socketId).toBeNull()
 
-    await new Promise((resolve) => setTimeout(resolve, 200))
     expect(
       countPlacedTiles(
-        server.handle.gameService.formatGameData(restored) as GameStateSnapshot
+        server.handle.gameService.formatGameData(restored)
+          .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
       )
     ).toBe(beforeRestart)
 
@@ -265,9 +268,8 @@ describe('Сохранение данных лобби', () => {
       if (
         currentGame &&
         countPlacedTiles(
-          server.handle.gameService.formatGameData(
-            currentGame
-          ) as GameStateSnapshot
+          server.handle.gameService.formatGameData(currentGame)
+            .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
         ) > beforeRestart
       ) {
         return

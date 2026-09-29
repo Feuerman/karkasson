@@ -47,14 +47,33 @@
           </UButton>
         </div>
 
+        <label
+          class="flex flex-col gap-1.5 text-sm font-medium text-text-muted"
+        >
+          Найти комнату по номеру
+          <input
+            v-model="roomCodeSearch"
+            type="search"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Например, 482731"
+            class="min-h-11 rounded-lg border border-gold-dark/40 bg-white/80 px-3 text-base text-text outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+            @keydown.enter.prevent="joinByRoomCode"
+          />
+        </label>
+
         <div
           class="flex max-h-[52vh] min-h-[320px] flex-col gap-2.5 overflow-y-auto pb-1 pr-1"
         >
           <UEmpty
             v-if="computedGamesList.length === 0"
             icon="i-lucide-castle"
-            title="Нет текущих игр"
-            description="Создайте новую игру или присоединитесь к существующей"
+            :title="roomCodeSearch ? 'Комната не найдена' : 'Нет текущих игр'"
+            :description="
+              roomCodeSearch
+                ? 'Проверьте номер комнаты и попробуйте снова'
+                : 'Создайте новую игру или присоединитесь к существующей'
+            "
             class="mx-auto my-auto opacity-80"
           />
           <template v-else>
@@ -78,7 +97,7 @@
     >
       <LobbyHeader
         icon="i-lucide-swords"
-        :title="`Лобби игры № ${currentGame?.id}`"
+        :title="`Комната № ${currentGame?.roomCode ?? '—'}`"
         subtitle="Займите свободные слоты или оставьте их искусственному интеллекту"
         size="md"
       />
@@ -166,14 +185,23 @@ const gameService = GameService
 
 const currentPlayerName = ref('')
 const showEndedGames = ref(false)
+const roomCodeSearch = ref('')
 const isLoadingGames = ref(true)
 let initialLoadingTimeout: ReturnType<typeof setTimeout> | undefined
 
 const computedGamesList = computed<LobbyGame[]>(() =>
-  showEndedGames.value
+  (showEndedGames.value
     ? props.gamesList
     : props.gamesList.filter((g) => !g.gameIsEnded)
+  ).filter((game) =>
+    game.roomCode.includes(roomCodeSearch.value.trim().toUpperCase())
+  )
 )
+
+function joinByRoomCode() {
+  const roomCode = roomCodeSearch.value.trim()
+  if (/^\d{6}$/.test(roomCode)) emit('joinGame', roomCode)
+}
 
 onMounted(() => {
   // Simulate initial games loading

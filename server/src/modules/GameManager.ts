@@ -84,6 +84,7 @@ export type GameAction =
 
 export interface IGameBoard {
   id?: string
+  roomCode?: string
   gridSize: number[]
   gameIsStarted: boolean
   gameIsEnded: boolean
@@ -169,6 +170,7 @@ const CENTRAL_OBJECT_TYPES = {
 
 export class GameManager implements IGameBoard {
   id?: string
+  roomCode?: string
   gridSize = [30, 30]
   gameIsStarted: boolean
   gameIsEnded: boolean

@@ -195,7 +195,7 @@ export class GameService implements IGameService {
       gameId,
       playerName,
     })
-    this.gameId = gameId
+    this.gameId = response.game.id ?? gameId
     return response.game
   }
 

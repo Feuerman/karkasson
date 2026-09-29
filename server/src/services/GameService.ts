@@ -1,6 +1,7 @@
 import { GameManager, type IGameBoard } from '../modules/GameManager'
 import { deserializeGameState } from '../modules/gameSave'
 import type { IGameDatabase } from '../modules/Database'
+import { randomInt } from 'node:crypto'
 import {
   playerColorForIndex,
   playerNameForIndex,
@@ -19,6 +20,7 @@ export interface GameSummaryPlayer {
 
 export interface GameSummary {
   id: string | undefined
+  roomCode: string
   players: GameSummaryPlayer[]
   currentPlayer: PlayerId | null
   gameIsEnded: boolean
@@ -39,6 +41,7 @@ export interface GameData {
   gameIsEnded: boolean
   moveCounter: number
   id: string | undefined
+  roomCode?: string
   isPlacingFollower: boolean
   scores: Scores
   gameIsStarted: boolean
@@ -105,6 +108,16 @@ export class GameService {
     return this.games[gameId]
   }
 
+  getGameByIdentifier(identifier: string): IGameBoard | undefined {
+    const normalizedIdentifier = identifier.trim().toUpperCase()
+    return (
+      this.games[identifier] ??
+      this.allGames().find(
+        (game) => game.roomCode?.toUpperCase() === normalizedIdentifier
+      )
+    )
+  }
+
   findPlayerGamesForSocket(socketId: string): IGameBoard[] {
     return this.allGames().filter((game) =>
       game.players.some((p) => p.socketId === socketId)
@@ -152,6 +165,7 @@ export class GameService {
 
     const game = new GameManager({ players, startImmediately: false })
     game.id = gameId
+    game.roomCode = this.createUniqueRoomCode()
     this.games[gameId] = game
     this.lobbyOwners[gameId] = deviceId ?? socketId
     return game as IGameBoard & { id: string }
@@ -250,6 +264,7 @@ export class GameService {
     const activePlayers = game.players.filter((p) => Boolean(p.name))
     const newGame = new GameManager({ players: activePlayers })
     newGame.id = gameId
+    newGame.roomCode = game.roomCode
     this.games[gameId] = newGame
     return newGame
   }
@@ -325,6 +340,7 @@ export class GameService {
 
   async loadSavedGames(): Promise<void> {
     const savedGames = await this.db.getAllGames()
+    const updatedGameIds: string[] = []
 
     savedGames.forEach((rawSavedGame) => {
       try {
@@ -333,6 +349,16 @@ export class GameService {
         if (!gameId) return
 
         const game = GameManager.restore(savedGame)
+        if (
+          !game.roomCode ||
+          this.allGames().some(
+            (existing) =>
+              existing.id !== gameId && existing.roomCode === game.roomCode
+          )
+        ) {
+          game.roomCode = this.createUniqueRoomCode()
+          updatedGameIds.push(gameId)
+        }
         const owner = game.players.find((player) => player.socketId)
         if (owner?.socketId) {
           this.lobbyOwners[gameId] = owner.deviceId ?? owner.socketId
@@ -348,6 +374,21 @@ export class GameService {
         console.error('Ignoring invalid saved game:', error)
       }
     })
+
+    await Promise.all(updatedGameIds.map((gameId) => this.saveGame(gameId)))
+  }
+
+  private createUniqueRoomCode(): string {
+    const existingCodes = new Set(
+      this.allGames()
+        .map((game) => game.roomCode)
+        .filter(Boolean)
+    )
+    let roomCode: string
+    do {
+      roomCode = String(randomInt(100_000, 1_000_000))
+    } while (existingCodes.has(roomCode))
+    return roomCode
   }
 
   /** Удаляет игры, которые не обновлялись дольше указанного времени */
@@ -384,6 +425,7 @@ export class GameService {
       gameIsEnded: game.gameIsEnded,
       moveCounter: game.moveCounter,
       id: game.id,
+      roomCode: game.roomCode,
       isPlacingFollower: game.isPlacingFollower,
       scores: game.scores,
       gameIsStarted: game.gameIsStarted,
@@ -405,6 +447,7 @@ export class GameService {
     return games
       .map((game) => ({
         id: game.id,
+        roomCode: game.roomCode ?? '',
         players: game.players.map((player) => ({
           id: player.id,
           name: player.name,
