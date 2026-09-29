@@ -47,9 +47,6 @@ jobs:
       - name: Run browser smoke test
         run: pnpm run test:browser
 
-      - name: Build server
-        run: pnpm --filter server run build
-
       - name: Lint
         run: pnpm run lint
 
