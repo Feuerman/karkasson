@@ -36,10 +36,10 @@
 
 | Область        | Инструменты                                                       |
 | -------------- | ----------------------------------------------------------------- |
-| Клиент         | Vue 3.5, Vite 8, TypeScript 5.9, Pinia 3, Vue Router 4            |
-| UI             | Nuxt UI v4, Tailwind CSS 4, Sass, шрифты Alegreya                 |
-| Транспорт      | Socket.IO 4.8 (только WebSocket, авто-reconnect)                  |
-| Сервер         | Node.js, Express 5, Socket.IO 4.8, TypeScript 5.9                 |
+| Клиент         | Vue 3, Vite, TypeScript                                           |
+| UI             | Nuxt UI v4, Tailwind CSS 4                                        |
+| Транспорт      | Socket.IO 4 (только WebSocket, авто-reconnect)                    |
+| Сервер         | Node.js, Express 5, Socket.IO 4, TypeScript                       |
 | Хранение       | Firebase Realtime Database (в тестах — in-memory реализация)      |
 | Монорепо       | pnpm workspaces (`server/` — отдельный пакет workspace)           |
 | Тесты          | Vitest 5 (unit + интеграционные, реальный сервер и фронтенд)      |
@@ -77,7 +77,7 @@
 ```
 ├── src/                      # Клиент (Vue 3)
 │   ├── App.vue               # корневой компонент: доска, чипы игроков, оверлеи
-│   ├── main.js               # точка входа: Vue + Pinia + Nuxt UI
+│   ├── main.js               # точка входа: Vue + Nuxt UI
 │   ├── modules/              # GameService (обёртка Socket.IO), типы, draggableRegistry
 │   ├── components/           # UI: лобби, меню, статистика, история ходов, правила…
 │   ├── composables/          # useBoardPan (панорама/зум доски)
@@ -222,7 +222,8 @@ pnpm --filter server run dev
 | `pnpm run preview`               | предпросмотр собранного клиента                 |
 | `pnpm test`                      | все тесты (unit + интеграционные)               |
 | `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)             |
-| `pnpm run lint`                  | ESLint **с автоправкой** (`--fix`)              |
+| `pnpm run lint`                  | ESLint, только проверка                         |
+| `pnpm run lint:fix`              | ESLint с автоисправлением                       |
 | `pnpm run format`                | Prettier по всему репозиторию                   |
 | `pnpm --filter server run dev`   | сервер с nodemon (hot-reload)                   |
 | `pnpm --filter server run build` | компиляция сервера в `server/dist`              |
@@ -236,19 +237,17 @@ Vitest (конфиг — `vitest.integration.config.ts`): окружение nod
 
 - `tests/unit/` — детерминированная логика (подсчёт очков, примеры правил,
   позиции маркеров и цвета игроков для canvas);
-- `tests/integration/` — реальные сервер и клиент: лобби, старт партии,
-  ходы, подданные, очки, reconnect, персистентность, полная партия из
-  четырёх ИИ (67 плиток) и др.
+- `tests/integration/` — реальный сервер и Vite-клиент: лобби, ходы, фишки,
+  очки, reconnect, персистентность, полная партия из четырёх ИИ и полная
+  партия человека с компьютерными игроками.
 
 ```sh
 pnpm test
 ```
 
-При каждом изменении разработчик или агент сверяет изменённое поведение с
-имеющимися тестами, дополняет их при пробелах и запускает проверки,
-соответствующие затронутым сценариям. Проверка типов и сборка не заменяют
-тесты поведения. Обязательные инструкции находятся в корневом
-[`AGENTS.md`](AGENTS.md) и дополнены правилами клиентского и серверного слоёв.
+Подробные требования к регрессионному покрытию и выбору проверок описаны в
+[`AGENTS.md`](AGENTS.md), [`src/AGENTS.md`](src/AGENTS.md) и
+[`server/AGENTS.md`](server/AGENTS.md).
 
 ## Переменные окружения
 
@@ -271,8 +270,8 @@ pnpm test
 ## Деплой
 
 - **Клиент** — GitHub Actions (`.github/workflows/deploy-gh-pages.yml`):
-  при пуше в `main` выполняются `pnpm install --frozen-lockfile`,
-  `pnpm run build`, и артефакт `dist/` публикуется на GitHub Pages.
+  при пуше в `main` запускаются проверка типов, тесты, сборка сервера, линт и
+  production-сборка клиента; артефакт `dist/` публикуется на GitHub Pages.
 - **Сервер** — отдельно (пример: Render), в этом репозитории CI-задачи для
   него нет.
 
