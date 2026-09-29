@@ -50,6 +50,142 @@ function segment(id: string, point: Point, playerId: number): BaseObject {
 }
 
 describe('Слияние и завершение дорог и городов', () => {
+  it('объединяет несколько сегментов города, связанных на одном тайле', () => {
+    const game = new GameManager({ players })
+    const segments = [
+      {
+        id: 'city-north',
+        playerId: 1,
+        connectedPoint: { x: 15, y: 14, direction: 'south' as const },
+        openPoint: { x: 15, y: 14, direction: 'north' as const },
+      },
+      {
+        id: 'city-east',
+        playerId: 2,
+        connectedPoint: { x: 16, y: 15, direction: 'west' as const },
+        openPoint: { x: 16, y: 15, direction: 'east' as const },
+      },
+      {
+        id: 'city-west',
+        playerId: 1,
+        connectedPoint: { x: 14, y: 15, direction: 'east' as const },
+        openPoint: { x: 14, y: 15, direction: 'west' as const },
+      },
+    ]
+    game.tilePlacesStats = {
+      14: { 15: gridTile(15) },
+      15: {
+        14: gridTile(14),
+        16: gridTile(16),
+        15: {
+          id: 'bridge-city',
+          rotation: 0,
+          x: 15,
+          y: 15,
+          sides: { north: 'city', east: 'city', south: 'field', west: 'city' },
+          cityGroups: [['north', 'east', 'west']],
+        },
+      },
+    }
+    game.temporaryObjects.cities = segments.map(
+      ({ id, playerId, connectedPoint, openPoint }) => {
+        const connected: Point = { ...connectedPoint, pointType: 'city' }
+        const open: Point = { ...openPoint, pointType: 'city' }
+        const object = segment(id, connected, playerId)
+        object.points.push(open)
+        return object
+      }
+    )
+    for (const city of game.temporaryObjects.cities) {
+      const cityFollower = city.followers[0]
+      if (!cityFollower) continue
+      game.placedFollowers.push({
+        playerId: cityFollower.playerId,
+        objectId: city.id,
+        point: cityFollower.point,
+      })
+    }
+
+    game.checkGridAfterPlacingTile(15, 15)
+
+    expect(game.temporaryObjects.cities).toHaveLength(1)
+    expect(game.completedObjects.cities).toHaveLength(0)
+    const [mergedCity] = game.temporaryObjects.cities
+    expect(mergedCity?.followers).toHaveLength(3)
+    if (!mergedCity) return
+    expect(
+      mergedCity.followers.every(({ objectId }) => objectId === mergedCity.id)
+    ).toBe(true)
+    expect(game.placedFollowers.map(({ objectId }) => objectId)).toEqual([
+      mergedCity.id,
+      mergedCity.id,
+      mergedCity.id,
+    ])
+  })
+
+  it('начисляет герб завершённого города при слиянии сегментов', () => {
+    const game = new GameManager({ players })
+    const leftPoint: Point = {
+      x: 14,
+      y: 15,
+      direction: 'east',
+      pointType: 'city',
+    }
+    const rightPoint: Point = {
+      x: 16,
+      y: 15,
+      direction: 'west',
+      pointType: 'city',
+    }
+    const leftCity = segment('shield-city-left', leftPoint, 1)
+    const rightCity = segment('shield-city-right', rightPoint, 1)
+    leftCity.points.push({
+      x: 14,
+      y: 15,
+      direction: 'north',
+      pointType: 'city',
+    })
+    game.temporaryObjects.cities = [leftCity, rightCity]
+    game.tilePlacesStats = {
+      15: {
+        14: gridTile(14),
+        15: gridTile(15, true),
+        16: gridTile(16),
+      },
+      14: { 14: { ...gridTile(14), y: 14 } },
+    }
+    game.playersFollowers[1].ordinaryFollowers = 5
+    game.placedFollowers.push({
+      playerId: 1,
+      objectId: leftCity.id,
+      point: leftPoint,
+    })
+    game.placedFollowers.push({
+      playerId: 1,
+      objectId: rightCity.id,
+      point: rightPoint,
+    })
+
+    game.mergeCities(
+      [leftCity.id, rightCity.id],
+      [
+        { x: 15, y: 15, direction: 'west', pointType: 'city' },
+        { x: 15, y: 15, direction: 'east', pointType: 'city' },
+        { x: 14, y: 14, direction: 'south', pointType: 'city' },
+      ]
+    )
+
+    expect(game.completedObjects.cities).toHaveLength(1)
+    const completedCity = game.completedObjects.cities[0]
+    expect(completedCity?.score).toMatchObject({
+      total: 10,
+      players: { 1: 10 },
+    })
+    expect(game.scores[1]).toBe(10)
+    expect(game.playersFollowers[1].ordinaryFollowers).toBe(7)
+    expect(game.placedFollowers).toHaveLength(0)
+  })
+
   it.each([
     ['road', 'roads', ObjectTypes.ROAD, 4],
     ['city', 'cities', ObjectTypes.CITY, 10],
