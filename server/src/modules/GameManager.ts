@@ -6,6 +6,7 @@ import {
   isCorrectTilePosition,
   isOppositePoint,
 } from './gameGeometry'
+import { rotateTileGroups, rotateTileSides } from './tileRotation'
 import {
   calcCityScore,
   calcGardenPoints,
@@ -1341,49 +1342,28 @@ export class GameManager implements IGameBoard {
 
   rotateTile(tile: Tile, direction: RotationDirection = 'clockwise'): Tile {
     const processedTile = { ...tile }
+    const quarterTurns = direction === 'clockwise' ? 1 : 3
     if (direction === 'clockwise') {
       if (processedTile.rotation + 90 > 360) {
         processedTile.rotation = 0
       }
       processedTile.rotation += 90
-
-      processedTile.sides = {
-        ...processedTile.sides,
-        north: processedTile.sides.west,
-        west: processedTile.sides.south,
-        south: processedTile.sides.east,
-        east: processedTile.sides.north,
-      }
-      processedTile.roadGroups = this.rotateTileGroups(
-        processedTile.roadGroups,
-        1
-      )
-      processedTile.cityGroups = this.rotateTileGroups(
-        processedTile.cityGroups,
-        1
-      )
     } else {
       if (processedTile.rotation - 90 < 0) {
         processedTile.rotation = 360
       }
       processedTile.rotation -= 90
-
-      processedTile.sides = {
-        ...processedTile.sides,
-        north: processedTile.sides.east,
-        west: processedTile.sides.north,
-        south: processedTile.sides.west,
-        east: processedTile.sides.south,
-      }
-      processedTile.roadGroups = this.rotateTileGroups(
-        processedTile.roadGroups,
-        3
-      )
-      processedTile.cityGroups = this.rotateTileGroups(
-        processedTile.cityGroups,
-        3
-      )
     }
+
+    processedTile.sides = rotateTileSides(processedTile.sides, quarterTurns)
+    processedTile.roadGroups = rotateTileGroups(
+      processedTile.roadGroups,
+      quarterTurns
+    )
+    processedTile.cityGroups = rotateTileGroups(
+      processedTile.cityGroups,
+      quarterTurns
+    )
 
     return processedTile
   }
@@ -1392,24 +1372,7 @@ export class GameManager implements IGameBoard {
     groups: SideName[][] | undefined,
     turns: number
   ): SideName[][] | undefined {
-    if (!groups) return groups
-    const clockwise: Record<SideName, SideName> = {
-      north: 'east',
-      east: 'south',
-      south: 'west',
-      west: 'north',
-    }
-    return groups
-      .map((group) =>
-        group.map((side) => {
-          let rotatedSide = side
-          for (let turn = 0; turn < turns; turn++) {
-            rotatedSide = clockwise[rotatedSide]
-          }
-          return rotatedSide
-        })
-      )
-      .filter((group) => group.length > 0)
+    return rotateTileGroups(groups, turns)
   }
 
   async autoPlay(): Promise<void> {
