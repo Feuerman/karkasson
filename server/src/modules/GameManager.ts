@@ -12,6 +12,7 @@ import {
   calcGardenPoints,
   calcMonasteryPoints,
   calcRoadScore,
+  distributeScore,
 } from './scoring'
 import {
   ActionTypes,
@@ -88,6 +89,7 @@ export interface IGameBoard {
   gridSize: number[]
   gameIsStarted: boolean
   gameIsEnded: boolean
+  finalScoringEnabled: boolean
   tilesList: Tile[]
   currentTile: GridTile | null
   players: Player[]
@@ -117,7 +119,7 @@ export interface IGameBoard {
   recallAbbot(): boolean
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   autoPlaceTile(): Promise<void>
-  calcScoreForCity(city: BaseObject): ScoreForObject
+  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
   calcScoreForRoad(road: BaseObject): ScoreForObject
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
@@ -174,6 +176,7 @@ export class GameManager implements IGameBoard {
   gridSize = [30, 30]
   gameIsStarted: boolean
   gameIsEnded: boolean
+  finalScoringEnabled: boolean
   tilesList: Tile[]
   currentTile: GridTile | null
   players: Player[]
@@ -195,11 +198,18 @@ export class GameManager implements IGameBoard {
   lastUpdate = 0
   placingPoint?: { rowIndex: number; tileIndex: number }
 
-  constructor(params: { players?: Player[]; startImmediately?: boolean } = {}) {
+  constructor(
+    params: {
+      players?: Player[]
+      startImmediately?: boolean
+      finalScoringEnabled?: boolean
+    } = {}
+  ) {
     const players = params.players ?? []
 
     this.gameIsStarted = false
     this.gameIsEnded = false
+    this.finalScoringEnabled = params.finalScoringEnabled ?? false
     this.tilesList = []
     this.currentTile = null
     this.players = []
@@ -799,9 +809,15 @@ export class GameManager implements IGameBoard {
   }
 
   getRandomTileFromList() {
+    if (this.gameIsEnded) return
     if (!this.tilesList.length) {
       this.gameIsEnded = true
       this.currentTile = null
+      this.isPlacingFollower = false
+      this.availableFollowersPlaces = []
+      this.availablePlacesTiles = []
+      this.currentPlayer = null
+      if (this.finalScoringEnabled) this.finalizeScoring()
       return
     }
 
@@ -818,6 +834,86 @@ export class GameManager implements IGameBoard {
       this.tilesList = [...listWithoutCurrentTile, tile]
       this.getRandomTileFromList()
     }
+  }
+
+  private finalizeScoring() {
+    const completedMonasteries = [...this.completedObjects.monasteries]
+    const completedGardens = [...this.completedObjects.gardens]
+    const unfinishedRoads = this.temporaryObjects.roads
+    const unfinishedCities = this.temporaryObjects.cities
+    const unfinishedMonasteries = this.temporaryObjects.monasteries
+    const unfinishedGardens = this.temporaryObjects.gardens
+
+    this.temporaryObjects.roads = []
+    this.temporaryObjects.cities = []
+    this.temporaryObjects.monasteries = []
+    this.temporaryObjects.gardens = []
+
+    for (const road of unfinishedRoads) {
+      const score = this.calcScoreForRoad(road)
+      this.recordFinalObjectScore(road, score, ObjectTypes.ROAD)
+      this.completedObjects.roads.push({ ...deepClone(road), score })
+    }
+
+    for (const city of unfinishedCities) {
+      const score = this.calcScoreForCity(city, false)
+      this.recordFinalObjectScore(city, score, ObjectTypes.CITY)
+      this.completedObjects.cities.push({ ...deepClone(city), score })
+    }
+
+    for (const monastery of unfinishedMonasteries) {
+      const points = calcMonasteryPoints(this.tilePlacesStats, monastery)
+      const score = distributeScore(points, monastery.followers, this.scores)
+      this.recordFinalObjectScore(monastery, score, ObjectTypes.MONASTERY)
+      this.completedObjects.monasteries.push({
+        ...deepClone(monastery),
+        score,
+      })
+    }
+
+    for (const garden of unfinishedGardens) {
+      const points = calcGardenPoints(this.tilePlacesStats, garden)
+      const score = distributeScore(points, garden.followers, this.scores)
+      this.recordFinalObjectScore(garden, score, ObjectTypes.GARDEN)
+      this.completedObjects.gardens.push({ ...deepClone(garden), score })
+    }
+
+    this.scoreRemainingAbbots(completedMonasteries, false)
+    this.scoreRemainingAbbots(completedGardens, true)
+  }
+
+  private scoreRemainingAbbots(objects: BaseObject[], isGarden: boolean) {
+    for (const object of objects) {
+      const abbots = object.followers.filter((follower) => follower.isAbbot)
+      if (!abbots.length) continue
+
+      const points = isGarden
+        ? calcGardenPoints(this.tilePlacesStats, object)
+        : calcMonasteryPoints(this.tilePlacesStats, object)
+      const score = distributeScore(points, abbots, this.scores)
+      object.score = score
+      this.recordFinalObjectScore(
+        { ...object, followers: abbots },
+        score,
+        isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY
+      )
+    }
+  }
+
+  private recordFinalObjectScore(
+    object: BaseObject,
+    score: ScoreForObject,
+    objectType: ObjectTypes
+  ) {
+    if (!object.followers.length) return
+    this.actionsHistory.push({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType,
+        objectData: deepClone(object),
+        score,
+      },
+    })
   }
 
   checkAvailablePlacesForTile(tile: Tile): boolean {
@@ -1163,8 +1259,8 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  calcScoreForCity(city: BaseObject, _isCompleted = true): ScoreForObject {
-    return calcCityScore(this.tilePlacesStats, city, this.scores)
+  calcScoreForCity(city: BaseObject, isCompleted = true): ScoreForObject {
+    return calcCityScore(this.tilePlacesStats, city, this.scores, isCompleted)
   }
 
   private removePlacedFollower(follower: ObjectFollower) {

@@ -584,9 +584,9 @@ const goInLobby = async () => {
   }
 }
 
-const createGame = async () => {
+const createGame = async (finalScoringEnabled: boolean) => {
   try {
-    const game = await GameService.createGame()
+    const game = await GameService.createGame({ finalScoringEnabled })
     currentGame.value = game
     playersList.value = game.players
   } catch (error) {

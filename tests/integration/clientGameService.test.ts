@@ -101,10 +101,11 @@ describe('Клиентское приложение (GameService)', () => {
     await waitUntilConnected(alice)
     await waitForServerDevice(server, alice)
 
-    const created = await alice.createGame()
+    const created = await alice.createGame({ finalScoringEnabled: true })
     expect(alice.gameId).toBeTruthy()
     expect(created.id).toBe(alice.gameId)
     expect(created.gridSize).toEqual([30, 30])
+    expect(created.finalScoringEnabled).toBe(true)
 
     await alice.addPlayer({ name: 'Alice', index: 0 })
 

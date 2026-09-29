@@ -40,6 +40,7 @@ export interface RulesTileRef {
   id: string
   rotation: RulesRotation
   imgUrl: string
+  hasGarden?: boolean
   markers?: RulesMarker[]
 }
 

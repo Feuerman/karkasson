@@ -34,6 +34,24 @@ describe('Схема сохранения игры', () => {
     expect(restored.id).toBe('legacy-game')
     expect(restored.temporaryObjects.gardens).toEqual([])
     expect(restored.completedObjects.gardens).toEqual([])
+    expect(restored.finalScoringEnabled).toBe(false)
+  })
+
+  it('читает сохранение версии 1 и выключает новую настройку по умолчанию', () => {
+    const game = new GameManager({ players: [] })
+    game.id = 'version-one-game'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.finalScoringEnabled
+
+    const restored = deserializeGameState({
+      schemaVersion: 1,
+      state: legacyState,
+    })
+
+    expect(restored.finalScoringEnabled).toBe(false)
   })
 
   it('восстанавливает legacy-лобби, сохранённое до появления полного состояния', () => {

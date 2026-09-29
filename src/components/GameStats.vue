@@ -9,18 +9,10 @@
         class="h-5 w-5 text-black/70"
       />
       <span
-        :title="
-          gameBoard.gameIsEnded
-            ? winnerPlayer.name
-            : (gameBoard.currentPlayer?.name ?? '')
-        "
+        :title="gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel"
         class="title-medieval min-w-0 truncate text-lg leading-none font-bold text-black"
       >
-        {{
-          gameBoard.gameIsEnded
-            ? winnerPlayer.name
-            : gameBoard.currentPlayer?.name
-        }}
+        {{ gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel }}
       </span>
     </div>
 
@@ -116,6 +108,12 @@ const winnerPlayer = computed(() => {
   })
   return winner
 })
+
+const currentPlayerLabel = computed(() =>
+  props.gameBoard.isMyTurn
+    ? 'Ваш ход'
+    : (props.gameBoard.currentPlayer?.name ?? '')
+)
 
 const headerColor = computed(() => {
   return props.gameBoard.gameIsEnded

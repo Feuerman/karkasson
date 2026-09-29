@@ -12,7 +12,7 @@ import type {
  * (у кого больше всего подданных в объекте — тот и получает очки).
  * Возвращает разбивку и попутно начисляет очки в общий счёт.
  */
-function distributeScore(
+export function distributeScore(
   points: number,
   followers: ObjectFollower[],
   scores: Scores
@@ -70,7 +70,8 @@ export function calcRoadScore(
 export function calcCityScore(
   tilePlacesStats: TilePlacesStats,
   city: BaseObject,
-  scores: Scores
+  scores: Scores,
+  isCompleted = true
 ): ScoreForObject {
   const uniqueTiles = new Set<string>()
   let shieldCount = 0
@@ -85,7 +86,8 @@ export function calcCityScore(
     }
   }
 
-  const points = uniqueTiles.size * 2 + shieldCount * 2
+  const pointsPerTile = isCompleted ? 2 : 1
+  const points = uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
   const result = distributeScore(points, city.followers, scores)
   return city.followers.length ? { ...result, objectId: city.id } : result
 }

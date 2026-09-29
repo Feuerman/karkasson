@@ -36,7 +36,20 @@ export function registerLobbyHandlers({
         typeof callbackOrPayload === 'function'
           ? callbackOrPayload
           : maybeCallback
-      const game = service.createLobby(socket.id)
+      const payload =
+        typeof callbackOrPayload === 'object' && callbackOrPayload !== null
+          ? (callbackOrPayload as { finalScoringEnabled?: unknown })
+          : undefined
+      if (
+        payload?.finalScoringEnabled !== undefined &&
+        typeof payload.finalScoringEnabled !== 'boolean'
+      ) {
+        callback?.({ error: 'Invalid final scoring option' })
+        return
+      }
+      const game = service.createLobby(socket.id, {
+        finalScoringEnabled: payload?.finalScoringEnabled === true,
+      })
       try {
         await service.saveGame(game.id)
       } catch (error) {

@@ -38,7 +38,7 @@
           <UButton
             color="primary"
             class="btn-primary-action min-h-11 cursor-pointer gap-2 rounded-lg px-6 py-2.5 text-base font-semibold shadow-soft"
-            @click="emit('createGame')"
+            @click="isCreateGameModalOpen = true"
           >
             <template #leading>
               <UIcon name="i-lucide-plus" class="h-5 w-5" />
@@ -90,6 +90,46 @@
       </div>
     </div>
 
+    <UModal
+      v-model:open="isCreateGameModalOpen"
+      title="Создание игры"
+      description="Настройте правила новой партии"
+    >
+      <template #body>
+        <UCheckbox
+          label="Финальный подсчёт очков"
+          color="primary"
+          :model-value="finalScoringEnabled"
+          :ui="{ label: '!text-base' }"
+          class="text-base text-text"
+          @update:model-value="finalScoringEnabled = Boolean($event)"
+        />
+        <p class="mt-2 text-sm leading-relaxed text-text-muted">
+          Если включить опцию, в конце партии очки начислятся за незавершённые
+          дороги, города, монастыри и сады. По умолчанию выключено.
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <UButton
+            color="neutral"
+            variant="outline"
+            class="cursor-pointer"
+            @click="isCreateGameModalOpen = false"
+          >
+            Отмена
+          </UButton>
+          <UButton
+            color="primary"
+            class="btn-primary-action cursor-pointer"
+            @click="createGame"
+          >
+            Создать игру
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
     <!-- Лобби: готовность к старту -->
     <div
       v-if="currentGame?.id"
@@ -101,6 +141,13 @@
         subtitle="Займите свободные слоты или оставьте их искусственному интеллекту"
         size="md"
       />
+
+      <p class="mt-3 text-center text-sm text-text-muted">
+        Финальный подсчёт очков:
+        <strong class="text-text">
+          {{ currentGame.finalScoringEnabled ? 'включён' : 'выключен' }}
+        </strong>
+      </p>
 
       <LoadingState
         v-if="!gameService.isConnected.value"
@@ -129,6 +176,7 @@
             Отключиться
           </UButton>
           <UButton
+            v-if="isLobbyCreator"
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             @click="startGame"
           >
@@ -150,6 +198,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UEmpty from '@nuxt/ui/components/Empty.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
+import UModal from '@nuxt/ui/components/Modal.vue'
 import ConnectionBadge from './internal/ConnectionBadge.vue'
 import LobbyHeader from './internal/LobbyHeader.vue'
 import LoadingState from './internal/LoadingState.vue'
@@ -172,7 +221,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  createGame: []
+  createGame: [finalScoringEnabled: boolean]
   joinGame: [gameId: string]
   rejoinGame: [gameId: string]
   leaveGame: []
@@ -183,8 +232,22 @@ const emit = defineEmits<{
 
 const gameService = GameService
 
+const isLobbyCreator = computed(() => {
+  const creator = props.currentGame?.players[0]
+  if (!creator) return false
+
+  return Boolean(
+    (creator.deviceId && creator.deviceId === gameService.deviceId) ||
+    (creator.socketId &&
+      gameService.socket?.id &&
+      creator.socketId === gameService.socket.id)
+  )
+})
+
 const currentPlayerName = ref('')
 const showEndedGames = ref(false)
+const finalScoringEnabled = ref(false)
+const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const isLoadingGames = ref(true)
 let initialLoadingTimeout: ReturnType<typeof setTimeout> | undefined
@@ -201,6 +264,11 @@ const computedGamesList = computed<LobbyGame[]>(() =>
 function joinByRoomCode() {
   const roomCode = roomCodeSearch.value.trim()
   if (/^\d{6}$/.test(roomCode)) emit('joinGame', roomCode)
+}
+
+function createGame() {
+  isCreateGameModalOpen.value = false
+  emit('createGame', finalScoringEnabled.value)
 }
 
 onMounted(() => {
