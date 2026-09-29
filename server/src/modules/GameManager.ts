@@ -139,6 +139,17 @@ export interface IGameBoard {
 }
 
 type CentralObjectKind = 'monastery' | 'garden'
+type LinearFeatureKind = 'road' | 'city'
+
+const LINEAR_FEATURE_COLLECTIONS = {
+  road: 'roads',
+  city: 'cities',
+} as const
+
+const LINEAR_FEATURE_TYPES = {
+  road: ObjectTypes.ROAD,
+  city: ObjectTypes.CITY,
+} as const
 
 const CENTRAL_OBJECT_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
@@ -1023,99 +1034,15 @@ export class GameManager implements IGameBoard {
   }
 
   checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
-    const groups = connectedGroups ?? roadsPoints.map((point) => [point])
-    groups.forEach((group) => {
-      if (!group.length) return
-
-      const roadsIds = new Set(
-        this.temporaryObjects.roads
-          .filter((road) =>
-            road.points.some((point) =>
-              group.some((roadPoint) => this.isOppositePoint(point, roadPoint))
-            )
-          )
-          .map((road) => road.id)
-      )
-
-      this.mergeRoads([...roadsIds], group)
-    })
+    this.checkConnectedFeatures('road', roadsPoints, connectedGroups)
   }
 
   mergeRoads(roadsIds: string[], roadsPoints: Point[]) {
-    if (roadsIds.length === 1) {
-      const road = this.temporaryObjects.roads.find((r) => r.id === roadsIds[0])
-      if (!road) return
-
-      road.points = road.points.concat(roadsPoints)
-
-      this.checkCompleteRoad(road)
-    } else {
-      const mergingRoads = roadsIds
-        .map((id) => this.temporaryObjects.roads.find((r) => r.id === id))
-        .filter((r): r is BaseObject => Boolean(r))
-
-      const road: BaseObject = {
-        id: 'id' + Math.random(),
-        points: mergingRoads.flatMap((r) => r.points).concat(roadsPoints),
-        followers: mergingRoads.flatMap((r) => r.followers),
-      }
-
-      roadsIds.forEach((id) => {
-        this.temporaryObjects.roads = this.temporaryObjects.roads.filter(
-          (r) => r.id !== id
-        )
-      })
-
-      this.temporaryObjects.roads.push(road)
-
-      this.checkCompleteRoad(road)
-    }
+    this.mergeLinearFeature('road', roadsIds, roadsPoints)
   }
 
   checkCompleteRoad(road: BaseObject) {
-    const isAllPointsCompleted = road.points.every((point) => {
-      const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
-      return road.points.some((otherPoint) => {
-        const otherPointPrecisionCoordinates =
-          this.getPrecisionCoordinates(otherPoint)
-        return (
-          pointPrecisionCoordinates.x === otherPointPrecisionCoordinates.x &&
-          pointPrecisionCoordinates.y === otherPointPrecisionCoordinates.y &&
-          point.direction !== otherPoint.direction
-        )
-      })
-    })
-
-    if (!isAllPointsCompleted) return
-
-    const score = this.calcScoreForRoad(road)
-    this.temporaryObjects.roads = this.temporaryObjects.roads.filter(
-      (r) => r.id !== road.id
-    )
-    this.completedObjects.roads.push({ ...deepClone(road), score })
-
-    if (road.followers.length) {
-      this.actionsHistory.push({
-        actionType: ActionTypes.ADDING_SCORES,
-        actionData: {
-          objectType: ObjectTypes.ROAD,
-          objectData: road,
-          score,
-        },
-      })
-    }
-
-    road.followers.forEach((follower) => {
-      this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-      this.removePlacedFollower(follower)
-    })
-
-    if (road.followers.length) {
-      this.actionsHistory.push({
-        actionType: ActionTypes.BACK_FOLLOWER,
-        actionData: { followers: road.followers },
-      })
-    }
+    this.checkCompleteLinearFeature('road', road)
   }
 
   recalculateScores() {
@@ -1137,99 +1064,128 @@ export class GameManager implements IGameBoard {
   }
 
   checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
-    const groups = connectedGroups ?? citiesPoints.map((point) => [point])
-    groups.forEach((group) => {
-      if (!group.length) return
-
-      const citiesIds = new Set(
-        this.temporaryObjects.cities
-          .filter((city) =>
-            city.points.some((point) =>
-              group.some((cityPoint) => this.isOppositePoint(point, cityPoint))
-            )
-          )
-          .map((city) => city.id)
-      )
-
-      this.mergeCities([...citiesIds], group)
-    })
+    this.checkConnectedFeatures('city', citiesPoints, connectedGroups)
   }
 
   mergeCities(citiesIds: string[], citiesPoints: Point[]) {
-    if (citiesIds.length === 1) {
-      const city = this.temporaryObjects.cities.find(
-        (c) => c.id === citiesIds[0]
-      )
-      if (!city) return
-
-      city.points = city.points.concat(citiesPoints)
-
-      this.checkCompleteCity(city)
-    } else {
-      const mergingCities = citiesIds
-        .map((id) => this.temporaryObjects.cities.find((c) => c.id === id))
-        .filter((c): c is BaseObject => Boolean(c))
-
-      const city: BaseObject = {
-        id: 'id' + Math.random(),
-        points: mergingCities.flatMap((c) => c.points).concat(citiesPoints),
-        followers: mergingCities.flatMap((c) => c.followers),
-      }
-
-      citiesIds.forEach((id) => {
-        this.temporaryObjects.cities = this.temporaryObjects.cities.filter(
-          (c) => c.id !== id
-        )
-      })
-
-      this.temporaryObjects.cities.push(city)
-
-      this.checkCompleteCity(city)
-    }
+    this.mergeLinearFeature('city', citiesIds, citiesPoints)
   }
 
   checkCompleteCity(city: BaseObject) {
-    const isAllPointsCompleted = city.points.every((point) => {
-      const pointPrecisionCoordinates = this.getPrecisionCoordinates(point)
-      return city.points.some((otherPoint) => {
-        const otherPointPrecisionCoordinates =
-          this.getPrecisionCoordinates(otherPoint)
+    this.checkCompleteLinearFeature('city', city)
+  }
+
+  private checkConnectedFeatures(
+    kind: LinearFeatureKind,
+    featurePoints: Point[],
+    connectedGroups?: Point[][]
+  ) {
+    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const groups = connectedGroups ?? featurePoints.map((point) => [point])
+
+    for (const group of groups) {
+      if (!group.length) continue
+
+      const connectedIds = this.temporaryObjects[collection]
+        .filter((object) =>
+          object.points.some((point) =>
+            group.some((featurePoint) =>
+              this.isOppositePoint(point, featurePoint)
+            )
+          )
+        )
+        .map((object) => object.id)
+
+      this.mergeLinearFeature(kind, connectedIds, group)
+    }
+  }
+
+  private mergeLinearFeature(
+    kind: LinearFeatureKind,
+    connectedIds: string[],
+    newPoints: Point[]
+  ) {
+    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const existingObjects = this.temporaryObjects[collection]
+
+    if (connectedIds.length === 1) {
+      const existingObject = existingObjects.find(
+        ({ id }) => id === connectedIds[0]
+      )
+      if (!existingObject) return
+
+      existingObject.points = existingObject.points.concat(newPoints)
+      this.checkCompleteLinearFeature(kind, existingObject)
+      return
+    }
+
+    const connectedIdSet = new Set(connectedIds)
+    const connectedObjects = existingObjects.filter(({ id }) =>
+      connectedIdSet.has(id)
+    )
+    const mergedObject: BaseObject = {
+      id: 'id' + Math.random(),
+      points: connectedObjects
+        .flatMap(({ points }) => points)
+        .concat(newPoints),
+      followers: connectedObjects.flatMap(({ followers }) => followers),
+    }
+
+    this.temporaryObjects[collection] = existingObjects.filter(
+      ({ id }) => !connectedIdSet.has(id)
+    )
+    this.temporaryObjects[collection].push(mergedObject)
+    this.reassignFollowerObjectIds(mergedObject.followers, mergedObject.id)
+    this.checkCompleteLinearFeature(kind, mergedObject)
+  }
+
+  private checkCompleteLinearFeature(
+    kind: LinearFeatureKind,
+    feature: BaseObject
+  ) {
+    const isComplete = feature.points.every((point) => {
+      const pointCoordinates = this.getPrecisionCoordinates(point)
+      return feature.points.some((otherPoint) => {
+        const otherPointCoordinates = this.getPrecisionCoordinates(otherPoint)
         return (
-          pointPrecisionCoordinates.x === otherPointPrecisionCoordinates.x &&
-          pointPrecisionCoordinates.y === otherPointPrecisionCoordinates.y &&
+          pointCoordinates.x === otherPointCoordinates.x &&
+          pointCoordinates.y === otherPointCoordinates.y &&
           point.direction !== otherPoint.direction
         )
       })
     })
+    if (!isComplete) return
 
-    if (!isAllPointsCompleted) return
+    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const score =
+      kind === 'road'
+        ? this.calcScoreForRoad(feature)
+        : this.calcScoreForCity(feature)
+    this.temporaryObjects[collection] = this.temporaryObjects[
+      collection
+    ].filter(({ id }) => id !== feature.id)
+    this.completedObjects[collection].push({ ...deepClone(feature), score })
 
-    const score = this.calcScoreForCity(city)
-    this.temporaryObjects.cities = this.temporaryObjects.cities.filter(
-      (c) => c.id !== city.id
-    )
-    this.completedObjects.cities.push({ ...deepClone(city), score })
-
-    if (city.followers.length) {
+    if (feature.followers.length) {
       this.actionsHistory.push({
         actionType: ActionTypes.ADDING_SCORES,
         actionData: {
-          objectType: ObjectTypes.CITY,
-          objectData: city,
+          objectType: LINEAR_FEATURE_TYPES[kind],
+          objectData: feature,
           score,
         },
       })
     }
 
-    city.followers.forEach((follower) => {
+    for (const follower of feature.followers) {
       this.playersFollowers[follower.playerId].ordinaryFollowers += 1
       this.removePlacedFollower(follower)
-    })
+    }
 
-    if (city.followers.length) {
+    if (feature.followers.length) {
       this.actionsHistory.push({
         actionType: ActionTypes.BACK_FOLLOWER,
-        actionData: { followers: city.followers },
+        actionData: { followers: feature.followers },
       })
     }
   }
