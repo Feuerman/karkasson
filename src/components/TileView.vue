@@ -23,6 +23,20 @@
       >
         <UIcon name="i-lucide-flower-2" class="h-3.5 w-3.5 text-white" />
       </div>
+      <div
+        v-if="props.tile?.hasCathedral"
+        class="pointer-events-none absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gold ring-1 ring-black/25"
+        :title="'Собор'"
+      >
+        <UIcon name="i-lucide-church" class="h-3.5 w-3.5 text-white" />
+      </div>
+      <div
+        v-if="props.tile?.hasInn"
+        class="pointer-events-none absolute right-1 bottom-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gold ring-1 ring-black/25"
+        :title="'Таверна'"
+      >
+        <UIcon name="i-lucide-beer" class="h-3.5 w-3.5 text-white" />
+      </div>
     </template>
     <template v-else>
       <div></div>
@@ -75,6 +89,78 @@ const imagesMap = {
   V: new URL('../assets/tiles/Base_Game_C3_Tile_V.png', import.meta.url),
   W: new URL('../assets/tiles/Base_Game_C3_Tile_W.png', import.meta.url),
   X: new URL('../assets/tiles/Base_Game_C3_Tile_X.png', import.meta.url),
+  'IAC-A': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_A.png',
+    import.meta.url
+  ),
+  'IAC-B': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_B.png',
+    import.meta.url
+  ),
+  'IAC-C': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_C.png',
+    import.meta.url
+  ),
+  'IAC-D': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_D.png',
+    import.meta.url
+  ),
+  'IAC-E': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_E.png',
+    import.meta.url
+  ),
+  'IAC-F': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_F.png',
+    import.meta.url
+  ),
+  'IAC-G': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_G.png',
+    import.meta.url
+  ),
+  'IAC-H': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_H.png',
+    import.meta.url
+  ),
+  'IAC-I': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_I.png',
+    import.meta.url
+  ),
+  'IAC-J': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_J.png',
+    import.meta.url
+  ),
+  'IAC-Ka': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Ka.png',
+    import.meta.url
+  ),
+  'IAC-Kb': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Kb.png',
+    import.meta.url
+  ),
+  'IAC-L': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_L.png',
+    import.meta.url
+  ),
+  'IAC-M': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_M.png',
+    import.meta.url
+  ),
+  'IAC-N': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_N.png',
+    import.meta.url
+  ),
+  'IAC-O': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_O.png',
+    import.meta.url
+  ),
+  'IAC-P': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_P.png',
+    import.meta.url
+  ),
+  'IAC-Q': new URL(
+    '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Q.png',
+    import.meta.url
+  ),
 }
 
 const tileImg = computed(() => {
@@ -102,6 +188,7 @@ const drawTile = () => {
         ...follower.point,
         playerId: follower.playerId,
         isAbbot: follower.isAbbot,
+        isBigFollower: follower.isBigFollower,
         isGarden: follower.isGarden,
       }
     })
@@ -139,14 +226,14 @@ const drawTile = () => {
     ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
     ctx.shadowBlur = 4
     ctx.beginPath()
-    ctx.arc(x, y, 11, 0, Math.PI * 2)
+    ctx.arc(x, y, point.isBigFollower ? 14 : 11, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
     ctx.fill()
 
     // Цветное ядро маркера
     ctx.shadowBlur = 0
     ctx.beginPath()
-    ctx.arc(x, y, 8.5, 0, Math.PI * 2)
+    ctx.arc(x, y, point.isBigFollower ? 11 : 8.5, 0, Math.PI * 2)
     ctx.fillStyle = playerColor
     ctx.fill()
     ctx.lineWidth = 1.5
@@ -154,10 +241,10 @@ const drawTile = () => {
     ctx.stroke()
 
     // Аббат отмечается «клерикальным» крестом в ядре маркера
-    if (point.isAbbot) {
+    if (point.isAbbot || point.isBigFollower) {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
       ctx.lineWidth = 2
-      const arm = 3.2
+      const arm = point.isBigFollower ? 5 : 3.2
       ctx.beginPath()
       ctx.moveTo(x - arm, y)
       ctx.lineTo(x + arm, y)

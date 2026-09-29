@@ -24,28 +24,31 @@ export interface SimulationResult {
 
 type HeuristicGameState = Pick<
   IGameBoard,
-  'scores' | 'currentPlayer' | 'temporaryObjects'
+  'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'
 >
 
-function countOwnedObjectIds(
-  followers: ObjectFollower[],
-  playerId: number | string
-): number {
-  return new Set(
-    followers
-      .filter((follower) => follower.playerId === playerId)
-      .map((follower) => follower.objectId)
-  ).size
+function followerStrength(follower: ObjectFollower): number {
+  return follower.isBigFollower ? 2 : 1
 }
 
 function scoreOwnedObjects(
   objects: BaseObject[],
   playerId: number | string,
-  weight: number
+  weight: number,
+  innsAndCathedralsEnabled: boolean
 ): number {
   return objects.reduce(
     (score, object) =>
-      score + countOwnedObjectIds(object.followers, playerId) * weight,
+      score +
+      object.followers
+        .filter((follower) => follower.playerId === playerId)
+        .reduce(
+          (strength, follower) =>
+            strength +
+            (innsAndCathedralsEnabled ? followerStrength(follower) : 1),
+          0
+        ) *
+        weight,
     0
   )
 }
@@ -69,7 +72,13 @@ export function calculateHeuristicScore(gameState: HeuristicGameState): number {
 
   return weightedObjectGroups.reduce(
     (score, [objects, weight]) =>
-      score + scoreOwnedObjects(objects, currentPlayer.id, weight),
+      score +
+      scoreOwnedObjects(
+        objects,
+        currentPlayer.id,
+        weight,
+        gameState.rules.expansions.innsAndCathedrals
+      ),
     completedScore
   )
 }
@@ -138,6 +147,7 @@ export class GameSimulatorModule {
           sides: rotatedSides,
           roadGroups: rotateTileGroups(tile.roadGroups, turns),
           cityGroups: rotateTileGroups(tile.cityGroups, turns),
+          cityShieldGroups: rotateTileGroups(tile.cityShieldGroups, turns),
         }
 
         // Сначала оцениваем ход без подданного
@@ -169,6 +179,12 @@ export class GameSimulatorModule {
             const followerTypes: FollowerType[] = place.temporaryObject.isGarden
               ? []
               : ['follower']
+            if (
+              pool?.bigFollowers &&
+              this.gameState.rules.expansions.innsAndCathedrals
+            ) {
+              followerTypes.push('bigFollower')
+            }
             if (
               (place.temporaryObject.isMonastery ||
                 place.temporaryObject.isGarden) &&

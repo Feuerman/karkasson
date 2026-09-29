@@ -1,6 +1,6 @@
 import type { TileSideType } from '../modules/types'
 
-export const tiles: {
+export interface TileDefinition {
   id: string
   count: number
   description: string
@@ -13,10 +13,17 @@ export const tiles: {
   isMonastery?: boolean
   withShield?: boolean
   isSolidCity?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
   roadGroups?: ('north' | 'east' | 'south' | 'west')[][]
   cityGroups?: ('north' | 'east' | 'south' | 'west')[][]
+  /** City sections on this tile that contain a shield. */
+  cityShieldGroups?: ('north' | 'east' | 'south' | 'west')[][]
+  expansion?: 'innsAndCathedrals'
   imgUrl: string
-}[] = [
+}
+
+export const tiles: TileDefinition[] = [
   {
     id: 'A',
     count: 2,

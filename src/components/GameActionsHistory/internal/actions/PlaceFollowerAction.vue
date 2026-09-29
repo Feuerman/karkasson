@@ -2,7 +2,7 @@
   <ActionRow icon="i-lucide-person-standing">
     <strong class="mr-[3px] text-text">
       Выставлен
-      {{ action.actionData.followerType === 'abbot' ? 'аббат' : 'подданный' }}.
+      {{ followerName }}.
     </strong>
     <PlayerName :color="action.initiator?.color">
       {{ action.initiator?.name }}.
@@ -42,6 +42,13 @@ const objectName = computed(() =>
       ? 'сад'
       : action.actionData.point.pointType
 )
+
+const followerName = computed(() => {
+  if (action.actionData.followerType === 'abbot') return 'аббат'
+  if (action.actionData.followerType === 'bigFollower')
+    return 'большой подданный'
+  return 'подданный'
+})
 
 const forwardZoom = (row: number, col: number) => {
   emit('zoom', row, col)

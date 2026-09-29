@@ -30,14 +30,23 @@ export interface Point {
   precisionY?: number
 }
 
-/** Тип фишки: обычный подданный или аббат (только на монастырь) */
-export type FollowerType = 'follower' | 'abbot'
+/** Тип фишки, которую игрок может выставить на объект. */
+export type FollowerType = 'follower' | 'bigFollower' | 'abbot'
+export type ExpansionName = 'innsAndCathedrals'
+
+export interface GameRules {
+  finalScoringEnabled: boolean
+  expansions: {
+    innsAndCathedrals: boolean
+  }
+}
 
 export interface ObjectFollower {
   playerId: PlayerId
   objectId: string
   point: Point
   isAbbot?: boolean
+  isBigFollower?: boolean
 }
 
 export interface PlacedFollower {
@@ -46,7 +55,11 @@ export interface PlacedFollower {
   point: Point
   isMonastery?: boolean
   isGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
+  expansion?: ExpansionName
   isAbbot?: boolean
+  isBigFollower?: boolean
 }
 
 export interface ScoreForObject {
@@ -64,6 +77,9 @@ export interface BaseObject {
   score?: ScoreForObject
   isMonastery?: boolean
   isGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
+  expansion?: ExpansionName
 }
 
 export interface City extends BaseObject {
@@ -92,10 +108,15 @@ export interface Tile {
   withShield?: boolean
   isMonastery?: boolean
   hasGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
+  expansion?: ExpansionName
   /** Связанные между собой участки дороги на этой плитке. */
   roadGroups?: SideName[][]
   /** Связанные между собой участки города на этой плитке. */
   cityGroups?: SideName[][]
+  /** Городские участки, в которых расположен герб. */
+  cityShieldGroups?: SideName[][]
 }
 
 export interface GridTile extends Tile {
@@ -109,6 +130,7 @@ export type TilePlacesStats = Record<number, Record<number, GridTile>>
 
 export interface FollowerCount {
   ordinaryFollowers: number
+  bigFollowers?: number
   monks: number
 }
 

@@ -244,6 +244,7 @@ import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
 import GameService from './modules/GameService'
+import type { CreateGameOptions } from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
@@ -584,9 +585,9 @@ const goInLobby = async () => {
   }
 }
 
-const createGame = async (finalScoringEnabled: boolean) => {
+const createGame = async (options: CreateGameOptions) => {
   try {
-    const game = await GameService.createGame({ finalScoringEnabled })
+    const game = await GameService.createGame(options)
     currentGame.value = game
     playersList.value = game.players
   } catch (error) {

@@ -50,6 +50,36 @@ function segment(id: string, point: Point, playerId: number): BaseObject {
 }
 
 describe('Слияние и завершение дорог и городов', () => {
+  it('учитывает большой подданный как две фишки при контроле объекта', () => {
+    const game = new GameManager({
+      players,
+      innsAndCathedralsEnabled: true,
+    })
+    const road: BaseObject = {
+      id: 'shared-road',
+      points: [{ x: 15, y: 15, direction: 'east' }],
+      followers: [
+        {
+          playerId: 1,
+          objectId: 'shared-road',
+          point: { x: 15, y: 15 },
+          isBigFollower: true,
+        },
+        {
+          playerId: 2,
+          objectId: 'shared-road',
+          point: { x: 16, y: 15 },
+        },
+      ],
+    }
+    game.tilePlacesStats = { 15: { 15: gridTile(15) } }
+    game.playersFollowers[1].bigFollowers = 0
+    const result = game.calcScoreForRoad(road)
+
+    expect(result.players).toEqual({ 1: 1, 2: 1 })
+    expect(game.scores[1]).toBe(1)
+  })
+
   it('объединяет несколько сегментов города, связанных на одном тайле', () => {
     const game = new GameManager({ players })
     const segments = [

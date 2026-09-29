@@ -68,20 +68,68 @@
               </template>
               {{ centerFeatureTitle(place) }} — аббат
             </UButton>
+            <UButton
+              v-if="
+                gameBoard.rules?.expansions.innsAndCathedrals &&
+                !place.temporaryObject.isGarden
+              "
+              block
+              variant="ghost"
+              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+              :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
+              @click.stop="
+                gameBoard.isMyTurn && placeFollower(place, 'bigFollower')
+              "
+            >
+              <template #leading>
+                <UIcon
+                  name="i-lucide-users-round"
+                  class="h-4 w-4 text-gold-dark"
+                />
+              </template>
+              {{ centerFeatureTitle(place) }} — большой подданный
+            </UButton>
           </div>
-          <UButton
-            v-else
-            block
-            variant="ghost"
-            class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-            :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
-            @click.stop="gameBoard.isMyTurn && placeFollower(place, 'follower')"
-          >
-            <template #leading>
-              <UIcon :name="placeIcon(place)" class="h-4 w-4 text-gold-dark" />
-            </template>
-            {{ followerPlaceTitle(place, sameTypeCount) }}
-          </UButton>
+          <template v-else>
+            <UButton
+              block
+              variant="ghost"
+              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+              :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
+              @click.stop="
+                gameBoard.isMyTurn && placeFollower(place, 'follower')
+              "
+            >
+              <template #leading>
+                <UIcon
+                  :name="placeIcon(place)"
+                  class="h-4 w-4 text-gold-dark"
+                />
+              </template>
+              {{ followerPlaceTitle(place, sameTypeCount) }}
+            </UButton>
+            <UButton
+              v-if="
+                gameBoard.rules?.expansions.innsAndCathedrals &&
+                !place.temporaryObject.isGarden
+              "
+              block
+              variant="ghost"
+              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+              :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
+              @click.stop="
+                gameBoard.isMyTurn && placeFollower(place, 'bigFollower')
+              "
+            >
+              <template #leading>
+                <UIcon
+                  name="i-lucide-users-round"
+                  class="h-4 w-4 text-gold-dark"
+                />
+              </template>
+              {{ followerPlaceTitle(place, sameTypeCount) }} — большой подданный
+            </UButton>
+          </template>
         </template>
       </div>
       <UButton
@@ -126,16 +174,18 @@ const props = defineProps({
 
 const meFollowers = computed(() => {
   const currentPlayer = props.gameBoard.currentPlayer
-  if (!currentPlayer) return { ordinaryFollowers: 0, monks: 0 }
+  if (!currentPlayer) return { ordinaryFollowers: 0, bigFollowers: 0, monks: 0 }
   return (
     props.gameBoard.playersFollowers[currentPlayer.id] ?? {
       ordinaryFollowers: 0,
+      bigFollowers: 0,
       monks: 0,
     }
   )
 })
 
 const ordinaryAvailable = computed(() => meFollowers.value.ordinaryFollowers)
+const bigAvailable = computed(() => meFollowers.value.bigFollowers)
 const abbotAvailable = computed(() => meFollowers.value.monks)
 const groupedPlaces = computed(() =>
   groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
@@ -155,7 +205,7 @@ const followerPlaceTitle = (
 
 const placeFollower = (
   place: AvailableFollowerPlace,
-  type: 'follower' | 'abbot'
+  type: 'follower' | 'bigFollower' | 'abbot'
 ) => {
   GameService.placeFollower(place, type)
 }

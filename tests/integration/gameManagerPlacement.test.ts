@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import tiles from '../../server/src/data/tiles'
+import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
 import { GameManager } from '../../server/src/modules/GameManager'
 import type {
   BaseObject,
@@ -186,6 +187,187 @@ describe('Проверка размещения и возврата поддан
         }
       }
     }
+  })
+
+  it('проверяет стороны и группы связности каждого тайла дополнения', () => {
+    const game = new GameManager({
+      players: makePlayers(),
+      startImmediately: false,
+      innsAndCathedralsEnabled: true,
+    })
+
+    for (const definition of innsAndCathedralsTiles) {
+      for (const feature of ['road', 'city'] as const) {
+        for (let turns = 0; turns < 4; turns += 1) {
+          let rotatedTile = { ...definition, rotation: 0 }
+          for (let turn = 0; turn < turns; turn += 1) {
+            rotatedTile = game.rotateTile(rotatedTile)
+          }
+          const featureSides = (
+            Object.keys(rotatedTile.sides) as (keyof typeof rotatedTile.sides)[]
+          ).filter((side) => rotatedTile.sides[side] === feature)
+          const groups = game.getTileFeatureGroups(rotatedTile, feature)
+          const groupedSides = groups.flat()
+
+          expect(
+            groupedSides.sort(),
+            `${definition.id} ${feature} at ${turns * 90} degrees`
+          ).toEqual([...featureSides].sort())
+          expect(new Set(groupedSides).size).toBe(groupedSides.length)
+        }
+      }
+    }
+  })
+
+  it('проверяет ожидаемую топологию дорог и городов всех тайлов дополнения', () => {
+    const game = new GameManager({
+      players: makePlayers(),
+      startImmediately: false,
+      innsAndCathedralsEnabled: true,
+    })
+    const expectedGroups: Record<
+      string,
+      { road: string[][]; city: string[][] }
+    > = {
+      'IAC-A': { road: [['south', 'west']], city: [] },
+      'IAC-B': { road: [['east', 'west']], city: [] },
+      'IAC-C': {
+        road: [['east'], ['south'], ['west']],
+        city: [],
+      },
+      'IAC-D': { road: [['east'], ['west']], city: [] },
+      'IAC-E': {
+        road: [
+          ['north', 'west'],
+          ['east', 'south'],
+        ],
+        city: [],
+      },
+      'IAC-F': {
+        road: [['east']],
+        city: [['north', 'west']],
+      },
+      'IAC-G': { road: [], city: [['west']] },
+      'IAC-H': {
+        road: [],
+        city: [['north'], ['east'], ['south'], ['west']],
+      },
+      'IAC-I': {
+        road: [['east'], ['west']],
+        city: [['north'], ['south']],
+      },
+      'IAC-J': { road: [['south']], city: [['north']] },
+      'IAC-Ka': {
+        road: [],
+        city: [['north', 'east', 'south', 'west']],
+      },
+      'IAC-Kb': {
+        road: [],
+        city: [['north', 'east', 'south', 'west']],
+      },
+      'IAC-L': {
+        road: [['east', 'south']],
+        city: [['north', 'west']],
+      },
+      'IAC-M': {
+        road: [['south', 'west']],
+        city: [['north']],
+      },
+      'IAC-N': {
+        road: [['south']],
+        city: [['north', 'west']],
+      },
+      'IAC-O': {
+        road: [],
+        city: [['north'], ['east'], ['west']],
+      },
+      'IAC-P': {
+        road: [],
+        city: [['north', 'west'], ['south']],
+      },
+      'IAC-Q': {
+        road: [['north'], ['south']],
+        city: [['east', 'west']],
+      },
+    }
+
+    expect(Object.keys(expectedGroups).sort()).toEqual(
+      innsAndCathedralsTiles.map(({ id }) => id).sort()
+    )
+    for (const definition of innsAndCathedralsTiles) {
+      for (const feature of ['road', 'city'] as const) {
+        expect(
+          game.getTileFeatureGroups({ ...definition, rotation: 0 }, feature),
+          `${definition.id} ${feature}`
+        ).toEqual(expectedGroups[definition.id]?.[feature])
+      }
+
+      const roadSides = Object.entries(definition.sides)
+        .filter(([, sideType]) => sideType === 'road')
+        .map(([side]) => side)
+      const citySides = Object.entries(definition.sides)
+        .filter(([, sideType]) => sideType === 'city')
+        .map(([side]) => side)
+      for (const [feature, groups, validSides] of [
+        ['road', definition.roadGroups, roadSides],
+        ['city', definition.cityGroups, citySides],
+        ['shield', definition.cityShieldGroups, citySides],
+      ] as const) {
+        for (const group of groups ?? []) {
+          expect(
+            group.every((side) => validSides.includes(side)),
+            `${definition.id} ${feature} group ${group.join(',')}`
+          ).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('сохраняет заданные группы дорог на тайлах дополнения', () => {
+    const game = new GameManager({
+      players: makePlayers(),
+      startImmediately: false,
+      rules: { expansions: { innsAndCathedrals: true } },
+    })
+    const getExpansionTile = (id: string) => {
+      const definition = innsAndCathedralsTiles.find((tile) => tile.id === id)
+      if (!definition) throw new Error(`Tile ${id} is missing`)
+      return { ...definition, rotation: 0 }
+    }
+
+    expect(
+      game.getTileFeatureGroups(getExpansionTile('IAC-E'), 'road')
+    ).toEqual([
+      ['north', 'west'],
+      ['east', 'south'],
+    ])
+    expect(
+      game.getTileFeatureGroups(getExpansionTile('IAC-I'), 'road')
+    ).toEqual([['east'], ['west']])
+    expect(
+      game.getTileFeatureGroups(
+        game.rotateTile(getExpansionTile('IAC-E')),
+        'road'
+      )
+    ).toEqual([
+      ['east', 'north'],
+      ['south', 'west'],
+    ])
+  })
+
+  it('описывает два отдельных города IAC-P и относит герб к одному из них', () => {
+    const tile = innsAndCathedralsTiles.find(({ id }) => id === 'IAC-P')
+    if (!tile) throw new Error('Tile IAC-P is missing')
+    const game = new GameManager({
+      players: makePlayers(),
+      startImmediately: false,
+      rules: { expansions: { innsAndCathedrals: true } },
+    })
+
+    expect(game.getTileFeatureGroups({ ...tile, rotation: 0 }, 'city')).toEqual(
+      [['north', 'west'], ['south']]
+    )
+    expect(tile.cityShieldGroups).toEqual([['north', 'west']])
   })
 
   it('предлагает все незанятые группы для всех типов каталожных тайлов и поворотов', () => {

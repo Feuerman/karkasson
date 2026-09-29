@@ -1,4 +1,6 @@
-import tiles, { gardenTileCounts } from '../data/tiles'
+import tiles, { gardenTileCounts as baseGardenTileCounts } from '../data/tiles'
+import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
+import { gardenTileCounts as expansionGardenTileCounts } from '../data/innsAndCathedralsTiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
 import {
@@ -24,6 +26,7 @@ import {
   type FollowerCount,
   type FollowerType,
   type GridTile,
+  type GameRules,
   type ObjectFollower,
   type Player,
   type PlayerId,
@@ -90,6 +93,7 @@ export interface IGameBoard {
   gameIsStarted: boolean
   gameIsEnded: boolean
   finalScoringEnabled: boolean
+  rules: GameRules
   tilesList: Tile[]
   currentTile: GridTile | null
   players: Player[]
@@ -120,7 +124,7 @@ export interface IGameBoard {
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   autoPlaceTile(): Promise<void>
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
-  calcScoreForRoad(road: BaseObject): ScoreForObject
+  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
   copyStateFrom(source: IGameBoard): void
@@ -177,6 +181,7 @@ export class GameManager implements IGameBoard {
   gameIsStarted: boolean
   gameIsEnded: boolean
   finalScoringEnabled: boolean
+  rules: GameRules
   tilesList: Tile[]
   currentTile: GridTile | null
   players: Player[]
@@ -203,6 +208,7 @@ export class GameManager implements IGameBoard {
       players?: Player[]
       startImmediately?: boolean
       finalScoringEnabled?: boolean
+      innsAndCathedralsEnabled?: boolean
     } = {}
   ) {
     const players = params.players ?? []
@@ -210,6 +216,12 @@ export class GameManager implements IGameBoard {
     this.gameIsStarted = false
     this.gameIsEnded = false
     this.finalScoringEnabled = params.finalScoringEnabled ?? false
+    this.rules = {
+      finalScoringEnabled: params.finalScoringEnabled ?? false,
+      expansions: {
+        innsAndCathedrals: params.innsAndCathedralsEnabled ?? false,
+      },
+    }
     this.tilesList = []
     this.currentTile = null
     this.players = []
@@ -245,7 +257,13 @@ export class GameManager implements IGameBoard {
   }
 
   initTilesList() {
-    this.tilesList = tiles
+    const definitions = this.rules.expansions.innsAndCathedrals
+      ? [...tiles, ...innsAndCathedralsTiles]
+      : tiles
+    const gardenTileCounts = this.rules.expansions.innsAndCathedrals
+      ? { ...baseGardenTileCounts, ...expansionGardenTileCounts }
+      : baseGardenTileCounts
+    this.tilesList = definitions
       .flatMap<Tile>((tile) => {
         const gardenCount = gardenTileCounts[tile.id] ?? 0
         return Array.from({ length: tile.count }, (_, index) => {
@@ -265,7 +283,13 @@ export class GameManager implements IGameBoard {
 
     this.playersFollowers = players.reduce<Record<PlayerId, FollowerCount>>(
       (acc, player) => {
-        acc[player.id] = { ordinaryFollowers: 7, monks: 1 }
+        acc[player.id] = {
+          ordinaryFollowers: 7,
+          ...(this.rules.expansions.innsAndCathedrals
+            ? { bigFollowers: 1 }
+            : {}),
+          monks: 1,
+        }
         return acc
       },
       {}
@@ -346,6 +370,7 @@ export class GameManager implements IGameBoard {
     if (
       followerPool &&
       !followerPool.ordinaryFollowers &&
+      !(this.rules.expansions.innsAndCathedrals && followerPool.bigFollowers) &&
       !followerPool.monks
     ) {
       this.endTurn()
@@ -429,12 +454,66 @@ export class GameManager implements IGameBoard {
       if (object.isGarden && !followerPool?.monks) {
         return false
       }
+      if (
+        !object.isGarden &&
+        followerPool &&
+        !followerPool.ordinaryFollowers &&
+        !(
+          this.rules.expansions.innsAndCathedrals && followerPool.bigFollowers
+        ) &&
+        !followerPool.monks
+      ) {
+        return false
+      }
       return true
     })
   }
 
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
     if (this.gameIsEnded) return false
+    const tileDefinition = this.findTileDefinition(tile.id)
+    const authoritativeTile: Tile = tileDefinition
+      ? { ...tileDefinition, rotation: 0 }
+      : { ...tile }
+    if (
+      authoritativeTile.expansion === 'innsAndCathedrals' &&
+      !this.rules.expansions.innsAndCathedrals
+    ) {
+      return false
+    }
+    let resolvedTile: Tile
+    const normalizedTurns = ((Math.round(tile.rotation / 90) % 4) + 4) % 4
+    if (tileDefinition) {
+      resolvedTile = { ...authoritativeTile, rotation: 0 }
+      for (let turn = 0; turn < normalizedTurns; turn++) {
+        resolvedTile = this.rotateTile(resolvedTile)
+      }
+    } else {
+      resolvedTile = { ...authoritativeTile }
+    }
+    resolvedTile.hasGarden =
+      this.currentTile?.id === tile.id
+        ? (this.currentTile.hasGarden ?? resolvedTile.hasGarden)
+        : (tile.hasGarden ?? resolvedTile.hasGarden)
+    if (tileDefinition) {
+      resolvedTile.sides = rotateTileSides(
+        authoritativeTile.sides,
+        normalizedTurns
+      )
+      resolvedTile.roadGroups = rotateTileGroups(
+        authoritativeTile.roadGroups,
+        normalizedTurns
+      )
+      resolvedTile.cityGroups = rotateTileGroups(
+        authoritativeTile.cityGroups,
+        normalizedTurns
+      )
+      resolvedTile.cityShieldGroups = rotateTileGroups(
+        authoritativeTile.cityShieldGroups,
+        normalizedTurns
+      )
+    }
+    tile = resolvedTile
 
     const isCorrectPosition = this.isCorrectTilePosition(
       tile,
@@ -569,7 +648,11 @@ export class GameManager implements IGameBoard {
     if (
       !currentPlayer ||
       !followerPool ||
-      (!followerPool.ordinaryFollowers && !followerPool.monks)
+      (!followerPool.ordinaryFollowers &&
+        !(
+          this.rules.expansions.innsAndCathedrals && followerPool.bigFollowers
+        ) &&
+        !followerPool.monks)
     ) {
       this.endTurn()
     } else {
@@ -614,6 +697,7 @@ export class GameManager implements IGameBoard {
 
     // Валидация пула и целевого объекта до списания фишки
     const isAbbot = followerType === 'abbot'
+    const isBigFollower = followerType === 'bigFollower'
     const isCenterFeature = Boolean(
       temporaryObject.isMonastery || temporaryObject.isGarden
     )
@@ -622,7 +706,13 @@ export class GameManager implements IGameBoard {
         this.skipFollower()
         return
       }
-    } else if (!followerPool.ordinaryFollowers || temporaryObject.isGarden) {
+    } else if (
+      (isBigFollower
+        ? !this.rules.expansions.innsAndCathedrals || !followerPool.bigFollowers
+        : !followerPool.ordinaryFollowers) ||
+      temporaryObject.isGarden ||
+      (isBigFollower && !this.rules.expansions.innsAndCathedrals)
+    ) {
       // На сад можно поставить только аббата
       this.skipFollower()
       return
@@ -630,6 +720,9 @@ export class GameManager implements IGameBoard {
 
     if (isAbbot) {
       this.playersFollowers[activePlayer.id].monks -= 1
+    } else if (isBigFollower) {
+      const pool = this.playersFollowers[activePlayer.id]
+      if (pool.bigFollowers !== undefined) pool.bigFollowers -= 1
     } else {
       this.playersFollowers[activePlayer.id].ordinaryFollowers -= 1
     }
@@ -639,6 +732,7 @@ export class GameManager implements IGameBoard {
       objectId: temporaryObject.id,
       point: availablePlace.point,
       isAbbot: isAbbot || undefined,
+      isBigFollower: isBigFollower || undefined,
     })
 
     this.placedFollowers.push({
@@ -648,6 +742,7 @@ export class GameManager implements IGameBoard {
       isMonastery: temporaryObject.isMonastery,
       isGarden: temporaryObject.isGarden,
       isAbbot: isAbbot || undefined,
+      isBigFollower: isBigFollower || undefined,
     })
 
     this.availableFollowersPlaces = []
@@ -656,7 +751,11 @@ export class GameManager implements IGameBoard {
       actionType: ActionTypes.PLACE_FOLLOWER,
       actionData: {
         ...availablePlace,
-        followerType: isAbbot ? 'abbot' : 'follower',
+        followerType: isAbbot
+          ? 'abbot'
+          : isBigFollower
+            ? 'bigFollower'
+            : 'follower',
       },
       initiator: activePlayer,
     })
@@ -850,7 +949,7 @@ export class GameManager implements IGameBoard {
     this.temporaryObjects.gardens = []
 
     for (const road of unfinishedRoads) {
-      const score = this.calcScoreForRoad(road)
+      const score = this.calcScoreForRoad(road, false)
       this.recordFinalObjectScore(road, score, ObjectTypes.ROAD)
       this.completedObjects.roads.push({ ...deepClone(road), score })
     }
@@ -1106,7 +1205,12 @@ export class GameManager implements IGameBoard {
             },
           },
         })
-        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+        if (follower.isBigFollower) {
+          const pool = this.playersFollowers[follower.playerId]
+          if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
+        } else {
+          this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+        }
         this.removePlacedFollower(follower)
         this.actionsHistory.push({
           actionType: ActionTypes.BACK_FOLLOWER,
@@ -1128,8 +1232,14 @@ export class GameManager implements IGameBoard {
     this.checkCompleteLinearFeature('road', road)
   }
 
-  calcScoreForRoad(road: BaseObject, _isCompleted = true): ScoreForObject {
-    return calcRoadScore(this.tilePlacesStats, road, this.scores)
+  calcScoreForRoad(road: BaseObject, isCompleted = true): ScoreForObject {
+    return calcRoadScore(
+      this.tilePlacesStats,
+      road,
+      this.scores,
+      isCompleted,
+      this.rules.expansions.innsAndCathedrals
+    )
   }
 
   checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
@@ -1176,6 +1286,28 @@ export class GameManager implements IGameBoard {
   ) {
     const collection = LINEAR_FEATURE_COLLECTIONS[kind]
     const existingObjects = this.temporaryObjects[collection]
+    const placedTile =
+      this.tilePlacesStats[newPoints[0]?.y ?? -1]?.[newPoints[0]?.x ?? -1]
+    const hasInn = kind === 'road' && Boolean(placedTile?.hasInn)
+    const hasCathedral = kind === 'city' && Boolean(placedTile?.hasCathedral)
+    const isExpansionTile = Boolean(
+      placedTile?.expansion === 'innsAndCathedrals' &&
+      (kind === 'road' ? placedTile.hasInn : placedTile.hasCathedral)
+    )
+
+    if (connectedIds.length === 0) {
+      const object: BaseObject = {
+        id: 'id' + Math.random(),
+        points: newPoints,
+        followers: [],
+        hasInn: hasInn || undefined,
+        hasCathedral: hasCathedral || undefined,
+        expansion: isExpansionTile ? 'innsAndCathedrals' : undefined,
+      }
+      this.temporaryObjects[collection].push(object)
+      this.checkCompleteLinearFeature(kind, object)
+      return
+    }
 
     if (connectedIds.length === 1) {
       const existingObject = existingObjects.find(
@@ -1184,6 +1316,11 @@ export class GameManager implements IGameBoard {
       if (!existingObject) return
 
       existingObject.points = existingObject.points.concat(newPoints)
+      existingObject.hasInn = Boolean(existingObject.hasInn || hasInn)
+      existingObject.hasCathedral = Boolean(
+        existingObject.hasCathedral || hasCathedral
+      )
+      if (isExpansionTile) existingObject.expansion = 'innsAndCathedrals'
       this.checkCompleteLinearFeature(kind, existingObject)
       return
     }
@@ -1198,6 +1335,22 @@ export class GameManager implements IGameBoard {
         .flatMap(({ points }) => points)
         .concat(newPoints),
       followers: connectedObjects.flatMap(({ followers }) => followers),
+      hasInn: Boolean(
+        hasInn ||
+        (kind === 'road' && connectedObjects.some((object) => object.hasInn))
+      ),
+      hasCathedral: Boolean(
+        hasCathedral ||
+        (kind === 'city' &&
+          connectedObjects.some((object) => object.hasCathedral))
+      ),
+      expansion:
+        isExpansionTile ||
+        connectedObjects.some(
+          (object) => object.expansion === 'innsAndCathedrals'
+        )
+          ? 'innsAndCathedrals'
+          : undefined,
     }
 
     this.temporaryObjects[collection] = existingObjects.filter(
@@ -1247,7 +1400,12 @@ export class GameManager implements IGameBoard {
     }
 
     for (const follower of feature.followers) {
-      this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+      if (follower.isBigFollower) {
+        const pool = this.playersFollowers[follower.playerId]
+        if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
+      } else {
+        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
+      }
       this.removePlacedFollower(follower)
     }
 
@@ -1260,7 +1418,14 @@ export class GameManager implements IGameBoard {
   }
 
   calcScoreForCity(city: BaseObject, isCompleted = true): ScoreForObject {
-    return calcCityScore(this.tilePlacesStats, city, this.scores, isCompleted)
+    return calcCityScore(
+      this.tilePlacesStats,
+      city,
+      this.scores,
+      isCompleted,
+      this.rules.expansions.innsAndCathedrals,
+      this.rules.expansions.innsAndCathedrals
+    )
   }
 
   private removePlacedFollower(follower: ObjectFollower) {
@@ -1270,7 +1435,8 @@ export class GameManager implements IGameBoard {
         placed.point.x === follower.point.x &&
         placed.point.y === follower.point.y &&
         placed.point.direction === follower.point.direction &&
-        Boolean(placed.isAbbot) === Boolean(follower.isAbbot)
+        Boolean(placed.isAbbot) === Boolean(follower.isAbbot) &&
+        Boolean(placed.isBigFollower) === Boolean(follower.isBigFollower)
     )
     if (index >= 0) this.placedFollowers.splice(index, 1)
   }
@@ -1317,7 +1483,8 @@ export class GameManager implements IGameBoard {
           candidate.point.x === follower.point.x &&
           candidate.point.y === follower.point.y &&
           candidate.point.direction === follower.point.direction &&
-          Boolean(candidate.isAbbot) === Boolean(follower.isAbbot)
+          Boolean(candidate.isAbbot) === Boolean(follower.isAbbot) &&
+          Boolean(candidate.isBigFollower) === Boolean(follower.isBigFollower)
       )
       if (placed) placed.objectId = objectId
     }
@@ -1342,21 +1509,27 @@ export class GameManager implements IGameBoard {
       (side) => tile.sides[side] === feature
     )
 
-    // Все ответвления дороги, сходящиеся в перекрёстке, заканчиваются на
-    // нём независимо друг от друга. Правило определяется формой тайла, а не
-    // его ID или вручную заданной группой в каталоге.
-    if (feature === 'road' && featureSides.length >= 3) {
-      return featureSides.map((side) => [side])
-    }
-
+    const definition = this.findTileDefinition(tile.id)
     const tileGroups = feature === 'city' ? tile.cityGroups : tile.roadGroups
-    const definition = tiles.find(({ id }) => id === tile.id)
     const definitionGroups =
       feature === 'city' ? definition?.cityGroups : definition?.roadGroups
     const groups =
       tileGroups ??
       this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
       []
+
+    // Т-образные перекрёстки и четырёхсторонние перекрёстки делят дорожные
+    // ответвления независимо друг от друга. Но если каталог описывает на
+    // четырёхстороннем тайле несколько собственных соединений (например,
+    // IAC-E), эти явно заданные группы определяют топологию тайла.
+    const connectedRoadGroups = groups.filter((group) => group.length > 1)
+    if (
+      feature === 'road' &&
+      featureSides.length >= 3 &&
+      connectedRoadGroups.length < 2
+    ) {
+      return featureSides.map((side) => [side])
+    }
 
     // Каталожные группы описывают соединения, а стороны без группы остаются
     // отдельными сегментами. Нормализация не допускает дублирования стороны
@@ -1379,6 +1552,15 @@ export class GameManager implements IGameBoard {
     }
 
     return normalizedGroups
+  }
+
+  private findTileDefinition(tileId: string) {
+    return (
+      tiles.find(({ id }) => id === tileId) ??
+      (this.rules.expansions.innsAndCathedrals
+        ? innsAndCathedralsTiles.find(({ id }) => id === tileId)
+        : undefined)
+    )
   }
 
   isOppositePoint(point: Point, oppositePoint: Point): boolean {
@@ -1413,6 +1595,10 @@ export class GameManager implements IGameBoard {
       processedTile.cityGroups,
       quarterTurns
     )
+    processedTile.cityShieldGroups = rotateTileGroups(
+      processedTile.cityShieldGroups,
+      quarterTurns
+    )
 
     return processedTile
   }
@@ -1443,6 +1629,32 @@ export class GameManager implements IGameBoard {
   }
 
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
+    const tileDefinition = this.findTileDefinition(tile.id)
+    const authoritativeTile: Tile | undefined = tileDefinition
+      ? { ...tileDefinition, rotation: 0 }
+      : tile.id.startsWith('test')
+        ? { ...tile }
+        : undefined
+    if (!authoritativeTile) return false
+    if (!tileDefinition && !tile.id.startsWith('test')) return false
+    if (
+      authoritativeTile.expansion === 'innsAndCathedrals' &&
+      !this.rules.expansions.innsAndCathedrals
+    ) {
+      return false
+    }
+    let resolvedTile: Tile
+    if (this.findTileDefinition(tile.id)) {
+      resolvedTile = { ...authoritativeTile, rotation: 0 }
+      const normalizedTurns = ((Math.round(tile.rotation / 90) % 4) + 4) % 4
+      for (let turn = 0; turn < normalizedTurns; turn++) {
+        resolvedTile = this.rotateTile(resolvedTile)
+      }
+    } else {
+      resolvedTile = { ...authoritativeTile }
+    }
+    resolvedTile.hasGarden = tile.hasGarden ?? resolvedTile.hasGarden
+    tile = resolvedTile
     const isCorrectPosition = this.isCorrectTilePosition(
       tile,
       rowIndex,
@@ -1495,17 +1707,27 @@ export class GameManager implements IGameBoard {
     }
 
     const isAbbot = followerType === 'abbot'
+    const isBigFollower = followerType === 'bigFollower'
     const isCenterFeature = Boolean(
       targetObject.isMonastery || targetObject.isGarden
     )
     if (isAbbot) {
       if (!followerPool.monks || !isCenterFeature) return false
-    } else if (!followerPool.ordinaryFollowers || targetObject.isGarden) {
+    } else if (
+      (isBigFollower
+        ? !this.rules.expansions.innsAndCathedrals || !followerPool.bigFollowers
+        : !followerPool.ordinaryFollowers) ||
+      targetObject.isGarden ||
+      (isBigFollower && !this.rules.expansions.innsAndCathedrals)
+    ) {
       return false
     }
 
     if (isAbbot) {
       this.playersFollowers[currentPlayer.id].monks -= 1
+    } else if (isBigFollower) {
+      const pool = this.playersFollowers[currentPlayer.id]
+      if (pool.bigFollowers !== undefined) pool.bigFollowers -= 1
     } else {
       this.playersFollowers[currentPlayer.id].ordinaryFollowers -= 1
     }
@@ -1515,6 +1737,7 @@ export class GameManager implements IGameBoard {
       objectId: targetObject.id,
       point: availablePlace.point,
       isAbbot: isAbbot || undefined,
+      isBigFollower: isBigFollower || undefined,
     })
 
     this.placedFollowers.push({
@@ -1524,6 +1747,7 @@ export class GameManager implements IGameBoard {
       isMonastery: targetObject.isMonastery,
       isGarden: targetObject.isGarden,
       isAbbot: isAbbot || undefined,
+      isBigFollower: isBigFollower || undefined,
     })
 
     return true

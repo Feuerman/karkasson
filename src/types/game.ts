@@ -20,5 +20,8 @@ export interface ITile {
   isSolidCity?: boolean
   isMonastery?: boolean
   hasGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
   withShield?: boolean
+  cityShieldGroups?: GridTile['cityShieldGroups']
 }

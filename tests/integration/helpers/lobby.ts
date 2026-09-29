@@ -29,6 +29,10 @@ export interface TestGameData {
   gameIsStarted: boolean
   gameIsEnded: boolean
   finalScoringEnabled: boolean
+  rules?: {
+    finalScoringEnabled: boolean
+    expansions: { innsAndCathedrals: boolean }
+  }
   moveCounter: number
   scores: Record<string, number>
   tilesList: unknown[]

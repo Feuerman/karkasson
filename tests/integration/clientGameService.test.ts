@@ -101,11 +101,17 @@ describe('Клиентское приложение (GameService)', () => {
     await waitUntilConnected(alice)
     await waitForServerDevice(server, alice)
 
-    const created = await alice.createGame({ finalScoringEnabled: true })
+    const created = await alice.createGame({
+      finalScoringEnabled: true,
+      innsAndCathedralsEnabled: true,
+    })
     expect(alice.gameId).toBeTruthy()
     expect(created.id).toBe(alice.gameId)
     expect(created.gridSize).toEqual([30, 30])
     expect(created.finalScoringEnabled).toBe(true)
+    expect(created.rules.expansions.innsAndCathedrals).toBe(true)
+    expect(created.playersFollowers[1]?.bigFollowers).toBe(1)
+    expect(created.tilesList).toHaveLength(90)
 
     await alice.addPlayer({ name: 'Alice', index: 0 })
 

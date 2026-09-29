@@ -31,6 +31,12 @@
       </div>
 
       <GameStatus :game="game" />
+      <span
+        v-if="game.rules?.expansions.innsAndCathedrals"
+        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+      >
+        Таверны и соборы
+      </span>
     </div>
 
     <div

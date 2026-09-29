@@ -11,6 +11,7 @@ export interface RulesMarkerFollower {
   kind: 'follower'
   color: RulesMarkerColor
   direction: PointDirection | 'center'
+  isBig?: boolean
 }
 
 /** Красный крестик: действие на этой позиции недопустимо. */
@@ -41,6 +42,8 @@ export interface RulesTileRef {
   rotation: RulesRotation
   imgUrl: string
   hasGarden?: boolean
+  hasInn?: boolean
+  hasCathedral?: boolean
   markers?: RulesMarker[]
 }
 

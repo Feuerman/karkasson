@@ -15,7 +15,8 @@ import type {
 export function distributeScore(
   points: number,
   followers: ObjectFollower[],
-  scores: Scores
+  scores: Scores,
+  weightOf: (follower: ObjectFollower) => number = () => 1
 ): ScoreForObject {
   if (!followers.length) {
     return { total: points, players: {} }
@@ -24,7 +25,8 @@ export function distributeScore(
   const followersCountByPlayer: Record<string, number> = {}
   for (const follower of followers) {
     const key = String(follower.playerId)
-    followersCountByPlayer[key] = (followersCountByPlayer[key] ?? 0) + 1
+    followersCountByPlayer[key] =
+      (followersCountByPlayer[key] ?? 0) + weightOf(follower)
   }
 
   const maxCount = Math.max(...Object.values(followersCountByPlayer))
@@ -60,10 +62,25 @@ function countUniqueTiles(
 export function calcRoadScore(
   tilePlacesStats: TilePlacesStats,
   road: BaseObject,
-  scores: Scores
+  scores: Scores,
+  isCompleted = true,
+  innsAndCathedralsEnabled = false,
+  useBigFollowers = false
 ): ScoreForObject {
   const points = countUniqueTiles(tilePlacesStats, road.points)
-  const result = distributeScore(points, road.followers, scores)
+  const adjustedPoints =
+    road.expansion === 'innsAndCathedrals' ||
+    (innsAndCathedralsEnabled && road.hasInn)
+      ? isCompleted
+        ? points * 2
+        : 0
+      : points
+  const result = distributeScore(
+    adjustedPoints,
+    road.followers,
+    scores,
+    (follower) => (useBigFollowers && follower.isBigFollower ? 2 : 1)
+  )
   return road.followers.length ? { ...result, objectId: road.id } : result
 }
 
@@ -71,7 +88,9 @@ export function calcCityScore(
   tilePlacesStats: TilePlacesStats,
   city: BaseObject,
   scores: Scores,
-  isCompleted = true
+  isCompleted = true,
+  innsAndCathedralsEnabled = false,
+  useBigFollowers = false
 ): ScoreForObject {
   const uniqueTiles = new Set<string>()
   let shieldCount = 0
@@ -80,15 +99,37 @@ export function calcCityScore(
     const tile = tilePlacesStats[point.y]?.[point.x]
     if (tile && !uniqueTiles.has(`${point.y},${point.x}`)) {
       uniqueTiles.add(`${point.y},${point.x}`)
-      if (tile.withShield) {
+      const cityContainsShield = Boolean(
+        tile.cityShieldGroups?.some((group) =>
+          city.points.some(
+            (cityPoint) =>
+              cityPoint.x === point.x &&
+              cityPoint.y === point.y &&
+              cityPoint.direction !== undefined &&
+              cityPoint.direction !== 'center' &&
+              group.includes(cityPoint.direction)
+          )
+        )
+      )
+      if (tile.withShield || cityContainsShield) {
         shieldCount++
       }
     }
   }
 
   const pointsPerTile = isCompleted ? 2 : 1
-  const points = uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
-  const result = distributeScore(points, city.followers, scores)
+  const basePoints =
+    uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
+  const points =
+    city.expansion === 'innsAndCathedrals' ||
+    (innsAndCathedralsEnabled && city.hasCathedral)
+      ? isCompleted
+        ? basePoints * 3
+        : 0
+      : basePoints
+  const result = distributeScore(points, city.followers, scores, (follower) =>
+    useBigFollowers && follower.isBigFollower ? 2 : 1
+  )
   return city.followers.length ? { ...result, objectId: city.id } : result
 }
 
