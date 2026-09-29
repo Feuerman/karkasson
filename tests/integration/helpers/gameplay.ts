@@ -605,26 +605,11 @@ export function verifyScoringAgainstServer(state: GameStateSnapshot): void {
   }
 }
 
-/**
- * Инвариант запаса фишек: каждая размещённая фишка уменьшает пул
- * ordinaryFollowers игрока, а возврат — восстанавливает его.
- *
- * По умолчанию проверяется ГЛОБАЛЬНАЯ сумма («на доске + в запасе == 7 × игроки»):
- * сервер при объединении нескольких дорог/городов в одну снимает фишки через
- * splice(findIndex(...)) с несовпадающим objectId, из-за чего поштучный
- * пересчёт по каждому игроку может расходиться (хотя общий баланс сохраняется).
- * Строгая проверка per-player доступна через опцию perPlayer и применяется
- * только в сценариях без объединений (одиночный ход).
- */
-export function assertFollowerInvariants(
-  state: GameStateSnapshot,
-  options: { perPlayer?: boolean } = {}
-): void {
+/** Проверяет, что запас и выставленные фишки каждого игрока сохраняют баланс. */
+export function assertFollowerInvariants(state: GameStateSnapshot): void {
   if (!state.playersFollowers || !state.placedFollowers || !state.players) {
     return
   }
-
-  const perPlayer = options.perPlayer === true
 
   let totalPlaced = 0
   let totalOrdinary = 0
@@ -666,9 +651,7 @@ export function assertFollowerInvariants(
     expect(monks).toBeGreaterThanOrEqual(0)
     expect(monks).toBeLessThanOrEqual(1)
 
-    if (perPlayer) {
-      expect(placedCount + remaining + (monks ?? 0)).toBe(8)
-    }
+    expect(placedCount + remaining + (monks ?? 0)).toBe(8)
 
     totalPlaced += placedCount
     totalOrdinary += remaining
