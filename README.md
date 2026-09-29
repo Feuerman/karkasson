@@ -213,6 +213,10 @@ pnpm --filter server run dev
 (иначе — `https://karkasson.onrender.com`). Локально укажите
 `VITE_SERVER_URL=http://localhost:3001`.
 
+Dev-сервер (`pnpm --filter server run dev`) автоматически использует
+in-memory хранилище: игры доступны, пока сервер запущен, и не требуют
+подключения к Firebase. Production-сервер продолжает сохранять игры в Firebase.
+
 ### Скрипты
 
 | Команда                          | Назначение                                      |
