@@ -137,6 +137,29 @@ export interface IGameBoard {
   ): SideName[][] | undefined
 }
 
+type CentralObjectKind = 'monastery' | 'garden'
+
+const CENTRAL_OBJECT_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, -1],
+  [0, 1],
+  [1, -1],
+  [1, 0],
+  [1, 1],
+]
+
+const CENTRAL_OBJECT_COLLECTIONS = {
+  monastery: 'monasteries',
+  garden: 'gardens',
+} as const
+
+const CENTRAL_OBJECT_TYPES = {
+  monastery: ObjectTypes.MONASTERY,
+  garden: ObjectTypes.GARDEN,
+} as const
+
 export class GameManager implements IGameBoard {
   id?: string
   gridSize = [30, 30]
@@ -900,73 +923,11 @@ export class GameManager implements IGameBoard {
   }
 
   checkCompletedMonasteries() {
-    const surroundings: [number, number][] = [
-      [-1, -1],
-      [-1, 0],
-      [-1, 1],
-      [0, -1],
-      [0, 1],
-      [1, -1],
-      [1, 0],
-      [1, 1],
-    ]
-
-    const completedMonasteries = this.temporaryObjects.monasteries.filter(
-      (monastery) => {
-        const monasteryPoint = monastery.points[0]
-        if (!monasteryPoint) return false
-        return surroundings.every(([dy, dx]) =>
-          Boolean(
-            this.tilePlacesStats[monasteryPoint.y + dy]?.[monasteryPoint.x + dx]
-          )
-        )
-      }
-    )
-
-    this.temporaryObjects.monasteries =
-      this.temporaryObjects.monasteries.filter(
-        (monastery) => !completedMonasteries.find((m) => m.id === monastery.id)
-      )
-
-    this.completedObjects.monasteries = [
-      ...this.completedObjects.monasteries,
-      ...completedMonasteries,
-    ]
-
-    if (completedMonasteries.length) {
-      this.calcScoreForMonasteries(completedMonasteries)
-    }
+    this.checkCompletedCentralObjects('monastery')
   }
 
   calcScoreForMonasteries(monasteries: BaseObject[]) {
-    monasteries.forEach((monastery) => {
-      monastery.followers.forEach((follower) => {
-        // Аббат не приносит очков при завершении монастыря и не возвращается
-        // в запас: он ждёт отзыва владельцем (recallAbbot).
-        if (follower.isAbbot) return
-
-        this.scores[follower.playerId] += 9
-
-        this.actionsHistory.push({
-          actionType: ActionTypes.ADDING_SCORES,
-          actionData: {
-            objectType: ObjectTypes.MONASTERY,
-            objectData: monastery,
-            score: {
-              objectId: monastery.id,
-              players: { [follower.playerId]: 9 },
-              total: 9,
-            },
-          },
-        })
-        this.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        this.removePlacedFollower(follower)
-        this.actionsHistory.push({
-          actionType: ActionTypes.BACK_FOLLOWER,
-          actionData: { followers: [follower] },
-        })
-      })
-    })
+    this.calcScoreForCentralObjects(monasteries, ObjectTypes.MONASTERY)
   }
 
   checkGardens(tile: GridTile) {
@@ -991,54 +952,60 @@ export class GameManager implements IGameBoard {
   }
 
   checkCompletedGardens() {
-    const surroundings: [number, number][] = [
-      [-1, -1],
-      [-1, 0],
-      [-1, 1],
-      [0, -1],
-      [0, 1],
-      [1, -1],
-      [1, 0],
-      [1, 1],
-    ]
-
-    const completedGardens = this.temporaryObjects.gardens.filter((garden) => {
-      const gardenPoint = garden.points[0]
-      if (!gardenPoint) return false
-      return surroundings.every(([dy, dx]) =>
-        Boolean(this.tilePlacesStats[gardenPoint.y + dy]?.[gardenPoint.x + dx])
-      )
-    })
-
-    this.temporaryObjects.gardens = this.temporaryObjects.gardens.filter(
-      (garden) => !completedGardens.find((g) => g.id === garden.id)
-    )
-
-    this.completedObjects.gardens = [
-      ...this.completedObjects.gardens,
-      ...completedGardens,
-    ]
-
-    if (completedGardens.length) {
-      this.calcScoreForGardens(completedGardens)
-    }
+    this.checkCompletedCentralObjects('garden')
   }
 
   calcScoreForGardens(gardens: BaseObject[]) {
-    gardens.forEach((garden) => {
-      garden.followers.forEach((follower) => {
-        // Аббат на саду так же не приносит очков при завершении и ждёт отзыва.
-        if (follower.isAbbot) return
+    this.calcScoreForCentralObjects(gardens, ObjectTypes.GARDEN)
+  }
+
+  private checkCompletedCentralObjects(kind: CentralObjectKind) {
+    const collection = CENTRAL_OBJECT_COLLECTIONS[kind]
+    const completedObjects = this.temporaryObjects[collection].filter(
+      (object) => {
+        const point = object.points[0]
+        if (!point) return false
+
+        return CENTRAL_OBJECT_NEIGHBORS.every(([dy, dx]) =>
+          Boolean(this.tilePlacesStats[point.y + dy]?.[point.x + dx])
+        )
+      }
+    )
+
+    const completedIds = new Set(completedObjects.map(({ id }) => id))
+    this.temporaryObjects[collection] = this.temporaryObjects[
+      collection
+    ].filter((object) => !completedIds.has(object.id))
+    this.completedObjects[collection] = [
+      ...this.completedObjects[collection],
+      ...completedObjects,
+    ]
+
+    if (completedObjects.length) {
+      this.calcScoreForCentralObjects(
+        completedObjects,
+        CENTRAL_OBJECT_TYPES[kind]
+      )
+    }
+  }
+
+  private calcScoreForCentralObjects(
+    objects: BaseObject[],
+    objectType: ObjectTypes.MONASTERY | ObjectTypes.GARDEN
+  ) {
+    for (const object of objects) {
+      for (const follower of object.followers) {
+        // Аббат остаётся на завершённом объекте до отзыва владельцем.
+        if (follower.isAbbot) continue
 
         this.scores[follower.playerId] += 9
-
         this.actionsHistory.push({
           actionType: ActionTypes.ADDING_SCORES,
           actionData: {
-            objectType: ObjectTypes.GARDEN,
-            objectData: garden,
+            objectType,
+            objectData: object,
             score: {
-              objectId: garden.id,
+              objectId: object.id,
               players: { [follower.playerId]: 9 },
               total: 9,
             },
@@ -1050,8 +1017,8 @@ export class GameManager implements IGameBoard {
           actionType: ActionTypes.BACK_FOLLOWER,
           actionData: { followers: [follower] },
         })
-      })
-    })
+      }
+    }
   }
 
   checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
