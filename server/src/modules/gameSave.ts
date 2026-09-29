@@ -1,7 +1,7 @@
 import { GameManager, type IGameBoard } from './GameManager'
 import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
-import type { GameRules } from './types'
+import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
 
 export const GAME_SAVE_SCHEMA_VERSION = 3
 
@@ -35,9 +35,7 @@ function isTile(value: unknown): boolean {
   const sides = value.sides
   if (!isRecord(sides)) return false
 
-  return ['north', 'east', 'south', 'west'].every((side) =>
-    ['field', 'road', 'city'].includes(String(sides[side]))
-  )
+  return SIDE_NAMES.every((side) => isTileSideType(sides[side]))
 }
 
 function isGameObject(value: unknown): boolean {
@@ -249,7 +247,7 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   }
   value.rules = normalizedRules
   if (normalizedRules.expansions.innsAndCathedrals) {
-    const allowedTileIds = new Set([
+    const allowedTileIds = new Set<string>([
       ...tiles.map((tile) => tile.id),
       ...innsAndCathedralsTiles.map((tile) => tile.id),
     ])
@@ -258,7 +256,10 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
       if (
         Array.isArray(collection) &&
         collection.some(
-          (tile) => isRecord(tile) && !allowedTileIds.has(String(tile.id))
+          (tile) =>
+            isRecord(tile) &&
+            typeof tile.id === 'string' &&
+            !allowedTileIds.has(tile.id)
         )
       ) {
         throw new Error('Game save contains an invalid tile')

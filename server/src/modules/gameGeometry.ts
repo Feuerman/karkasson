@@ -1,4 +1,4 @@
-import type { Point, Tile, TilePlacesStats } from './types'
+import { SideName, type Point, type Tile, type TilePlacesStats } from './types'
 
 export function getPrecisionCoordinates(point: Point): {
   x: number
@@ -7,13 +7,13 @@ export function getPrecisionCoordinates(point: Point): {
   let x = point.x
   let y = point.y
 
-  if (point.direction === 'north') {
+  if (point.direction === SideName.North) {
     y -= 0.5
-  } else if (point.direction === 'south') {
+  } else if (point.direction === SideName.South) {
     y += 0.5
-  } else if (point.direction === 'east') {
+  } else if (point.direction === SideName.East) {
     x += 0.5
-  } else if (point.direction === 'west') {
+  } else if (point.direction === SideName.West) {
     x -= 0.5
   }
 

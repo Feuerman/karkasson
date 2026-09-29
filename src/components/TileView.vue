@@ -46,7 +46,13 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, watch } from 'vue'
-import type { PlacedFollower, Player } from '@server/modules/types'
+import {
+  PointDirection,
+  SideName,
+  TileId,
+  type PlacedFollower,
+  type Player,
+} from '@server/modules/types'
 import { rotationClass } from '@/utils/tiles'
 import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
 import { playerColorValue } from '@/utils/colors'
@@ -65,99 +71,171 @@ const props = defineProps({
 })
 
 const imagesMap = {
-  A: new URL('../assets/tiles/Base_Game_C3_Tile_A.png', import.meta.url),
-  B: new URL('../assets/tiles/Base_Game_C3_Tile_B.png', import.meta.url),
-  C: new URL('../assets/tiles/Base_Game_C3_Tile_C.png', import.meta.url),
-  D: new URL('../assets/tiles/Base_Game_C3_Tile_D.png', import.meta.url),
-  E: new URL('../assets/tiles/Base_Game_C3_Tile_E.png', import.meta.url),
-  F: new URL('../assets/tiles/Base_Game_C3_Tile_F.png', import.meta.url),
-  G: new URL('../assets/tiles/Base_Game_C3_Tile_G.png', import.meta.url),
-  H: new URL('../assets/tiles/Base_Game_C3_Tile_H.png', import.meta.url),
-  I: new URL('../assets/tiles/Base_Game_C3_Tile_I.png', import.meta.url),
-  J: new URL('../assets/tiles/Base_Game_C3_Tile_J.png', import.meta.url),
-  K: new URL('../assets/tiles/Base_Game_C3_Tile_K.png', import.meta.url),
-  L: new URL('../assets/tiles/Base_Game_C3_Tile_L.png', import.meta.url),
-  M: new URL('../assets/tiles/Base_Game_C3_Tile_M.png', import.meta.url),
-  N: new URL('../assets/tiles/Base_Game_C3_Tile_N.png', import.meta.url),
-  O: new URL('../assets/tiles/Base_Game_C3_Tile_O.png', import.meta.url),
-  P: new URL('../assets/tiles/Base_Game_C3_Tile_P.png', import.meta.url),
-  Q: new URL('../assets/tiles/Base_Game_C3_Tile_Q.png', import.meta.url),
-  R: new URL('../assets/tiles/Base_Game_C3_Tile_R.png', import.meta.url),
-  S: new URL('../assets/tiles/Base_Game_C3_Tile_S.png', import.meta.url),
-  T: new URL('../assets/tiles/Base_Game_C3_Tile_T.png', import.meta.url),
-  U: new URL('../assets/tiles/Base_Game_C3_Tile_U.png', import.meta.url),
-  V: new URL('../assets/tiles/Base_Game_C3_Tile_V.png', import.meta.url),
-  W: new URL('../assets/tiles/Base_Game_C3_Tile_W.png', import.meta.url),
-  X: new URL('../assets/tiles/Base_Game_C3_Tile_X.png', import.meta.url),
-  'IAC-A': new URL(
+  [TileId.A]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_A.png',
+    import.meta.url
+  ),
+  [TileId.B]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_B.png',
+    import.meta.url
+  ),
+  [TileId.C]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_C.png',
+    import.meta.url
+  ),
+  [TileId.D]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_D.png',
+    import.meta.url
+  ),
+  [TileId.E]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_E.png',
+    import.meta.url
+  ),
+  [TileId.F]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_F.png',
+    import.meta.url
+  ),
+  [TileId.G]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_G.png',
+    import.meta.url
+  ),
+  [TileId.H]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_H.png',
+    import.meta.url
+  ),
+  [TileId.I]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_I.png',
+    import.meta.url
+  ),
+  [TileId.J]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_J.png',
+    import.meta.url
+  ),
+  [TileId.K]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_K.png',
+    import.meta.url
+  ),
+  [TileId.L]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_L.png',
+    import.meta.url
+  ),
+  [TileId.M]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_M.png',
+    import.meta.url
+  ),
+  [TileId.N]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_N.png',
+    import.meta.url
+  ),
+  [TileId.O]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_O.png',
+    import.meta.url
+  ),
+  [TileId.P]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_P.png',
+    import.meta.url
+  ),
+  [TileId.Q]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_Q.png',
+    import.meta.url
+  ),
+  [TileId.R]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_R.png',
+    import.meta.url
+  ),
+  [TileId.S]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_S.png',
+    import.meta.url
+  ),
+  [TileId.T]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_T.png',
+    import.meta.url
+  ),
+  [TileId.U]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_U.png',
+    import.meta.url
+  ),
+  [TileId.V]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_V.png',
+    import.meta.url
+  ),
+  [TileId.W]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_W.png',
+    import.meta.url
+  ),
+  [TileId.X]: new URL(
+    '../assets/tiles/Base_Game_C3_Tile_X.png',
+    import.meta.url
+  ),
+  [TileId.IAC_A]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_A.png',
     import.meta.url
   ),
-  'IAC-B': new URL(
+  [TileId.IAC_B]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_B.png',
     import.meta.url
   ),
-  'IAC-C': new URL(
+  [TileId.IAC_C]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_C.png',
     import.meta.url
   ),
-  'IAC-D': new URL(
+  [TileId.IAC_D]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_D.png',
     import.meta.url
   ),
-  'IAC-E': new URL(
+  [TileId.IAC_E]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_E.png',
     import.meta.url
   ),
-  'IAC-F': new URL(
+  [TileId.IAC_F]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_F.png',
     import.meta.url
   ),
-  'IAC-G': new URL(
+  [TileId.IAC_G]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_G.png',
     import.meta.url
   ),
-  'IAC-H': new URL(
+  [TileId.IAC_H]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_H.png',
     import.meta.url
   ),
-  'IAC-I': new URL(
+  [TileId.IAC_I]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_I.png',
     import.meta.url
   ),
-  'IAC-J': new URL(
+  [TileId.IAC_J]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_J.png',
     import.meta.url
   ),
-  'IAC-Ka': new URL(
+  [TileId.IAC_Ka]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Ka.png',
     import.meta.url
   ),
-  'IAC-Kb': new URL(
+  [TileId.IAC_Kb]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Kb.png',
     import.meta.url
   ),
-  'IAC-L': new URL(
+  [TileId.IAC_L]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_L.png',
     import.meta.url
   ),
-  'IAC-M': new URL(
+  [TileId.IAC_M]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_M.png',
     import.meta.url
   ),
-  'IAC-N': new URL(
+  [TileId.IAC_N]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_N.png',
     import.meta.url
   ),
-  'IAC-O': new URL(
+  [TileId.IAC_O]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_O.png',
     import.meta.url
   ),
-  'IAC-P': new URL(
+  [TileId.IAC_P]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_P.png',
     import.meta.url
   ),
-  'IAC-Q': new URL(
+  [TileId.IAC_Q]: new URL(
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Q.png',
     import.meta.url
   ),
@@ -200,7 +278,10 @@ const drawTile = () => {
   // Рисуем каждую точку с учетом направления
   highlightPoints.forEach((point) => {
     const tileSideType =
-      point.direction && point.direction !== 'center' && props.tile?.sides
+      point.direction &&
+      point.direction !== PointDirection.Center &&
+      isSideName(point.direction) &&
+      props.tile?.sides
         ? props.tile.sides[point.direction]
         : undefined
     const tileId = String(props.tile?.id ?? '')
@@ -255,6 +336,15 @@ const drawTile = () => {
 
     ctx.restore()
   })
+}
+
+function isSideName(direction: PointDirection): direction is SideName {
+  return (
+    direction === SideName.North ||
+    direction === SideName.East ||
+    direction === SideName.South ||
+    direction === SideName.West
+  )
 }
 
 watch(

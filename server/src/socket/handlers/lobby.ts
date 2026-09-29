@@ -5,6 +5,7 @@ import {
 } from '../../services/computerPlayer'
 import type { IGameBoard } from '../../modules/GameManager'
 import type { SocketCallback, SocketHandlerContext } from '../types'
+import { SocketEvents } from '../../modules/types'
 
 function isComputerOnlyGame(game: IGameBoard): boolean {
   return game.players.length > 0 && game.players.every(isComputerPlayer)
@@ -15,7 +16,7 @@ export function registerLobbyHandlers({
   service,
   socket,
 }: SocketHandlerContext) {
-  socket.on('getGamesList', async (callback: SocketCallback) => {
+  socket.on(SocketEvents.GetGamesList, async (callback: SocketCallback) => {
     try {
       const games = await service.getGameSummaries()
       callback?.({ games })
@@ -27,7 +28,7 @@ export function registerLobbyHandlers({
   })
 
   socket.on(
-    'createGame',
+    SocketEvents.CreateGame,
     async (
       callbackOrPayload?: SocketCallback | unknown,
       maybeCallback?: SocketCallback
@@ -71,7 +72,7 @@ export function registerLobbyHandlers({
         return
       }
       socket.join(game.id)
-      socket.emit('gameCreated', {
+      socket.emit(SocketEvents.GameCreated, {
         gameId: game.id,
         game: service.formatGameData(game),
       })
@@ -80,18 +81,18 @@ export function registerLobbyHandlers({
         gameId: game.id,
         game: service.formatGameData(game),
       })
-      io.emit('updateGamesList', service.formatGamesList())
+      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
     }
   )
 
   socket.on(
-    'joinGame',
+    SocketEvents.JoinGame,
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const existingGame = service.getGameByIdentifier(gameId)
       const resolvedGameId = existingGame?.id
       if (!existingGame || !resolvedGameId) {
         const error = 'Game not found'
-        socket.emit('error', error)
+        socket.emit(SocketEvents.Error, error)
         callback?.({ error })
         return
       }
@@ -101,7 +102,7 @@ export function registerLobbyHandlers({
       ) {
         socket.join(resolvedGameId)
         const game = service.formatGameData(existingGame)
-        socket.emit('gameUpdated', game)
+        socket.emit(SocketEvents.GameUpdated, game)
         callback?.({ success: true, game })
         return
       }
@@ -114,7 +115,7 @@ export function registerLobbyHandlers({
       )
 
       if ('error' in result) {
-        socket.emit('error', result.error)
+        socket.emit(SocketEvents.Error, result.error)
         callback?.({ error: result.error })
         return
       }
@@ -131,7 +132,7 @@ export function registerLobbyHandlers({
         return
       }
       io.to(resolvedGameId).emit(
-        'gameUpdated',
+        SocketEvents.GameUpdated,
         service.formatGameData(result.game)
       )
       callback?.({ success: true, game: service.formatGameData(result.game) })
@@ -139,7 +140,7 @@ export function registerLobbyHandlers({
   )
 
   socket.on(
-    'addPlayer',
+    SocketEvents.AddPlayer,
     async (
       {
         gameId,
@@ -176,7 +177,10 @@ export function registerLobbyHandlers({
         })
         return
       }
-      io.to(gameId).emit('gameUpdated', service.formatGameData(currentGame))
+      io.to(gameId).emit(
+        SocketEvents.GameUpdated,
+        service.formatGameData(currentGame)
+      )
       callback?.({
         success: true,
         game: service.formatGameData(currentGame),
@@ -185,7 +189,7 @@ export function registerLobbyHandlers({
   )
 
   socket.on(
-    'removePlayer',
+    SocketEvents.RemovePlayer,
     async (
       {
         gameId,
@@ -213,7 +217,10 @@ export function registerLobbyHandlers({
         })
         return
       }
-      io.to(gameId).emit('gameUpdated', service.formatGameData(currentGame))
+      io.to(gameId).emit(
+        SocketEvents.GameUpdated,
+        service.formatGameData(currentGame)
+      )
       callback?.({
         success: true,
         game: service.formatGameData(currentGame),
@@ -222,16 +229,19 @@ export function registerLobbyHandlers({
   )
 
   socket.on(
-    'startGame',
+    SocketEvents.StartGame,
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit('error', 'Game not found')
+        socket.emit(SocketEvents.Error, 'Game not found')
         callback?.({ error: 'Game not found' })
         return
       }
       if (!service.canStartLobby(gameId, socket.id)) {
-        socket.emit('error', 'Только создатель лобби может начать игру')
+        socket.emit(
+          SocketEvents.Error,
+          'Только создатель лобби может начать игру'
+        )
         callback?.({ error: 'Только создатель лобби может начать игру' })
         return
       }
@@ -253,7 +263,10 @@ export function registerLobbyHandlers({
         return
       }
 
-      io.to(gameId).emit('gameUpdated', service.formatGameData(newGame))
+      io.to(gameId).emit(
+        SocketEvents.GameUpdated,
+        service.formatGameData(newGame)
+      )
       callback?.({ success: true, game: service.formatGameData(newGame) })
 
       if (game.players.every((p) => !p.socketId && !p.deviceId)) {
@@ -263,11 +276,11 @@ export function registerLobbyHandlers({
   )
 
   socket.on(
-    'leaveGame',
+    SocketEvents.LeaveGame,
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit('error', 'Game not found')
+        socket.emit(SocketEvents.Error, 'Game not found')
         callback?.({ error: 'Game not found' })
         return
       }
@@ -283,8 +296,8 @@ export function registerLobbyHandlers({
             })
             return
           }
-          io.to(gameId).emit('gameDeleted')
-          io.emit('updateGamesList', service.formatGamesList())
+          io.to(gameId).emit(SocketEvents.GameDeleted)
+          io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
         }
       } else if (!game.gameIsEnded) {
         service.clearPlayerSocket(gameId, socket.id)
@@ -292,7 +305,7 @@ export function registerLobbyHandlers({
       }
 
       socket.leave(gameId)
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
       callback?.({ success: true, game: service.formatGameData(game) })
     }
   )

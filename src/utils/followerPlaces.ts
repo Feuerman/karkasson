@@ -1,14 +1,22 @@
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
+import {
+  ObjectTypes,
+  PointDirection,
+  TileSideType,
+} from '@server/modules/types'
 
 export interface GroupedFollowerPlace {
   place: AvailableFollowerPlace
   sameTypeCount: number
 }
 
-function getPlaceType(place: AvailableFollowerPlace): string {
-  if (place.temporaryObject.isGarden) return 'garden'
-  if (place.temporaryObject.isMonastery) return 'monastery'
-  return place.point.pointType ?? 'center'
+type FollowerPlaceType =
+  TileSideType | ObjectTypes.GARDEN | ObjectTypes.MONASTERY | PointDirection
+
+function getPlaceType(place: AvailableFollowerPlace): FollowerPlaceType {
+  if (place.temporaryObject.isGarden) return ObjectTypes.GARDEN
+  if (place.temporaryObject.isMonastery) return ObjectTypes.MONASTERY
+  return place.point.pointType ?? PointDirection.Center
 }
 
 export function groupFollowerPlaces(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { IGameBoard } from '../../server/src/modules/GameManager'
 import { calculateHeuristicScore } from '../../server/src/modules/GameSimulatorModule'
+import { ObjectTypes } from '../../server/src/modules/types'
 import type {
   BaseObject,
   ObjectFollower,
@@ -50,10 +51,19 @@ describe('calculateHeuristicScore', () => {
   it('sums existing scores and weighted value of each owned object type', () => {
     const state = gameState({
       temporaryObjects: {
-        cities: [object('city', [follower(1, 'city'), follower(2, 'rival')])],
-        roads: [object('road', [follower(1, 'road')])],
-        monasteries: [object('monastery', [follower(1, 'monastery')])],
-        gardens: [object('garden', [follower(1, 'garden')])],
+        cities: [
+          object(ObjectTypes.CITY, [
+            follower(1, ObjectTypes.CITY),
+            follower(2, 'rival'),
+          ]),
+        ],
+        roads: [object(ObjectTypes.ROAD, [follower(1, ObjectTypes.ROAD)])],
+        monasteries: [
+          object(ObjectTypes.MONASTERY, [follower(1, ObjectTypes.MONASTERY)]),
+        ],
+        gardens: [
+          object(ObjectTypes.GARDEN, [follower(1, ObjectTypes.GARDEN)]),
+        ],
       },
     })
 
@@ -64,7 +74,7 @@ describe('calculateHeuristicScore', () => {
     const state = gameState({
       temporaryObjects: {
         cities: [
-          object('city', [
+          object(ObjectTypes.CITY, [
             follower(1, 'merged-city-a'),
             follower(1, 'merged-city-a'),
             follower(1, 'merged-city-b'),

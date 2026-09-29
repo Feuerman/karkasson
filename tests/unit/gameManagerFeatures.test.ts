@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
-import { ActionTypes, ObjectTypes } from '../../server/src/modules/types'
+import {
+  ActionTypes,
+  ObjectTypes,
+  SideName,
+  TileSideType,
+} from '../../server/src/modules/types'
 import type {
   BaseObject,
   GridTile,
   ObjectFollower,
   Player,
   Point,
-  TileSideType,
 } from '../../server/src/modules/types'
 
 const players: Player[] = [
@@ -35,7 +39,12 @@ function gridTile(x: number, withShield = false): GridTile {
     rotation: 0,
     x,
     y: 15,
-    sides: { north: 'field', east: 'field', south: 'field', west: 'field' },
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
     withShield,
   }
 }
@@ -57,7 +66,7 @@ describe('Слияние и завершение дорог и городов', 
     })
     const road: BaseObject = {
       id: 'shared-road',
-      points: [{ x: 15, y: 15, direction: 'east' }],
+      points: [{ x: 15, y: 15, direction: SideName.East }],
       followers: [
         {
           playerId: 1,
@@ -86,20 +95,20 @@ describe('Слияние и завершение дорог и городов', 
       {
         id: 'city-north',
         playerId: 1,
-        connectedPoint: { x: 15, y: 14, direction: 'south' as const },
-        openPoint: { x: 15, y: 14, direction: 'north' as const },
+        connectedPoint: { x: 15, y: 14, direction: SideName.South },
+        openPoint: { x: 15, y: 14, direction: SideName.North },
       },
       {
         id: 'city-east',
         playerId: 2,
-        connectedPoint: { x: 16, y: 15, direction: 'west' as const },
-        openPoint: { x: 16, y: 15, direction: 'east' as const },
+        connectedPoint: { x: 16, y: 15, direction: SideName.West },
+        openPoint: { x: 16, y: 15, direction: SideName.East },
       },
       {
         id: 'city-west',
         playerId: 1,
-        connectedPoint: { x: 14, y: 15, direction: 'east' as const },
-        openPoint: { x: 14, y: 15, direction: 'west' as const },
+        connectedPoint: { x: 14, y: 15, direction: SideName.East },
+        openPoint: { x: 14, y: 15, direction: SideName.West },
       },
     ]
     game.tilePlacesStats = {
@@ -112,15 +121,23 @@ describe('Слияние и завершение дорог и городов', 
           rotation: 0,
           x: 15,
           y: 15,
-          sides: { north: 'city', east: 'city', south: 'field', west: 'city' },
-          cityGroups: [['north', 'east', 'west']],
+          sides: {
+            [SideName.North]: TileSideType.City,
+            [SideName.East]: TileSideType.City,
+            [SideName.South]: TileSideType.Field,
+            [SideName.West]: TileSideType.City,
+          },
+          cityGroups: [[SideName.North, SideName.East, SideName.West]],
         },
       },
     }
     game.temporaryObjects.cities = segments.map(
       ({ id, playerId, connectedPoint, openPoint }) => {
-        const connected: Point = { ...connectedPoint, pointType: 'city' }
-        const open: Point = { ...openPoint, pointType: 'city' }
+        const connected: Point = {
+          ...connectedPoint,
+          pointType: TileSideType.City,
+        }
+        const open: Point = { ...openPoint, pointType: TileSideType.City }
         const object = segment(id, connected, playerId)
         object.points.push(open)
         return object
@@ -158,22 +175,22 @@ describe('Слияние и завершение дорог и городов', 
     const leftPoint: Point = {
       x: 14,
       y: 15,
-      direction: 'east',
-      pointType: 'city',
+      direction: SideName.East,
+      pointType: TileSideType.City,
     }
     const rightPoint: Point = {
       x: 16,
       y: 15,
-      direction: 'west',
-      pointType: 'city',
+      direction: SideName.West,
+      pointType: TileSideType.City,
     }
     const leftCity = segment('shield-city-left', leftPoint, 1)
     const rightCity = segment('shield-city-right', rightPoint, 1)
     leftCity.points.push({
       x: 14,
       y: 15,
-      direction: 'north',
-      pointType: 'city',
+      direction: SideName.North,
+      pointType: TileSideType.City,
     })
     game.temporaryObjects.cities = [leftCity, rightCity]
     game.tilePlacesStats = {
@@ -199,9 +216,24 @@ describe('Слияние и завершение дорог и городов', 
     game.mergeCities(
       [leftCity.id, rightCity.id],
       [
-        { x: 15, y: 15, direction: 'west', pointType: 'city' },
-        { x: 15, y: 15, direction: 'east', pointType: 'city' },
-        { x: 14, y: 14, direction: 'south', pointType: 'city' },
+        {
+          x: 15,
+          y: 15,
+          direction: SideName.West,
+          pointType: TileSideType.City,
+        },
+        {
+          x: 15,
+          y: 15,
+          direction: SideName.East,
+          pointType: TileSideType.City,
+        },
+        {
+          x: 14,
+          y: 14,
+          direction: SideName.South,
+          pointType: TileSideType.City,
+        },
       ]
     )
 
@@ -217,8 +249,8 @@ describe('Слияние и завершение дорог и городов', 
   })
 
   it.each([
-    ['road', 'roads', ObjectTypes.ROAD, 4],
-    ['city', 'cities', ObjectTypes.CITY, 10],
+    [TileSideType.Road, 'roads', ObjectTypes.ROAD, 4],
+    [TileSideType.City, 'cities', ObjectTypes.CITY, 10],
   ] as const)(
     'синхронизирует фишки и начисляет очки при слиянии %s',
     (feature, collection, objectType, pointsPerPlayer) => {
@@ -227,13 +259,13 @@ describe('Слияние и завершение дорог и городов', 
       const firstPoint: Point = {
         x: 14,
         y: 15,
-        direction: 'east',
+        direction: SideName.East,
         pointType: sideType,
       }
       const secondPoint: Point = {
         x: 16,
         y: 15,
-        direction: 'west',
+        direction: SideName.West,
         pointType: sideType,
       }
       const firstSegment = segment('segment-a', firstPoint, 1)
@@ -241,14 +273,14 @@ describe('Слияние и завершение дорог и городов', 
       const openCityOrRoadEnd: Point = {
         x: 14,
         y: 15,
-        direction: 'north',
+        direction: SideName.North,
         pointType: sideType,
       }
       firstSegment.points.push(openCityOrRoadEnd)
       game.temporaryObjects[collection] = [firstSegment, secondSegment]
       game.tilePlacesStats[15] = {
         14: gridTile(14),
-        15: gridTile(15, feature === 'city'),
+        15: gridTile(15, feature === TileSideType.City),
         16: gridTile(16),
       }
       game.tilePlacesStats[14] = { 14: gridTile(14) }
@@ -268,10 +300,10 @@ describe('Слияние и завершение дорог и городов', 
       )
 
       const connectionPoints: Point[] = [
-        { x: 15, y: 15, direction: 'west', pointType: sideType },
-        { x: 15, y: 15, direction: 'east', pointType: sideType },
+        { x: 15, y: 15, direction: SideName.West, pointType: sideType },
+        { x: 15, y: 15, direction: SideName.East, pointType: sideType },
       ]
-      if (feature === 'road') {
+      if (feature === TileSideType.Road) {
         game.mergeRoads([firstSegment.id, secondSegment.id], connectionPoints)
       } else {
         game.mergeCities([firstSegment.id, secondSegment.id], connectionPoints)
@@ -294,10 +326,10 @@ describe('Слияние и завершение дорог и городов', 
       const closingPoint: Point = {
         x: 14,
         y: 14,
-        direction: 'south',
+        direction: SideName.South,
         pointType: sideType,
       }
-      if (feature === 'road') {
+      if (feature === TileSideType.Road) {
         game.mergeRoads([mergedTemporaryObject.id], [closingPoint])
       } else {
         game.mergeCities([mergedTemporaryObject.id], [closingPoint])

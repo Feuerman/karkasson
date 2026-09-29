@@ -11,6 +11,8 @@ export const findTileElement = (
     `[data-row-index="${rowIndex}"][data-tile-index="${tileIndex}"]`
   )
 
+const SCROLL_ALIGNMENT: ScrollLogicalPosition = 'center'
+
 export const scrollToTile = (
   rowIndex: number,
   tileIndex: number,
@@ -18,8 +20,8 @@ export const scrollToTile = (
 ): void => {
   findTileElement(rowIndex, tileIndex)?.scrollIntoView({
     behavior,
-    block: 'center',
-    inline: 'center',
+    block: SCROLL_ALIGNMENT,
+    inline: SCROLL_ALIGNMENT,
   })
 }
 

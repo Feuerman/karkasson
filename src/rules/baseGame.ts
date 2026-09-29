@@ -1,4 +1,5 @@
-import type { RulesDocument, RulesExample } from './types'
+import { PointDirection, SideName, TileId } from '@server/modules/types'
+import { RulesMarkerKind, type RulesDocument, type RulesExample } from './types'
 import {
   cell,
   completed,
@@ -11,7 +12,7 @@ import {
 } from './examples'
 
 /** Клетка-тайл без маркеров. */
-const tile = (id: string, rotation?: 0 | 90 | 180 | 270) =>
+const tile = (id: TileId, rotation?: 0 | 90 | 180 | 270) =>
   cell(rot(id, rotation))
 
 /** Верное соединение дорожных граней: три тайла прямой дороги. */
@@ -21,17 +22,21 @@ const roadConnectionExample: RulesExample = {
   description:
     'Новый тайл с дорогой прилегает к тайлам с дорогой: грани «дорога» должны совпадать.',
   grid: grid([
-    [empty, tile('U'), empty],
+    [empty, tile(TileId.U), empty],
     [
       empty,
       cell(
-        rot('U'),
-        { kind: 'new' },
-        { kind: 'follower', color: 'coral', direction: 'north' }
+        rot(TileId.U),
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'coral',
+          direction: SideName.North,
+        }
       ),
       empty,
     ],
-    [empty, tile('U'), empty],
+    [empty, tile(TileId.U), empty],
   ]),
   caption:
     'Все прилегающие грани — дороги. Синяя пунктирная рамка — тайл только что выложен, цветная точка — подданный.',
@@ -44,8 +49,8 @@ const wrongPlacementExample: RulesExample = {
   description:
     'Грань «дорога» не может прилегать к грани «поле». Красный крестик отмечает несовпадение.',
   grid: grid([
-    [empty, tile('U'), empty],
-    [empty, invalid(rot('E'), 'north'), empty],
+    [empty, tile(TileId.U), empty],
+    [empty, invalid(rot(TileId.E), SideName.North), empty],
   ]),
   caption: 'Новый тайл можно повернуть или положить в другое место, но не так.',
   intentionalMismatch: true,
@@ -58,17 +63,21 @@ const completedMonasteryExample: RulesExample = {
   description:
     'Монастырь завершается, когда вокруг него выложены все 8 соседних тайлов.',
   grid: grid([
-    [tile('B'), tile('A', 180), tile('B')],
+    [tile(TileId.B), tile(TileId.A, 180), tile(TileId.B)],
     [
-      tile('A', 90),
+      tile(TileId.A, 90),
       cell(
-        rot('B'),
-        { kind: 'completed' },
-        { kind: 'follower', color: 'coral', direction: 'center' }
+        rot(TileId.B),
+        { kind: RulesMarkerKind.Completed },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'coral',
+          direction: PointDirection.Center,
+        }
       ),
-      tile('A', 270),
+      tile(TileId.A, 270),
     ],
-    [tile('B'), tile('A'), tile('B')],
+    [tile(TileId.B), tile(TileId.A), tile(TileId.B)],
   ]),
   caption:
     'Монастырь + 8 окружающих тайлов = 9 очков. Последний тайл сверху — «новый».',
@@ -81,17 +90,17 @@ const partialGardenExample: RulesExample = {
   description:
     'Сад отмечен золотым значком на тайле. Аббат ставится в центр сада и остаётся там до отзыва или конца партии.',
   grid: grid([
-    [empty, cell(rot('C')), empty],
+    [empty, cell(rot(TileId.C)), empty],
     [
-      cell(rot('C')),
-      cell(garden('I'), {
-        kind: 'follower',
+      cell(rot(TileId.C)),
+      cell(garden(TileId.I), {
+        kind: RulesMarkerKind.Follower,
         color: 'teal',
-        direction: 'center',
+        direction: PointDirection.Center,
       }),
-      cell(rot('B')),
+      cell(rot(TileId.B)),
     ],
-    [empty, cell(rot('B')), empty],
+    [empty, cell(rot(TileId.B)), empty],
   ]),
   caption:
     'Сад и 4 занятых соседних клетки дают аббату 5 очков при отзыве или финальном подсчёте.',
@@ -104,17 +113,17 @@ const completedGardenExample: RulesExample = {
   description:
     'Сад завершается, когда заняты все 8 клеток вокруг него. Значок сада показан на центральном тайле.',
   grid: grid([
-    [tile('C'), tile('C'), tile('C')],
+    [tile(TileId.C), tile(TileId.C), tile(TileId.C)],
     [
-      tile('C'),
-      cell(garden('R'), {
-        kind: 'follower',
+      tile(TileId.C),
+      cell(garden(TileId.R), {
+        kind: RulesMarkerKind.Follower,
         color: 'teal',
-        direction: 'center',
+        direction: PointDirection.Center,
       }),
-      tile('C'),
+      tile(TileId.C),
     ],
-    [tile('I'), tile('B'), tile('J')],
+    [tile(TileId.I), tile(TileId.B), tile(TileId.J)],
   ]),
   caption:
     'Полностью окружённый сад даёт аббату 9 очков при отзыве или финальном подсчёте.',
@@ -127,16 +136,20 @@ const completedRoadExample: RulesExample = {
   description:
     'Дорога завершена, когда оба её конца упираются в монастырь, город или перекрёсток.',
   grid: grid([
-    [cell(rot('A'), { kind: 'completed' })],
+    [cell(rot(TileId.A), { kind: RulesMarkerKind.Completed })],
     [
       cell(
-        rot('U'),
-        { kind: 'completed' },
-        { kind: 'new' },
-        { kind: 'follower', color: 'gold', direction: 'north' }
+        rot(TileId.U),
+        { kind: RulesMarkerKind.Completed },
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'gold',
+          direction: SideName.North,
+        }
       ),
     ],
-    [cell(rot('A', 180), { kind: 'completed' })],
+    [cell(rot(TileId.A, 180), { kind: RulesMarkerKind.Completed })],
   ]),
   caption: 'Три тайла дороги дают 3 очка.',
 }
@@ -150,10 +163,14 @@ const completedCityExample: RulesExample = {
   grid: grid([
     [
       cell(
-        rot('C'),
-        { kind: 'completed' },
-        { kind: 'new' },
-        { kind: 'follower', color: 'coral', direction: 'north' }
+        rot(TileId.C),
+        { kind: RulesMarkerKind.Completed },
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'coral',
+          direction: SideName.North,
+        }
       ),
     ],
   ]),
@@ -168,15 +185,23 @@ const claimedObjectExample: RulesExample = {
   description:
     'На один объект (здесь — одна дорога) можно поставить только одного подданного.',
   grid: grid([
-    [empty, tile('U'), empty],
+    [empty, tile(TileId.U), empty],
     [
       empty,
-      cell(rot('U'), { kind: 'follower', color: 'coral', direction: 'south' }),
+      cell(rot(TileId.U), {
+        kind: RulesMarkerKind.Follower,
+        color: 'coral',
+        direction: SideName.South,
+      }),
       empty,
     ],
     [
       empty,
-      cell(rot('U'), { kind: 'new' }, { kind: 'no', direction: 'north' }),
+      cell(
+        rot(TileId.U),
+        { kind: RulesMarkerKind.New },
+        { kind: RulesMarkerKind.Invalid, direction: SideName.North }
+      ),
       empty,
     ],
   ]),
@@ -191,16 +216,20 @@ const innRoadExample: RulesExample = {
   description:
     'Таверна входит в одну дорогу с монастырями на её концах. Подданный может находиться на любом тайле этой дороги.',
   grid: grid([
-    [cell(rot('A'), { kind: 'completed' })],
+    [cell(rot(TileId.A), { kind: RulesMarkerKind.Completed })],
     [
       cell(
-        rot('IAC-B', 90),
-        { kind: 'completed' },
-        { kind: 'new' },
-        { kind: 'follower', color: 'gold', direction: 'north' }
+        rot(TileId.IAC_B, 90),
+        { kind: RulesMarkerKind.Completed },
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'gold',
+          direction: SideName.North,
+        }
       ),
     ],
-    [cell(rot('A', 180), { kind: 'completed' })],
+    [cell(rot(TileId.A, 180), { kind: RulesMarkerKind.Completed })],
   ]),
   caption:
     'Завершённая дорога из 3 тайлов с таверной даёт 6 очков (3 × 2). Если бы дорога осталась незавершённой к концу партии, она принесла бы 0 очков.',
@@ -213,18 +242,22 @@ const cathedralCityExample: RulesExample = {
   description:
     'Собор — значок на городском тайле. Он усиливает весь город, к которому присоединён, а не только один тайл.',
   grid: grid([
-    [empty, completed(rot('IAC-G', 270)), empty],
+    [empty, completed(rot(TileId.IAC_G, 270)), empty],
     [
-      completed(rot('IAC-G', 180)),
+      completed(rot(TileId.IAC_G, 180)),
       cell(
-        rot('IAC-Ka'),
-        { kind: 'completed' },
-        { kind: 'new' },
-        { kind: 'follower', color: 'coral', direction: 'north' }
+        rot(TileId.IAC_Ka),
+        { kind: RulesMarkerKind.Completed },
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'coral',
+          direction: SideName.North,
+        }
       ),
-      completed(rot('IAC-G')),
+      completed(rot(TileId.IAC_G)),
     ],
-    [empty, completed(rot('IAC-G', 90)), empty],
+    [empty, completed(rot(TileId.IAC_G, 90)), empty],
   ]),
   caption:
     'Собор и четыре одно-гранных тайла замыкают город из 5 тайлов: 5 × 2 × 3 = 30 очков. Незавершённый город с собором приносит 0 очков при финальном подсчёте. Несколько соборов в одном городе не дают дополнительных множителей.',
@@ -238,22 +271,22 @@ const bigFollowerExample: RulesExample = {
     'Большого подданного можно поставить на дорогу или город так же, как обычного. После соединения ранее отдельных участков он считается за двух только при сравнении большинства на общем объекте.',
   grid: grid([
     [
-      cell(rot('IAC-B'), {
-        kind: 'follower',
+      cell(rot(TileId.IAC_B), {
+        kind: RulesMarkerKind.Follower,
         color: 'coral',
-        direction: 'east',
+        direction: SideName.East,
         isBig: true,
       }),
-      cell(rot('U', 90), { kind: 'new' }),
-      cell(rot('U', 90), {
-        kind: 'follower',
+      cell(rot(TileId.U, 90), { kind: RulesMarkerKind.New }),
+      cell(rot(TileId.U, 90), {
+        kind: RulesMarkerKind.Follower,
         color: 'skyblue',
-        direction: 'east',
+        direction: SideName.East,
       }),
-      cell(rot('U', 90), {
-        kind: 'follower',
+      cell(rot(TileId.U, 90), {
+        kind: RulesMarkerKind.Follower,
         color: 'skyblue',
-        direction: 'west',
+        direction: SideName.West,
       }),
     ],
   ]),
@@ -269,13 +302,17 @@ const trappedObjectExample: RulesExample = {
     'Все три тайла дороги состыкованы правильно, но оба конца пока открыты. Это легальная незавершённая позиция: соперники могут занять свободные клетки, подходящие для продолжения.',
   grid: grid([
     [
-      tile('U', 90),
+      tile(TileId.U, 90),
       cell(
-        rot('U', 90),
-        { kind: 'new' },
-        { kind: 'follower', color: 'gold', direction: 'east' }
+        rot(TileId.U, 90),
+        { kind: RulesMarkerKind.New },
+        {
+          kind: RulesMarkerKind.Follower,
+          color: 'gold',
+          direction: SideName.East,
+        }
       ),
-      tile('U', 90),
+      tile(TileId.U, 90),
     ],
   ]),
   caption:
@@ -329,7 +366,13 @@ export const baseGameRules: RulesDocument = {
         {
           type: 'tiles-row',
           title: 'Примеры базовых тайлов',
-          tiles: [rot('A'), rot('B'), rot('E'), rot('U'), rot('W')],
+          tiles: [
+            rot(TileId.A),
+            rot(TileId.B),
+            rot(TileId.E),
+            rot(TileId.U),
+            rot(TileId.W),
+          ],
           labels: [
             'Монастырь и дорога',
             'Монастырь',
@@ -428,7 +471,12 @@ export const baseGameRules: RulesDocument = {
         {
           type: 'tiles-row',
           title: 'Монастыри и сады',
-          tiles: [rot('A'), rot('B'), garden('I'), garden('R')],
+          tiles: [
+            rot(TileId.A),
+            rot(TileId.B),
+            garden(TileId.I),
+            garden(TileId.R),
+          ],
           labels: ['Монастырь и дорога', 'Монастырь', 'Сад', 'Сад'],
         },
         { type: 'example', ...completedMonasteryExample },
@@ -486,11 +534,11 @@ export const baseGameRules: RulesDocument = {
           type: 'tiles-row',
           title: 'Особые тайлы дополнения',
           tiles: [
-            rot('IAC-A'),
-            rot('IAC-B'),
-            rot('IAC-C'),
-            rot('IAC-Ka'),
-            rot('IAC-Kb'),
+            rot(TileId.IAC_A),
+            rot(TileId.IAC_B),
+            rot(TileId.IAC_C),
+            rot(TileId.IAC_Ka),
+            rot(TileId.IAC_Kb),
           ],
           labels: [
             'Изгиб с таверной',

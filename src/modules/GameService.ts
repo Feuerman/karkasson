@@ -2,7 +2,13 @@ import { io, type Socket } from 'socket.io-client'
 import { ref } from 'vue'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { GameSummary, GameData } from '@server/services/GameService'
-import type { GridTile, Tile } from '@server/modules/types'
+import {
+  FollowerType,
+  SocketEvents,
+  type GridTile,
+  type Tile,
+  type FollowerType as FollowerTypeValue,
+} from '@server/modules/types'
 import type {
   SocketAck,
   GamesListResponse,
@@ -34,6 +40,8 @@ export interface CreateGameOptions {
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
 const DEFAULT_SERVER_URL =
   import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
+const DEVICE_ID_STORAGE_KEY = 'deviceId'
+const SOCKET_ACK_TIMEOUT_MS = 15_000
 
 export class GameService implements IGameService {
   socket: Socket | null
@@ -50,9 +58,9 @@ export class GameService implements IGameService {
     this.serverUrl = options.serverUrl ?? DEFAULT_SERVER_URL
     this.deviceId =
       options.deviceId ??
-      localStorage.getItem('deviceId') ??
+      localStorage.getItem(DEVICE_ID_STORAGE_KEY) ??
       crypto.randomUUID()
-    localStorage.setItem('deviceId', this.deviceId)
+    localStorage.setItem(DEVICE_ID_STORAGE_KEY, this.deviceId)
   }
 
   private getNotConnectedError(): string {
@@ -72,7 +80,7 @@ export class GameService implements IGameService {
 
       const timeout = setTimeout(() => {
         reject(new Error(`Таймаут ожидания ответа сервера: ${event}`))
-      }, 15_000)
+      }, SOCKET_ACK_TIMEOUT_MS)
 
       const callback = (response: SocketAck) => {
         clearTimeout(timeout)
@@ -116,7 +124,9 @@ export class GameService implements IGameService {
     this.socket.on('connect', () => {
       console.log('Connected to server')
       this.isConnected.value = true
-      this.socket?.emit('registerDevice', { deviceId: this.deviceId })
+      this.socket?.emit(SocketEvents.RegisterDevice, {
+        deviceId: this.deviceId,
+      })
     })
 
     this.socket.on('disconnect', (reason: string) => {
@@ -161,23 +171,28 @@ export class GameService implements IGameService {
   }
 
   async getGamesList() {
-    const response = await this.emitAck<GamesListResponse>('getGamesList')
+    const response = await this.emitAck<GamesListResponse>(
+      SocketEvents.GetGamesList
+    )
     this.gamesList = response.games ?? []
     return this.gamesList
   }
 
   async createGame(options: CreateGameOptions = {}) {
-    const response = await this.emitAck<CreateGameResponse>('createGame', {
-      finalScoringEnabled: options.finalScoringEnabled,
-      innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
-    })
+    const response = await this.emitAck<CreateGameResponse>(
+      SocketEvents.CreateGame,
+      {
+        finalScoringEnabled: options.finalScoringEnabled,
+        innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
+      }
+    )
     const { gameId, game } = response
     this.gameId = gameId
     return game
   }
 
   addPlayer({ name, index }: { name: string; index: number }) {
-    return this.emitAck<SocketAck>('addPlayer', {
+    return this.emitAck<SocketAck>(SocketEvents.AddPlayer, {
       gameId: this.gameId,
       name,
       index,
@@ -185,7 +200,7 @@ export class GameService implements IGameService {
   }
 
   removePlayer(index: number, name: string | null = null) {
-    return this.emitAck<SocketAck>('removePlayer', {
+    return this.emitAck<SocketAck>(SocketEvents.RemovePlayer, {
       gameId: this.gameId,
       index,
       name,
@@ -193,33 +208,33 @@ export class GameService implements IGameService {
   }
 
   startGame() {
-    return this.emitAck<{ game: GameData }>('startGame', {
+    return this.emitAck<{ game: GameData }>(SocketEvents.StartGame, {
       gameId: this.gameId,
     }).then((response) => response.game)
   }
 
   async joinGame(gameId: string, playerName?: string) {
-    const response = await this.emitAck<{ game: GameData }>('joinGame', {
-      gameId,
-      playerName,
-    })
+    const response = await this.emitAck<{ game: GameData }>(
+      SocketEvents.JoinGame,
+      { gameId, playerName }
+    )
     this.gameId = response.game.id ?? gameId
     return response.game
   }
 
   async rejoinGame(gameId: string) {
-    const response = await this.emitAck<{ game: GameData }>('rejoinGame', {
-      gameId,
-      deviceId: this.deviceId,
-    })
+    const response = await this.emitAck<{ game: GameData }>(
+      SocketEvents.RejoinGame,
+      { gameId, deviceId: this.deviceId }
+    )
     this.gameId = gameId
     return response.game
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
     const socket = this.socket
-    socket?.on('gameUpdated', callback)
-    return () => socket?.off('gameUpdated', callback)
+    socket?.on(SocketEvents.GameUpdated, callback)
+    return () => socket?.off(SocketEvents.GameUpdated, callback)
   }
 
   async selectPlacingPoint({
@@ -229,14 +244,14 @@ export class GameService implements IGameService {
     rowIndex: number
     tileIndex: number
   }) {
-    return this.emitAck<SocketAck>('selectPlacingPoint', {
+    return this.emitAck<SocketAck>(SocketEvents.SelectPlacingPoint, {
       gameId: this.gameId,
       point: { rowIndex, tileIndex },
     })
   }
 
   setCurrentTileRotation(rotation: number) {
-    return this.emitAck<SocketAck>('updateCurrentTile', {
+    return this.emitAck<SocketAck>(SocketEvents.UpdateCurrentTile, {
       gameId: this.gameId,
       rotation,
     })
@@ -246,7 +261,7 @@ export class GameService implements IGameService {
     tile: Tile | GridTile,
     position: { rowIndex: number; tileIndex: number }
   ) {
-    return this.emitAck<SocketAck>('placeTile', {
+    return this.emitAck<SocketAck>(SocketEvents.PlaceTile, {
       gameId: this.gameId,
       rotation: tile.rotation,
       position,
@@ -255,9 +270,9 @@ export class GameService implements IGameService {
 
   placeFollower(
     place: AvailableFollowerPlace,
-    followerType: 'follower' | 'bigFollower' | 'abbot' = 'follower'
+    followerType: FollowerTypeValue = FollowerType.Follower
   ) {
-    return this.emitAck<SocketAck>('placeFollower', {
+    return this.emitAck<SocketAck>(SocketEvents.PlaceFollower, {
       gameId: this.gameId,
       place: {
         point: place.point,
@@ -268,11 +283,15 @@ export class GameService implements IGameService {
   }
 
   recallAbbot() {
-    return this.emitAck<SocketAck>('recallAbbot', { gameId: this.gameId })
+    return this.emitAck<SocketAck>(SocketEvents.RecallAbbot, {
+      gameId: this.gameId,
+    })
   }
 
   skipFollower() {
-    return this.emitAck<SocketAck>('skipFollower', { gameId: this.gameId })
+    return this.emitAck<SocketAck>(SocketEvents.SkipFollower, {
+      gameId: this.gameId,
+    })
   }
 
   disconnect() {
@@ -285,7 +304,9 @@ export class GameService implements IGameService {
   }
 
   leaveGame() {
-    return this.emitAck<SocketAck>('leaveGame', { gameId: this.gameId })
+    return this.emitAck<SocketAck>(SocketEvents.LeaveGame, {
+      gameId: this.gameId,
+    })
   }
 }
 

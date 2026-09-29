@@ -1,5 +1,12 @@
 import { expect } from 'vitest'
 import { TestClient } from './client'
+import {
+  FollowerType,
+  SideName,
+  TileSideType,
+  type SideName as SideNameType,
+  type TileSideType as TileSideTypeType,
+} from '../../../server/src/modules/types'
 import { latestGame, type GameSummaryPlayer } from './lobby'
 
 /**
@@ -10,11 +17,14 @@ import { latestGame, type GameSummaryPlayer } from './lobby'
 
 // ------------------------------------------------------------------ типы
 
-export type SideName = 'north' | 'east' | 'south' | 'west'
-export type TileSideType = 'field' | 'road' | 'city'
-export type SideMap = Record<SideName, TileSideType>
+export type SideMap = Record<SideNameType, TileSideTypeType>
 
-export const SIDE_ORDER: SideName[] = ['north', 'east', 'south', 'west']
+export const SIDE_ORDER: SideNameType[] = [
+  SideName.North,
+  SideName.East,
+  SideName.South,
+  SideName.West,
+]
 
 export interface TileSnapshot {
   id: string
@@ -38,7 +48,7 @@ export interface ObjectPoint {
   x: number
   y: number
   direction?: string
-  pointType?: TileSideType
+  pointType?: TileSideTypeType
   rowIndex?: number
   tileIndex?: number
 }
@@ -153,10 +163,10 @@ export function rotateSides(sides: SideMap, count: number): SideMap {
   for (let i = 0; i < count; i++) {
     current = {
       ...current,
-      north: current.west,
-      east: current.north,
-      south: current.east,
-      west: current.south,
+      [SideName.North]: current[SideName.West],
+      [SideName.East]: current[SideName.North],
+      [SideName.South]: current[SideName.East],
+      [SideName.West]: current[SideName.South],
     }
   }
   return current
@@ -375,8 +385,8 @@ export async function makeHumanMove(
         gameId,
         place: placedFollower,
         followerType: placedFollower.temporaryObject.isGarden
-          ? 'abbot'
-          : 'follower',
+          ? FollowerType.Abbot
+          : FollowerType.Follower,
       })
       game = follower.game
     } else {
@@ -395,7 +405,10 @@ export async function makeHumanMove(
 export function chooseFollowerPlace(
   places: FollowerPlaceSnapshot[]
 ): FollowerPlaceSnapshot {
-  return places.find((place) => place.point.pointType === 'road') ?? places[0]
+  return (
+    places.find((place) => place.point.pointType === TileSideType.Road) ??
+    places[0]
+  )
 }
 
 /** Играет ходы до тех пор, пока сервер не предложит разместить фишку */

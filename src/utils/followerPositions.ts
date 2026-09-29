@@ -1,190 +1,219 @@
-import type { PointDirection, PointType } from '@server/modules/types'
+import {
+  PointDirection,
+  SideName,
+  TileSideType,
+  TileRotation,
+  TileId,
+  type PointType,
+} from '@server/modules/types'
 
-export type SideDirection = Exclude<PointDirection, 'center'>
-export type TileId =
-  | 'A'
-  | 'B'
-  | 'C'
-  | 'D'
-  | 'E'
-  | 'F'
-  | 'G'
-  | 'H'
-  | 'I'
-  | 'J'
-  | 'K'
-  | 'L'
-  | 'M'
-  | 'N'
-  | 'O'
-  | 'P'
-  | 'Q'
-  | 'R'
-  | 'S'
-  | 'T'
-  | 'U'
-  | 'V'
-  | 'W'
-  | 'X'
-  | 'IAC-A'
-  | 'IAC-B'
-  | 'IAC-C'
-  | 'IAC-D'
-  | 'IAC-E'
-  | 'IAC-F'
-  | 'IAC-G'
-  | 'IAC-H'
-  | 'IAC-I'
-  | 'IAC-J'
-  | 'IAC-Ka'
-  | 'IAC-Kb'
-  | 'IAC-L'
-  | 'IAC-M'
-  | 'IAC-N'
-  | 'IAC-O'
-  | 'IAC-P'
-  | 'IAC-Q'
-
-type Position = [number, number]
+export type SideDirection = Exclude<
+  PointDirection,
+  typeof PointDirection.Center
+>
+type Position = readonly [number, number]
 type FeaturePositions = Partial<Record<SideDirection, Position>>
 
-const sideDirections: SideDirection[] = ['north', 'east', 'south', 'west']
+const sideDirections: SideDirection[] = [
+  SideName.North,
+  SideName.East,
+  SideName.South,
+  SideName.West,
+]
 
 // Позиции заданы на исходных изображениях тайлов; ниже они преобразуются
 // в координаты уже повернутого тайла для отрисовки маркера.
 const roadPositions: Record<TileId, FeaturePositions> = {
-  A: { south: [0.5, 0.82] },
-  B: {},
-  C: {},
-  D: { east: [0.5, 0.5], west: [0.5, 0.5] },
-  E: {},
-  F: {},
-  G: {},
-  H: {},
-  I: {},
-  J: { east: [0.82, 0.5], south: [0.5, 0.82] },
-  K: { south: [0.5, 0.82], west: [0.18, 0.5] },
-  L: { east: [0.82, 0.5], south: [0.5, 0.82], west: [0.18, 0.5] },
-  M: {},
-  N: {},
-  O: { east: [0.82, 0.5], south: [0.5, 0.82] },
-  P: { east: [0.82, 0.5], south: [0.5, 0.82] },
-  Q: {},
-  R: {},
-  S: { south: [0.5, 0.82] },
-  T: { south: [0.5, 0.82] },
-  U: { north: [0.5, 0.5], south: [0.5, 0.5] },
-  V: { south: [0.5, 0.82], west: [0.18, 0.5] },
-  W: { east: [0.82, 0.5], south: [0.5, 0.82], west: [0.18, 0.5] },
-  X: {
-    north: [0.5, 0.18],
-    east: [0.82, 0.5],
-    south: [0.5, 0.82],
-    west: [0.18, 0.5],
+  [TileId.A]: { [SideName.South]: [0.5, 0.82] },
+  [TileId.B]: {},
+  [TileId.C]: {},
+  [TileId.D]: { [SideName.East]: [0.5, 0.5], [SideName.West]: [0.5, 0.5] },
+  [TileId.E]: {},
+  [TileId.F]: {},
+  [TileId.G]: {},
+  [TileId.H]: {},
+  [TileId.I]: {},
+  [TileId.J]: { [SideName.East]: [0.82, 0.5], [SideName.South]: [0.5, 0.82] },
+  [TileId.K]: { [SideName.South]: [0.5, 0.82], [SideName.West]: [0.18, 0.5] },
+  [TileId.L]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
   },
-  'IAC-A': { south: [0.5, 0.82], west: [0.18, 0.5] },
-  'IAC-B': { east: [0.5, 0.5], west: [0.5, 0.5] },
-  'IAC-C': { east: [0.82, 0.5], south: [0.5, 0.82], west: [0.18, 0.5] },
-  'IAC-D': {},
-  'IAC-E': { north: [0.5, 0.18], south: [0.5, 0.82] },
-  'IAC-F': { east: [0.82, 0.5] },
-  'IAC-G': {},
-  'IAC-H': {},
-  'IAC-I': { east: [0.82, 0.5], west: [0.18, 0.5] },
-  'IAC-J': { south: [0.5, 0.82], west: [0.18, 0.5] },
-  'IAC-Ka': {},
-  'IAC-Kb': {},
-  'IAC-L': { east: [0.82, 0.5] },
-  'IAC-M': { south: [0.5, 0.82], west: [0.18, 0.5] },
-  'IAC-N': { east: [0.82, 0.5], south: [0.5, 0.82] },
-  'IAC-O': { north: [0.5, 0.18], east: [0.82, 0.5] },
-  'IAC-P': {},
-  'IAC-Q': {},
+  [TileId.M]: {},
+  [TileId.N]: {},
+  [TileId.O]: { [SideName.East]: [0.82, 0.5], [SideName.South]: [0.5, 0.82] },
+  [TileId.P]: { [SideName.East]: [0.82, 0.5], [SideName.South]: [0.5, 0.82] },
+  [TileId.Q]: {},
+  [TileId.R]: {},
+  [TileId.S]: { [SideName.South]: [0.5, 0.82] },
+  [TileId.T]: { [SideName.South]: [0.5, 0.82] },
+  [TileId.U]: { [SideName.North]: [0.5, 0.5], [SideName.South]: [0.5, 0.5] },
+  [TileId.V]: { [SideName.South]: [0.5, 0.82], [SideName.West]: [0.18, 0.5] },
+  [TileId.W]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.X]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_A]: {
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_B]: { [SideName.East]: [0.5, 0.5], [SideName.West]: [0.5, 0.5] },
+  [TileId.IAC_C]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_D]: {},
+  [TileId.IAC_E]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.South]: [0.5, 0.82],
+  },
+  [TileId.IAC_F]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.IAC_G]: {},
+  [TileId.IAC_H]: {},
+  [TileId.IAC_I]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_J]: {
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_Ka]: {},
+  [TileId.IAC_Kb]: {},
+  [TileId.IAC_L]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.IAC_M]: {
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_N]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+  },
+  [TileId.IAC_O]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.82, 0.5],
+  },
+  [TileId.IAC_P]: {},
+  [TileId.IAC_Q]: {},
 }
 
 const cityPositions: Record<TileId, FeaturePositions> = {
-  A: {},
-  B: {},
-  C: {
-    north: [0.5, 0.5],
-    east: [0.5, 0.5],
-    south: [0.5, 0.5],
-    west: [0.5, 0.5],
+  [TileId.A]: {},
+  [TileId.B]: {},
+  [TileId.C]: {
+    [SideName.North]: [0.5, 0.5],
+    [SideName.East]: [0.5, 0.5],
+    [SideName.South]: [0.5, 0.5],
+    [SideName.West]: [0.5, 0.5],
   },
-  D: { north: [0.5, 0.18] },
-  E: { north: [0.5, 0.18] },
-  F: { east: [0.5, 0.5], west: [0.5, 0.5] },
-  G: { east: [0.5, 0.5], west: [0.5, 0.5] },
-  H: { north: [0.5, 0.18], south: [0.5, 0.82] },
-  I: { north: [0.5, 0.18], west: [0.18, 0.5] },
-  J: { north: [0.5, 0.18] },
-  K: { north: [0.5, 0.18] },
-  L: { north: [0.5, 0.18] },
-  M: { north: [0.76, 0.24], east: [0.76, 0.24] },
-  N: { north: [0.76, 0.24], east: [0.76, 0.24] },
-  O: { north: [0.24, 0.24], west: [0.24, 0.24] },
-  P: { north: [0.24, 0.24], west: [0.24, 0.24] },
-  Q: { north: [0.5, 0.3], east: [0.5, 0.3], west: [0.5, 0.3] },
-  R: { north: [0.5, 0.3], east: [0.5, 0.3], west: [0.5, 0.3] },
-  S: { north: [0.5, 0.3], east: [0.5, 0.3], west: [0.5, 0.3] },
-  T: { north: [0.5, 0.3], east: [0.5, 0.3], west: [0.5, 0.3] },
-  U: {},
-  V: {},
-  W: {},
-  X: {},
-  'IAC-A': {},
-  'IAC-B': {},
-  'IAC-C': {},
-  'IAC-D': {},
-  'IAC-E': {},
-  'IAC-F': { north: [0.5, 0.18], west: [0.18, 0.5] },
-  'IAC-G': { north: [0.5, 0.18] },
-  'IAC-H': {
-    north: [0.5, 0.18],
-    east: [0.76, 0.5],
-    south: [0.5, 0.82],
-    west: [0.24, 0.5],
+  [TileId.D]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.E]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.F]: { [SideName.East]: [0.5, 0.5], [SideName.West]: [0.5, 0.5] },
+  [TileId.G]: { [SideName.East]: [0.5, 0.5], [SideName.West]: [0.5, 0.5] },
+  [TileId.H]: { [SideName.North]: [0.5, 0.18], [SideName.South]: [0.5, 0.82] },
+  [TileId.I]: { [SideName.North]: [0.5, 0.18], [SideName.West]: [0.18, 0.5] },
+  [TileId.J]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.K]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.L]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.M]: { [SideName.North]: [0.76, 0.24], [SideName.East]: [0.76, 0.24] },
+  [TileId.N]: { [SideName.North]: [0.76, 0.24], [SideName.East]: [0.76, 0.24] },
+  [TileId.O]: { [SideName.North]: [0.24, 0.24], [SideName.West]: [0.24, 0.24] },
+  [TileId.P]: { [SideName.North]: [0.24, 0.24], [SideName.West]: [0.24, 0.24] },
+  [TileId.Q]: {
+    [SideName.North]: [0.5, 0.3],
+    [SideName.East]: [0.5, 0.3],
+    [SideName.West]: [0.5, 0.3],
   },
-  'IAC-I': { north: [0.5, 0.18], south: [0.5, 0.82] },
-  'IAC-J': {},
-  'IAC-Ka': {
-    north: [0.5, 0.18],
-    east: [0.76, 0.5],
-    south: [0.5, 0.82],
-    west: [0.24, 0.5],
+  [TileId.R]: {
+    [SideName.North]: [0.5, 0.3],
+    [SideName.East]: [0.5, 0.3],
+    [SideName.West]: [0.5, 0.3],
   },
-  'IAC-Kb': {
-    north: [0.5, 0.18],
-    east: [0.76, 0.5],
-    south: [0.5, 0.82],
-    west: [0.24, 0.5],
+  [TileId.S]: {
+    [SideName.North]: [0.5, 0.3],
+    [SideName.East]: [0.5, 0.3],
+    [SideName.West]: [0.5, 0.3],
   },
-  'IAC-L': { north: [0.24, 0.24], west: [0.24, 0.24] },
-  'IAC-M': {},
-  'IAC-N': {},
-  'IAC-O': {},
-  'IAC-P': {
-    north: [0.5, 0.18],
-    east: [0.76, 0.5],
-    south: [0.5, 0.82],
-    west: [0.24, 0.5],
+  [TileId.T]: {
+    [SideName.North]: [0.5, 0.3],
+    [SideName.East]: [0.5, 0.3],
+    [SideName.West]: [0.5, 0.3],
   },
-  'IAC-Q': {
-    north: [0.5, 0.18],
-    east: [0.76, 0.5],
-    west: [0.24, 0.5],
+  [TileId.U]: {},
+  [TileId.V]: {},
+  [TileId.W]: {},
+  [TileId.X]: {},
+  [TileId.IAC_A]: {},
+  [TileId.IAC_B]: {},
+  [TileId.IAC_C]: {},
+  [TileId.IAC_D]: {},
+  [TileId.IAC_E]: {},
+  [TileId.IAC_F]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.IAC_G]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.IAC_H]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.IAC_I]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.South]: [0.5, 0.82],
+  },
+  [TileId.IAC_J]: {},
+  [TileId.IAC_Ka]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.IAC_Kb]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.IAC_L]: {
+    [SideName.North]: [0.24, 0.24],
+    [SideName.West]: [0.24, 0.24],
+  },
+  [TileId.IAC_M]: {},
+  [TileId.IAC_N]: {},
+  [TileId.IAC_O]: {},
+  [TileId.IAC_P]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.IAC_Q]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
   },
 }
 
 const gardenPositions: Partial<Record<TileId, Position>> = {
-  E: [0.5, 0.78],
-  H: [0.5, 0.5],
-  I: [0.74, 0.74],
-  M: [0.26, 0.74],
-  N: [0.26, 0.74],
-  R: [0.5, 0.78],
-  U: [0.74, 0.5],
-  V: [0.74, 0.3],
+  [TileId.E]: [0.5, 0.78],
+  [TileId.H]: [0.5, 0.5],
+  [TileId.I]: [0.74, 0.74],
+  [TileId.M]: [0.26, 0.74],
+  [TileId.N]: [0.26, 0.74],
+  [TileId.R]: [0.5, 0.78],
+  [TileId.U]: [0.74, 0.5],
+  [TileId.V]: [0.74, 0.3],
 }
 
 function getCanonicalDirection(
@@ -192,13 +221,18 @@ function getCanonicalDirection(
   rotation: number
 ): SideDirection {
   const directionIndex = sideDirections.indexOf(direction)
-  const rotationSteps = Math.round(rotation / 90)
-  const baseIndex = (directionIndex - rotationSteps + 4) % 4
+  const rotationSteps = Math.round(rotation / TileRotation.QuarterTurn)
+  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const baseIndex = (directionIndex - rotationSteps + turnCount) % turnCount
   return sideDirections[baseIndex] ?? direction
 }
 
 function rotatePosition([x, y]: Position, rotation: number): Position {
-  const rotationSteps = ((Math.round(rotation / 90) % 4) + 4) % 4
+  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const rotationSteps =
+    ((Math.round(rotation / TileRotation.QuarterTurn) % turnCount) +
+      turnCount) %
+    turnCount
   let rotatedPosition: Position
 
   switch (rotationSteps) {
@@ -228,7 +262,7 @@ export function getFollowerPosition(
   pointType: PointType | undefined,
   isGarden = false
 ): Position {
-  if (direction === 'center') {
+  if (direction === PointDirection.Center) {
     const position: Position = isGarden
       ? (gardenPositions[tileId] ?? [0.5, 0.5])
       : [0.5, 0.5]
@@ -238,14 +272,15 @@ export function getFollowerPosition(
   if (!direction || !sideDirections.includes(direction)) return [0.5, 0.5]
 
   const featureDirection = getCanonicalDirection(direction, rotation)
-  const positions = pointType === 'road' ? roadPositions : cityPositions
+  const positions =
+    pointType === TileSideType.Road ? roadPositions : cityPositions
   const featurePosition = positions[tileId][featureDirection]
 
   const edgePositions: Record<SideDirection, Position> = {
-    north: [0.5, 0.24],
-    east: [0.76, 0.5],
-    south: [0.5, 0.76],
-    west: [0.24, 0.5],
+    [SideName.North]: [0.5, 0.24],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.76],
+    [SideName.West]: [0.24, 0.5],
   }
   return rotatePosition(
     featurePosition ?? edgePositions[featureDirection],
@@ -254,5 +289,5 @@ export function getFollowerPosition(
 }
 
 export function isTileId(tileId: string): tileId is TileId {
-  return Object.hasOwn(roadPositions, tileId)
+  return Object.values(TileId).some((knownTileId) => knownTileId === tileId)
 }

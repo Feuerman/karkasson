@@ -1,5 +1,6 @@
 import type { SocketHandlerContext } from '../types'
 import { continueComputerGame } from '../../services/computerPlayer'
+import { SocketEvents } from '../../modules/types'
 
 function isTemporaryDisconnect(reason: string): boolean {
   return reason === 'transport close' || reason === 'ping timeout'
@@ -10,9 +11,12 @@ export function registerConnectionHandlers({
   service,
   socket,
 }: SocketHandlerContext) {
-  socket.on('registerDevice', ({ deviceId }: { deviceId: string }) => {
-    service.registerDevice(deviceId, socket.id)
-  })
+  socket.on(
+    SocketEvents.RegisterDevice,
+    ({ deviceId }: { deviceId: string }) => {
+      service.registerDevice(deviceId, socket.id)
+    }
+  )
 
   socket.on('disconnect', (reason: string) => {
     const deviceId = service.getDeviceBySocketId(socket.id)
@@ -24,7 +28,7 @@ export function registerConnectionHandlers({
       const playerIds = game.players.filter((p) => p.socketId === socket.id)
       socket
         .to(gameId)
-        .emit('playerTemporaryDisconnected', { deviceId, playerIds })
+        .emit(SocketEvents.PlayerTemporaryDisconnected, { deviceId, playerIds })
 
       if (game.gameIsStarted) {
         service.releasePlayerToDevice(gameId, socket.id, deviceId)
@@ -34,31 +38,31 @@ export function registerConnectionHandlers({
         service.releasePlayerSlot(gameId, socket.id)
       }
 
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
       return
     }
 
     if (game.gameIsStarted) {
       service.clearPlayerSocket(gameId, socket.id)
       continueComputerGame(io, service, gameId)
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
       return
     }
 
     if (service.hasOtherConnectedPlayers(game, socket.id)) {
       service.releasePlayerSlot(gameId, socket.id)
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
     } else {
       void service.deleteGame(gameId).catch((error: unknown) => {
         console.error('Failed to delete game:', error)
       })
-      io.to(gameId).emit('gameDeleted')
-      io.emit('updateGamesList', service.formatGamesList())
+      io.to(gameId).emit(SocketEvents.GameDeleted)
+      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
     }
   })
 
   socket.on(
-    'rejoinGame',
+    SocketEvents.RejoinGame,
     (
       { gameId, deviceId }: { gameId: string; deviceId: string },
       callbackOrPayload?:
@@ -71,7 +75,7 @@ export function registerConnectionHandlers({
           : maybeCallback
       const result = service.rejoinGame(gameId, deviceId, socket.id)
       if (!result) {
-        socket.emit('error', 'Game not found')
+        socket.emit(SocketEvents.Error, 'Game not found')
         callback?.({ error: 'Game not found' })
         return
       }
@@ -79,9 +83,12 @@ export function registerConnectionHandlers({
       const { game, players } = result
       if (players.length > 0) {
         socket.join(gameId)
-        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
       } else {
-        socket.emit('error', 'Player not found in game')
+        socket.emit(SocketEvents.Error, 'Player not found in game')
         callback?.({ error: 'Player not found in game' })
         return
       }

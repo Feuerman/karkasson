@@ -87,7 +87,10 @@
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
               @click.stop.prevent="
-                rotateLocalTile(localCurrentTile, 'counterclockwise')
+                rotateLocalTile(
+                  localCurrentTile,
+                  RotationDirection.Counterclockwise
+                )
               "
             />
           </div>
@@ -102,7 +105,7 @@
               :ui="{ leadingIcon: 'size-4' }"
               @mousedown.stop
               @click.stop.prevent="
-                rotateLocalTile(localCurrentTile, 'clockwise')
+                rotateLocalTile(localCurrentTile, RotationDirection.Clockwise)
               "
             />
           </div>
@@ -249,7 +252,14 @@ import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
-import type { Player, Point } from '@server/modules/types'
+import {
+  RotationDirection,
+  SideName,
+  SocketEvents,
+  TileSideType,
+  type Player,
+  type Point,
+} from '@server/modules/types'
 import type { RulesDocument } from './rules/types'
 
 const RulesPanel = defineAsyncComponent(
@@ -307,10 +317,10 @@ const EMPTY_TILE: ITile = {
   id: '',
   rotation: 0,
   sides: {
-    north: '' as ITile['sides']['north'],
-    west: '' as ITile['sides']['west'],
-    south: '' as ITile['sides']['south'],
-    east: '' as ITile['sides']['east'],
+    [SideName.North]: TileSideType.Field,
+    [SideName.West]: TileSideType.Field,
+    [SideName.South]: TileSideType.Field,
+    [SideName.East]: TileSideType.Field,
   },
   followers: [],
   imgUrl: '',
@@ -494,10 +504,7 @@ const handleGameCreated = (gameId: string) => {
   localStorage.setItem('lastGameId', gameId)
 }
 
-const rotateLocalTile = (
-  tile: ITile,
-  direction: 'clockwise' | 'counterclockwise'
-) => {
+const rotateLocalTile = (tile: ITile, direction: RotationDirection) => {
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
   void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
@@ -660,12 +667,12 @@ onMounted(async () => {
     void getGamesList()
   }
 
-  socket?.on('updateGamesList', onGamesListUpdated)
+  socket?.on(SocketEvents.UpdateGamesList, onGamesListUpdated)
   socket?.on('connect', onConnect)
 
   cleanupSocketListeners = () => {
     unsubscribeGameUpdated()
-    socket?.off('updateGamesList', onGamesListUpdated)
+    socket?.off(SocketEvents.UpdateGamesList, onGamesListUpdated)
     socket?.off('connect', onConnect)
   }
 })

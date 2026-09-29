@@ -19,6 +19,16 @@ import {
 import {
   ActionTypes,
   ObjectTypes,
+  ExpansionName,
+  FollowerType as FollowerTypes,
+  PointDirection as PointDirections,
+  RotationDirection as RotationDirections,
+  RotationTurns,
+  SIDE_NAMES,
+  SideName,
+  TileRotation,
+  TileId,
+  TileSideType,
   type AvailableFollowerPlace,
   type AvailablePlace,
   type BaseObject,
@@ -36,7 +46,6 @@ import {
   type RotationDirection,
   type ScoreForObject,
   type Scores,
-  type SideName,
   type TemporaryObjects,
   type Tile,
   type TilePlacesStats,
@@ -133,24 +142,27 @@ export interface IGameBoard {
     place: AvailableFollowerPlace,
     followerType?: FollowerType
   ): boolean
-  getTileFeatureGroups(tile: Tile, feature: 'city' | 'road'): SideName[][]
+  getTileFeatureGroups(
+    tile: Tile,
+    feature: typeof TileSideType.City | typeof TileSideType.Road
+  ): SideName[][]
   rotateTileGroups(
     groups: SideName[][] | undefined,
     turns: number
   ): SideName[][] | undefined
 }
 
-type CentralObjectKind = 'monastery' | 'garden'
-type LinearFeatureKind = 'road' | 'city'
+type CentralObjectKind = ObjectTypes.MONASTERY | ObjectTypes.GARDEN
+type LinearFeatureKind = typeof TileSideType.Road | typeof TileSideType.City
 
 const LINEAR_FEATURE_COLLECTIONS = {
-  road: 'roads',
-  city: 'cities',
+  [TileSideType.Road]: 'roads',
+  [TileSideType.City]: 'cities',
 } as const
 
 const LINEAR_FEATURE_TYPES = {
-  road: ObjectTypes.ROAD,
-  city: ObjectTypes.CITY,
+  [TileSideType.Road]: ObjectTypes.ROAD,
+  [TileSideType.City]: ObjectTypes.CITY,
 } as const
 
 const CENTRAL_OBJECT_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
@@ -164,14 +176,17 @@ const CENTRAL_OBJECT_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [1, 1],
 ]
 
-const CENTRAL_OBJECT_COLLECTIONS = {
-  monastery: 'monasteries',
-  garden: 'gardens',
+const CENTRAL_OBJECT_COLLECTIONS: Record<
+  CentralObjectKind,
+  'monasteries' | 'gardens'
+> = {
+  [ObjectTypes.MONASTERY]: 'monasteries',
+  [ObjectTypes.GARDEN]: 'gardens',
 } as const
 
-const CENTRAL_OBJECT_TYPES = {
-  monastery: ObjectTypes.MONASTERY,
-  garden: ObjectTypes.GARDEN,
+const CENTRAL_OBJECT_TYPES: Record<CentralObjectKind, CentralObjectKind> = {
+  [ObjectTypes.MONASTERY]: ObjectTypes.MONASTERY,
+  [ObjectTypes.GARDEN]: ObjectTypes.GARDEN,
 } as const
 
 export class GameManager implements IGameBoard {
@@ -309,7 +324,9 @@ export class GameManager implements IGameBoard {
       tileIndex: Math.floor(this.gridSize[0] / 2),
     }
 
-    const startTileIndex = this.tilesList.findIndex((tile) => tile.id === 'D')
+    const startTileIndex = this.tilesList.findIndex(
+      (tile) => tile.id === TileId.D
+    )
     const startTile = { ...this.tilesList[startTileIndex] }
 
     this.tilesList.splice(startTileIndex, 1)
@@ -393,9 +410,9 @@ export class GameManager implements IGameBoard {
     if (!currentPlayer) return []
     const followerPool = this.playersFollowers[currentPlayer.id]
 
-    const sides: PointDirection[] = Object.keys(tile.sides) as SideName[]
+    const sides: PointDirection[] = [...SIDE_NAMES]
     if (tile.isMonastery || tile.hasGarden) {
-      sides.push('center')
+      sides.push(PointDirections.Center)
     }
 
     const candidates: {
@@ -407,7 +424,8 @@ export class GameManager implements IGameBoard {
           x: tile.x,
           y: tile.y,
           direction: side,
-          pointType: side === 'center' ? undefined : tile.sides[side],
+          pointType:
+            side === PointDirections.Center ? undefined : tile.sides[side],
         },
         temporaryObject: this.findObjectByPoint(
           this.temporaryObjects,
@@ -424,11 +442,13 @@ export class GameManager implements IGameBoard {
         return false
       }
       const side = place.point.direction
-      if (side && side !== 'center') {
+      if (side && side !== PointDirections.Center) {
         const tileSideType = tile.sides[side]
         const featureGroups = this.getTileFeatureGroups(
           tile,
-          tileSideType === 'city' ? 'city' : 'road'
+          tileSideType === TileSideType.City
+            ? TileSideType.City
+            : TileSideType.Road
         )
         const group = featureGroups.find((directions) =>
           directions.includes(side)
@@ -476,13 +496,17 @@ export class GameManager implements IGameBoard {
       ? { ...tileDefinition, rotation: 0 }
       : { ...tile }
     if (
-      authoritativeTile.expansion === 'innsAndCathedrals' &&
+      authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
       !this.rules.expansions.innsAndCathedrals
     ) {
       return false
     }
     let resolvedTile: Tile
-    const normalizedTurns = ((Math.round(tile.rotation / 90) % 4) + 4) % 4
+    const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+    const normalizedTurns =
+      ((Math.round(tile.rotation / TileRotation.QuarterTurn) % turnCount) +
+        turnCount) %
+      turnCount
     if (tileDefinition) {
       resolvedTile = { ...authoritativeTile, rotation: 0 }
       for (let turn = 0; turn < normalizedTurns; turn++) {
@@ -592,25 +616,25 @@ export class GameManager implements IGameBoard {
         SideName,
         { rowIndex: number; tileIndex: number; side: SideName }
       > = {
-        north: {
+        [SideName.North]: {
           rowIndex: tile.rowIndex - 1,
           tileIndex: tile.tileIndex,
-          side: 'south',
+          side: SideName.South,
         },
-        east: {
+        [SideName.East]: {
           rowIndex: tile.rowIndex,
           tileIndex: tile.tileIndex + 1,
-          side: 'west',
+          side: SideName.West,
         },
-        south: {
+        [SideName.South]: {
           rowIndex: tile.rowIndex + 1,
           tileIndex: tile.tileIndex,
-          side: 'north',
+          side: SideName.North,
         },
-        west: {
+        [SideName.West]: {
           rowIndex: tile.rowIndex,
           tileIndex: tile.tileIndex - 1,
-          side: 'east',
+          side: SideName.East,
         },
       }
 
@@ -663,7 +687,7 @@ export class GameManager implements IGameBoard {
 
   placeFollower(
     availablePlace: AvailableFollowerPlace,
-    followerType: FollowerType = 'follower'
+    followerType: FollowerType = FollowerTypes.Follower
   ) {
     if (this.gameIsEnded) return
     const activePlayer = this.currentPlayer
@@ -696,8 +720,8 @@ export class GameManager implements IGameBoard {
     }
 
     // Валидация пула и целевого объекта до списания фишки
-    const isAbbot = followerType === 'abbot'
-    const isBigFollower = followerType === 'bigFollower'
+    const isAbbot = followerType === FollowerTypes.Abbot
+    const isBigFollower = followerType === FollowerTypes.BigFollower
     const isCenterFeature = Boolean(
       temporaryObject.isMonastery || temporaryObject.isGarden
     )
@@ -752,10 +776,10 @@ export class GameManager implements IGameBoard {
       actionData: {
         ...availablePlace,
         followerType: isAbbot
-          ? 'abbot'
+          ? FollowerTypes.Abbot
           : isBigFollower
-            ? 'bigFollower'
-            : 'follower',
+            ? FollowerTypes.BigFollower
+            : FollowerTypes.Follower,
       },
       initiator: activePlayer,
     })
@@ -842,7 +866,7 @@ export class GameManager implements IGameBoard {
     objects: TemporaryObjects,
     x: number,
     y: number,
-    direction?: SideName | 'center'
+    direction?: PointDirection
   ): BaseObject | undefined {
     return [
       ...objects.cities,
@@ -877,7 +901,11 @@ export class GameManager implements IGameBoard {
       const currentTile = this.currentTile
       if (!currentTile) return
       let rotatedTile: Tile = { ...currentTile, rotation: 0 }
-      for (let turn = 0; turn < move.rotation / 90; turn++) {
+      for (
+        let turn = 0;
+        turn < move.rotation / TileRotation.QuarterTurn;
+        turn++
+      ) {
         rotatedTile = this.rotateTile(rotatedTile)
       }
       const tilePlaced = this.placeTile(
@@ -1040,21 +1068,26 @@ export class GameManager implements IGameBoard {
     const tile = this.tilePlacesStats[rowIndex]?.[tileIndex]
     if (!tile) return
 
-    const roadsPoints = this.getFeaturePoints(tile, rowIndex, tileIndex, 'road')
+    const roadsPoints = this.getFeaturePoints(
+      tile,
+      rowIndex,
+      tileIndex,
+      TileSideType.Road
+    )
     this.checkRoads(
       roadsPoints,
-      this.getConnectedFeatureGroups(tile, roadsPoints, 'road')
+      this.getConnectedFeatureGroups(tile, roadsPoints, TileSideType.Road)
     )
 
     const citiesPoints = this.getFeaturePoints(
       tile,
       rowIndex,
       tileIndex,
-      'city'
+      TileSideType.City
     )
     this.checkCities(
       citiesPoints,
-      this.getConnectedFeatureGroups(tile, citiesPoints, 'city')
+      this.getConnectedFeatureGroups(tile, citiesPoints, TileSideType.City)
     )
 
     this.checkMonasteries(tile)
@@ -1072,7 +1105,7 @@ export class GameManager implements IGameBoard {
           {
             x: tile.x,
             y: tile.y,
-            direction: 'center',
+            direction: PointDirections.Center,
             rowIndex: tile.y,
             tileIndex: tile.x,
           },
@@ -1084,7 +1117,7 @@ export class GameManager implements IGameBoard {
   }
 
   checkCompletedMonasteries() {
-    this.checkCompletedCentralObjects('monastery')
+    this.checkCompletedCentralObjects(ObjectTypes.MONASTERY)
   }
 
   calcScoreForMonasteries(monasteries: BaseObject[]) {
@@ -1101,7 +1134,7 @@ export class GameManager implements IGameBoard {
           {
             x: tile.x,
             y: tile.y,
-            direction: 'center',
+            direction: PointDirections.Center,
             rowIndex: tile.y,
             tileIndex: tile.x,
           },
@@ -1113,7 +1146,7 @@ export class GameManager implements IGameBoard {
   }
 
   checkCompletedGardens() {
-    this.checkCompletedCentralObjects('garden')
+    this.checkCompletedCentralObjects(ObjectTypes.GARDEN)
   }
 
   calcScoreForGardens(gardens: BaseObject[]) {
@@ -1126,14 +1159,14 @@ export class GameManager implements IGameBoard {
     tileIndex: number,
     feature: LinearFeatureKind
   ): Point[] {
-    return Object.entries(tile.sides)
-      .filter(([, pointType]) => pointType === feature)
-      .map(([direction]) => ({
-        y: rowIndex,
-        x: tileIndex,
-        direction: direction as PointDirection,
-        pointType: feature,
-      }))
+    return SIDE_NAMES.filter(
+      (direction) => tile.sides[direction] === feature
+    ).map((direction) => ({
+      y: rowIndex,
+      x: tileIndex,
+      direction,
+      pointType: feature,
+    }))
   }
 
   private getConnectedFeatureGroups(
@@ -1147,7 +1180,10 @@ export class GameManager implements IGameBoard {
         featurePoints.filter(
           (point) =>
             point.direction !== undefined &&
-            directions.includes(point.direction as SideName)
+            SIDE_NAMES.some(
+              (direction) =>
+                direction === point.direction && directions.includes(direction)
+            )
         )
       )
       .filter((group) => group.length > 0)
@@ -1221,15 +1257,15 @@ export class GameManager implements IGameBoard {
   }
 
   checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
-    this.checkConnectedFeatures('road', roadsPoints, connectedGroups)
+    this.checkConnectedFeatures(TileSideType.Road, roadsPoints, connectedGroups)
   }
 
   mergeRoads(roadsIds: string[], roadsPoints: Point[]) {
-    this.mergeLinearFeature('road', roadsIds, roadsPoints)
+    this.mergeLinearFeature(TileSideType.Road, roadsIds, roadsPoints)
   }
 
   checkCompleteRoad(road: BaseObject) {
-    this.checkCompleteLinearFeature('road', road)
+    this.checkCompleteLinearFeature(TileSideType.Road, road)
   }
 
   calcScoreForRoad(road: BaseObject, isCompleted = true): ScoreForObject {
@@ -1243,15 +1279,19 @@ export class GameManager implements IGameBoard {
   }
 
   checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
-    this.checkConnectedFeatures('city', citiesPoints, connectedGroups)
+    this.checkConnectedFeatures(
+      TileSideType.City,
+      citiesPoints,
+      connectedGroups
+    )
   }
 
   mergeCities(citiesIds: string[], citiesPoints: Point[]) {
-    this.mergeLinearFeature('city', citiesIds, citiesPoints)
+    this.mergeLinearFeature(TileSideType.City, citiesIds, citiesPoints)
   }
 
   checkCompleteCity(city: BaseObject) {
-    this.checkCompleteLinearFeature('city', city)
+    this.checkCompleteLinearFeature(TileSideType.City, city)
   }
 
   private checkConnectedFeatures(
@@ -1288,11 +1328,12 @@ export class GameManager implements IGameBoard {
     const existingObjects = this.temporaryObjects[collection]
     const placedTile =
       this.tilePlacesStats[newPoints[0]?.y ?? -1]?.[newPoints[0]?.x ?? -1]
-    const hasInn = kind === 'road' && Boolean(placedTile?.hasInn)
-    const hasCathedral = kind === 'city' && Boolean(placedTile?.hasCathedral)
+    const hasInn = kind === TileSideType.Road && Boolean(placedTile?.hasInn)
+    const hasCathedral =
+      kind === TileSideType.City && Boolean(placedTile?.hasCathedral)
     const isExpansionTile = Boolean(
-      placedTile?.expansion === 'innsAndCathedrals' &&
-      (kind === 'road' ? placedTile.hasInn : placedTile.hasCathedral)
+      placedTile?.expansion === ExpansionName.InnsAndCathedrals &&
+      (kind === TileSideType.Road ? placedTile.hasInn : placedTile.hasCathedral)
     )
 
     if (connectedIds.length === 0) {
@@ -1302,7 +1343,9 @@ export class GameManager implements IGameBoard {
         followers: [],
         hasInn: hasInn || undefined,
         hasCathedral: hasCathedral || undefined,
-        expansion: isExpansionTile ? 'innsAndCathedrals' : undefined,
+        expansion: isExpansionTile
+          ? ExpansionName.InnsAndCathedrals
+          : undefined,
       }
       this.temporaryObjects[collection].push(object)
       this.checkCompleteLinearFeature(kind, object)
@@ -1320,7 +1363,8 @@ export class GameManager implements IGameBoard {
       existingObject.hasCathedral = Boolean(
         existingObject.hasCathedral || hasCathedral
       )
-      if (isExpansionTile) existingObject.expansion = 'innsAndCathedrals'
+      if (isExpansionTile)
+        existingObject.expansion = ExpansionName.InnsAndCathedrals
       this.checkCompleteLinearFeature(kind, existingObject)
       return
     }
@@ -1337,19 +1381,20 @@ export class GameManager implements IGameBoard {
       followers: connectedObjects.flatMap(({ followers }) => followers),
       hasInn: Boolean(
         hasInn ||
-        (kind === 'road' && connectedObjects.some((object) => object.hasInn))
+        (kind === TileSideType.Road &&
+          connectedObjects.some((object) => object.hasInn))
       ),
       hasCathedral: Boolean(
         hasCathedral ||
-        (kind === 'city' &&
+        (kind === TileSideType.City &&
           connectedObjects.some((object) => object.hasCathedral))
       ),
       expansion:
         isExpansionTile ||
         connectedObjects.some(
-          (object) => object.expansion === 'innsAndCathedrals'
+          (object) => object.expansion === ExpansionName.InnsAndCathedrals
         )
-          ? 'innsAndCathedrals'
+          ? ExpansionName.InnsAndCathedrals
           : undefined,
     }
 
@@ -1380,7 +1425,7 @@ export class GameManager implements IGameBoard {
 
     const collection = LINEAR_FEATURE_COLLECTIONS[kind]
     const score =
-      kind === 'road'
+      kind === TileSideType.Road
         ? this.calcScoreForRoad(feature)
         : this.calcScoreForCity(feature)
     this.temporaryObjects[collection] = this.temporaryObjects[
@@ -1446,14 +1491,15 @@ export class GameManager implements IGameBoard {
     object: BaseObject
   ): boolean {
     const side = place.point.direction
-    if (!side || side === 'center') return object.followers.length === 0
+    if (!side || side === PointDirections.Center)
+      return object.followers.length === 0
 
     const tile = this.tilePlacesStats[place.point.y]?.[place.point.x]
     if (!tile) return false
     const type = tile.sides[side]
     const groups = this.getTileFeatureGroups(
       tile,
-      type === 'city' ? 'city' : 'road'
+      type === TileSideType.City ? TileSideType.City : TileSideType.Road
     )
     const group = groups.find((directions) => directions.includes(side)) ?? [
       side,
@@ -1504,18 +1550,27 @@ export class GameManager implements IGameBoard {
     )
   }
 
-  getTileFeatureGroups(tile: Tile, feature: 'city' | 'road'): SideName[][] {
-    const featureSides = (Object.keys(tile.sides) as SideName[]).filter(
+  getTileFeatureGroups(
+    tile: Tile,
+    feature: typeof TileSideType.City | typeof TileSideType.Road
+  ): SideName[][] {
+    const featureSides = SIDE_NAMES.filter(
       (side) => tile.sides[side] === feature
     )
 
     const definition = this.findTileDefinition(tile.id)
-    const tileGroups = feature === 'city' ? tile.cityGroups : tile.roadGroups
+    const tileGroups =
+      feature === TileSideType.City ? tile.cityGroups : tile.roadGroups
     const definitionGroups =
-      feature === 'city' ? definition?.cityGroups : definition?.roadGroups
+      feature === TileSideType.City
+        ? definition?.cityGroups
+        : definition?.roadGroups
     const groups =
       tileGroups ??
-      this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
+      this.rotateTileGroups(
+        definitionGroups,
+        Math.round(tile.rotation / TileRotation.QuarterTurn)
+      ) ??
       []
 
     // Т-образные перекрёстки и четырёхсторонние перекрёстки делят дорожные
@@ -1524,7 +1579,7 @@ export class GameManager implements IGameBoard {
     // IAC-E), эти явно заданные группы определяют топологию тайла.
     const connectedRoadGroups = groups.filter((group) => group.length > 1)
     if (
-      feature === 'road' &&
+      feature === TileSideType.Road &&
       featureSides.length >= 3 &&
       connectedRoadGroups.length < 2
     ) {
@@ -1571,19 +1626,31 @@ export class GameManager implements IGameBoard {
     return getPrecisionCoordinates(point)
   }
 
-  rotateTile(tile: Tile, direction: RotationDirection = 'clockwise'): Tile {
+  rotateTile(
+    tile: Tile,
+    direction: RotationDirection = RotationDirections.Clockwise
+  ): Tile {
     const processedTile = { ...tile }
-    const quarterTurns = direction === 'clockwise' ? 1 : 3
-    if (direction === 'clockwise') {
-      if (processedTile.rotation + 90 > 360) {
-        processedTile.rotation = 0
+    const quarterTurns =
+      direction === RotationDirections.Clockwise
+        ? RotationTurns.Quarter
+        : RotationTurns.ThreeQuarter
+    if (direction === RotationDirections.Clockwise) {
+      if (
+        processedTile.rotation + TileRotation.QuarterTurn >
+        TileRotation.FullTurn
+      ) {
+        processedTile.rotation = TileRotation.None
       }
-      processedTile.rotation += 90
+      processedTile.rotation += TileRotation.QuarterTurn
     } else {
-      if (processedTile.rotation - 90 < 0) {
-        processedTile.rotation = 360
+      if (
+        processedTile.rotation - TileRotation.QuarterTurn <
+        TileRotation.None
+      ) {
+        processedTile.rotation = TileRotation.FullTurn
       }
-      processedTile.rotation -= 90
+      processedTile.rotation -= TileRotation.QuarterTurn
     }
 
     processedTile.sides = rotateTileSides(processedTile.sides, quarterTurns)
@@ -1638,7 +1705,7 @@ export class GameManager implements IGameBoard {
     if (!authoritativeTile) return false
     if (!tileDefinition && !tile.id.startsWith('test')) return false
     if (
-      authoritativeTile.expansion === 'innsAndCathedrals' &&
+      authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
       !this.rules.expansions.innsAndCathedrals
     ) {
       return false
@@ -1646,7 +1713,11 @@ export class GameManager implements IGameBoard {
     let resolvedTile: Tile
     if (this.findTileDefinition(tile.id)) {
       resolvedTile = { ...authoritativeTile, rotation: 0 }
-      const normalizedTurns = ((Math.round(tile.rotation / 90) % 4) + 4) % 4
+      const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+      const normalizedTurns =
+        ((Math.round(tile.rotation / TileRotation.QuarterTurn) % turnCount) +
+          turnCount) %
+        turnCount
       for (let turn = 0; turn < normalizedTurns; turn++) {
         resolvedTile = this.rotateTile(resolvedTile)
       }
@@ -1681,7 +1752,7 @@ export class GameManager implements IGameBoard {
 
   simulatePlaceFollower(
     availablePlace: AvailableFollowerPlace,
-    followerType: FollowerType = 'follower'
+    followerType: FollowerType = FollowerTypes.Follower
   ): boolean {
     const currentPlayer = this.currentPlayer
     const followerPool = currentPlayer
@@ -1706,8 +1777,8 @@ export class GameManager implements IGameBoard {
       return false
     }
 
-    const isAbbot = followerType === 'abbot'
-    const isBigFollower = followerType === 'bigFollower'
+    const isAbbot = followerType === FollowerTypes.Abbot
+    const isBigFollower = followerType === FollowerTypes.BigFollower
     const isCenterFeature = Boolean(
       targetObject.isMonastery || targetObject.isGarden
     )

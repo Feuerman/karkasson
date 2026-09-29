@@ -1,6 +1,13 @@
 import { gardenTileCounts, tiles } from '@/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
-import type { TileSideType } from '@server/modules/types'
+import {
+  OPPOSITE_SIDE,
+  PointDirection,
+  SideName,
+  type TileId,
+  TileSideType,
+  type TileSideType as TileSideTypeValue,
+} from '@server/modules/types'
 import type {
   RulesGridCell,
   RulesMarker,
@@ -8,23 +15,22 @@ import type {
   RulesRotation,
   RulesTileRef,
 } from './types'
+import { RulesMarkerKind } from './types'
 
-const SIDE_ORDER = ['north', 'east', 'south', 'west'] as const
+const SIDE_ORDER = [
+  SideName.North,
+  SideName.East,
+  SideName.South,
+  SideName.West,
+] as const
 
 type CompassDirection = (typeof SIDE_ORDER)[number]
 
 const SIDE_INDEX: Record<CompassDirection, number> = {
-  north: 0,
-  east: 1,
-  south: 2,
-  west: 3,
-}
-
-const OPPOSITE: Record<CompassDirection, CompassDirection> = {
-  north: 'south',
-  south: 'north',
-  east: 'west',
-  west: 'east',
+  [SideName.North]: 0,
+  [SideName.East]: 1,
+  [SideName.South]: 2,
+  [SideName.West]: 3,
 }
 
 const tileDataById = (id: string) => {
@@ -43,7 +49,7 @@ const withMarkers = (tile: RulesTileRef, markers: RulesMarker[]) => ({
  * Строит ссылку на тайл. Берёт картинку из клиентской копии колоды,
  * чтобы TileView рендерил изображение независимо от серверных путей.
  */
-export const rot = (id: string, rotation: RulesRotation = 0): RulesTileRef => {
+export const rot = (id: TileId, rotation: RulesRotation = 0): RulesTileRef => {
   const data = tileDataById(id)
   if (!data) {
     throw new Error(`[rules] Неизвестный id тайла в примере: ${id}`)
@@ -59,7 +65,7 @@ export const rot = (id: string, rotation: RulesRotation = 0): RulesTileRef => {
 
 /** Тайл с садом для наглядных примеров правил. */
 export const garden = (
-  id: string,
+  id: TileId,
   rotation: RulesRotation = 0
 ): RulesTileRef => {
   if (!gardenTileCounts[id]) {
@@ -80,22 +86,23 @@ export const cell = (
 export const placed = (
   tile: RulesTileRef,
   color: RulesMarkerColor,
-  direction: CompassDirection | 'center'
-): RulesGridCell => cell(tile, { kind: 'follower', color, direction })
+  direction: CompassDirection | typeof PointDirection.Center
+): RulesGridCell =>
+  cell(tile, { kind: RulesMarkerKind.Follower, color, direction })
 
 /** Тайл, обозначенный как «только что выложенный» (синяя пунктирная рамка). */
 export const newly = (tile: RulesTileRef): RulesGridCell =>
-  cell(tile, { kind: 'new' })
+  cell(tile, { kind: RulesMarkerKind.New })
 
 /** Тайл, относящийся к завершённому объекту (зелёная рамка). */
 export const completed = (tile: RulesTileRef): RulesGridCell =>
-  cell(tile, { kind: 'completed' })
+  cell(tile, { kind: RulesMarkerKind.Completed })
 
 /** Тайл с пометкой «недопустимо» на конкретной грани (красный крестик). */
 export const invalid = (
   tile: RulesTileRef,
-  direction: CompassDirection | 'center'
-): RulesGridCell => cell(tile, { kind: 'no', direction })
+  direction: CompassDirection | typeof PointDirection.Center
+): RulesGridCell => cell(tile, { kind: RulesMarkerKind.Invalid, direction })
 
 /** Выпадающая пустая клетка сетки. */
 export const empty: RulesGridCell = {}
@@ -109,7 +116,7 @@ export const grid = (rows: (RulesGridCell | null)[][]): RulesGridCell[][] => {
 export const sideOf = (
   tile: RulesTileRef,
   direction: CompassDirection
-): TileSideType | undefined => {
+): TileSideTypeValue | undefined => {
   const data = tileDataById(tile.id)
   if (!data) return undefined
   const rotations = ((tile.rotation ?? 0) / 90) % 4
@@ -139,17 +146,17 @@ export const validateExampleGrid = (
       if (!intentionalMismatch) {
         SIDE_ORDER.forEach((direction) => {
           const delta: Record<CompassDirection, [number, number]> = {
-            north: [0, -1],
-            east: [1, 0],
-            south: [0, 1],
-            west: [-1, 0],
+            [SideName.North]: [0, -1],
+            [SideName.East]: [1, 0],
+            [SideName.South]: [0, 1],
+            [SideName.West]: [-1, 0],
           }
           const [dx, dy] = delta[direction]
           const neighborTile = exampleCells[y + dy]?.[x + dx]?.tile
           if (!neighborTile) return
 
           const own = sideOf(tile, direction)
-          const theirs = sideOf(neighborTile, OPPOSITE[direction])
+          const theirs = sideOf(neighborTile, OPPOSITE_SIDE[direction])
           if (own !== theirs) {
             errors.push(
               `[${exampleId}] клетка (${x},${y}) грань ${direction} ` +
@@ -160,8 +167,11 @@ export const validateExampleGrid = (
       }
 
       ;(tile.markers ?? []).forEach((marker) => {
-        if (marker.kind === 'follower' || marker.kind === 'no') {
-          if (marker.direction === 'center') {
+        if (
+          marker.kind === RulesMarkerKind.Follower ||
+          marker.kind === RulesMarkerKind.Invalid
+        ) {
+          if (marker.direction === PointDirection.Center) {
             if (
               !tileDataById(tile.id)?.isMonastery &&
               !tile.hasGarden &&
@@ -173,7 +183,10 @@ export const validateExampleGrid = (
             }
           } else {
             const sideType = sideOf(tile, marker.direction)
-            if (sideType !== 'city' && sideType !== 'road') {
+            if (
+              sideType !== TileSideType.City &&
+              sideType !== TileSideType.Road
+            ) {
               errors.push(
                 `[${exampleId}] маркер на (${x},${y}) грань ` +
                   `${marker.direction} стоит на стороне «${sideType}», а не на объекте`

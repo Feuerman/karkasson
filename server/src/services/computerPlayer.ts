@@ -1,7 +1,7 @@
 import type { Server } from 'socket.io'
 import { COMPUTER_MOVE_DELAY_MS, PLAYER_RECONNECT_TIMEOUT_MS } from '../config'
 import type { IGameBoard } from '../modules/GameManager'
-import type { Player, PlayerId } from '../modules/types'
+import { SocketEvents, type Player, type PlayerId } from '../modules/types'
 import { sleep } from '../utils/common'
 import type { GameService } from './GameService'
 
@@ -73,8 +73,8 @@ function deleteComputerGame(
   void service
     .deleteGame(gameId)
     .then(() => {
-      io.to(gameId).emit('gameDeleted')
-      io.emit('updateGamesList', service.formatGamesList())
+      io.to(gameId).emit(SocketEvents.GameDeleted)
+      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
     })
     .catch((error: unknown) => {
       console.error(`Failed to delete computer game (${reason}):`, error)
@@ -216,13 +216,19 @@ async function processComputerMoves(
 
     if (updatedGame.gameIsEnded) {
       await service.saveGame(gameId)
-      io.to(gameId).emit('gameUpdated', service.formatGameData(updatedGame))
-      io.emit('updateGamesList', service.formatGamesList())
+      io.to(gameId).emit(
+        SocketEvents.GameUpdated,
+        service.formatGameData(updatedGame)
+      )
+      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
       return
     }
 
     await service.saveGame(gameId)
-    io.to(gameId).emit('gameUpdated', service.formatGameData(updatedGame))
+    io.to(gameId).emit(
+      SocketEvents.GameUpdated,
+      service.formatGameData(updatedGame)
+    )
 
     const nextPlayer = updatedGame.getNextPlayer(activePlayerId)
     if (nextPlayer && isComputerPlayer(nextPlayer)) {
@@ -231,7 +237,7 @@ async function processComputerMoves(
     }
   } catch (error) {
     game.copyStateFrom(previousState)
-    io.to(gameId).emit('gameError', {
+    io.to(gameId).emit(SocketEvents.GameError, {
       message: 'Error processing computer move',
     })
     throw error

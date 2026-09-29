@@ -5,6 +5,7 @@ import {
 } from './config'
 import { createGameServer } from './app'
 import { gameDatabase } from './modules/Database'
+import { SocketEvents } from './modules/types'
 import { resumeComputerGames } from './services/computerPlayer'
 
 const { server, io, gameService } = createGameServer(gameDatabase, {
@@ -17,11 +18,11 @@ function startStaleGamesCleanup() {
       .deleteStaleGames(GAME_INACTIVITY_TIMEOUT_MS)
       .then((deletedGameIds) => {
         deletedGameIds.forEach((gameId) => {
-          io.to(gameId).emit('gameDeleted')
+          io.to(gameId).emit(SocketEvents.GameDeleted)
         })
 
         if (deletedGameIds.length) {
-          io.emit('updateGamesList', gameService.formatGamesList())
+          io.emit(SocketEvents.UpdateGamesList, gameService.formatGamesList())
         }
       })
       .catch((error: unknown) => {

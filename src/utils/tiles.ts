@@ -1,17 +1,24 @@
 import type { ITile } from '@/types/game'
-import type { RotationDirection } from '@server/modules/types'
-import type { TileSides } from '@server/modules/types'
+import {
+  RotationDirection as RotationDirections,
+  SideName,
+  TileRotation,
+  type RotationDirection,
+  type TileSides,
+} from '@server/modules/types'
 
 export const TILE_SIZE = 115
+const FULL_ROTATION_DEGREES = 360
 
 export const normalizeRotation = (rotation: number): number =>
-  ((rotation % 360) + 360) % 360
+  ((rotation % FULL_ROTATION_DEGREES) + FULL_ROTATION_DEGREES) %
+  FULL_ROTATION_DEGREES
 
 const ROTATION_CLASSES: Record<number, string> = {
-  0: 'rotate-0',
-  90: 'rotate-90',
-  180: 'rotate-180',
-  270: 'rotate-270',
+  [TileRotation.None]: 'rotate-0',
+  [TileRotation.QuarterTurn]: 'rotate-90',
+  [TileRotation.HalfTurn]: 'rotate-180',
+  [TileRotation.ThreeQuarterTurn]: 'rotate-270',
 }
 
 export const rotationClass = (rotation: number): string =>
@@ -21,20 +28,20 @@ const rotateSides = (
   sides: TileSides,
   direction: RotationDirection
 ): TileSides => {
-  if (direction === 'clockwise') {
+  if (direction === RotationDirections.Clockwise) {
     return {
-      north: sides.west,
-      west: sides.south,
-      south: sides.east,
-      east: sides.north,
+      [SideName.North]: sides[SideName.West],
+      [SideName.West]: sides[SideName.South],
+      [SideName.South]: sides[SideName.East],
+      [SideName.East]: sides[SideName.North],
     }
   }
 
   return {
-    north: sides.east,
-    west: sides.north,
-    south: sides.west,
-    east: sides.south,
+    [SideName.North]: sides[SideName.East],
+    [SideName.West]: sides[SideName.North],
+    [SideName.South]: sides[SideName.West],
+    [SideName.East]: sides[SideName.South],
   }
 }
 
@@ -44,7 +51,10 @@ export const rotateTile = (
 ): ITile => ({
   ...tile,
   rotation: normalizeRotation(
-    tile.rotation + (direction === 'clockwise' ? 90 : -90)
+    tile.rotation +
+      (direction === RotationDirections.Clockwise
+        ? TileRotation.QuarterTurn
+        : -TileRotation.QuarterTurn)
   ),
   sides: rotateSides(tile.sides, direction),
 })

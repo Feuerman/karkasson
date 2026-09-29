@@ -36,7 +36,7 @@
             :class="markerClasses(marker)"
           >
             <span
-              v-if="marker.kind === 'follower'"
+              v-if="marker.kind === RulesMarkerKind.Follower"
               class="block rounded-full ring-2 ring-white shadow-soft"
               :class="[
                 marker.isBig ? 'h-6 w-6' : 'h-4 w-4',
@@ -44,17 +44,17 @@
               ]"
             ></span>
             <span
-              v-else-if="marker.kind === 'no'"
+              v-else-if="marker.kind === RulesMarkerKind.Invalid"
               class="flex h-6 w-6 items-center justify-center rounded-full bg-danger text-white ring-2 ring-white shadow-soft"
             >
               <UIcon name="i-lucide-x" class="text-[13px]" />
             </span>
             <span
-              v-else-if="marker.kind === 'new'"
+              v-else-if="marker.kind === RulesMarkerKind.New"
               class="absolute inset-0 block rounded-lg border-2 border-dashed border-primary opacity-80"
             ></span>
             <span
-              v-else-if="marker.kind === 'completed'"
+              v-else-if="marker.kind === RulesMarkerKind.Completed"
               class="absolute inset-0 block rounded-lg border-2 border-success shadow-[0_0_10px_rgba(76,175,80,0.55)]"
             ></span>
           </span>
@@ -76,7 +76,13 @@ import { computed } from 'vue'
 import TileView from '@/components/TileView.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { PointDirection } from '@server/modules/types'
-import type { RulesExample, RulesMarker, RulesMarkerColor } from '@/rules/types'
+import { SideName } from '@server/modules/types'
+import {
+  RulesMarkerKind,
+  type RulesExample,
+  type RulesMarker,
+  type RulesMarkerColor,
+} from '@/rules/types'
 
 const props = defineProps({
   example: {
@@ -115,13 +121,13 @@ const followerColorClass = (color: RulesMarkerColor) => {
 
 const markerPositionClasses = (direction: PointDirection) => {
   switch (direction) {
-    case 'north':
+    case SideName.North:
       return 'left-1/2 top-[6px] -translate-x-1/2'
-    case 'south':
+    case SideName.South:
       return 'bottom-[6px] left-1/2 -translate-x-1/2'
-    case 'east':
+    case SideName.East:
       return 'right-[4px] top-1/2 -translate-y-1/2'
-    case 'west':
+    case SideName.West:
       return 'left-[4px] top-1/2 -translate-y-1/2'
     default:
       return 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'

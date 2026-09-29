@@ -1,4 +1,12 @@
-export type NotificationType = 'success' | 'error' | 'warning' | 'info'
+export const NotificationType = {
+  Success: 'success',
+  Error: 'error',
+  Warning: 'warning',
+  Info: 'info',
+} as const
+
+export type NotificationType =
+  (typeof NotificationType)[keyof typeof NotificationType]
 
 export interface NotificationBridge {
   show(type: NotificationType, message: string, duration?: number): void
@@ -16,13 +24,13 @@ const notify = (type: NotificationType, message: string, duration?: number) => {
 
 const notificationService = {
   success: (message: string, duration?: number) =>
-    notify('success', message, duration),
+    notify(NotificationType.Success, message, duration),
   error: (message: string, duration?: number) =>
-    notify('error', message, duration),
+    notify(NotificationType.Error, message, duration),
   warning: (message: string, duration?: number) =>
-    notify('warning', message, duration),
+    notify(NotificationType.Warning, message, duration),
   info: (message: string, duration?: number) =>
-    notify('info', message, duration),
+    notify(NotificationType.Info, message, duration),
 }
 
 export default notificationService

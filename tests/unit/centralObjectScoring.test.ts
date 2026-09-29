@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
-import { ActionTypes, ObjectTypes } from '../../server/src/modules/types'
+import {
+  ActionTypes,
+  ObjectTypes,
+  PointDirection,
+} from '../../server/src/modules/types'
 import type {
   BaseObject,
   ObjectFollower,
@@ -26,7 +30,11 @@ describe('Начисление очков за завершённые центр
     'начисляет очки и возвращает подданного с %s',
     (_, objectType) => {
       const game = new GameManager({ players })
-      const point = { x: 15, y: 15, direction: 'center' as const }
+      const point = {
+        x: 15,
+        y: 15,
+        direction: PointDirection.Center,
+      }
       const follower: ObjectFollower = {
         playerId: 1,
         objectId: 'central-object',

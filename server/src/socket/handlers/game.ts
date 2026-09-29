@@ -8,6 +8,12 @@ import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
 import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
+import {
+  FollowerType as FollowerTypes,
+  SocketEvents,
+  TILE_ROTATIONS,
+  TileRotation,
+} from '../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 
 function playerIndexesForSocket(game: IGameBoard, socketId: string): number[] {
@@ -31,7 +37,12 @@ function isValidPosition(position: { rowIndex: number; tileIndex: number }) {
 
 function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
   const currentTile = game.currentTile
-  if (!currentTile || ![0, 90, 180, 270].includes(rotation)) return false
+  if (
+    !currentTile ||
+    !TILE_ROTATIONS.includes(rotation as (typeof TILE_ROTATIONS)[number])
+  ) {
+    return false
+  }
 
   const definition =
     tiles.find((tile) => tile.id === currentTile.id) ??
@@ -40,7 +51,7 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
       : undefined)
   if (!definition) return false
 
-  const quarterTurns = rotation / 90
+  const quarterTurns = rotation / TileRotation.QuarterTurn
   const sides = rotateTileSides(definition.sides, quarterTurns)
 
   const rotatedTile: Tile = {
@@ -66,7 +77,7 @@ export function registerGameHandlers({
   socket,
 }: SocketHandlerContext) {
   socket.on(
-    'selectPlacingPoint',
+    SocketEvents.SelectPlacingPoint,
     (
       {
         gameId,
@@ -88,13 +99,13 @@ export function registerGameHandlers({
         rowIndex: point.rowIndex,
         tileIndex: point.tileIndex,
       }
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
       callback?.({ success: true, game: service.formatGameData(game) })
     }
   )
 
   socket.on(
-    'updateCurrentTile',
+    SocketEvents.UpdateCurrentTile,
     (
       {
         gameId,
@@ -122,13 +133,13 @@ export function registerGameHandlers({
         callback?.({ error: 'Invalid tile rotation' })
         return
       }
-      io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
       callback?.({ success: true, game: service.formatGameData(game) })
     }
   )
 
   socket.on(
-    'placeTile',
+    SocketEvents.PlaceTile,
     async (
       {
         gameId,
@@ -181,7 +192,10 @@ export function registerGameHandlers({
           throw error
         }
 
-        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
         callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
@@ -195,12 +209,12 @@ export function registerGameHandlers({
   )
 
   socket.on(
-    'placeFollower',
+    SocketEvents.PlaceFollower,
     async (
       {
         gameId,
         place,
-        followerType = 'follower',
+        followerType = FollowerTypes.Follower,
       }: {
         gameId: string
         place: AvailableFollowerPlace
@@ -230,12 +244,12 @@ export function registerGameHandlers({
         )
         if (
           !availablePlace ||
-          !['follower', 'bigFollower', 'abbot'].includes(followerType)
+          !Object.values(FollowerTypes).includes(followerType)
         ) {
           throw new Error('Invalid follower placement')
         }
         if (
-          followerType === 'abbot' &&
+          followerType === FollowerTypes.Abbot &&
           !(
             availablePlace.temporaryObject.isMonastery ||
             availablePlace.temporaryObject.isGarden
@@ -246,13 +260,13 @@ export function registerGameHandlers({
           )
         }
         if (
-          followerType === 'bigFollower' &&
+          followerType === FollowerTypes.BigFollower &&
           !game.rules.expansions.innsAndCathedrals
         ) {
           throw new Error('The big follower expansion is not enabled')
         }
         if (
-          followerType === 'follower' &&
+          followerType === FollowerTypes.Follower &&
           availablePlace.temporaryObject.isGarden
         ) {
           throw new Error('A follower cannot be placed on a garden')
@@ -270,7 +284,10 @@ export function registerGameHandlers({
           throw error
         }
 
-        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
         callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
@@ -284,7 +301,7 @@ export function registerGameHandlers({
   )
 
   socket.on(
-    'recallAbbot',
+    SocketEvents.RecallAbbot,
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
@@ -308,7 +325,10 @@ export function registerGameHandlers({
           throw error
         }
 
-        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
         callback?.({ success: true, game: service.formatGameData(game) })
 
         // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
@@ -323,7 +343,7 @@ export function registerGameHandlers({
   )
 
   socket.on(
-    'skipFollower',
+    SocketEvents.SkipFollower,
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
@@ -345,7 +365,10 @@ export function registerGameHandlers({
           throw error
         }
 
-        io.to(gameId).emit('gameUpdated', service.formatGameData(game))
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
         callback?.({ success: true, game: service.formatGameData(game) })
 
         maybeContinueWithComputerMove(io, service, game, gameId)
