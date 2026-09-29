@@ -106,7 +106,7 @@
         />
         <p class="mt-2 text-sm leading-relaxed text-text-muted">
           Если включить опцию, в конце партии очки начислятся за незавершённые
-          дороги, города, монастыри и сады. По умолчанию выключено.
+          дороги, города, монастыри и сады.
         </p>
         <UCheckbox
           label="Таверны и соборы"
@@ -117,8 +117,7 @@
           @update:model-value="innsAndCathedralsEnabled = Boolean($event)"
         />
         <p class="mt-2 text-sm leading-relaxed text-text-muted">
-          Добавляет 18 тайлов дополнения и большого подданного. По умолчанию
-          выключено.
+          Добавляет 18 тайлов дополнения и большого подданного.
         </p>
       </template>
       <template #footer>
