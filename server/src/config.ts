@@ -47,6 +47,9 @@ export const STALE_GAMES_CHECK_MS = 10_000
 export const COMPUTER_MOVE_DELAY_MS =
   Number(process.env.COMPUTER_MOVE_DELAY_MS) || 1000
 
+// Время на восстановление соединения всеми реальными игроками партии.
+export const PLAYER_RECONNECT_TIMEOUT_MS = 15 * 60 * 1000
+
 export const firebaseConfig = {
   apiKey: 'AIzaSyDyRbOXPz22xQVZndSmwwXWwfBXXQw-adw',
   authDomain: 'karkassone-a5080.firebaseapp.com',

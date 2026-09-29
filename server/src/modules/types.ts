@@ -126,9 +126,6 @@ export type AvailableFollowerPlace = {
   temporaryObject: BaseObject
 }
 
-/** Тип размещения подданного на сервере */
-export type AvailablePlacementType = 'road' | 'city' | 'monastery' | 'garden'
-
 /** Слот будущего тайла: координаты и примыкающие к ним объекты */
 export interface AvailablePlace {
   rowIndex: number

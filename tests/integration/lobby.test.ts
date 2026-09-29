@@ -221,6 +221,43 @@ describe('Лобби', () => {
     ).toBe(true)
   })
 
+  it('позволяет наблюдать за начавшейся игрой только компьютерных игроков', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    const lobbyGame = server.handle.gameService.getGame(lobby.gameId)
+    if (!lobbyGame) throw new Error('Лобби не создано')
+    lobbyGame.players.forEach((player) => {
+      player.socketId = null
+      player.deviceId = null
+    })
+
+    const game = server.handle.gameService.startGame(lobby.gameId)
+    if (!game) throw new Error('Игра не создана')
+    await server.handle.gameService.saveGame(lobby.gameId)
+
+    const observer = new TestClient(server.url, 'device-observer')
+    clients.push(observer)
+    await observer.connect()
+    observer.registerDevice()
+
+    const response = await observer.emitAck<{
+      success: boolean
+      game: TestGameData
+    }>('joinGame', { gameId: lobby.gameId })
+
+    expect(response.success).toBe(true)
+    expect(response.game.gameIsStarted).toBe(true)
+    expect(
+      game.players.every(
+        (player) =>
+          player.socketId !== observer.id &&
+          player.deviceId !== observer.deviceId
+      )
+    ).toBe(true)
+  })
+
   it('завершённые партии идут раньше остальных, от новых к старым', async () => {
     server = await startTestServer()
     const first = await createLobbyWithPlayers(server.url)

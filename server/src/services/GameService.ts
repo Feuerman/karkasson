@@ -333,13 +333,17 @@ export class GameService {
         if (!gameId) return
 
         const game = GameManager.restore(savedGame)
-        game.temporaryObjects.gardens ??= []
-        game.completedObjects.gardens ??= []
-        this.games[gameId] = game
-        const owner = savedGame.players.find((player) => player.socketId)
+        const owner = game.players.find((player) => player.socketId)
         if (owner?.socketId) {
           this.lobbyOwners[gameId] = owner.deviceId ?? owner.socketId
         }
+        game.players.forEach((player) => {
+          player.socketId = null
+        })
+        if (game.currentPlayer) game.currentPlayer.socketId = null
+        game.temporaryObjects.gardens ??= []
+        game.completedObjects.gardens ??= []
+        this.games[gameId] = game
       } catch (error) {
         console.error('Ignoring invalid saved game:', error)
       }

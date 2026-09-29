@@ -6,8 +6,6 @@ import type { GridTile, Tile } from '@server/modules/types'
 import type {
   SocketAck,
   GamesListResponse,
-  AvailablePlacement,
-  PlacementsResponse,
   CreateGameResponse,
 } from '@/types/socket'
 
@@ -229,13 +227,6 @@ export class GameService implements IGameService {
     })
   }
 
-  async updateCurrentTile(tile: Tile | GridTile) {
-    return this.emitAck<SocketAck>('updateCurrentTile', {
-      gameId: this.gameId,
-      rotation: tile.rotation,
-    })
-  }
-
   setCurrentTileRotation(rotation: number) {
     return this.emitAck<SocketAck>('updateCurrentTile', {
       gameId: this.gameId,
@@ -283,20 +274,6 @@ export class GameService implements IGameService {
       this.socket.disconnect()
       this.gameId = gameId
     }
-  }
-
-  async checkAvailablePlacements(position: {
-    row: number
-    col: number
-  }): Promise<AvailablePlacement[]> {
-    const response = await this.emitAck<PlacementsResponse>(
-      'checkAvailablePlacements',
-      {
-        gameId: this.gameId,
-        position,
-      }
-    )
-    return response.placements ?? []
   }
 
   leaveGame() {
