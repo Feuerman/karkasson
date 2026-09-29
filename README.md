@@ -222,6 +222,7 @@ pnpm --filter server run dev
 | `pnpm run preview`               | предпросмотр собранного клиента                 |
 | `pnpm test`                      | все тесты (unit + интеграционные)               |
 | `pnpm run test:gameplay`          | полные партии: 4 ИИ и человек против ИИ         |
+| `pnpm run test:browser`           | браузерный smoke: создание лобби и старт игры   |
 | `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)             |
 | `pnpm run lint`                  | ESLint, только проверка                         |
 | `pnpm run lint:fix`              | ESLint с автоисправлением                       |
@@ -250,6 +251,10 @@ pnpm test
 `pnpm run test:gameplay`. Эта команда дополняет, но не заменяет полный
 `pnpm test`. Общие требования к регрессионному покрытию и проверкам описаны в
 [`AGENTS.md`](AGENTS.md) и инструкциях соответствующего слоя.
+
+Браузерный smoke запускает Chromium через Playwright и проверяет путь от
+создания лобби до появления игровой доски. Один раз установи браузер командой
+`pnpm exec playwright install chromium`.
 
 ## Переменные окружения
 

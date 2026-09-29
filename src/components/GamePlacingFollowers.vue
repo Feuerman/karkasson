@@ -38,6 +38,7 @@
               place.temporaryObject?.isGarden
             "
             :key="`${index}-monastery`"
+            data-testid="follower-placement-options"
             class="flex flex-col gap-1.5"
           >
             <UButton

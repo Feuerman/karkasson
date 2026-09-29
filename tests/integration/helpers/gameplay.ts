@@ -497,19 +497,6 @@ export function scoringWinners(
   return players
 }
 
-/** Базовые очки объекта по правилам сервера (для сценариев одиночного хода) */
-export function baseObjectPoints(
-  object: BaseObjectSnapshot,
-  tilePlacesStats: GameStateSnapshot['tilePlacesStats']
-): number {
-  if (object.isMonastery) return 9
-  if (object.isGarden) return 9
-  const city = countCityPoints(object, tilePlacesStats)
-  return city.tiles > 0 || object.points.some((p) => p.pointType === 'city')
-    ? city.tiles * 2 + city.shields * 2
-    : countUniqueTiles(object.points, tilePlacesStats)
-}
-
 /**
  * Пересчитывает ожидаемые очки всех игроков исключительно по
  * завершённым объектам + доске. Должно совпадать с state.scores.

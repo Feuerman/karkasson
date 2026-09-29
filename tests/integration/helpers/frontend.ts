@@ -14,7 +14,7 @@ export interface RunningFrontend {
 }
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
-const SRC_DIR = fileURLToPath(new URL('../../../../src', import.meta.url))
+const SRC_DIR = fileURLToPath(new URL('../../../src', import.meta.url))
 const SERVER_SRC_DIR = fileURLToPath(
   new URL('../../../server/src', import.meta.url)
 )
@@ -32,6 +32,9 @@ export async function startTestFrontend(
     configFile: false,
     root: PROJECT_ROOT,
     logLevel: 'error',
+    define: {
+      'import.meta.env.VITE_SERVER_URL': JSON.stringify(serverUrl),
+    },
     server: { host: '127.0.0.1', port: 0 },
     plugins: [
       vue({

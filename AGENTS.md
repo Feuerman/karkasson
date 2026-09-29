@@ -59,6 +59,7 @@ pnpm workspace. Обзор архитектуры и запуск описаны
 | `pnpm run type-check` | `vue-tsc --noEmit` |
 | `pnpm test` | полный набор Vitest: unit и integration |
 | `pnpm run test:gameplay` | две полные партии: 4 ИИ и человек против ИИ |
+| `pnpm run test:browser` | браузерный smoke: лобби, слоты, запуск игры |
 | `pnpm run lint` | ESLint, только проверка |
 | `pnpm run lint:fix` | ESLint с автоисправлением файлов |
 | `pnpm run build` | production-сборка клиента |
@@ -85,6 +86,9 @@ pnpm workspace. Обзор архитектуры и запуск описаны
   фишек. `pnpm run test:gameplay` запускает обе партии без остальных тестов;
   используй его как дополнительную быструю регрессионную проверку после
   изменений игрового процесса. Он не заменяет обязательный полный `pnpm test`.
+- `pnpm run test:browser` запускает Playwright smoke реального UI. Требует
+  установленный Chromium (`pnpm exec playwright install chromium`); серверные
+  правила и полные партии по-прежнему проверяются Vitest-интеграциями.
 
 ## Точки расширения
 
