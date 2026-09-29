@@ -39,6 +39,7 @@ describe('Лобби', () => {
     )
 
     expect(game.id).toBe(lobby.gameId)
+    expect(game.roomCode).toMatch(/^\d{6}$/)
     expect(game.gameIsStarted).toBeFalsy()
 
     const [alice, bob, aiP1, aiP2] = game.players
@@ -74,11 +75,47 @@ describe('Лобби', () => {
     }
 
     const { games } = await creator.emitAck<{
-      games: Array<{ id: string; players: TestGameData['players'] }>
+      games: Array<{
+        id: string
+        roomCode: string
+        players: TestGameData['players']
+      }>
     }>('getGamesList')
     const found = games.find((g) => g.id === created.gameId)
     expect(found).toBeTruthy()
     expect(found!.players).toHaveLength(8)
+    expect(found!.roomCode).toMatch(/^\d{6}$/)
+  })
+
+  it('подключает к комнате по переданному номеру', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    if (!game?.roomCode) throw new Error('Номер комнаты не создан')
+
+    const visitor = new TestClient(server.url, 'device-room-code-visitor')
+    clients.push(visitor)
+    await visitor.connect()
+    visitor.registerDevice()
+
+    const response = await visitor.emitAck<{
+      success: boolean
+      game: TestGameData
+    }>('joinGame', { gameId: game.roomCode })
+
+    expect(response.success).toBe(true)
+    expect(response.game.id).toBe(lobby.gameId)
+  })
+
+  it('назначает разным комнатам разные номера', async () => {
+    server = await startTestServer()
+    const first = server.handle.gameService.createLobby('socket-first')
+    const second = server.handle.gameService.createLobby('socket-second')
+
+    expect(first.roomCode).toMatch(/^\d{6}$/)
+    expect(second.roomCode).toMatch(/^\d{6}$/)
+    expect(second.roomCode).not.toBe(first.roomCode)
   })
 
   it('ошибка при занятых слотах лобби', async () => {

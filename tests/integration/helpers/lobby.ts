@@ -17,6 +17,7 @@ export interface GameSummaryPlayer {
 /** Типизированный слепок данных игры из события server gameUpdated */
 export interface TestGameData {
   id: string
+  roomCode?: string
   players: GameSummaryPlayer[]
   currentPlayerIndex: number
   currentPlayer?: {

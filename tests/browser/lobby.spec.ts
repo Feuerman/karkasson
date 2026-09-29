@@ -42,6 +42,9 @@ test('игрок создаёт лобби, занимает слот и нач�
     await expect(
       page.getByRole('button', { name: 'Начать игру' })
     ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: /Комната № \d{6}/ })
+    ).toBeVisible()
     await expect.poll(() => gameServer.gameService.allGames().length).toBe(1)
 
     const availableSlots = page.getByRole('checkbox')
@@ -64,6 +67,51 @@ test('игрок создаёт лобби, занимает слот и нач�
       page.getByRole('button', { name: 'Выйти из игры' })
     ).toBeVisible()
   } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})
+
+test('игрок находит комнату и подключается по её номеру', async ({
+  browser,
+}) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+  const creatorContext = await browser.newContext()
+  const guestContext = await browser.newContext()
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    const creatorPage = await creatorContext.newPage()
+    await creatorPage.goto(frontend.url)
+    await creatorPage
+      .getByRole('button', { name: 'Создать новую игру' })
+      .click()
+    await expect(
+      creatorPage.getByRole('heading', { name: /Комната № \d{6}/ })
+    ).toBeVisible()
+
+    const roomCode = gameServer.gameService.allGames()[0]?.roomCode
+    if (!roomCode) throw new Error('Номер комнаты не создан')
+    await creatorPage.close()
+
+    const guestPage = await guestContext.newPage()
+    await guestPage.goto(frontend.url)
+    const roomSearch = guestPage.getByRole('searchbox', {
+      name: 'Найти комнату по номеру',
+    })
+    await expect(roomSearch).toBeVisible()
+    await roomSearch.fill(roomCode)
+    await roomSearch.press('Enter')
+    await expect(
+      guestPage.getByRole('heading', { name: `Комната № ${roomCode}` })
+    ).toBeVisible()
+  } finally {
+    await creatorContext.close()
+    await guestContext.close()
     await frontend?.close()
     await gameServer.close()
   }
