@@ -221,6 +221,7 @@ pnpm --filter server run dev
 | `pnpm run build`                 | сборка клиента в `dist/` (base `/karkasson/`)   |
 | `pnpm run preview`               | предпросмотр собранного клиента                 |
 | `pnpm test`                      | все тесты (unit + интеграционные)               |
+| `pnpm run test:gameplay`          | полные партии: 4 ИИ и человек против ИИ         |
 | `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)             |
 | `pnpm run lint`                  | ESLint, только проверка                         |
 | `pnpm run lint:fix`              | ESLint с автоисправлением                       |
@@ -245,9 +246,10 @@ Vitest (конфиг — `vitest.integration.config.ts`): окружение nod
 pnpm test
 ```
 
-Подробные требования к регрессионному покрытию и выбору проверок описаны в
-[`AGENTS.md`](AGENTS.md), [`src/AGENTS.md`](src/AGENTS.md) и
-[`server/AGENTS.md`](server/AGENTS.md).
+Для отдельного прогона двух полных партий используй
+`pnpm run test:gameplay`. Эта команда дополняет, но не заменяет полный
+`pnpm test`. Общие требования к регрессионному покрытию и проверкам описаны в
+[`AGENTS.md`](AGENTS.md) и инструкциях соответствующего слоя.
 
 ## Переменные окружения
 

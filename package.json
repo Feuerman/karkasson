@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --config vitest.integration.config.ts",
+    "test:gameplay": "vitest run --config vitest.integration.config.ts tests/integration/computerOnly.test.ts tests/integration/scoring.test.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.ts",
