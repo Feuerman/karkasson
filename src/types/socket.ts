@@ -19,16 +19,6 @@ export interface GameResponse {
   game?: GameData
 }
 
-export interface PlacementsResponse {
-  error?: string
-  placements?: AvailablePlacement[]
-}
-
-export interface AvailablePlacement {
-  type: 'road' | 'city' | 'monastery' | 'garden'
-  side?: string
-}
-
 export type EmptyResponse = SocketAckBase
 
 export interface GameCreatedPayload {

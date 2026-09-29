@@ -1,5 +1,5 @@
 import type { SocketHandlerContext } from '../types'
-import { runComputerMoves } from '../../services/computerPlayer'
+import { continueComputerGame } from '../../services/computerPlayer'
 
 function isTemporaryDisconnect(reason: string): boolean {
   return reason === 'transport close' || reason === 'ping timeout'
@@ -29,6 +29,7 @@ export function registerConnectionHandlers({
       if (game.gameIsStarted) {
         service.releasePlayerToDevice(gameId, socket.id, deviceId)
         void service.saveGame(gameId)
+        continueComputerGame(io, service, gameId)
       } else {
         service.releasePlayerSlot(gameId, socket.id)
       }
@@ -39,6 +40,7 @@ export function registerConnectionHandlers({
 
     if (game.gameIsStarted) {
       service.clearPlayerSocket(gameId, socket.id)
+      continueComputerGame(io, service, gameId)
       io.to(gameId).emit('gameUpdated', service.formatGameData(game))
       return
     }
@@ -85,17 +87,7 @@ export function registerConnectionHandlers({
       }
       callback?.({ game: service.formatGameData(game) })
 
-      if (game.gameIsStarted) {
-        const allPlayersConnected = game.players.every(
-          (p) => p.socketId !== null || !p.deviceId
-        )
-        const isComputerMove =
-          !game.currentPlayer?.socketId && !game.currentPlayer?.deviceId
-
-        if (allPlayersConnected && isComputerMove) {
-          void runComputerMoves(io, service, gameId)
-        }
-      }
+      if (game.gameIsStarted) continueComputerGame(io, service, gameId)
     }
   )
 }

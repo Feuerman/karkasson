@@ -5,6 +5,7 @@ import {
 } from './config'
 import { createGameServer } from './app'
 import { gameDatabase } from './modules/Database'
+import { resumeComputerGames } from './services/computerPlayer'
 
 const { server, io, gameService } = createGameServer(gameDatabase, {
   adminUI: true,
@@ -36,6 +37,7 @@ server.listen(PORT, async () => {
   try {
     await gameService.loadSavedGames()
     console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
+    resumeComputerGames(io, gameService)
   } catch (error: unknown) {
     console.error('Failed to load saved games:', error)
     server.close(() => process.exit(1))

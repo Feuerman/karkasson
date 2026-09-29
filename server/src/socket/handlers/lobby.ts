@@ -1,5 +1,14 @@
-import { scheduleComputerMove } from '../../services/computerPlayer'
+import {
+  continueComputerGame,
+  isComputerPlayer,
+  scheduleComputerMove,
+} from '../../services/computerPlayer'
+import type { IGameBoard } from '../../modules/GameManager'
 import type { SocketCallback, SocketHandlerContext } from '../types'
+
+function isComputerOnlyGame(game: IGameBoard): boolean {
+  return game.players.length > 0 && game.players.every(isComputerPlayer)
+}
 
 export function registerLobbyHandlers({
   io,
@@ -55,7 +64,10 @@ export function registerLobbyHandlers({
     'joinGame',
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const existingGame = service.getGame(gameId)
-      if (existingGame?.gameIsEnded) {
+      if (
+        existingGame?.gameIsEnded ||
+        (existingGame?.gameIsStarted && isComputerOnlyGame(existingGame))
+      ) {
         socket.join(gameId)
         const game = service.formatGameData(existingGame)
         socket.emit('gameUpdated', game)
@@ -238,6 +250,7 @@ export function registerLobbyHandlers({
         }
       } else if (!game.gameIsEnded) {
         service.clearPlayerSocket(gameId, socket.id)
+        continueComputerGame(io, service, gameId)
       }
 
       socket.leave(gameId)

@@ -38,11 +38,7 @@ import {
   type TilePlacesStats,
 } from './types'
 
-export type {
-  AvailableFollowerPlace,
-  AvailablePlacementType,
-  RotationDirection,
-} from './types'
+export type { AvailableFollowerPlace, RotationDirection } from './types'
 
 export interface PlaceTileActionData {
   tile: Tile
@@ -112,7 +108,6 @@ export interface IGameBoard {
   placingPoint?: { rowIndex: number; tileIndex: number }
   tilePlacesStats: TilePlacesStats
   startGame(): void
-  autoPlay(): Promise<void>
   placeFollower(
     availablePlace: AvailableFollowerPlace,
     followerType?: FollowerType
@@ -848,65 +843,22 @@ export class GameManager implements IGameBoard {
     const tile = this.tilePlacesStats[rowIndex]?.[tileIndex]
     if (!tile) return
 
-    const roadsPoints: Point[] = Object.entries(tile.sides)
-      .filter(([, pointType]) => pointType === 'road')
-      .map(([direction]) => {
-        return {
-          y: rowIndex,
-          x: tileIndex,
-          direction: direction as PointDirection,
-          pointType: 'road',
-        }
-      })
-
-    const roadGroups = this.getTileFeatureGroups(tile, 'road').map(
-      (directions) =>
-        roadsPoints.filter(
-          (point) =>
-            point.direction !== undefined &&
-            directions.includes(point.direction as SideName)
-        )
+    const roadsPoints = this.getFeaturePoints(tile, rowIndex, tileIndex, 'road')
+    this.checkRoads(
+      roadsPoints,
+      this.getConnectedFeatureGroups(tile, roadsPoints, 'road')
     )
-    roadsPoints.forEach((point) => {
-      if (
-        !roadGroups.some((group) =>
-          group.some((groupPoint) => groupPoint.direction === point.direction)
-        )
-      ) {
-        roadGroups.push([point])
-      }
-    })
-    this.checkRoads(roadsPoints, roadGroups)
 
-    const citiesPoints: Point[] = Object.entries(tile.sides)
-      .filter(([, pointType]) => pointType === 'city')
-      .map(([direction]) => {
-        return {
-          y: rowIndex,
-          x: tileIndex,
-          direction: direction as PointDirection,
-          pointType: 'city',
-        }
-      })
-
-    const cityGroups = this.getTileFeatureGroups(tile, 'city').map(
-      (directions) =>
-        citiesPoints.filter(
-          (point) =>
-            point.direction !== undefined &&
-            directions.includes(point.direction as SideName)
-        )
+    const citiesPoints = this.getFeaturePoints(
+      tile,
+      rowIndex,
+      tileIndex,
+      'city'
     )
-    citiesPoints.forEach((point) => {
-      if (
-        !cityGroups.some((group) =>
-          group.some((groupPoint) => groupPoint.direction === point.direction)
-        )
-      ) {
-        cityGroups.push([point])
-      }
-    })
-    this.checkCities(citiesPoints, cityGroups)
+    this.checkCities(
+      citiesPoints,
+      this.getConnectedFeatureGroups(tile, citiesPoints, 'city')
+    )
 
     this.checkMonasteries(tile)
 
@@ -969,6 +921,48 @@ export class GameManager implements IGameBoard {
 
   calcScoreForGardens(gardens: BaseObject[]) {
     this.calcScoreForCentralObjects(gardens, ObjectTypes.GARDEN)
+  }
+
+  private getFeaturePoints(
+    tile: GridTile,
+    rowIndex: number,
+    tileIndex: number,
+    feature: LinearFeatureKind
+  ): Point[] {
+    return Object.entries(tile.sides)
+      .filter(([, pointType]) => pointType === feature)
+      .map(([direction]) => ({
+        y: rowIndex,
+        x: tileIndex,
+        direction: direction as PointDirection,
+        pointType: feature,
+      }))
+  }
+
+  private getConnectedFeatureGroups(
+    tile: GridTile,
+    featurePoints: Point[],
+    feature: LinearFeatureKind
+  ): Point[][] {
+    const groups = this.getTileFeatureGroups(tile, feature).map((directions) =>
+      featurePoints.filter(
+        (point) =>
+          point.direction !== undefined &&
+          directions.includes(point.direction as SideName)
+      )
+    )
+
+    featurePoints.forEach((point) => {
+      if (
+        !groups.some((group) =>
+          group.some((groupPoint) => groupPoint.direction === point.direction)
+        )
+      ) {
+        groups.push([point])
+      }
+    })
+
+    return groups
   }
 
   private checkCompletedCentralObjects(kind: CentralObjectKind) {
@@ -1043,20 +1037,6 @@ export class GameManager implements IGameBoard {
 
   checkCompleteRoad(road: BaseObject) {
     this.checkCompleteLinearFeature('road', road)
-  }
-
-  recalculateScores() {
-    Object.keys(this.scores).forEach((playerId) => {
-      this.scores[playerId] = 0
-    })
-
-    this.completedObjects.roads.forEach((road) => {
-      road.score = this.calcScoreForRoad(road)
-    })
-
-    this.completedObjects.cities.forEach((city) => {
-      city.score = this.calcScoreForCity(city)
-    })
   }
 
   calcScoreForRoad(road: BaseObject, _isCompleted = true): ScoreForObject {
@@ -1254,13 +1234,6 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  getCompletedObjectsForPlayer(
-    objectType: keyof CompletedObjects,
-    _playerId: PlayerId
-  ) {
-    return this.completedObjects[objectType].filter((object) => object.score)
-  }
-
   isCorrectTilePosition(
     tile: Tile,
     rowIndex: number,
@@ -1329,16 +1302,6 @@ export class GameManager implements IGameBoard {
     turns: number
   ): SideName[][] | undefined {
     return rotateTileGroups(groups, turns)
-  }
-
-  async autoPlay(): Promise<void> {
-    while (this.tilesList.length > 0) {
-      await this.autoPlaceTile()
-
-      await new Promise((resolve) => setTimeout(resolve, 300))
-    }
-
-    console.log('Игра завершена!')
   }
 
   isEmptyGrid(): boolean {

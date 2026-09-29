@@ -41,11 +41,7 @@ function isGameObject(value: unknown): boolean {
   )
 }
 
-function migrateLegacyGameState(value: unknown): IGameBoard {
-  if (!isRecord(value)) throw new Error('Game save must be an object')
-  if (typeof value.id !== 'string' || value.id.length === 0) {
-    throw new Error('Game save has no valid id')
-  }
+function validatePlayers(value: Record<string, unknown>): void {
   if (!Array.isArray(value.players)) {
     throw new Error('Game save has no players array')
   }
@@ -63,33 +59,26 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   ) {
     throw new Error('Game save contains an invalid player')
   }
+}
 
-  if (
+function isLegacyLobby(value: Record<string, unknown>): boolean {
+  return (
     value.gameIsStarted !== true &&
     !('tilePlacesStats' in value) &&
     !('gameIsEnded' in value)
-  ) {
-    if (
-      !value.players.every(
-        (player) =>
-          isRecord(player) &&
-          (player.name === '' ||
-            player.name === null ||
-            typeof player.name === 'string') &&
-          (player.socketId === null || typeof player.socketId === 'string') &&
-          (player.deviceId === null || typeof player.deviceId === 'string')
-      )
-    ) {
-      throw new Error('Legacy lobby save contains an invalid player')
-    }
-    const lobby = new GameManager({
-      players: value.players as IGameBoard['players'],
-      startImmediately: false,
-    })
-    lobby.id = value.id
-    return lobby
-  }
+  )
+}
 
+function restoreLegacyLobby(value: Record<string, unknown>): IGameBoard {
+  const lobby = new GameManager({
+    players: value.players as IGameBoard['players'],
+    startImmediately: false,
+  })
+  lobby.id = value.id as string
+  return lobby
+}
+
+function validateTileLists(value: Record<string, unknown>): void {
   const requiredArrays = [
     'tilesList',
     'tileHistory',
@@ -112,7 +101,9 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   ) {
     throw new Error('Game save contains an invalid tile')
   }
+}
 
+function validateObjectCollections(value: Record<string, unknown>): void {
   const requiredRecords = [
     'scores',
     'playersFollowers',
@@ -163,7 +154,9 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   ) {
     throw new Error('Game save contains invalid garden collections')
   }
+}
 
+function validateRequiredGameState(value: Record<string, unknown>): void {
   if (
     typeof value.gameIsStarted !== 'boolean' ||
     typeof value.gameIsEnded !== 'boolean' ||
@@ -193,6 +186,20 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   ) {
     throw new Error('Game save contains an invalid follower pool')
   }
+}
+
+function migrateLegacyGameState(value: unknown): IGameBoard {
+  if (!isRecord(value)) throw new Error('Game save must be an object')
+  if (typeof value.id !== 'string' || value.id.length === 0) {
+    throw new Error('Game save has no valid id')
+  }
+
+  validatePlayers(value)
+  if (isLegacyLobby(value)) return restoreLegacyLobby(value)
+
+  validateTileLists(value)
+  validateObjectCollections(value)
+  validateRequiredGameState(value)
   return value as unknown as IGameBoard
 }
 

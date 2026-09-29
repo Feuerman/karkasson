@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { continueComputerGame } from '../../server/src/services/computerPlayer'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -10,6 +11,26 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
+
+function countPlacedTiles(game: TestGameData): number {
+  return Object.values(game.tilePlacesStats).reduce(
+    (count, row) => count + Object.keys(row).length,
+    0
+  )
+}
+
+async function waitForCondition(
+  condition: () => boolean,
+  description: string,
+  timeoutMs = 5_000
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error(`Таймаут ожидания: ${description}`)
+}
 
 describe('Отключение и переподключение игроков', () => {
   let server: RunningServer | undefined
@@ -164,5 +185,95 @@ describe('Отключение и переподключение игроков'
     expect(after.gameIsStarted).toBe(true)
     expect(after.tilePlacesStats).toEqual(beforeState.tilePlacesStats)
     expect(after.currentPlayer?.id).toBe(beforeState.currentPlayer?.id)
+  })
+
+  it('приостанавливает ИИ до переподключения всех людей и продолжает после их возвращения', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.creator.emitAck('startGame', { gameId: lobby.gameId })
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    if (!game) throw new Error('Игра не найдена')
+    const computer = game.players[2]
+    if (!computer) throw new Error('Компьютерный игрок не найден')
+    game.currentPlayerIndex = 2
+    game.currentPlayer = computer
+    await server.handle.gameService.saveGame(lobby.gameId)
+
+    lobby.joiner.closeTransport()
+    const disconnected = await latestGame(
+      lobby.creator,
+      (state) =>
+        state.players.find((player) => player.name === 'Bob')?.socketId === null
+    )
+    expect(
+      disconnected.players.find((player) => player.name === 'Bob')?.deviceId
+    ).toBe(lobby.joiner.deviceId)
+
+    continueComputerGame(
+      server.handle.io,
+      server.handle.gameService,
+      lobby.gameId
+    )
+    const tilesBeforePause = countPlacedTiles(
+      server.handle.gameService.formatGameData(game) as TestGameData
+    )
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    expect(
+      countPlacedTiles(
+        server.handle.gameService.formatGameData(game) as TestGameData
+      )
+    ).toBe(tilesBeforePause)
+
+    lobby.joiner.reconnect()
+    await lobby.joiner.connect()
+    lobby.joiner.registerDevice()
+    await lobby.joiner.emitAck('rejoinGame', {
+      gameId: lobby.gameId,
+      deviceId: lobby.joiner.deviceId,
+    })
+
+    await waitForCondition(
+      () =>
+        countPlacedTiles(
+          server?.handle.gameService.formatGameData(game) as TestGameData
+        ) > tilesBeforePause,
+      'возобновление ходов компьютера после возвращения игроков'
+    )
+  })
+
+  it('удаляет смешанную партию, если человек не переподключился за отведённое время', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.creator.emitAck('startGame', { gameId: lobby.gameId })
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    if (!game) throw new Error('Игра не найдена')
+    const computer = game.players[2]
+    if (!computer) throw new Error('Компьютерный игрок не найден')
+    game.currentPlayerIndex = 2
+    game.currentPlayer = computer
+    await server.handle.gameService.saveGame(lobby.gameId)
+
+    lobby.joiner.closeTransport()
+    await latestGame(
+      lobby.creator,
+      (state) =>
+        state.players.find((player) => player.name === 'Bob')?.socketId === null
+    )
+
+    continueComputerGame(
+      server.handle.io,
+      server.handle.gameService,
+      lobby.gameId,
+      100
+    )
+    await waitForCondition(
+      () => server?.handle.gameService.getGame(lobby.gameId) === undefined,
+      'удаление партии после окончания срока переподключения'
+    )
+    expect(await server.db.getGame(lobby.gameId)).toBeNull()
   })
 })

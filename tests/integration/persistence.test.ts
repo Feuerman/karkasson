@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameManager } from '../../server/src/modules/GameManager'
+import { resumeComputerGames } from '../../server/src/services/computerPlayer'
+import type { Player } from '../../server/src/modules/types'
 import { TestClient } from './helpers/client'
 import {
   countPlacedTiles,
@@ -18,6 +20,50 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
+
+async function restartWithComputerGame(): Promise<RunningServer> {
+  const initialServer = await startTestServer()
+  const game = new GameManager({
+    players: [
+      {
+        id: 1,
+        name: 'AI',
+        color: 'coral',
+        score: 0,
+        socketId: null,
+        deviceId: null,
+      },
+    ],
+  })
+  game.id = 'computer-game'
+  const [currentTile] = game.tilesList
+  if (!currentTile) throw new Error('Компьютерная партия не получила тайл')
+  game.currentTile = { ...currentTile, x: 0, y: 0 }
+  game.tilesList = []
+
+  initialServer.handle.gameService.restoreGame(game.id, game)
+  await initialServer.handle.gameService.saveGame(game.id)
+  const snapshot = JSON.parse(
+    JSON.stringify(initialServer.store)
+  ) as InMemoryStore
+  await stopTestServer(initialServer)
+
+  const restartedServer = await startTestServer(snapshot)
+  await restartedServer.handle.gameService.loadSavedGames()
+  return restartedServer
+}
+
+async function waitForCondition(
+  condition: () => boolean,
+  description: string
+): Promise<void> {
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  throw new Error(`Таймаут ожидания: ${description}`)
+}
 
 describe('Сохранение данных лобби', () => {
   let server: RunningServer | undefined
@@ -137,6 +183,132 @@ describe('Сохранение данных лобби', () => {
     expect(second.game.gameIsStarted).toBe(true)
     expect(second.game.gameIsEnded).toBe(false)
     expect(second.game.moveCounter).toBeGreaterThanOrEqual(beforeMoveCounter)
+  })
+
+  it('после перезапуска смешанной партии ИИ ждёт подключения всех людей', async () => {
+    const store = createInMemoryStore()
+    server = await startTestServer(store)
+    const players: Player[] = [
+      {
+        id: 1,
+        name: 'Alice',
+        color: 'coral',
+        score: 0,
+        socketId: 'old-socket-alice',
+        deviceId: 'device-alice',
+      },
+      {
+        id: 2,
+        name: 'Bob',
+        color: 'skyblue',
+        score: 0,
+        socketId: 'old-socket-bob',
+        deviceId: 'device-bob',
+      },
+      {
+        id: 3,
+        name: 'Computer',
+        color: 'lime',
+        score: 0,
+        socketId: null,
+        deviceId: null,
+      },
+    ]
+    const game = new GameManager({ players })
+    game.id = 'mixed-game'
+    game.currentPlayerIndex = 2
+    game.currentPlayer = game.players[2] ?? null
+    server.handle.gameService.restoreGame(game.id, game)
+    await server.handle.gameService.saveGame(game.id)
+
+    const beforeRestart = countPlacedTiles(
+      server.handle.gameService.formatGameData(game) as GameStateSnapshot
+    )
+    const snapshot = JSON.parse(JSON.stringify(store)) as InMemoryStore
+    await stopTestServer(server)
+    server = await startTestServer(snapshot)
+    await server.handle.gameService.loadSavedGames()
+    resumeComputerGames(server.handle.io, server.handle.gameService, 5_000)
+
+    const restored = server.handle.gameService.getGame('mixed-game')
+    if (!restored) throw new Error('Смешанная партия не восстановлена')
+    expect(restored.players[0]?.socketId).toBeNull()
+    expect(restored.players[1]?.socketId).toBeNull()
+
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(
+      countPlacedTiles(
+        server.handle.gameService.formatGameData(restored) as GameStateSnapshot
+      )
+    ).toBe(beforeRestart)
+
+    const alice = new TestClient(server.url, 'device-alice')
+    const bob = new TestClient(server.url, 'device-bob')
+    clients.push(alice, bob)
+    await Promise.all([alice.connect(), bob.connect()])
+    alice.registerDevice()
+    bob.registerDevice()
+    await Promise.all([
+      alice.emitAck('rejoinGame', {
+        gameId: 'mixed-game',
+        deviceId: alice.deviceId,
+      }),
+      bob.emitAck('rejoinGame', {
+        gameId: 'mixed-game',
+        deviceId: bob.deviceId,
+      }),
+    ])
+
+    const deadline = Date.now() + 5_000
+    while (Date.now() < deadline) {
+      const currentGame = server.handle.gameService.getGame('mixed-game')
+      if (
+        currentGame &&
+        countPlacedTiles(
+          server.handle.gameService.formatGameData(
+            currentGame
+          ) as GameStateSnapshot
+        ) > beforeRestart
+      ) {
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    throw new Error('Ходы ИИ не возобновились после возвращения людей')
+  })
+
+  it('возобновляет начатую партию только компьютерных игроков после перезапуска', async () => {
+    server = await restartWithComputerGame()
+    const restored = server.handle.gameService.getGame('computer-game')
+    expect(restored?.gameIsStarted).toBe(true)
+    expect(restored?.gameIsEnded).toBe(false)
+
+    resumeComputerGames(server.handle.io, server.handle.gameService)
+
+    await waitForCondition(
+      () => server?.store.games['computer-game']?.gameIsEnded === true,
+      'завершение восстановленной компьютерной партии'
+    )
+    expect(
+      server.store.games['computer-game']?.tilePlacesStats[15]?.[15]
+    ).toBeTruthy()
+  })
+
+  it('удаляет восстановленную компьютерную партию, если ход ИИ завершается ошибкой', async () => {
+    server = await restartWithComputerGame()
+    const restored = server.handle.gameService.getGame('computer-game')
+    if (!restored) throw new Error('Сохранённая партия не восстановлена')
+    restored.autoPlaceTile = async () => {
+      throw new Error('simulated computer move failure')
+    }
+
+    resumeComputerGames(server.handle.io, server.handle.gameService)
+
+    await waitForCondition(
+      () => server?.handle.gameService.getGame('computer-game') === undefined,
+      'удаление партии после ошибки хода ИИ'
+    )
+    expect(server.store.games['computer-game']).toBeUndefined()
   })
 
   it('повреждённое сохранение не мешает восстановлению остальных партий', async () => {

@@ -2,7 +2,6 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type {
   AvailableFollowerPlace,
   FollowerType,
-  SideName,
   Tile,
 } from '../../modules/types'
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
@@ -302,107 +301,6 @@ export function registerGameHandlers({
           error: error instanceof Error ? error.message : String(error),
         })
       }
-    }
-  )
-
-  socket.on(
-    'checkAvailablePlacements',
-    (
-      {
-        gameId,
-        position,
-      }: { gameId: string; position: { row: number; col: number } },
-      callback: SocketCallback
-    ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: 'Game not found' })
-        return
-      }
-
-      const { row, col } = position
-      const tile = game.tilePlacesStats[row]?.[col]
-      if (!tile) {
-        callback?.({ error: 'Tile not found' })
-        return
-      }
-
-      const availablePlacements: {
-        type: 'road' | 'city' | 'monastery' | 'garden'
-        side?: string
-      }[] = []
-
-      Object.entries(tile.sides).forEach(([side, type]) => {
-        if (type === 'road') {
-          const sideName = side as SideName
-          const group = game
-            .getTileFeatureGroups(tile, 'road')
-            .find((sides) => sides.includes(sideName)) ?? [sideName]
-          const road = game.temporaryObjects.roads.find((r) =>
-            r.points.some(
-              (p) => p.x === col && p.y === row && p.direction === side
-            )
-          )
-          const occupied = group.some((groupSide) => {
-            const groupRoad = game.temporaryObjects.roads.find((candidate) =>
-              candidate.points.some(
-                (point) =>
-                  point.x === col &&
-                  point.y === row &&
-                  point.direction === groupSide
-              )
-            )
-            return Boolean(groupRoad?.followers.length)
-          })
-          if (road && !occupied) {
-            availablePlacements.push({ type: 'road', side })
-          }
-        } else if (type === 'city') {
-          const sideName = side as SideName
-          const group = game
-            .getTileFeatureGroups(tile, 'city')
-            .find((sides) => sides.includes(sideName)) ?? [sideName]
-          const city = game.temporaryObjects.cities.find((c) =>
-            c.points.some(
-              (p) => p.x === col && p.y === row && p.direction === side
-            )
-          )
-          const occupied = group.some((groupSide) => {
-            const groupCity = game.temporaryObjects.cities.find((candidate) =>
-              candidate.points.some(
-                (point) =>
-                  point.x === col &&
-                  point.y === row &&
-                  point.direction === groupSide
-              )
-            )
-            return Boolean(groupCity?.followers.length)
-          })
-          if (city && !occupied) {
-            availablePlacements.push({ type: 'city', side })
-          }
-        }
-      })
-
-      if (tile.isMonastery) {
-        const monastery = game.temporaryObjects.monasteries.find(
-          (m) => m.points[0]?.x === col && m.points[0]?.y === row
-        )
-        if (monastery && monastery.followers.length === 0) {
-          availablePlacements.push({ type: 'monastery', side: 'center' })
-        }
-      }
-
-      if (tile.hasGarden) {
-        const garden = game.temporaryObjects.gardens.find(
-          (g) => g.points[0]?.x === col && g.points[0]?.y === row
-        )
-        if (garden && garden.followers.length === 0) {
-          availablePlacements.push({ type: 'garden', side: 'center' })
-        }
-      }
-
-      callback?.({ placements: availablePlacements })
     }
   )
 
