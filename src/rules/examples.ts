@@ -1,6 +1,10 @@
 import { gardenTileCounts, tiles } from '@/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import {
+  gardenTileCounts as riverGardenTileCounts,
+  riverTiles,
+} from '@server/data/riverTiles'
+import {
   OPPOSITE_SIDE,
   PointDirection,
   SideName,
@@ -36,7 +40,8 @@ const SIDE_INDEX: Record<CompassDirection, number> = {
 const tileDataById = (id: string) => {
   return (
     tiles.find((tile) => tile.id === id) ??
-    innsAndCathedralsTiles.find((tile) => tile.id === id)
+    innsAndCathedralsTiles.find((tile) => tile.id === id) ??
+    riverTiles.find((tile) => tile.id === id)
   )
 }
 
@@ -68,7 +73,7 @@ export const garden = (
   id: TileId,
   rotation: RulesRotation = 0
 ): RulesTileRef => {
-  if (!gardenTileCounts[id]) {
+  if (!gardenTileCounts[id] && !riverGardenTileCounts[id]) {
     throw new Error(`[rules] Для тайла ${id} не предусмотрен сад`)
   }
   return { ...rot(id, rotation), hasGarden: true }

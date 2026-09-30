@@ -104,6 +104,35 @@ function currentScore(game: GameManager, playerId: number): number {
 }
 
 describe('Аббат (оба игрока-человека, фиксированная доска)', () => {
+  it('предлагает аббата только на монастыре, когда обычные фишки закончились', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.playersFollowers[1].ordinaryFollowers = 0
+
+    stashDeck(game)
+    expect(placeMonasteryWithRoad(game)).toBe(true)
+
+    expect(game.isPlacingFollower).toBe(true)
+    expect(
+      game.availableFollowersPlaces.map(
+        (place) => place.temporaryObject.isMonastery
+      )
+    ).toEqual([true])
+
+    const monasteryPlace = game.availableFollowersPlaces[0]
+    expect(monasteryPlace).toBeDefined()
+    if (!monasteryPlace) throw new Error('Ожидался доступный монастырь')
+
+    stashDeck(game)
+    game.placeFollower(monasteryPlace, FollowerType.Abbot)
+
+    expect(game.playersFollowers[1]).toEqual({
+      ordinaryFollowers: 0,
+      monks: 0,
+    })
+    expect(game.placedFollowers).toHaveLength(1)
+    expect(game.placedFollowers[0]?.isAbbot).toBe(true)
+  })
+
   it('аббат ставится только на монастырь и списывает пул monks, а не обычных фишек', () => {
     const game = new GameManager({ players: makePlayers() })
 

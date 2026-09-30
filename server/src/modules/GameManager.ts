@@ -528,14 +528,13 @@ export class GameManager implements IGameBoard {
       if (object.isGarden && !followerPool?.monks) {
         return false
       }
+      if (place.point.direction === PointDirections.Center || object.isGarden) {
+        return Boolean(followerPool?.monks)
+      }
       if (
-        !object.isGarden &&
         followerPool &&
         !followerPool.ordinaryFollowers &&
-        !(
-          this.rules.expansions.innsAndCathedrals && followerPool.bigFollowers
-        ) &&
-        !followerPool.monks
+        !(this.rules.expansions.innsAndCathedrals && followerPool.bigFollowers)
       ) {
         return false
       }

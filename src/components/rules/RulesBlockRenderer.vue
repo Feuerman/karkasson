@@ -92,7 +92,7 @@
       >
         {{ block.title }}
       </div>
-      <div class="flex flex-wrap items-end gap-3">
+      <div class="flex flex-wrap items-start gap-3">
         <div
           v-for="(tile, index) in block.tiles"
           :key="index"
