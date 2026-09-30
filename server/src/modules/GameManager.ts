@@ -136,6 +136,7 @@ export interface IGameBoard {
   calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
+  cloneForSimulation(): IGameBoard
   copyStateFrom(source: IGameBoard): void
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   simulatePlaceFollower(
@@ -1683,6 +1684,24 @@ export class GameManager implements IGameBoard {
 
   clone(): IGameBoard {
     return GameManager.restore(this)
+  }
+
+  cloneForSimulation(): IGameBoard {
+    const simulationState = {
+      ...this,
+      tilesList: [],
+      tileHistory: [],
+      actionsHistory: [],
+      completedObjects: {
+        cities: [],
+        roads: [],
+        monasteries: [],
+        gardens: [],
+      },
+    }
+    const game = new GameManager({ startImmediately: false })
+    Object.assign(game, deepClone(simulationState))
+    return game
   }
 
   static restore(savedGame: IGameBoard): GameManager {

@@ -277,7 +277,30 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
 }
 
 export function serializeGameState(game: IGameBoard): string {
-  const state = JSON.parse(JSON.stringify(game)) as unknown
+  // Migration normalizes these containers in place. Copy only those mutable
+  // containers so serialization can validate without cloning the whole game
+  // through an intermediate JSON string.
+  const state = {
+    ...game,
+    rules: {
+      ...game.rules,
+      expansions: { ...game.rules.expansions },
+    },
+    temporaryObjects: {
+      ...game.temporaryObjects,
+      gardens: game.temporaryObjects.gardens ?? [],
+    },
+    completedObjects: {
+      ...game.completedObjects,
+      gardens: game.completedObjects.gardens ?? [],
+    },
+    playersFollowers: Object.fromEntries(
+      Object.entries(game.playersFollowers).map(([playerId, pool]) => [
+        playerId,
+        { ...pool },
+      ])
+    ),
+  }
   migrateLegacyGameState(state)
   const save: VersionedGameSave = {
     schemaVersion: GAME_SAVE_SCHEMA_VERSION,

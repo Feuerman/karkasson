@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { IGameBoard } from '../../server/src/modules/GameManager'
-import { calculateHeuristicScore } from '../../server/src/modules/GameSimulatorModule'
+import { GameManager } from '../../server/src/modules/GameManager'
+import {
+  calculateHeuristicScore,
+  GameSimulatorModule,
+} from '../../server/src/modules/GameSimulatorModule'
 import { ObjectTypes } from '../../server/src/modules/types'
 import type {
   BaseObject,
@@ -94,5 +98,51 @@ describe('calculateHeuristicScore', () => {
     const state = gameState({ currentPlayer: null })
 
     expect(calculateHeuristicScore(state)).toBe(10)
+  })
+})
+
+describe('GameSimulatorModule', () => {
+  it('игнорирует историю партии при поиске хода и не клонирует её', () => {
+    const game = new GameManager({
+      players: [currentPlayer],
+    })
+    const tile = game.currentTile
+    const historyTile = game.tileHistory[0]
+    const historyAction = game.actionsHistory[0]
+    if (!tile || !historyTile || !historyAction) {
+      throw new Error('Expected a started game with initial history')
+    }
+
+    const initialResult = new GameSimulatorModule(game).findBestMove(tile)
+    for (let index = 0; index < 1000; index++) {
+      game.tileHistory.push(historyTile)
+      game.actionsHistory.push(historyAction)
+    }
+
+    const simulationCopy = game.cloneForSimulation()
+    const resultWithLongHistory = new GameSimulatorModule(game).findBestMove(
+      tile
+    )
+    const initialMove = initialResult.moves[0]
+    const moveWithLongHistory = resultWithLongHistory.moves[0]
+
+    expect(simulationCopy.tileHistory).toHaveLength(0)
+    expect(simulationCopy.actionsHistory).toHaveLength(0)
+    expect(resultWithLongHistory.score).toBe(initialResult.score)
+    expect(moveWithLongHistory).toMatchObject({
+      tile: { id: initialMove?.tile.id },
+      rowIndex: initialMove?.rowIndex,
+      tileIndex: initialMove?.tileIndex,
+      rotation: initialMove?.rotation,
+      followerType: initialMove?.followerType,
+      followerPlace: initialMove?.followerPlace
+        ? {
+            point: initialMove.followerPlace.point,
+            temporaryObject: {
+              points: initialMove.followerPlace.temporaryObject.points,
+            },
+          }
+        : undefined,
+    })
   })
 })
