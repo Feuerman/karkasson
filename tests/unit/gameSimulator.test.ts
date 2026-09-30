@@ -35,7 +35,7 @@ function gameState(
     currentPlayer,
     rules: {
       finalScoringEnabled: false,
-      expansions: { innsAndCathedrals: false },
+      expansions: { innsAndCathedrals: false, river: false },
     },
     temporaryObjects: {
       cities: [],

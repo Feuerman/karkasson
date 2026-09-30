@@ -1,13 +1,14 @@
 import { GameManager, type IGameBoard } from './GameManager'
 import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
+import { riverTiles } from '../data/riverTiles'
 import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
 
-export const GAME_SAVE_SCHEMA_VERSION = 3
+export const GAME_SAVE_SCHEMA_VERSION = 4
 
 const DEFAULT_RULES: GameRules = {
   finalScoringEnabled: false,
-  expansions: { innsAndCathedrals: false },
+  expansions: { innsAndCathedrals: false, river: false },
 }
 
 interface VersionedGameSave {
@@ -235,7 +236,8 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
     (rules.finalScoringEnabled !== undefined &&
       typeof rules.finalScoringEnabled !== 'boolean') ||
     (expansions.innsAndCathedrals !== undefined &&
-      typeof expansions.innsAndCathedrals !== 'boolean')
+      typeof expansions.innsAndCathedrals !== 'boolean') ||
+    (expansions.river !== undefined && typeof expansions.river !== 'boolean')
   ) {
     throw new Error('Game save contains invalid rules')
   }
@@ -243,13 +245,22 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
     finalScoringEnabled: value.finalScoringEnabled === true,
     expansions: {
       innsAndCathedrals: expansions.innsAndCathedrals === true,
+      river: expansions.river === true,
     },
   }
   value.rules = normalizedRules
-  if (normalizedRules.expansions.innsAndCathedrals) {
+  if (
+    normalizedRules.expansions.innsAndCathedrals ||
+    normalizedRules.expansions.river
+  ) {
     const allowedTileIds = new Set<string>([
       ...tiles.map((tile) => tile.id),
-      ...innsAndCathedralsTiles.map((tile) => tile.id),
+      ...(normalizedRules.expansions.innsAndCathedrals
+        ? innsAndCathedralsTiles.map((tile) => tile.id)
+        : []),
+      ...(normalizedRules.expansions.river
+        ? riverTiles.map((tile) => tile.id)
+        : []),
     ])
     const tileCollections = [value.tilesList, value.tileHistory]
     for (const collection of tileCollections) {
@@ -317,6 +328,7 @@ export function deserializeGameState(raw: unknown): IGameBoard {
     if (
       parsed.schemaVersion !== 1 &&
       parsed.schemaVersion !== 2 &&
+      parsed.schemaVersion !== 3 &&
       parsed.schemaVersion !== GAME_SAVE_SCHEMA_VERSION
     ) {
       throw new Error(

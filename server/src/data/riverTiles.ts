@@ -1,0 +1,177 @@
+import type { TileDefinition } from './tiles'
+import { ExpansionName, SideName, TileId, TileSideType } from '../modules/types'
+
+const image = (id: string) =>
+  `/src/assets/tiles/river/River_I_C3_Tile_${id}.png`
+
+/** Tile descriptions for the optional River expansion. */
+export const riverTiles: TileDefinition[] = [
+  {
+    id: TileId.RIVER_A,
+    count: 1,
+    description: 'River with a bridge',
+    sides: {
+      [SideName.North]: TileSideType.Road,
+      [SideName.East]: TileSideType.Road,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    riverGroups: [[SideName.South]],
+    roadGroups: [[SideName.North, SideName.East]],
+    imgUrl: image('A'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_B,
+    count: 1,
+    description: 'River bend with a city',
+    sides: {
+      [SideName.North]: TileSideType.City,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Road,
+    },
+    cityGroups: [[SideName.North]],
+    riverGroups: [[SideName.East, SideName.West]],
+    imgUrl: image('B'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_C,
+    count: 1,
+    description: 'Straight river between two cities',
+    sides: {
+      [SideName.North]: TileSideType.City,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.City,
+      [SideName.West]: TileSideType.Field,
+    },
+    cityGroups: [[SideName.North], [SideName.South]],
+    riverGroups: [[SideName.East, SideName.West]],
+    imgUrl: image('C'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_D,
+    count: 2,
+    description: 'Straight river',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    riverGroups: [[SideName.North, SideName.South]],
+    imgUrl: image('D'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_F,
+    count: 1,
+    description: 'Curved river',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    riverGroups: [[SideName.North, SideName.South]],
+    imgUrl: image('F'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_G,
+    count: 1,
+    description: 'River bend by a house',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    riverGroups: [[SideName.North, SideName.West]],
+    imgUrl: image('G'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_H,
+    count: 1,
+    description: 'River with a monastery and bridge',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Road,
+      [SideName.West]: TileSideType.Field,
+    },
+    roadGroups: [[SideName.South]],
+    isMonastery: true,
+    riverGroups: [[SideName.West, SideName.East]],
+    imgUrl: image('H'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_I,
+    count: 1,
+    description: 'River bend with a road',
+    sides: {
+      [SideName.North]: TileSideType.Road,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    roadGroups: [[SideName.North, SideName.West]],
+    riverGroups: [[SideName.East, SideName.South]],
+    imgUrl: image('I'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_J,
+    count: 1,
+    description: 'River bend by a farm',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    riverGroups: [[SideName.East, SideName.South]],
+    imgUrl: image('J'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_K,
+    count: 1,
+    description: 'River with a bridge and an inn by the road',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Road,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Road,
+    },
+    roadGroups: [[SideName.East, SideName.West]],
+    riverGroups: [[SideName.North, SideName.South]],
+    hasInn: true,
+    imgUrl: image('K'),
+    expansion: ExpansionName.River,
+  },
+  {
+    id: TileId.RIVER_L,
+    count: 1,
+    description: 'River ending in a lake with a monastery',
+    sides: {
+      [SideName.North]: TileSideType.Field,
+      [SideName.East]: TileSideType.Field,
+      [SideName.South]: TileSideType.Field,
+      [SideName.West]: TileSideType.Field,
+    },
+    isMonastery: true,
+    riverGroups: [[SideName.North]],
+    imgUrl: image('L'),
+    expansion: ExpansionName.River,
+  },
+]
+
+/** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
+export const gardenTileCounts: Record<string, number> = {
+  [TileId.RIVER_J]: 1,
+}

@@ -104,14 +104,16 @@ describe('Клиентское приложение (GameService)', () => {
     const created = await alice.createGame({
       finalScoringEnabled: true,
       innsAndCathedralsEnabled: true,
+      riverEnabled: true,
     })
     expect(alice.gameId).toBeTruthy()
     expect(created.id).toBe(alice.gameId)
     expect(created.gridSize).toEqual([30, 30])
     expect(created.finalScoringEnabled).toBe(true)
     expect(created.rules.expansions.innsAndCathedrals).toBe(true)
+    expect(created.rules.expansions.river).toBe(true)
     expect(created.playersFollowers[1]?.bigFollowers).toBe(1)
-    expect(created.tilesList).toHaveLength(90)
+    expect(created.tilesList).toHaveLength(102)
 
     await alice.addPlayer({ name: 'Alice', index: 0 })
 

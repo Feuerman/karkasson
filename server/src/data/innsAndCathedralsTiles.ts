@@ -293,6 +293,6 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
 
 /** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
 export const gardenTileCounts: Record<string, number> = {
-  'IAC-B': 1,
-  'IAC-H': 1,
+  [TileId.IAC_B]: 1,
+  [TileId.IAC_H]: 1,
 }
