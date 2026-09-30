@@ -118,16 +118,13 @@ export function calcCityScore(
     }
   }
 
-  const pointsPerTile = isCompleted ? 2 : 1
-  const basePoints =
-    uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
-  const points =
+  const hasCathedral =
     city.expansion === ExpansionName.InnsAndCathedrals ||
     (innsAndCathedralsEnabled && city.hasCathedral)
-      ? isCompleted
-        ? basePoints * 3
-        : 0
-      : basePoints
+  const pointsPerTile = isCompleted ? (hasCathedral ? 3 : 2) : 1
+  const basePoints =
+    uniqueTiles.size * pointsPerTile + shieldCount * pointsPerTile
+  const points = hasCathedral && !isCompleted ? 0 : basePoints
   const result = distributeScore(points, city.followers, scores, (follower) =>
     useBigFollowers && follower.isBigFollower ? 2 : 1
   )

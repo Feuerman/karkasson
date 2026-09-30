@@ -239,7 +239,7 @@ describe('calcCityScore', () => {
     expect(calcCityScore(board, otherCity, {}).total).toBe(2)
   })
 
-  it('утраивает завершённый город с собором с учётом гербов', () => {
+  it('начисляет по 3 очка за тайл и герб завершённого города с собором', () => {
     const city: BaseObject = {
       id: 'cathedral-city',
       points: [
@@ -255,7 +255,34 @@ describe('calcCityScore', () => {
     ])
 
     expect(calcCityScore(board, city, {}, true, false).total).toBe(6)
-    expect(calcCityScore(board, city, {}, true, true).total).toBe(18)
+    expect(calcCityScore(board, city, {}, true, true).total).toBe(9)
+  })
+
+  it('делит очки большого города с собором между тремя равными лидерами', () => {
+    const tileCount = 18
+    const shieldCount = 4
+    const tiles: Array<[number, number, Partial<GridTile>?]> = []
+    for (let x = 0; x < tileCount; x++) {
+      tiles.push([0, x, x < shieldCount ? { withShield: true } : undefined])
+    }
+    const board = boardOf(tiles)
+    const city: BaseObject = {
+      id: 'large-cathedral-city',
+      points: Array.from({ length: tileCount }, (_, x) => ({ x, y: 0 })),
+      followers: [
+        follower(1, 'large-cathedral-city'),
+        follower(2, 'large-cathedral-city'),
+        follower(3, 'large-cathedral-city'),
+      ],
+      hasCathedral: true,
+    }
+    const scores = scoresOf()
+
+    const result = calcCityScore(board, city, scores, true, true)
+
+    expect(result.players).toEqual({ 1: 66, 2: 66, 3: 66 })
+    expect(result.total).toBe(198)
+    expect(scores).toEqual({ 1: 66, 2: 66, 3: 66 })
   })
 
   it('незавершённый город с собором не приносит финальных очков', () => {
