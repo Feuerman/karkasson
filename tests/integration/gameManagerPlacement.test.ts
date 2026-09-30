@@ -802,7 +802,7 @@ describe('Проверка размещения и возврата поддан
     expect(game.temporaryObjects.cities[0]?.points).toHaveLength(4)
   })
 
-  it('разрешает выставлять фишку в обе стороны прямой дороги D', () => {
+  it('объединяет обе стороны прямой дороги D в один объект', () => {
     const game = new GameManager({ players: makePlayers() })
     game.temporaryObjects.cities = []
     game.temporaryObjects.roads = []
@@ -829,7 +829,7 @@ describe('Проверка размещения и возврата поддан
       road.points.some((point) => point.direction === SideName.West)
     )
     expect(eastRoad).toBeDefined()
-    expect(westRoad).not.toBe(eastRoad)
+    expect(westRoad).toBe(eastRoad)
     if (!eastRoad || !westRoad) return
 
     expect(
@@ -853,7 +853,7 @@ describe('Проверка размещения и возврата поддан
           temporaryObject: westRoad,
         }
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('не позволяет изменить заявку, подменив занятый объект города', () => {
