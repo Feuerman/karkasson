@@ -88,7 +88,7 @@ export class GameSimulatorModule {
   private gameState: IGameBoard
 
   constructor(gameBoard: IGameBoard) {
-    this.gameState = gameBoard.clone()
+    this.gameState = gameBoard.cloneForSimulation()
   }
 
   simulateMove(
@@ -176,7 +176,7 @@ export class GameSimulatorModule {
         // повторная попытка simulateMove размещает его второй раз в ту же
         // клетку, поэтому фишку нужно симулировать непосредственно в этом
         // состоянии.
-        const gameState = this.gameState.clone()
+        const gameState = this.gameState.cloneForSimulation()
         if (gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)) {
           for (const place of gameState.availableFollowersPlaces) {
             const pool =
@@ -199,7 +199,7 @@ export class GameSimulatorModule {
             }
 
             for (const followerType of followerTypes) {
-              const stateWithFollower = gameState.clone()
+              const stateWithFollower = gameState.cloneForSimulation()
               if (
                 !stateWithFollower.simulatePlaceFollower(place, followerType)
               ) {
