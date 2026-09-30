@@ -96,29 +96,59 @@
       description="Настройте правила новой партии"
     >
       <template #body>
-        <UCheckbox
-          label="Финальный подсчёт очков"
-          color="primary"
-          :model-value="finalScoringEnabled"
-          :ui="{ label: '!text-base' }"
-          class="text-base text-text"
-          @update:model-value="finalScoringEnabled = Boolean($event)"
-        />
-        <p class="mt-2 text-sm leading-relaxed text-text-muted">
-          Если включить опцию, в конце партии очки начислятся за незавершённые
-          дороги, города, монастыри и сады.
-        </p>
-        <UCheckbox
-          label="Таверны и соборы"
-          color="primary"
-          :model-value="innsAndCathedralsEnabled"
-          :ui="{ label: '!text-base' }"
-          class="mt-4 text-base text-text"
-          @update:model-value="innsAndCathedralsEnabled = Boolean($event)"
-        />
-        <p class="mt-2 text-sm leading-relaxed text-text-muted">
-          Добавляет 18 тайлов дополнения и большого подданного.
-        </p>
+        <div class="space-y-5">
+          <section class="space-y-2">
+            <UCheckbox
+              label="Финальный подсчёт очков"
+              color="primary"
+              :model-value="finalScoringEnabled"
+              :ui="{ label: '!text-base' }"
+              class="text-base text-text"
+              @update:model-value="finalScoringEnabled = Boolean($event)"
+            />
+            <p class="text-sm leading-relaxed text-text-muted">
+              Если включить опцию, в конце партии очки начислятся за
+              незавершённые дороги, города, монастыри и сады.
+            </p>
+          </section>
+
+          <div class="border-t border-gold-dark/30" />
+
+          <section class="space-y-3">
+            <h3
+              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
+            >
+              Дополнения
+            </h3>
+            <div class="space-y-2">
+              <UCheckbox
+                label="Таверны и соборы"
+                color="primary"
+                :model-value="innsAndCathedralsEnabled"
+                :ui="{ label: '!text-base' }"
+                class="text-base text-text"
+                @update:model-value="innsAndCathedralsEnabled = Boolean($event)"
+              />
+              <p class="text-sm leading-relaxed text-text-muted">
+                Добавляет 18 тайлов дополнения и большого подданного.
+              </p>
+            </div>
+            <div class="space-y-2">
+              <UCheckbox
+                label="Река"
+                color="primary"
+                :model-value="riverEnabled"
+                :ui="{ label: '!text-base' }"
+                class="text-base text-text"
+                @update:model-value="riverEnabled = Boolean($event)"
+              />
+              <p class="text-sm leading-relaxed text-text-muted">
+                В начале партии выкладывается река от истока до озера, затем
+                идёт обычная колода.
+              </p>
+            </div>
+          </section>
+        </div>
       </template>
       <template #footer>
         <div class="flex w-full justify-end gap-3">
@@ -167,6 +197,12 @@
               ? 'включены'
               : 'выключены'
           }}
+        </strong>
+      </p>
+      <p class="text-center text-sm text-text-muted">
+        Река:
+        <strong class="text-text">
+          {{ currentGame.rules?.expansions.river ? 'включена' : 'выключена' }}
         </strong>
       </p>
 
@@ -270,6 +306,7 @@ const currentPlayerName = ref('')
 const showEndedGames = ref(false)
 const finalScoringEnabled = ref(false)
 const innsAndCathedralsEnabled = ref(false)
+const riverEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const isLoadingGames = ref(true)
@@ -294,6 +331,7 @@ function createGame() {
   emit('createGame', {
     finalScoringEnabled: finalScoringEnabled.value,
     innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,
+    riverEnabled: riverEnabled.value,
   })
 }
 

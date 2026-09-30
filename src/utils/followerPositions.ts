@@ -104,6 +104,20 @@ const roadPositions: Record<TileId, FeaturePositions> = {
   },
   [TileId.IAC_P]: {},
   [TileId.IAC_Q]: {},
+  [TileId.RIVER_A]: {},
+  [TileId.RIVER_B]: {},
+  [TileId.RIVER_C]: {},
+  [TileId.RIVER_D]: {},
+  [TileId.RIVER_F]: {},
+  [TileId.RIVER_G]: {},
+  [TileId.RIVER_H]: { [SideName.West]: [0.18, 0.5] },
+  [TileId.RIVER_I]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.RIVER_J]: {},
+  [TileId.RIVER_K]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.RIVER_L]: {},
 }
 
 const cityPositions: Record<TileId, FeaturePositions> = {
@@ -203,6 +217,20 @@ const cityPositions: Record<TileId, FeaturePositions> = {
     [SideName.East]: [0.76, 0.5],
     [SideName.West]: [0.24, 0.5],
   },
+  [TileId.RIVER_A]: {},
+  [TileId.RIVER_B]: { [SideName.North]: [0.5, 0.18] },
+  [TileId.RIVER_C]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.South]: [0.5, 0.82],
+  },
+  [TileId.RIVER_D]: {},
+  [TileId.RIVER_F]: {},
+  [TileId.RIVER_G]: {},
+  [TileId.RIVER_H]: {},
+  [TileId.RIVER_I]: {},
+  [TileId.RIVER_J]: {},
+  [TileId.RIVER_K]: {},
+  [TileId.RIVER_L]: {},
 }
 
 const gardenPositions: Partial<Record<TileId, Position>> = {

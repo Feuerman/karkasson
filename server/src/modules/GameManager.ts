@@ -1,6 +1,10 @@
 import tiles, { gardenTileCounts as baseGardenTileCounts } from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { gardenTileCounts as expansionGardenTileCounts } from '../data/innsAndCathedralsTiles'
+import {
+  gardenTileCounts as riverGardenTileCounts,
+  riverTiles,
+} from '../data/riverTiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
 import {
@@ -218,6 +222,7 @@ export class GameManager implements IGameBoard {
   actionsHistory: GameAction[]
   lastUpdate = 0
   placingPoint?: { rowIndex: number; tileIndex: number }
+  private isPlacingStartTile = false
 
   constructor(
     params: {
@@ -225,6 +230,7 @@ export class GameManager implements IGameBoard {
       startImmediately?: boolean
       finalScoringEnabled?: boolean
       innsAndCathedralsEnabled?: boolean
+      riverEnabled?: boolean
     } = {}
   ) {
     const players = params.players ?? []
@@ -236,6 +242,7 @@ export class GameManager implements IGameBoard {
       finalScoringEnabled: params.finalScoringEnabled ?? false,
       expansions: {
         innsAndCathedrals: params.innsAndCathedralsEnabled ?? false,
+        river: params.riverEnabled ?? false,
       },
     }
     this.tilesList = []
@@ -273,13 +280,13 @@ export class GameManager implements IGameBoard {
   }
 
   initTilesList() {
-    const definitions = this.rules.expansions.innsAndCathedrals
+    const standardDefinitions = this.rules.expansions.innsAndCathedrals
       ? [...tiles, ...innsAndCathedralsTiles]
       : tiles
     const gardenTileCounts = this.rules.expansions.innsAndCathedrals
       ? { ...baseGardenTileCounts, ...expansionGardenTileCounts }
       : baseGardenTileCounts
-    this.tilesList = definitions
+    const standardTiles = standardDefinitions
       .flatMap<Tile>((tile) => {
         const gardenCount = gardenTileCounts[tile.id] ?? 0
         return Array.from({ length: tile.count }, (_, index) => {
@@ -289,6 +296,36 @@ export class GameManager implements IGameBoard {
         })
       })
       .sort(() => Math.random() - 0.5)
+
+    if (!this.rules.expansions.river) {
+      this.tilesList = standardTiles
+      return
+    }
+
+    const middleRiverTiles = riverTiles
+      .filter((tile) => tile.id !== TileId.RIVER_L)
+      .flatMap<Tile>((tile) => {
+        const gardenCount = riverGardenTileCounts[tile.id] ?? 0
+        return Array.from({ length: tile.count }, (_, index) => {
+          const copy: Tile = { ...tile, rotation: 0 }
+          if (index < gardenCount) copy.hasGarden = true
+          return copy
+        })
+      })
+    for (let index = middleRiverTiles.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1))
+      const tile = middleRiverTiles[index]
+      middleRiverTiles[index] = middleRiverTiles[randomIndex]
+      middleRiverTiles[randomIndex] = tile
+    }
+    const riverEnd = riverTiles.find(({ id }) => id === TileId.RIVER_L)
+    if (!riverEnd) throw new Error('River expansion has no ending tile')
+
+    this.tilesList = [
+      ...middleRiverTiles,
+      { ...riverEnd, rotation: 0 },
+      ...standardTiles,
+    ]
   }
 
   initPlayers(players: Player[]) {
@@ -314,9 +351,18 @@ export class GameManager implements IGameBoard {
 
   startGame() {
     this.gameIsStarted = true
+    if (this.rules.expansions.river) {
+      this.currentPlayer = this.players[0] ?? null
+      this.currentPlayerIndex = 0
+    }
+    this.isPlacingStartTile = true
     this.placeStartTile()
-    this.currentPlayer = this.players[0] ?? null
-    this.currentPlayerIndex = 0
+    this.isPlacingStartTile = false
+    if (this.rules.expansions.river) this.getRandomTileFromList()
+    if (!this.rules.expansions.river) {
+      this.currentPlayer = this.players[0] ?? null
+      this.currentPlayerIndex = 0
+    }
   }
 
   placeStartTile() {
@@ -325,20 +371,27 @@ export class GameManager implements IGameBoard {
       tileIndex: Math.floor(this.gridSize[0] / 2),
     }
 
+    const startTileId = this.rules.expansions.river ? TileId.RIVER_A : TileId.D
+    const startDefinition = this.rules.expansions.river
+      ? riverTiles.find(({ id }) => id === startTileId)
+      : this.tilesList.find(({ id }) => id === startTileId)
+    if (!startDefinition) throw new Error('Game has no starting tile')
+    const startTile: Tile = { ...startDefinition, rotation: 0 }
     const startTileIndex = this.tilesList.findIndex(
-      (tile) => tile.id === TileId.D
+      (tile) => tile.id === startTileId
     )
-    const startTile = { ...this.tilesList[startTileIndex] }
-
-    this.tilesList.splice(startTileIndex, 1)
+    if (startTileIndex >= 0) this.tilesList.splice(startTileIndex, 1)
 
     this.tileHistory.push(deepClone(startTile))
-
-    this.placeTile(
+    const wasPlacingStartTile = this.isPlacingStartTile
+    this.isPlacingStartTile = this.rules.expansions.river
+    const isPlaced = this.placeTile(
       startTile,
       centerCoordinates.rowIndex,
       centerCoordinates.tileIndex
     )
+    this.isPlacingStartTile = wasPlacingStartTile
+    if (!isPlaced) throw new Error('Unable to place starting tile')
   }
 
   endTurn() {
@@ -502,6 +555,24 @@ export class GameManager implements IGameBoard {
     ) {
       return false
     }
+    if (
+      authoritativeTile.expansion === ExpansionName.River &&
+      !this.rules.expansions.river
+    ) {
+      return false
+    }
+    if (
+      this.rules.expansions.river &&
+      !this.isPlacingStartTile &&
+      !authoritativeTile.riverGroups?.length &&
+      !Object.values(this.tilePlacesStats).some((row) =>
+        Object.values(row).some(
+          (placedTile) => placedTile.id === TileId.RIVER_L
+        )
+      )
+    ) {
+      return false
+    }
     let resolvedTile: Tile
     const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
     const normalizedTurns =
@@ -537,10 +608,14 @@ export class GameManager implements IGameBoard {
         authoritativeTile.cityShieldGroups,
         normalizedTurns
       )
+      resolvedTile.riverGroups = rotateTileGroups(
+        authoritativeTile.riverGroups,
+        normalizedTurns
+      )
     }
     tile = resolvedTile
 
-    const isCorrectPosition = this.isCorrectTilePosition(
+    const isCorrectPosition = this.isValidTilePlacement(
       tile,
       rowIndex,
       tileIndex
@@ -550,7 +625,7 @@ export class GameManager implements IGameBoard {
       return false
     }
 
-    if (this.currentTile) {
+    if (this.currentTile && !this.isPlacingStartTile) {
       this.currentTile.x = tileIndex
       this.currentTile.y = rowIndex
     }
@@ -577,9 +652,9 @@ export class GameManager implements IGameBoard {
 
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
 
-    this.checkAvailableFollowers()
+    if (!this.isPlacingStartTile) this.checkAvailableFollowers()
 
-    if (!this.currentPlayer) {
+    if (!this.currentPlayer && !this.isPlacingStartTile) {
       this.endTurn()
     }
 
@@ -939,14 +1014,31 @@ export class GameManager implements IGameBoard {
   getRandomTileFromList() {
     if (this.gameIsEnded) return
     if (!this.tilesList.length) {
-      this.gameIsEnded = true
-      this.currentTile = null
-      this.isPlacingFollower = false
-      this.availableFollowersPlaces = []
-      this.availablePlacesTiles = []
-      this.currentPlayer = null
-      if (this.finalScoringEnabled) this.finalizeScoring()
+      this.finishGame()
       return
+    }
+
+    const hasRiverEnd = Object.values(this.tilePlacesStats).some((row) =>
+      Object.values(row).some((placedTile) => placedTile.id === TileId.RIVER_L)
+    )
+    if (this.rules.expansions.river && !hasRiverEnd) {
+      const nextRiverTile = this.tilesList[0]
+      if (!nextRiverTile || nextRiverTile.expansion !== ExpansionName.River) {
+        this.finishGame()
+        return
+      }
+
+      this.tilesList.shift()
+      const tile = { ...nextRiverTile, rotation: 0 }
+      this.currentTile = { x: 0, y: 0, ...tile }
+      this.updateTileHistory(tile)
+      return
+    }
+
+    if (this.rules.expansions.river && hasRiverEnd) {
+      this.tilesList = this.tilesList.filter(
+        (tile) => tile.expansion !== ExpansionName.River
+      )
     }
 
     const tile = this.tilesList[0]
@@ -962,6 +1054,17 @@ export class GameManager implements IGameBoard {
       this.tilesList = [...listWithoutCurrentTile, tile]
       this.getRandomTileFromList()
     }
+  }
+
+  private finishGame() {
+    this.gameIsEnded = true
+    this.currentTile = null
+    this.isPlacingFollower = false
+    this.availableFollowersPlaces = []
+    this.availablePlacesTiles = []
+    this.currentPlayer = null
+    this.tilesList = []
+    if (this.finalScoringEnabled) this.finalizeScoring()
   }
 
   private finalizeScoring() {
@@ -1045,20 +1148,170 @@ export class GameManager implements IGameBoard {
   }
 
   checkAvailablePlacesForTile(tile: Tile): boolean {
-    return this.availablePlacesTiles.some((place) => {
-      return [0, 1, 2, 3].some((rotationCount) => {
+    return Boolean(this.getValidTileRotation(tile))
+  }
+
+  private getValidTileRotation(tile: Tile): Tile | undefined {
+    for (const place of this.availablePlacesTiles) {
+      for (const rotationCount of [0, 1, 2, 3]) {
         let processedTile: Tile = { ...tile }
         for (let i = 0; i < rotationCount; i++) {
           processedTile = this.rotateTile(processedTile)
         }
 
-        return this.isCorrectTilePosition(
-          processedTile,
-          place.rowIndex,
-          place.tileIndex
-        )
+        if (
+          this.isValidTilePlacement(
+            processedTile,
+            place.rowIndex,
+            place.tileIndex
+          )
+        ) {
+          return processedTile
+        }
+      }
+    }
+    return undefined
+  }
+
+  private isValidTilePlacement(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): boolean {
+    if (this.rules.expansions.river && tile.expansion === ExpansionName.River) {
+      return (
+        !this.tilePlacesStats[rowIndex]?.[tileIndex] &&
+        this.isValidRiverPlacement(tile, rowIndex, tileIndex)
+      )
+    }
+
+    return (
+      this.isCorrectTilePosition(tile, rowIndex, tileIndex) &&
+      this.isValidRiverPlacement(tile, rowIndex, tileIndex)
+    )
+  }
+
+  private isValidRiverPlacement(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): boolean {
+    if (!this.rules.expansions.river) return true
+    if (this.isPlacingStartTile) {
+      return tile.id === TileId.RIVER_A && rowIndex === 15 && tileIndex === 15
+    }
+    if (!Object.keys(this.tilePlacesStats).length) return true
+    if (tile.id === TileId.RIVER_A) return false
+    const hasRiverEnd = Object.values(this.tilePlacesStats).some((row) =>
+      Object.values(row).some((placedTile) => placedTile.id === TileId.RIVER_L)
+    )
+    if (hasRiverEnd) return !tile.riverGroups?.length
+    if (!tile.riverGroups?.length) return false
+
+    const riverSides = tile.riverGroups.flat()
+    if (tile.riverGroups.length !== 1) return false
+    if (tile.id === TileId.RIVER_A) return false
+
+    const placedRivers = Object.values(this.tilePlacesStats).flatMap((row) =>
+      Object.values(row).filter((placedTile) => placedTile.riverGroups?.length)
+    )
+    if (!placedRivers.length) return false
+    if (riverSides.length < 1 || riverSides.length > 2) {
+      return false
+    }
+
+    const oppositeSide: Record<SideName, SideName> = {
+      [SideName.North]: SideName.South,
+      [SideName.East]: SideName.West,
+      [SideName.South]: SideName.North,
+      [SideName.West]: SideName.East,
+    }
+    const offsets: Record<SideName, { row: number; column: number }> = {
+      [SideName.North]: { row: -1, column: 0 },
+      [SideName.East]: { row: 0, column: 1 },
+      [SideName.South]: { row: 1, column: 0 },
+      [SideName.West]: { row: 0, column: -1 },
+    }
+    const openEnds: Array<{
+      rowIndex: number
+      tileIndex: number
+      side: SideName
+    }> = []
+    for (const [placedRowIndex, placedRow] of Object.entries(
+      this.tilePlacesStats
+    )) {
+      for (const [placedTileIndex, placedTile] of Object.entries(placedRow)) {
+        if (!placedTile.riverGroups?.length) continue
+        const placedCoordinates = {
+          rowIndex: Number(placedRowIndex),
+          tileIndex: Number(placedTileIndex),
+        }
+        for (const side of placedTile.riverGroups.flat()) {
+          const offset = offsets[side]
+          const neighbor =
+            this.tilePlacesStats[placedCoordinates.rowIndex + offset.row]?.[
+              placedCoordinates.tileIndex + offset.column
+            ]
+          if (
+            !neighbor?.riverGroups?.some((group) =>
+              group.includes(oppositeSide[side])
+            )
+          ) {
+            openEnds.push({ ...placedCoordinates, side })
+          }
+        }
+      }
+    }
+    if (openEnds.length !== 1) return false
+
+    const openEnd = openEnds[0]
+    const connection = (Object.keys(offsets) as SideName[])
+      .map((side) => {
+        const offset = offsets[side]
+        return {
+          side,
+          rowIndex: rowIndex + offset.row,
+          tileIndex: tileIndex + offset.column,
+        }
       })
-    })
+      .find(
+        ({ rowIndex: neighborRow, tileIndex: neighborColumn }) =>
+          this.tilePlacesStats[neighborRow]?.[neighborColumn]?.riverGroups
+            ?.length
+      )
+    if (
+      !connection ||
+      !openEnd ||
+      connection.rowIndex !== openEnd.rowIndex ||
+      connection.tileIndex !== openEnd.tileIndex ||
+      openEnd.side !== oppositeSide[connection.side] ||
+      !riverSides.includes(connection.side)
+    ) {
+      return false
+    }
+
+    // Река движется только вправо или вниз: вход приходит сверху/слева,
+    // а выход продолжается вниз/вправо. Это исключает петли к истоку.
+    if (
+      (connection.side !== SideName.North &&
+        connection.side !== SideName.West) ||
+      (tile.id !== TileId.RIVER_L &&
+        !riverSides.some(
+          (side) => side === SideName.East || side === SideName.South
+        ))
+    ) {
+      return false
+    }
+
+    if (
+      tile.id === TileId.RIVER_L
+        ? riverSides.length !== 1
+        : riverSides.length !== 2
+    ) {
+      return false
+    }
+
+    return true
   }
 
   updateTileHistory(tile: Tile) {
@@ -1615,6 +1868,9 @@ export class GameManager implements IGameBoard {
       tiles.find(({ id }) => id === tileId) ??
       (this.rules.expansions.innsAndCathedrals
         ? innsAndCathedralsTiles.find(({ id }) => id === tileId)
+        : undefined) ??
+      (this.rules.expansions.river
+        ? riverTiles.find(({ id }) => id === tileId)
         : undefined)
     )
   }
@@ -1665,6 +1921,10 @@ export class GameManager implements IGameBoard {
     )
     processedTile.cityShieldGroups = rotateTileGroups(
       processedTile.cityShieldGroups,
+      quarterTurns
+    )
+    processedTile.riverGroups = rotateTileGroups(
+      processedTile.riverGroups,
       quarterTurns
     )
 
@@ -1724,6 +1984,17 @@ export class GameManager implements IGameBoard {
     if (!authoritativeTile) return false
     if (!tileDefinition && !tile.id.startsWith('test')) return false
     if (
+      this.rules.expansions.river &&
+      !authoritativeTile.riverGroups?.length &&
+      !Object.values(this.tilePlacesStats).some((row) =>
+        Object.values(row).some(
+          (placedTile) => placedTile.id === TileId.RIVER_L
+        )
+      )
+    ) {
+      return false
+    }
+    if (
       authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
       !this.rules.expansions.innsAndCathedrals
     ) {
@@ -1745,7 +2016,7 @@ export class GameManager implements IGameBoard {
     }
     resolvedTile.hasGarden = tile.hasGarden ?? resolvedTile.hasGarden
     tile = resolvedTile
-    const isCorrectPosition = this.isCorrectTilePosition(
+    const isCorrectPosition = this.isValidTilePlacement(
       tile,
       rowIndex,
       tileIndex

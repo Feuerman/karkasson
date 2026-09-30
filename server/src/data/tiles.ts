@@ -20,7 +20,9 @@ export interface TileDefinition {
   cityGroups?: SideName[][]
   /** City sections on this tile that contain a shield. */
   cityShieldGroups?: SideName[][]
-  expansion?: typeof ExpansionName.InnsAndCathedrals
+  /** Connected river sections; each group lists the tile edges they reach. */
+  riverGroups?: SideName[][]
+  expansion?: ExpansionName
   imgUrl: string
 }
 
@@ -368,14 +370,14 @@ export const tiles: TileDefinition[] = [
 
 /** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
 export const gardenTileCounts: Record<string, number> = {
-  I: 1,
-  R: 1,
-  U: 1,
-  V: 1,
-  E: 1,
-  H: 1,
-  M: 1,
-  N: 1,
+  [TileId.I]: 1,
+  [TileId.R]: 1,
+  [TileId.U]: 1,
+  [TileId.V]: 1,
+  [TileId.E]: 1,
+  [TileId.H]: 1,
+  [TileId.M]: 1,
+  [TileId.N]: 1,
 }
 
 export default tiles

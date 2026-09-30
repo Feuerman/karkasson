@@ -43,6 +43,17 @@ export const TileId = {
   IAC_O: 'IAC-O',
   IAC_P: 'IAC-P',
   IAC_Q: 'IAC-Q',
+  RIVER_A: 'RIVER-A',
+  RIVER_B: 'RIVER-B',
+  RIVER_C: 'RIVER-C',
+  RIVER_D: 'RIVER-D',
+  RIVER_F: 'RIVER-F',
+  RIVER_G: 'RIVER-G',
+  RIVER_H: 'RIVER-H',
+  RIVER_I: 'RIVER-I',
+  RIVER_J: 'RIVER-J',
+  RIVER_K: 'RIVER-K',
+  RIVER_L: 'RIVER-L',
 } as const
 
 export type TileId = (typeof TileId)[keyof typeof TileId]
@@ -168,6 +179,7 @@ export type FollowerType = (typeof FollowerType)[keyof typeof FollowerType]
 
 export const ExpansionName = {
   InnsAndCathedrals: 'innsAndCathedrals',
+  River: 'river',
 } as const
 
 export type ExpansionName = (typeof ExpansionName)[keyof typeof ExpansionName]
@@ -204,6 +216,7 @@ export interface GameRules {
   finalScoringEnabled: boolean
   expansions: {
     innsAndCathedrals: boolean
+    river: boolean
   }
 }
 
@@ -283,6 +296,8 @@ export interface Tile {
   cityGroups?: SideName[][]
   /** Городские участки, в которых расположен герб. */
   cityShieldGroups?: SideName[][]
+  /** Связанные русла реки; стороны в группе обозначают её выходы с тайла. */
+  riverGroups?: SideName[][]
 }
 
 export interface GridTile extends Tile {

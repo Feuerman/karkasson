@@ -37,6 +37,12 @@
       >
         Таверны и соборы
       </span>
+      <span
+        v-if="game.rules?.expansions.river"
+        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+      >
+        Река
+      </span>
     </div>
 
     <div

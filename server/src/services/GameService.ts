@@ -159,6 +159,7 @@ export class GameService {
     options: {
       finalScoringEnabled?: boolean
       innsAndCathedralsEnabled?: boolean
+      riverEnabled?: boolean
     } = {}
   ): IGameBoard & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
@@ -178,6 +179,7 @@ export class GameService {
       startImmediately: false,
       finalScoringEnabled: options.finalScoringEnabled,
       innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
+      riverEnabled: options.riverEnabled,
     })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
@@ -282,6 +284,7 @@ export class GameService {
       finalScoringEnabled: game.finalScoringEnabled,
       innsAndCathedralsEnabled:
         game.rules?.expansions?.innsAndCathedrals ?? false,
+      riverEnabled: game.rules?.expansions?.river ?? false,
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
@@ -391,10 +394,14 @@ export class GameService {
         game.completedObjects.gardens ??= []
         game.rules ??= {
           finalScoringEnabled: game.finalScoringEnabled ?? false,
-          expansions: { innsAndCathedrals: false },
+          expansions: { innsAndCathedrals: false, river: false },
         }
-        game.rules.expansions ??= { innsAndCathedrals: false }
+        game.rules.expansions ??= {
+          innsAndCathedrals: false,
+          river: false,
+        }
         game.rules.expansions.innsAndCathedrals ??= false
+        game.rules.expansions.river ??= false
         for (const pool of Object.values(game.playersFollowers)) {
           pool.bigFollowers ??= 0
         }

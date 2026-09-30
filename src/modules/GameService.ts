@@ -35,6 +35,7 @@ export interface GameServiceOptions {
 export interface CreateGameOptions {
   finalScoringEnabled?: boolean
   innsAndCathedralsEnabled?: boolean
+  riverEnabled?: boolean
 }
 
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
@@ -184,6 +185,7 @@ export class GameService implements IGameService {
       {
         finalScoringEnabled: options.finalScoringEnabled,
         innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
+        riverEnabled: options.riverEnabled,
       }
     )
     const { gameId, game } = response

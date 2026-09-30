@@ -25,12 +25,14 @@ describe('Схема сохранения игры', () => {
       players: [],
       startImmediately: false,
       innsAndCathedralsEnabled: true,
+      riverEnabled: true,
     })
     game.id = 'expansion-save'
     const restored = deserializeGameState(serializeGameState(game))
 
     expect(restored.rules.expansions.innsAndCathedrals).toBe(true)
-    expect(restored.tilesList).toHaveLength(90)
+    expect(restored.rules.expansions.river).toBe(true)
+    expect(restored.tilesList).toHaveLength(102)
   })
 
   it('читает legacy-сохранение без envelope версии и добавляет gardens', () => {
@@ -49,6 +51,7 @@ describe('Схема сохранения игры', () => {
     expect(restored.completedObjects.gardens).toEqual([])
     expect(restored.finalScoringEnabled).toBe(false)
     expect(restored.rules.expansions.innsAndCathedrals).toBe(false)
+    expect(restored.rules.expansions.river).toBe(false)
   })
 
   it('читает сохранение версии 1 и выключает новую настройку по умолчанию', () => {

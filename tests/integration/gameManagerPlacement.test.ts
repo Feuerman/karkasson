@@ -378,7 +378,7 @@ describe('Проверка размещения и возврата поддан
     const game = new GameManager({
       players: makePlayers(),
       startImmediately: false,
-      rules: { expansions: { innsAndCathedrals: true } },
+      rules: { expansions: { innsAndCathedrals: true, river: false } },
     })
     const getExpansionTile = (id: string) => {
       const definition = innsAndCathedralsTiles.find((tile) => tile.id === id)
@@ -418,7 +418,7 @@ describe('Проверка размещения и возврата поддан
     const game = new GameManager({
       players: makePlayers(),
       startImmediately: false,
-      rules: { expansions: { innsAndCathedrals: true } },
+      rules: { expansions: { innsAndCathedrals: true, river: false } },
     })
 
     expect(

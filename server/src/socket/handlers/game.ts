@@ -7,6 +7,7 @@ import type {
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
 import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
+import { riverTiles } from '../../data/riverTiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
 import {
   FollowerType as FollowerTypes,
@@ -48,6 +49,9 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
     tiles.find((tile) => tile.id === currentTile.id) ??
     (game.rules.expansions.innsAndCathedrals
       ? innsAndCathedralsTiles.find((tile) => tile.id === currentTile.id)
+      : undefined) ??
+    (game.rules.expansions.river
+      ? riverTiles.find((tile) => tile.id === currentTile.id)
       : undefined)
   if (!definition) return false
 
@@ -65,6 +69,7 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
       definition.cityShieldGroups,
       quarterTurns
     ),
+    riverGroups: rotateTileGroups(definition.riverGroups, quarterTurns),
     hasGarden: currentTile.hasGarden,
   }
   game.currentTile = { ...currentTile, ...rotatedTile }

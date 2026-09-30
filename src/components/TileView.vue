@@ -239,6 +239,50 @@ const imagesMap = {
     '../assets/tiles/inns_and_cathedrals/Inns_And_Cathedrals_C3_Tile_Q.png',
     import.meta.url
   ),
+  [TileId.RIVER_A]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_A.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_B]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_B.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_C]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_C.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_D]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_D.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_F]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_F.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_G]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_G.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_H]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_H.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_I]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_I.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_J]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_J.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_K]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_K.png',
+    import.meta.url
+  ),
+  [TileId.RIVER_L]: new URL(
+    '../assets/tiles/river/River_I_C3_Tile_L.png',
+    import.meta.url
+  ),
 }
 
 const tileImg = computed(() => {
