@@ -1,11 +1,15 @@
 import { expect, test } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
-import { createGameServer } from '../../server/src/app'
+import { createRequire } from 'node:module'
 import { InMemoryDatabase } from '../integration/helpers/inMemoryDatabase'
 import {
   startTestFrontend,
   type RunningFrontend,
 } from '../integration/helpers/frontend'
+
+const require = createRequire(import.meta.url)
+const { createGameServer } =
+  require('../../server/dist/app.js') as typeof import('../../server/src/app')
 
 async function listenOnRandomPort(server: import('node:http').Server) {
   await new Promise<void>((resolve, reject) => {
