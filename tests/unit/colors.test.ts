@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { playerColorValue } from '../../src/utils/colors'
+import { playerColorValue } from '@/utils/colors'
 
 describe('playerColorValue', () => {
   it.each([

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { GameManager } from '../../server/src/modules/GameManager'
-import { resumeComputerGames } from '../../server/src/services/computerPlayer'
-import type { Player } from '../../server/src/modules/types'
+import { GameManager } from '@server/modules/GameManager'
+import { resumeComputerGames } from '@server/services/computerPlayer'
+import type { Player } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   countPlacedTiles,

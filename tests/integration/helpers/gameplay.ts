@@ -6,7 +6,7 @@ import {
   TileSideType,
   type SideName as SideNameType,
   type TileSideType as TileSideTypeType,
-} from '../../../server/src/modules/types'
+} from '@server/modules/types'
 import { latestGame, type GameSummaryPlayer } from './lobby'
 
 /**

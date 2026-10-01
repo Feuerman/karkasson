@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { SideName } from '../../server/src/modules/types'
+import { SideName } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,

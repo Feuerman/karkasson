@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { IGameBoard } from '../../server/src/modules/GameManager'
+import type { IGameBoard } from '@server/modules/GameManager'
 import { TestClient } from './helpers/client'
 import {
   assertFollowerInvariants,

@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import {
-  GameManager,
-  type IGameBoard,
-} from '../../server/src/modules/GameManager'
-import { serializeGameState } from '../../server/src/modules/gameSave'
-import {
-  SideName,
-  TileSideType,
-  type Player,
-} from '../../server/src/modules/types'
+import { GameManager, type IGameBoard } from '@server/modules/GameManager'
+import { serializeGameState } from '@server/modules/gameSave'
+import { SideName, TileSideType, type Player } from '@server/modules/types'
 
 const players: Player[] = [
   {

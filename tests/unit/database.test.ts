@@ -3,8 +3,8 @@ import {
   createGameDatabase,
   gameDatabase,
   InMemoryGameDatabase,
-} from '../../server/src/modules/Database'
-import { GameManager } from '../../server/src/modules/GameManager'
+} from '@server/modules/Database'
+import { GameManager } from '@server/modules/GameManager'
 
 describe('База данных сервера', () => {
   it('использует память в режиме разработки и тестов', () => {

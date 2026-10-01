@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { GameService } from '../../src/modules/GameService'
+import { GameService } from '@/modules/GameService'
 import { findValidPlacement, type GameStateSnapshot } from './helpers/gameplay'
 import {
   startTestServer,

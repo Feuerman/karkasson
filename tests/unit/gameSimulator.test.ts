@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { IGameBoard } from '../../server/src/modules/GameManager'
-import { GameManager } from '../../server/src/modules/GameManager'
+import type { IGameBoard } from '@server/modules/GameManager'
+import { GameManager } from '@server/modules/GameManager'
 import {
   calculateHeuristicScore,
   GameSimulatorModule,
-} from '../../server/src/modules/GameSimulatorModule'
-import { ObjectTypes } from '../../server/src/modules/types'
-import type {
-  BaseObject,
-  ObjectFollower,
-  Player,
-} from '../../server/src/modules/types'
+} from '@server/modules/GameSimulatorModule'
+import { ObjectTypes } from '@server/modules/types'
+import type { BaseObject, ObjectFollower, Player } from '@server/modules/types'
 
 const currentPlayer: Player = {
   id: 1,

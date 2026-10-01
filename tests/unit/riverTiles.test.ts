@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { riverTiles } from '../../server/src/data/riverTiles'
-import { ExpansionName, SideName, TileId } from '../../server/src/modules/types'
-import { rotateTileGroups } from '../../server/src/modules/tileRotation'
-import { GameManager } from '../../server/src/modules/GameManager'
-import tiles from '../../server/src/data/tiles'
-import type { Tile } from '../../server/src/modules/types'
+import { riverTiles } from '@server/data/riverTiles'
+import { ExpansionName, SideName, TileId } from '@server/modules/types'
+import { rotateTileGroups } from '@server/modules/tileRotation'
+import { GameManager } from '@server/modules/GameManager'
+import tiles from '@server/data/tiles'
+import type { Tile } from '@server/modules/types'
 
 describe('Тайлы дополнения «Река»', () => {
   it('содержит отдельные описания для всех предоставленных изображений', () => {

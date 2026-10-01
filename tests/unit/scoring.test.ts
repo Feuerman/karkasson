@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
+import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import {
   calcCityScore,
   calcGardenPoints,
   calcMonasteryPoints,
   calcRoadScore,
-} from '../../server/src/modules/scoring'
-import { SideName, TileId, TileSideType } from '../../server/src/modules/types'
+} from '@server/modules/scoring'
+import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type {
   BaseObject,
   GridTile,
   Scores,
   TilePlacesStats,
-} from '../../server/src/modules/types'
+} from '@server/modules/types'
 
 /**
  * Детерминированные юнит-тесты подсчёта очков: в отличие от полной партии

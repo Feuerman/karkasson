@@ -1,5 +1,5 @@
-import type { IGameBoard } from '../../../server/src/modules/GameManager'
-import type { IGameDatabase } from '../../../server/src/modules/Database'
+import type { IGameBoard } from '@server/modules/GameManager'
+import type { IGameDatabase } from '@server/modules/Database'
 
 /**
  * Хранилище игр в памяти вместо Firebase.
