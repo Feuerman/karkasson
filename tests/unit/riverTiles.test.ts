@@ -153,6 +153,25 @@ describe('Тайлы дополнения «Река»', () => {
     )
   })
 
+  it('разрешает продолжить русло влево после поворота', () => {
+    const game = new GameManager({
+      riverEnabled: true,
+      startImmediately: false,
+    })
+    game.startGame()
+    const straightRiver = riverTiles.find(({ id }) => id === TileId.RIVER_D)
+    const riverBend = riverTiles.find(({ id }) => id === TileId.RIVER_G)
+    const horizontalRiver = riverTiles.find(({ id }) => id === TileId.RIVER_B)
+    if (!straightRiver || !riverBend || !horizontalRiver)
+      throw new Error('River tile is missing')
+
+    expect(game.placeTile({ ...straightRiver, rotation: 0 }, 16, 15)).toBe(true)
+    expect(game.placeTile({ ...riverBend, rotation: 0 }, 17, 15)).toBe(true)
+    expect(game.placeTile({ ...horizontalRiver, rotation: 0 }, 17, 14)).toBe(
+      true
+    )
+  })
+
   it('не поворачивает тайл при выдаче и отклоняет речной ход назад', () => {
     const game = new GameManager({
       riverEnabled: true,
