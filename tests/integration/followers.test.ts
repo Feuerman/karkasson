@@ -14,7 +14,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-import { FollowerType } from '../../server/src/modules/types'
+import { FollowerType } from '@server/modules/types'
 
 describe('Размещение фишек', () => {
   let server: RunningServer | undefined

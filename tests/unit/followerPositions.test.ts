@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { tiles } from '../../server/src/data/tiles'
-import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
+import { tiles } from '@server/data/tiles'
+import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import {
   PointDirection,
   SideName,
   TileId,
   TileSideType,
-} from '../../server/src/modules/types'
-import {
-  getFollowerPosition,
-  isTileId,
-} from '../../src/utils/followerPositions'
+} from '@server/modules/types'
+import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
 
 const allTiles = [...tiles, ...innsAndCathedralsTiles]
 const tileIds = allTiles.map((tile) => tile.id)

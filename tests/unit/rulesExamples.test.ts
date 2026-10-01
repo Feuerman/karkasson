@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { baseGameRules } from '../../src/rules/baseGame'
-import { validateExampleGrids } from '../../src/rules/examples'
-import type { RulesExample } from '../../src/rules/types'
+import { baseGameRules } from '@/rules/baseGame'
+import { validateExampleGrids } from '@/rules/examples'
+import type { RulesExample } from '@/rules/types'
 
 /**
  * Гарантирует, что все наглядные примеры в правилах корректны:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getSocketAdminUIOptions } from '../../server/src/config'
+import { getSocketAdminUIOptions } from '@server/config'
 
 describe('getSocketAdminUIOptions', () => {
   it('disables the Admin UI when credentials are absent', () => {

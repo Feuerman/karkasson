@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { AvailableFollowerPlace } from '../../server/src/modules/GameManager'
+import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import {
   SideName,
   TileSideType,
   type SideName as SideNameValue,
   type TileSideType as TileSideTypeValue,
-} from '../../server/src/modules/types'
-import { groupFollowerPlaces } from '../../src/utils/followerPlaces'
+} from '@server/modules/types'
+import { groupFollowerPlaces } from '@/utils/followerPlaces'
 
 function makePlace(
   objectId: string,

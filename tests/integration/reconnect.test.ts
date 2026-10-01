@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { continueComputerGame } from '../../server/src/services/computerPlayer'
+import { continueComputerGame } from '@server/services/computerPlayer'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,

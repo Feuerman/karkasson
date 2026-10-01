@@ -1,8 +1,5 @@
 import type { AddressInfo } from 'node:net'
-import {
-  createGameServer,
-  type GameServerHandle,
-} from '../../../server/src/app'
+import { createGameServer, type GameServerHandle } from '@server/app'
 import {
   createInMemoryStore,
   InMemoryDatabase,

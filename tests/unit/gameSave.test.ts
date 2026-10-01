@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { GameManager } from '../../server/src/modules/GameManager'
+import { GameManager } from '@server/modules/GameManager'
 import {
   deserializeGameState,
   GAME_SAVE_SCHEMA_VERSION,
   serializeGameState,
-} from '../../server/src/modules/gameSave'
+} from '@server/modules/gameSave'
 
 describe('Схема сохранения игры', () => {
   it('сериализует игру с явной версией схемы', () => {

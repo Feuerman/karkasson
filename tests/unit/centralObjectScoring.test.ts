@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { GameManager } from '../../server/src/modules/GameManager'
-import {
-  ActionTypes,
-  ObjectTypes,
-  PointDirection,
-} from '../../server/src/modules/types'
-import type {
-  BaseObject,
-  ObjectFollower,
-  Player,
-} from '../../server/src/modules/types'
+import { GameManager } from '@server/modules/GameManager'
+import { ActionTypes, ObjectTypes, PointDirection } from '@server/modules/types'
+import type { BaseObject, ObjectFollower, Player } from '@server/modules/types'
 
 const players: Player[] = [
   {

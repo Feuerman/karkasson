@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import tiles from '../../server/src/data/tiles'
-import { innsAndCathedralsTiles } from '../../server/src/data/innsAndCathedralsTiles'
-import { GameManager } from '../../server/src/modules/GameManager'
+import tiles from '@server/data/tiles'
+import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
+import { GameManager } from '@server/modules/GameManager'
 import {
   PointDirection,
   SideName,
   TileId,
   TileSideType,
-} from '../../server/src/modules/types'
-import type {
-  BaseObject,
-  Point,
-  Player,
-  Tile,
-} from '../../server/src/modules/types'
+} from '@server/modules/types'
+import type { BaseObject, Point, Player, Tile } from '@server/modules/types'
 
 function makePlayers(): Player[] {
   return [

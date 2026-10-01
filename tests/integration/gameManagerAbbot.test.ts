@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GameManager } from '../../server/src/modules/GameManager'
+import { GameManager } from '@server/modules/GameManager'
 import {
   ActionTypes,
   FollowerType,
@@ -7,8 +7,8 @@ import {
   SideName,
   TileId,
   TileSideType,
-} from '../../server/src/modules/types'
-import type { Player, Tile, TileSides } from '../../server/src/modules/types'
+} from '@server/modules/types'
+import type { Player, Tile, TileSides } from '@server/modules/types'
 
 /**
  * Детерминированные тесты аббата на «живом» GameManager: колода и координаты

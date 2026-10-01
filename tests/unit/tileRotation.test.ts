@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  rotateTileGroups,
-  rotateTileSides,
-} from '../../server/src/modules/tileRotation'
-import {
-  SideName,
-  TileSideType,
-  type TileSides,
-} from '../../server/src/modules/types'
+import { rotateTileGroups, rotateTileSides } from '@server/modules/tileRotation'
+import { SideName, TileSideType, type TileSides } from '@server/modules/types'
 
 const sides: TileSides = {
   [SideName.North]: TileSideType.City,
