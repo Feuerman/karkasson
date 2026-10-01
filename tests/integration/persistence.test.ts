@@ -9,6 +9,7 @@ import {
   makeHumanMove,
   startGame,
   waitForHumanTurnOrEnd,
+  type GameStateSnapshot,
 } from './helpers/gameplay'
 import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
 import {

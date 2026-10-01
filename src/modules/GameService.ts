@@ -193,7 +193,7 @@ export class GameService implements IGameService {
     return game
   }
 
-  addPlayer({ name, index }: { name: string; index: number }) {
+  addPlayer({ name, index }: { name: string | null; index: number }) {
     return this.emitAck<SocketAck>(SocketEvents.AddPlayer, {
       gameId: this.gameId,
       name,

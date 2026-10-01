@@ -22,7 +22,7 @@ const directions = [
 ] as const
 
 function rotatePosition(
-  [x, y]: [number, number],
+  [x, y]: readonly [number, number],
   rotation: number
 ): [number, number] {
   let rotatedPosition: [number, number]

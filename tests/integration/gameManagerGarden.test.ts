@@ -14,8 +14,8 @@ import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 /**
  * Детерминированные тесты сада на «живом» GameManager: на сад ставится только
  * аббат (обычный подданный не допускается), при завершении сад очков не даёт,
- * а аббат отзывается владельцем за частичные очки. Наличие сада задаётся
- * конфигом при генерации колоды.
+ * а аббат отзывается владельцем за частичные очки. Количество садов
+ * определяется описанием тайла, а позиция в колоде остаётся случайной.
  */
 
 function gardenTile(): Tile {
@@ -93,22 +93,47 @@ function currentScore(game: GameManager, playerId: number): number {
 }
 
 describe('Сад (оба игрока-человека, фиксированная доска)', () => {
-  it('колода помечает ровно по одной копии каждого тайла сада из конфига', () => {
-    const game = new GameManager({ players: makePlayers() })
+  it('колода помечает заданное количество копий каждого базового тайла', () => {
+    const random = Math.random
+    Math.random = () => 0
+    try {
+      const game = new GameManager({ players: makePlayers() })
 
-    // A garden tile can already be drawn as currentTile during construction.
-    const gardenTiles = [...game.tilesList, ...game.tileHistory].filter(
-      (tile) => tile.hasGarden
-    )
-    const counts: Record<string, number> = {}
-    for (const tile of gardenTiles) {
-      counts[tile.id] = (counts[tile.id] ?? 0) + 1
+      // A garden tile can already be drawn as currentTile during construction.
+      const gardenTiles = [...game.tilesList, ...game.tileHistory].filter(
+        (tile) => tile.hasGarden
+      )
+      const counts: Record<string, number> = {}
+      for (const tile of gardenTiles) {
+        counts[tile.id] = (counts[tile.id] ?? 0) + 1
+      }
+
+      expect(gardenTiles).toHaveLength(8)
+      expect(counts).toEqual({
+        E: 1,
+        H: 1,
+        I: 1,
+        M: 1,
+        N: 1,
+        R: 1,
+        U: 1,
+        V: 1,
+      })
+      // Фишер—Йейтс не группирует все сады в одной половине колоды.
+      const gardenPositions = game.tilesList.flatMap((tile, index) =>
+        tile.hasGarden ? [index] : []
+      )
+      expect(
+        gardenPositions.some((index) => index < game.tilesList.length / 2)
+      ).toBe(true)
+      expect(
+        gardenPositions.some((index) => index >= game.tilesList.length / 2)
+      ).toBe(true)
+      // Ни один тайл с садом не является монастырём
+      expect(gardenTiles.every((tile) => !tile.isMonastery)).toBe(true)
+    } finally {
+      Math.random = random
     }
-
-    expect(gardenTiles).toHaveLength(8)
-    expect(counts).toEqual({ E: 1, H: 1, I: 1, M: 1, N: 1, R: 1, U: 1, V: 1 })
-    // Ни один тайл с садом не является монастырём
-    expect(gardenTiles.every((tile) => !tile.isMonastery)).toBe(true)
   })
 
   it('добавляет сады дополнения в колоду вместе с базовыми садами', () => {

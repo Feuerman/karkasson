@@ -255,7 +255,10 @@ function getCanonicalDirection(
   return sideDirections[baseIndex] ?? direction
 }
 
-function rotatePosition([x, y]: Position, rotation: number): Position {
+function rotatePosition(
+  [x, y]: readonly [number, number],
+  rotation: number
+): Position {
   const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
   const rotationSteps =
     ((Math.round(rotation / TileRotation.QuarterTurn) % turnCount) +

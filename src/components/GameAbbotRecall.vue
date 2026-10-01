@@ -39,6 +39,7 @@ import Draggable from '@/components/Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
+import { pluralForm } from '@/utils/common'
 
 const props = defineProps({
   gameBoard: {
@@ -89,14 +90,9 @@ const potentialPoints = computed(() => {
   return count
 })
 
-const pluralSuffix = computed(() => {
-  const n = potentialPoints.value % 10
-  const n2 = potentialPoints.value % 100
-  if (n2 >= 11 && n2 <= 19) return 'ов'
-  if (n === 1) return 'о'
-  if (n >= 2 && n <= 4) return 'а'
-  return 'ов'
-})
+const pluralSuffix = computed(() =>
+  pluralForm(potentialPoints.value, 'о', 'а', 'ов')
+)
 
 const recall = () => {
   GameService.recallAbbot()

@@ -127,6 +127,7 @@ export const riverTiles: TileDefinition[] = [
   {
     id: TileId.RIVER_J,
     count: 1,
+    gardenCount: 1,
     description: 'River bend by a farm',
     sides: {
       [SideName.North]: TileSideType.Field,
@@ -170,8 +171,3 @@ export const riverTiles: TileDefinition[] = [
     expansion: ExpansionName.River,
   },
 ]
-
-/** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
-export const gardenTileCounts: Record<string, number> = {
-  [TileId.RIVER_J]: 1,
-}

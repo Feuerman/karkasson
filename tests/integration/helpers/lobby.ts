@@ -1,4 +1,5 @@
 import { TestClient } from './client'
+import type { TileSnapshot } from './gameplay'
 
 export interface LobbySetup {
   gameId: string
@@ -28,6 +29,7 @@ export interface TestGameData {
   } | null
   gameIsStarted: boolean
   gameIsEnded: boolean
+  gridSize?: number[]
   finalScoringEnabled: boolean
   rules?: {
     finalScoringEnabled: boolean
@@ -36,8 +38,8 @@ export interface TestGameData {
   moveCounter: number
   scores: Record<string, number>
   tilesList: unknown[]
-  currentTile?: unknown
-  tilePlacesStats: Record<number, Record<number, unknown>>
+  currentTile?: TileSnapshot | null
+  tilePlacesStats: Record<number, Record<number, TileSnapshot>>
   availablePlacesTiles?: Array<{
     rowIndex: number
     tileIndex: number
