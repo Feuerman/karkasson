@@ -14,8 +14,8 @@ import type { Player, Tile, TileSides } from '../../server/src/modules/types'
 /**
  * Детерминированные тесты сада на «живом» GameManager: на сад ставится только
  * аббат (обычный подданный не допускается), при завершении сад очков не даёт,
- * а аббат отзывается владельцем за частичные очки. Количество садов
- * определяется описанием тайла, а позиция в колоде остаётся случайной.
+ * а аббат отзывается владельцем за частичные очки. Наличие сада задаётся
+ * определением тайла, а позиция в колоде остаётся случайной.
  */
 
 function gardenTile(): Tile {
@@ -93,7 +93,7 @@ function currentScore(game: GameManager, playerId: number): number {
 }
 
 describe('Сад (оба игрока-человека, фиксированная доска)', () => {
-  it('колода помечает заданное количество копий каждого базового тайла', () => {
+  it('все копии базового тайла с hasGarden сохраняют признак сада', () => {
     const random = Math.random
     Math.random = () => 0
     try {
@@ -108,16 +108,10 @@ describe('Сад (оба игрока-человека, фиксированна
         counts[tile.id] = (counts[tile.id] ?? 0) + 1
       }
 
-      expect(gardenTiles).toHaveLength(8)
+      expect(gardenTiles).toHaveLength(5)
       expect(counts).toEqual({
-        E: 1,
-        H: 1,
-        I: 1,
-        M: 1,
-        N: 1,
-        R: 1,
-        U: 1,
-        V: 1,
+        I: 2,
+        R: 3,
       })
       // Фишер—Йейтс не группирует все сады в одной половине колоды.
       const gardenPositions = game.tilesList.flatMap((tile, index) =>
@@ -149,7 +143,7 @@ describe('Сад (оба игрока-человека, фиксированна
       counts[tile.id] = (counts[tile.id] ?? 0) + 1
     }
 
-    expect(gardenTiles).toHaveLength(10)
+    expect(gardenTiles).toHaveLength(7)
     expect(counts).toMatchObject({ [TileId.IAC_B]: 1, [TileId.IAC_H]: 1 })
   })
 

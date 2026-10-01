@@ -127,7 +127,7 @@ export const riverTiles: TileDefinition[] = [
   {
     id: TileId.RIVER_J,
     count: 1,
-    gardenCount: 1,
+    hasGarden: true,
     description: 'River bend by a farm',
     sides: {
       [SideName.North]: TileSideType.Field,

@@ -37,11 +37,7 @@ function shuffleTiles(tilesToShuffle: Tile[]): Tile[] {
 
 function createTileCopies(definitions: TileDefinition[]): Tile[] {
   return definitions.flatMap<Tile>((tile) =>
-    Array.from({ length: tile.count }, (_, index) => {
-      const copy: Tile = { ...tile, rotation: 0 }
-      if (index < (tile.gardenCount ?? 0)) copy.hasGarden = true
-      return copy
-    })
+    Array.from({ length: tile.count }, () => ({ ...tile, rotation: 0 }))
   )
 }
 

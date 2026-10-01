@@ -16,27 +16,6 @@
         :height="size"
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.08] transition-transform duration-200 ease-in-out"
       ></canvas>
-      <div
-        v-if="props.tile?.hasGarden"
-        class="pointer-events-none absolute left-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gold ring-1 ring-black/25"
-        :title="'Сад'"
-      >
-        <UIcon name="i-lucide-flower-2" class="h-3.5 w-3.5 text-white" />
-      </div>
-      <div
-        v-if="props.tile?.hasCathedral"
-        class="pointer-events-none absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gold ring-1 ring-black/25"
-        :title="'Собор'"
-      >
-        <UIcon name="i-lucide-church" class="h-3.5 w-3.5 text-white" />
-      </div>
-      <div
-        v-if="props.tile?.hasInn"
-        class="pointer-events-none absolute right-1 bottom-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gold ring-1 ring-black/25"
-        :title="'Таверна'"
-      >
-        <UIcon name="i-lucide-beer" class="h-3.5 w-3.5 text-white" />
-      </div>
     </template>
     <template v-else>
       <div></div>
@@ -56,7 +35,6 @@ import {
 import { rotationClass } from '@/utils/tiles'
 import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
 import { playerColorValue } from '@/utils/colors'
-import UIcon from '@nuxt/ui/components/Icon.vue'
 
 const props = defineProps({
   tile: Object,

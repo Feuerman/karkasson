@@ -96,7 +96,7 @@ describe('Тайлы дополнения «Река»', () => {
     }
   })
 
-  it('учитывает gardenCount речного тайла при генерации колоды', () => {
+  it('сохраняет hasGarden речного тайла при генерации колоды', () => {
     const game = new GameManager({
       riverEnabled: true,
       startImmediately: false,
@@ -107,9 +107,9 @@ describe('Тайлы дополнения «Река»', () => {
     )
 
     expect(riverGardenTiles).toHaveLength(1)
-    expect(
-      riverTiles.find(({ id }) => id === TileId.RIVER_J)?.gardenCount
-    ).toBe(1)
+    expect(riverTiles.find(({ id }) => id === TileId.RIVER_J)?.hasGarden).toBe(
+      true
+    )
   })
 
   it('разрешает только продолжение открытого русла до конечного озера', () => {
