@@ -9,11 +9,10 @@ import {
 export interface TileDefinition {
   id: TileId
   count: number
-  /** Число копий этого тайла, отмечаемых садом при генерации колоды. */
-  gardenCount?: number
   description: string
   sides: TileSides
   isMonastery?: boolean
+  hasGarden?: boolean
   withShield?: boolean
   isSolidCity?: boolean
   hasInn?: boolean
@@ -89,7 +88,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.E,
     count: 5,
-    gardenCount: 1,
     description: 'City',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -131,7 +129,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.H,
     count: 3,
-    gardenCount: 1,
     description: 'Two city edges',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -145,7 +142,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.I,
     count: 2,
-    gardenCount: 1,
+    hasGarden: true,
     description: 'Two adjacent city edges',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -201,7 +198,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.M,
     count: 2,
-    gardenCount: 1,
     description: 'Two city edges with shield',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -216,7 +212,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.N,
     count: 3,
-    gardenCount: 1,
     description: 'City with road',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -276,7 +271,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.R,
     count: 3,
-    gardenCount: 1,
+    hasGarden: true,
     description: 'City',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -320,7 +315,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.U,
     count: 8,
-    gardenCount: 1,
     description: 'Straight road',
     sides: {
       [SideName.North]: TileSideType.Road,
@@ -334,7 +328,6 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.V,
     count: 9,
-    gardenCount: 1,
     description: 'Curved road',
     sides: {
       [SideName.North]: TileSideType.Field,

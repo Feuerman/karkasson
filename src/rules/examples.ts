@@ -60,6 +60,7 @@ export const rot = (id: TileId, rotation: RulesRotation = 0): RulesTileRef => {
     id,
     rotation,
     imgUrl: data.imgUrl,
+    ...(data.hasGarden ? { hasGarden: true } : {}),
     ...(data.hasInn ? { hasInn: true } : {}),
     ...(data.hasCathedral ? { hasCathedral: true } : {}),
   }
@@ -70,10 +71,10 @@ export const garden = (
   id: TileId,
   rotation: RulesRotation = 0
 ): RulesTileRef => {
-  if (!tileDataById(id)?.gardenCount) {
+  if (!tileDataById(id)?.hasGarden) {
     throw new Error(`[rules] Для тайла ${id} не предусмотрен сад`)
   }
-  return { ...rot(id, rotation), hasGarden: true }
+  return rot(id, rotation)
 }
 
 /** Клетка сетки из тайла с произвольным набором маркеров. */
@@ -176,8 +177,7 @@ export const validateExampleGrid = (
           if (marker.direction === PointDirection.Center) {
             if (
               !tileDataById(tile.id)?.isMonastery &&
-              !tile.hasGarden &&
-              !tileDataById(tile.id)?.gardenCount
+              !tileDataById(tile.id)?.hasGarden
             ) {
               errors.push(
                 `[${exampleId}] маркер «center» на (${x},${y}) — тайл не монастырь и не сад`

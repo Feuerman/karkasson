@@ -24,7 +24,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
   {
     id: TileId.IAC_B,
     count: 1,
-    gardenCount: 1,
+    hasGarden: true,
     description: 'Straight road with inn',
     sides: {
       [SideName.North]: TileSideType.Field,
@@ -116,7 +116,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
   {
     id: TileId.IAC_H,
     count: 1,
-    gardenCount: 1,
+    hasGarden: true,
     description: 'Opposite city edges',
     sides: {
       [SideName.North]: TileSideType.City,
