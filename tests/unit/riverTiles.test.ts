@@ -4,6 +4,7 @@ import { ExpansionName, SideName, TileId } from '../../server/src/modules/types'
 import { rotateTileGroups } from '../../server/src/modules/tileRotation'
 import { GameManager } from '../../server/src/modules/GameManager'
 import tiles from '../../server/src/data/tiles'
+import type { Tile } from '../../server/src/modules/types'
 
 describe('Тайлы дополнения «Река»', () => {
   it('содержит отдельные описания для всех предоставленных изображений', () => {
@@ -95,7 +96,7 @@ describe('Тайлы дополнения «Река»', () => {
     }
   })
 
-  it('учитывает gardenTileCounts при генерации речной колоды', () => {
+  it('учитывает gardenCount речного тайла при генерации колоды', () => {
     const game = new GameManager({
       riverEnabled: true,
       startImmediately: false,
@@ -106,6 +107,9 @@ describe('Тайлы дополнения «Река»', () => {
     )
 
     expect(riverGardenTiles).toHaveLength(1)
+    expect(
+      riverTiles.find(({ id }) => id === TileId.RIVER_J)?.gardenCount
+    ).toBe(1)
   })
 
   it('разрешает только продолжение открытого русла до конечного озера', () => {
@@ -230,12 +234,13 @@ describe('Тайлы дополнения «Река»', () => {
           currentTile,
           'the next river tile should be visible'
         ).not.toBeNull()
+        if (!currentTile) throw new Error('Expected a river tile to be drawn')
         expect(currentTile?.id).toBe(riverDeck[riverTileCount]?.id)
 
         let placed = false
         for (const place of game.availablePlacesTiles) {
           for (let rotation = 0; rotation < 4 && !placed; rotation += 1) {
-            let candidate = { ...currentTile }
+            let candidate: Tile = { ...currentTile }
             for (let turn = 0; turn < rotation; turn += 1) {
               candidate = game.rotateTile(candidate)
             }

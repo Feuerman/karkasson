@@ -214,7 +214,7 @@ describe('Проверка размещения и возврата поддан
     for (const definition of tiles) {
       for (const feature of [TileSideType.Road, TileSideType.City] as const) {
         for (let turns = 0; turns < 4; turns += 1) {
-          let rotatedTile = { ...definition, rotation: 0 }
+          let rotatedTile: Tile = { ...definition, rotation: 0 }
           for (let turn = 0; turn < turns; turn += 1) {
             rotatedTile = game.rotateTile(rotatedTile)
           }
@@ -245,7 +245,7 @@ describe('Проверка размещения и возврата поддан
     for (const definition of innsAndCathedralsTiles) {
       for (const feature of [TileSideType.Road, TileSideType.City] as const) {
         for (let turns = 0; turns < 4; turns += 1) {
-          let rotatedTile = { ...definition, rotation: 0 }
+          let rotatedTile: Tile = { ...definition, rotation: 0 }
           for (let turn = 0; turn < turns; turn += 1) {
             rotatedTile = game.rotateTile(rotatedTile)
           }
@@ -271,9 +271,8 @@ describe('Проверка размещения и возврата поддан
       startImmediately: false,
       innsAndCathedralsEnabled: true,
     })
-    const expectedGroups: Record<
-      TileId,
-      { road: string[][]; city: string[][] }
+    const expectedGroups: Partial<
+      Record<TileId, { road: string[][]; city: string[][] }>
     > = {
       [TileId.IAC_A]: { road: [[SideName.South, SideName.West]], city: [] },
       [TileId.IAC_B]: { road: [[SideName.East, SideName.West]], city: [] },
@@ -378,7 +377,7 @@ describe('Проверка размещения и возврата поддан
     const game = new GameManager({
       players: makePlayers(),
       startImmediately: false,
-      rules: { expansions: { innsAndCathedrals: true, river: false } },
+      innsAndCathedralsEnabled: true,
     })
     const getExpansionTile = (id: string) => {
       const definition = innsAndCathedralsTiles.find((tile) => tile.id === id)
@@ -418,7 +417,7 @@ describe('Проверка размещения и возврата поддан
     const game = new GameManager({
       players: makePlayers(),
       startImmediately: false,
-      rules: { expansions: { innsAndCathedrals: true, river: false } },
+      innsAndCathedralsEnabled: true,
     })
 
     expect(
@@ -434,7 +433,7 @@ describe('Проверка размещения и возврата поддан
           players: makePlayers(),
           startImmediately: false,
         })
-        let tile = { ...definition, rotation: 0 }
+        let tile: Tile = { ...definition, rotation: 0 }
         for (let turn = 0; turn < turns; turn += 1) {
           tile = game.rotateTile(tile)
         }
@@ -760,14 +759,14 @@ describe('Проверка размещения и возврата поддан
     if (!westCity || !eastCity) return
 
     const eastPlace = {
-      point: { x: 15, y: 15, direction: SideName.East as const },
+      point: { x: 15, y: 15, direction: SideName.East },
       temporaryObject: eastCity,
     }
     game.currentPlayer = game.players[1] ?? null
     game.currentPlayerIndex = 1
     expect(game.simulatePlaceFollower(eastPlace)).toBe(true)
     const westPlace = {
-      point: { x: 15, y: 15, direction: SideName.West as const },
+      point: { x: 15, y: 15, direction: SideName.West },
       temporaryObject: westCity,
     }
     game.currentPlayer = game.players[0] ?? null

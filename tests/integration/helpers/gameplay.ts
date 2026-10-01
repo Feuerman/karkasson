@@ -40,7 +40,7 @@ export interface TileSnapshot {
   hasGarden?: boolean
   hasInn?: boolean
   hasCathedral?: boolean
-  expansion?: 'innsAndCathedrals'
+  expansion?: 'innsAndCathedrals' | 'river'
   imgUrl?: string
 }
 
@@ -109,6 +109,7 @@ export interface FollowerCountSnapshot {
 /** Полный срез игры в том виде, в каком его присылает сервер */
 export interface GameStateSnapshot {
   id: string
+  gridSize?: number[]
   players: GameSummaryPlayer[]
   currentPlayerIndex: number
   currentPlayer?: GameSummaryPlayer | null

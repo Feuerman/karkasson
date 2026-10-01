@@ -24,6 +24,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
   {
     id: TileId.IAC_B,
     count: 1,
+    gardenCount: 1,
     description: 'Straight road with inn',
     sides: {
       [SideName.North]: TileSideType.Field,
@@ -115,6 +116,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
   {
     id: TileId.IAC_H,
     count: 1,
+    gardenCount: 1,
     description: 'Opposite city edges',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -290,9 +292,3 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     expansion: ExpansionName.InnsAndCathedrals,
   },
 ]
-
-/** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
-export const gardenTileCounts: Record<string, number> = {
-  [TileId.IAC_B]: 1,
-  [TileId.IAC_H]: 1,
-}

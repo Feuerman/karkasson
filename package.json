@@ -1,12 +1,12 @@
 {
   "name": "carcasson_ex",
   "description": "Онлайн-игра «Каркассон»: Vue 3 клиент и игровой сервер на Node.js/Socket.IO",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "pnpm run type-check && vite build",
     "preview": "vite preview",
     "test": "vitest run --config vitest.integration.config.ts",
     "test:gameplay": "vitest run --config vitest.integration.config.ts tests/integration/computerOnly.test.ts tests/integration/scoring.test.ts",

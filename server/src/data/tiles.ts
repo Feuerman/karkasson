@@ -9,6 +9,8 @@ import {
 export interface TileDefinition {
   id: TileId
   count: number
+  /** Число копий этого тайла, отмечаемых садом при генерации колоды. */
+  gardenCount?: number
   description: string
   sides: TileSides
   isMonastery?: boolean
@@ -87,6 +89,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.E,
     count: 5,
+    gardenCount: 1,
     description: 'City',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -128,6 +131,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.H,
     count: 3,
+    gardenCount: 1,
     description: 'Two city edges',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -141,6 +145,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.I,
     count: 2,
+    gardenCount: 1,
     description: 'Two adjacent city edges',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -196,6 +201,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.M,
     count: 2,
+    gardenCount: 1,
     description: 'Two city edges with shield',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -210,6 +216,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.N,
     count: 3,
+    gardenCount: 1,
     description: 'City with road',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -269,6 +276,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.R,
     count: 3,
+    gardenCount: 1,
     description: 'City',
     sides: {
       [SideName.North]: TileSideType.City,
@@ -312,6 +320,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.U,
     count: 8,
+    gardenCount: 1,
     description: 'Straight road',
     sides: {
       [SideName.North]: TileSideType.Road,
@@ -325,6 +334,7 @@ export const tiles: TileDefinition[] = [
   {
     id: TileId.V,
     count: 9,
+    gardenCount: 1,
     description: 'Curved road',
     sides: {
       [SideName.North]: TileSideType.Field,
@@ -367,17 +377,5 @@ export const tiles: TileDefinition[] = [
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_X.png',
   },
 ]
-
-/** Число копий тайла с садом (по id тайла), отмечаемых при генерации колоды. */
-export const gardenTileCounts: Record<string, number> = {
-  [TileId.I]: 1,
-  [TileId.R]: 1,
-  [TileId.U]: 1,
-  [TileId.V]: 1,
-  [TileId.E]: 1,
-  [TileId.H]: 1,
-  [TileId.M]: 1,
-  [TileId.N]: 1,
-}
 
 export default tiles

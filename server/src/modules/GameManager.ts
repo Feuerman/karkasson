@@ -1,10 +1,6 @@
-import tiles, { gardenTileCounts as baseGardenTileCounts } from '../data/tiles'
+import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
-import { gardenTileCounts as expansionGardenTileCounts } from '../data/innsAndCathedralsTiles'
-import {
-  gardenTileCounts as riverGardenTileCounts,
-  riverTiles,
-} from '../data/riverTiles'
+import { riverTiles } from '../data/riverTiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
 import {
@@ -194,6 +190,16 @@ const CENTRAL_OBJECT_TYPES: Record<CentralObjectKind, CentralObjectKind> = {
   [ObjectTypes.GARDEN]: ObjectTypes.GARDEN,
 } as const
 
+function shuffleTiles(tiles: Tile[]): Tile[] {
+  for (let index = tiles.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1))
+    const tile = tiles[index]
+    tiles[index] = tiles[randomIndex]
+    tiles[randomIndex] = tile
+  }
+  return tiles
+}
+
 export class GameManager implements IGameBoard {
   id?: string
   roomCode?: string
@@ -283,19 +289,14 @@ export class GameManager implements IGameBoard {
     const standardDefinitions = this.rules.expansions.innsAndCathedrals
       ? [...tiles, ...innsAndCathedralsTiles]
       : tiles
-    const gardenTileCounts = this.rules.expansions.innsAndCathedrals
-      ? { ...baseGardenTileCounts, ...expansionGardenTileCounts }
-      : baseGardenTileCounts
-    const standardTiles = standardDefinitions
-      .flatMap<Tile>((tile) => {
-        const gardenCount = gardenTileCounts[tile.id] ?? 0
-        return Array.from({ length: tile.count }, (_, index) => {
-          const copy: Tile = { ...tile, rotation: 0 }
-          if (index < gardenCount) copy.hasGarden = true
-          return copy
-        })
+    const standardTiles = standardDefinitions.flatMap<Tile>((tile) => {
+      return Array.from({ length: tile.count }, (_, index) => {
+        const copy: Tile = { ...tile, rotation: 0 }
+        if (index < (tile.gardenCount ?? 0)) copy.hasGarden = true
+        return copy
       })
-      .sort(() => Math.random() - 0.5)
+    })
+    shuffleTiles(standardTiles)
 
     if (!this.rules.expansions.river) {
       this.tilesList = standardTiles
@@ -305,19 +306,13 @@ export class GameManager implements IGameBoard {
     const middleRiverTiles = riverTiles
       .filter((tile) => tile.id !== TileId.RIVER_L)
       .flatMap<Tile>((tile) => {
-        const gardenCount = riverGardenTileCounts[tile.id] ?? 0
         return Array.from({ length: tile.count }, (_, index) => {
           const copy: Tile = { ...tile, rotation: 0 }
-          if (index < gardenCount) copy.hasGarden = true
+          if (index < (tile.gardenCount ?? 0)) copy.hasGarden = true
           return copy
         })
       })
-    for (let index = middleRiverTiles.length - 1; index > 0; index -= 1) {
-      const randomIndex = Math.floor(Math.random() * (index + 1))
-      const tile = middleRiverTiles[index]
-      middleRiverTiles[index] = middleRiverTiles[randomIndex]
-      middleRiverTiles[randomIndex] = tile
-    }
+    shuffleTiles(middleRiverTiles)
     const riverEnd = riverTiles.find(({ id }) => id === TileId.RIVER_L)
     if (!riverEnd) throw new Error('River expansion has no ending tile')
 

@@ -21,6 +21,7 @@ type AnyGame = Record<string, unknown> & {
   currentTile?: { sides: Record<string, string> } | null
   availablePlacesTiles?: Array<{ rowIndex: number; tileIndex: number }>
   tilePlacesStats?: Record<number, Record<number, unknown>>
+  game?: { isPlacingFollower?: boolean }
   players: Array<{ id: number | string; name: string | null }>
 }
 

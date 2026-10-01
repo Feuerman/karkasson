@@ -1,9 +1,6 @@
-import { gardenTileCounts, tiles } from '@/data/tiles'
+import { tiles } from '@/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
-import {
-  gardenTileCounts as riverGardenTileCounts,
-  riverTiles,
-} from '@server/data/riverTiles'
+import { riverTiles } from '@server/data/riverTiles'
 import {
   OPPOSITE_SIDE,
   PointDirection,
@@ -73,7 +70,7 @@ export const garden = (
   id: TileId,
   rotation: RulesRotation = 0
 ): RulesTileRef => {
-  if (!gardenTileCounts[id] && !riverGardenTileCounts[id]) {
+  if (!tileDataById(id)?.gardenCount) {
     throw new Error(`[rules] Для тайла ${id} не предусмотрен сад`)
   }
   return { ...rot(id, rotation), hasGarden: true }
@@ -180,7 +177,7 @@ export const validateExampleGrid = (
             if (
               !tileDataById(tile.id)?.isMonastery &&
               !tile.hasGarden &&
-              !gardenTileCounts[tile.id]
+              !tileDataById(tile.id)?.gardenCount
             ) {
               errors.push(
                 `[${exampleId}] маркер «center» на (${x},${y}) — тайл не монастырь и не сад`
