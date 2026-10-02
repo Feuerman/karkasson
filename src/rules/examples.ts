@@ -1,5 +1,6 @@
 import { tiles } from '@/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
+import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import { riverTiles } from '@server/data/riverTiles'
 import {
   OPPOSITE_SIDE,
@@ -38,6 +39,7 @@ const tileDataById = (id: string) => {
   return (
     tiles.find((tile) => tile.id === id) ??
     innsAndCathedralsTiles.find((tile) => tile.id === id) ??
+    princessAndDragonTiles.find((tile) => tile.id === id) ??
     riverTiles.find((tile) => tile.id === id)
   )
 }
@@ -100,6 +102,14 @@ export const newly = (tile: RulesTileRef): RulesGridCell =>
 /** Тайл, относящийся к завершённому объекту (зелёная рамка). */
 export const completed = (tile: RulesTileRef): RulesGridCell =>
   cell(tile, { kind: RulesMarkerKind.Completed })
+
+/** Тайл, посещённый драконом на указанном шаге примера. */
+export const dragonStep = (
+  tile: RulesTileRef,
+  step: number,
+  ...markers: RulesMarker[]
+): RulesGridCell =>
+  cell(tile, { kind: RulesMarkerKind.Dragon, step }, ...markers)
 
 /** Тайл с пометкой «недопустимо» на конкретной грани (красный крестик). */
 export const invalid = (
@@ -195,6 +205,14 @@ export const validateExampleGrid = (
               )
             }
           }
+        }
+        if (
+          marker.kind === RulesMarkerKind.Dragon &&
+          (!Number.isInteger(marker.step) || marker.step < 0 || marker.step > 6)
+        ) {
+          errors.push(
+            `[${exampleId}] номер шага дракона на (${x},${y}) должен быть от 0 до 6`
+          )
         }
       })
     })

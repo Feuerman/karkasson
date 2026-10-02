@@ -27,6 +27,7 @@ describe('примеры правил', () => {
     expect(baseGameRules.sections.map(({ title }) => title)).toEqual([
       'Базовая игра',
       'Таверны и соборы',
+      'Принцесса и дракон',
       'Река',
     ])
 
@@ -35,7 +36,30 @@ describe('примеры правил', () => {
       expansionSection?.blocks.some((block) => block.type === 'example')
     ).toBe(true)
 
-    const riverSection = baseGameRules.sections[2]
+    const princessAndDragonSection = baseGameRules.sections[2]
+    const dragonRules = princessAndDragonSection?.blocks.find(
+      (block) => block.type === 'list'
+    )
+    expect(dragonRules?.type).toBe('list')
+    if (dragonRules?.type === 'list') {
+      expect(dragonRules.items).toHaveLength(7)
+      expect(dragonRules.items).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('случайное место колоды'),
+          expect.stringContaining('до 6 раз'),
+          expect.stringContaining('нельзя повторно посещать тайл'),
+          expect.stringContaining('Телепортация не снимает подданных'),
+        ])
+      )
+    }
+    const dragonTilesRow = princessAndDragonSection?.blocks.find(
+      (block) => block.type === 'tiles-row'
+    )
+    expect(
+      dragonTilesRow?.type === 'tiles-row' ? dragonTilesRow.tiles : []
+    ).toHaveLength(5)
+
+    const riverSection = baseGameRules.sections[3]
     const riverTilesRow = riverSection?.blocks.find(
       (block) => block.type === 'tiles-row'
     )
@@ -63,5 +87,59 @@ describe('примеры правил', () => {
         expect(row.length, example.id).toBeGreaterThan(0)
       })
     })
+  })
+
+  it('показывает прямой, поворотный и досрочно завершённый маршрут дракона', () => {
+    const examples = collectExamples([baseGameRules])
+    const dragonExamples = examples.filter(({ id }) =>
+      id.startsWith('dragon-move-')
+    )
+
+    expect(dragonExamples.map(({ id }) => id)).toEqual([
+      'dragon-move-straight',
+      'dragon-move-turns',
+      'dragon-move-dead-end',
+    ])
+    expect(
+      dragonExamples.map((example) =>
+        example.grid
+          .flatMap((row) => row)
+          .reduce(
+            (count, cellEntry) =>
+              count +
+              (cellEntry.tile?.markers?.filter(
+                (marker) => marker.kind === 'dragon'
+              ).length ?? 0),
+            0
+          )
+      )
+    ).toEqual([7, 7, 4])
+
+    const dragonSteps = dragonExamples.map((example) =>
+      example.grid
+        .flatMap((row) => row)
+        .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
+        .filter((marker) => marker.kind === 'dragon')
+        .map((marker) => marker.step)
+        .sort((left, right) => left - right)
+    )
+    expect(dragonSteps).toEqual([
+      [0, 1, 2, 3, 4, 5, 6],
+      [0, 1, 2, 3, 4, 5, 6],
+      [0, 1, 2, 3],
+    ])
+
+    const routeWithFollower = dragonExamples.find(
+      ({ id }) => id === 'dragon-move-straight'
+    )
+    expect(routeWithFollower?.returnedFollowers).toEqual(['coral'])
+    expect(
+      routeWithFollower?.grid
+        .flatMap((row) => row)
+        .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
+        .some(
+          (marker) => marker.kind === 'follower' && marker.color === 'coral'
+        )
+    ).toBe(true)
   })
 })

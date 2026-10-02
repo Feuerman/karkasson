@@ -13,6 +13,8 @@ import type {
   SocketAck,
   GamesListResponse,
   CreateGameResponse,
+  PrincessChoicePayload,
+  DragonMovePayload,
 } from '@/types/socket'
 
 export interface IGameService {
@@ -36,6 +38,7 @@ export interface CreateGameOptions {
   finalScoringEnabled?: boolean
   innsAndCathedralsEnabled?: boolean
   riverEnabled?: boolean
+  princessAndDragonEnabled?: boolean
 }
 
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
@@ -186,6 +189,7 @@ export class GameService implements IGameService {
         finalScoringEnabled: options.finalScoringEnabled,
         innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
         riverEnabled: options.riverEnabled,
+        princessAndDragonEnabled: options.princessAndDragonEnabled,
       }
     )
     const { gameId, game } = response
@@ -288,6 +292,26 @@ export class GameService implements IGameService {
     return this.emitAck<SocketAck>(SocketEvents.RecallAbbot, {
       gameId: this.gameId,
     })
+  }
+
+  moveDragon(position: { rowIndex: number; tileIndex: number }) {
+    const payload: DragonMovePayload & SocketPayload = {
+      gameId: this.gameId,
+      position,
+    }
+    return this.emitAck<SocketAck>(SocketEvents.MoveDragon, payload)
+  }
+
+  choosePrincessFollower(
+    cityId: string,
+    point: PrincessChoicePayload['point']
+  ) {
+    const payload: PrincessChoicePayload & SocketPayload = {
+      gameId: this.gameId,
+      cityId,
+      point,
+    }
+    return this.emitAck<SocketAck>(SocketEvents.ChoosePrincess, payload)
   }
 
   skipFollower() {

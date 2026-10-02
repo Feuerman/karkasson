@@ -1,6 +1,7 @@
 import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { riverTiles } from '../data/riverTiles'
+import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import type { TileDefinition } from '../data/tiles'
 import { isCorrectTilePosition } from './gameGeometry'
 import {
@@ -50,8 +51,15 @@ export class GameTileManager {
   ) {}
 
   findTileDefinition(tileId: string): TileDefinition | undefined {
+    const standardTile = tiles.find(({ id }) => id === tileId)
+    if (standardTile) return standardTile
+    if (this.state.rules.expansions.princessAndDragon) {
+      const princessAndDragonTile = princessAndDragonTiles.find(
+        ({ id }) => id === tileId
+      )
+      if (princessAndDragonTile) return princessAndDragonTile
+    }
     return (
-      tiles.find(({ id }) => id === tileId) ??
       (this.state.rules.expansions.innsAndCathedrals
         ? innsAndCathedralsTiles.find(({ id }) => id === tileId)
         : undefined) ??
@@ -62,9 +70,15 @@ export class GameTileManager {
   }
 
   initializeDeck() {
-    const standardDefinitions = this.state.rules.expansions.innsAndCathedrals
-      ? [...tiles, ...innsAndCathedralsTiles]
-      : tiles
+    const standardDefinitions = [
+      ...tiles,
+      ...(this.state.rules.expansions.innsAndCathedrals
+        ? innsAndCathedralsTiles
+        : []),
+      ...(this.state.rules.expansions.princessAndDragon
+        ? princessAndDragonTiles
+        : []),
+    ]
     const standardTiles = shuffleTiles(createTileCopies(standardDefinitions))
 
     if (!this.state.rules.expansions.river) {
@@ -115,18 +129,41 @@ export class GameTileManager {
       )
     }
 
-    const tile = this.state.tilesList[0]
-    if (this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })) {
-      this.state.tilesList.shift()
-      this.state.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
-      this.state.updateTileHistory(tile)
-    } else {
-      const listWithoutCurrentTile = this.state.tilesList.filter(
-        (_, index) => index !== 0
+    const dragonAwake = Object.values(this.state.tilePlacesStats).some((row) =>
+      Object.values(row).some((placedTile) => placedTile.hasVolcano)
+    )
+    const tilesToCheck = this.state.tilesList.length
+    const checkedTiles = new Set<Tile>()
+
+    for (let index = 0; index < tilesToCheck; index += 1) {
+      const tileIndex = this.state.tilesList.findIndex(
+        (tile) => !checkedTiles.has(tile)
       )
-      this.state.tilesList = [...listWithoutCurrentTile, tile]
-      this.drawNextTile()
+      if (tileIndex === -1) break
+      const [tile] = this.state.tilesList.splice(tileIndex, 1)
+      if (!tile) break
+
+      if (
+        (dragonAwake || !tile.hasDragon) &&
+        this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })
+      ) {
+        this.state.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
+        this.state.updateTileHistory(tile)
+        return
+      }
+
+      checkedTiles.add(tile)
+      if (!dragonAwake && tile.hasDragon) {
+        const randomIndex = Math.floor(
+          Math.random() * (this.state.tilesList.length + 1)
+        )
+        this.state.tilesList.splice(randomIndex, 0, tile)
+      } else {
+        this.state.tilesList.push(tile)
+      }
     }
+
+    this.finishGame()
   }
 
   checkAvailablePlacesForTile(tile: Tile): boolean {

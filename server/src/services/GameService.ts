@@ -36,6 +36,9 @@ export interface GameData {
   placingPoint?: IGameBoard['placingPoint']
   tilePlacesStats: IGameBoard['tilePlacesStats']
   tilesList: IGameBoard['tilesList']
+  dragonMove?: IGameBoard['dragonMove']
+  princessChoice?: IGameBoard['princessChoice']
+  dragonPosition?: IGameBoard['dragonPosition']
   currentTile: IGameBoard['currentTile']
   players: Player[]
   currentPlayerIndex: number
@@ -160,6 +163,7 @@ export class GameService {
       finalScoringEnabled?: boolean
       innsAndCathedralsEnabled?: boolean
       riverEnabled?: boolean
+      princessAndDragonEnabled?: boolean
     } = {}
   ): IGameBoard & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
@@ -180,6 +184,7 @@ export class GameService {
       finalScoringEnabled: options.finalScoringEnabled,
       innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
       riverEnabled: options.riverEnabled,
+      princessAndDragonEnabled: options.princessAndDragonEnabled,
     })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
@@ -285,6 +290,8 @@ export class GameService {
       innsAndCathedralsEnabled:
         game.rules?.expansions?.innsAndCathedrals ?? false,
       riverEnabled: game.rules?.expansions?.river ?? false,
+      princessAndDragonEnabled:
+        game.rules?.expansions?.princessAndDragon ?? false,
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
@@ -394,14 +401,20 @@ export class GameService {
         game.completedObjects.gardens ??= []
         game.rules ??= {
           finalScoringEnabled: game.finalScoringEnabled ?? false,
-          expansions: { innsAndCathedrals: false, river: false },
+          expansions: {
+            innsAndCathedrals: false,
+            river: false,
+            princessAndDragon: false,
+          },
         }
         game.rules.expansions ??= {
           innsAndCathedrals: false,
           river: false,
+          princessAndDragon: false,
         }
         game.rules.expansions.innsAndCathedrals ??= false
         game.rules.expansions.river ??= false
+        game.rules.expansions.princessAndDragon ??= false
         for (const pool of Object.values(game.playersFollowers)) {
           pool.bigFollowers ??= 0
         }
@@ -454,6 +467,9 @@ export class GameService {
       placingPoint: game.placingPoint,
       tilePlacesStats: game.tilePlacesStats,
       tilesList: game.tilesList,
+      dragonMove: game.dragonMove,
+      princessChoice: game.princessChoice,
+      dragonPosition: game.dragonPosition,
       currentTile: game.currentTile,
       players: game.players,
       currentPlayerIndex: game.currentPlayerIndex,

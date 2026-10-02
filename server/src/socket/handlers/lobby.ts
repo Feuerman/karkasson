@@ -43,6 +43,7 @@ export function registerLobbyHandlers({
               finalScoringEnabled?: unknown
               innsAndCathedralsEnabled?: unknown
               riverEnabled?: unknown
+              princessAndDragonEnabled?: unknown
             })
           : undefined
       if (
@@ -66,10 +67,18 @@ export function registerLobbyHandlers({
         callback?.({ error: 'Invalid River option' })
         return
       }
+      if (
+        payload?.princessAndDragonEnabled !== undefined &&
+        typeof payload.princessAndDragonEnabled !== 'boolean'
+      ) {
+        callback?.({ error: 'Invalid Princess and Dragon option' })
+        return
+      }
       const game = service.createLobby(socket.id, {
         finalScoringEnabled: payload?.finalScoringEnabled === true,
         innsAndCathedralsEnabled: payload?.innsAndCathedralsEnabled === true,
         riverEnabled: payload?.riverEnabled === true,
+        princessAndDragonEnabled: payload?.princessAndDragonEnabled === true,
       })
       try {
         await service.saveGame(game.id)

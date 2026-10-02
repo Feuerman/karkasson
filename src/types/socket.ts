@@ -31,6 +31,17 @@ export interface CreateGameResponse extends SocketAckBase {
   game: GameData
 }
 
+export interface DragonMovePayload {
+  gameId: string
+  position: { rowIndex: number; tileIndex: number }
+}
+
+export interface PrincessChoicePayload {
+  gameId: string
+  cityId: string
+  point: import('@server/modules/types').Point
+}
+
 export interface PlayerTemporaryDisconnectedPayload {
   deviceId?: string
   playerIds: Player[]

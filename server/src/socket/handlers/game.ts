@@ -2,12 +2,14 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type {
   AvailableFollowerPlace,
   FollowerType,
+  Point,
   Tile,
 } from '../../modules/types'
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
 import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
 import { riverTiles } from '../../data/riverTiles'
+import { princessAndDragonTiles } from '../../data/princessAndDragonTiles'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
 import {
   FollowerType as FollowerTypes,
@@ -46,6 +48,9 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
   }
 
   const definition =
+    (game.rules.expansions.princessAndDragon
+      ? princessAndDragonTiles.find((tile) => tile.id === currentTile.id)
+      : undefined) ??
     tiles.find((tile) => tile.id === currentTile.id) ??
     (game.rules.expansions.innsAndCathedrals
       ? innsAndCathedralsTiles.find((tile) => tile.id === currentTile.id)
@@ -132,6 +137,8 @@ export function registerGameHandlers({
       const requestedRotation = rotation ?? tile?.rotation
       if (
         game.isPlacingFollower ||
+        game.princessChoice ||
+        game.dragonMove ||
         typeof requestedRotation !== 'number' ||
         !setCurrentTileRotation(game, requestedRotation)
       ) {
@@ -166,7 +173,12 @@ export function registerGameHandlers({
         callback?.({ error: "Not player's turn" })
         return
       }
-      if (game.isPlacingFollower || !game.currentTile) {
+      if (
+        game.isPlacingFollower ||
+        game.princessChoice ||
+        game.dragonMove ||
+        !game.currentTile
+      ) {
         callback?.({ error: 'No tile is waiting to be placed' })
         return
       }
@@ -234,6 +246,10 @@ export function registerGameHandlers({
       }
       if (!isPlayersTurn(game, socket.id)) {
         callback?.({ error: "Not player's turn" })
+        return
+      }
+      if (game.princessChoice || game.dragonMove) {
+        callback?.({ error: 'Resolve the expansion action first' })
         return
       }
 
@@ -348,6 +364,104 @@ export function registerGameHandlers({
   )
 
   socket.on(
+    SocketEvents.MoveDragon,
+    async (
+      {
+        gameId,
+        position,
+      }: { gameId: string; position: { rowIndex: number; tileIndex: number } },
+      callback: SocketCallback
+    ) => {
+      const game = service.getGame(gameId)
+      if (!game) {
+        callback?.({ error: 'Game not found' })
+        return
+      }
+      if (
+        !game.dragonMove ||
+        game.players[game.currentPlayerIndex]?.socketId !== socket.id
+      ) {
+        callback?.({ error: 'Invalid dragon move turn' })
+        return
+      }
+      const previousState = game.clone()
+      try {
+        if (
+          !position ||
+          !game.moveDragon(position.rowIndex, position.tileIndex)
+        ) {
+          throw new Error('Invalid dragon destination')
+        }
+        try {
+          await service.saveGame(gameId)
+        } catch (error) {
+          game.copyStateFrom(previousState)
+          throw error
+        }
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
+        callback?.({ success: true, game: service.formatGameData(game) })
+        maybeContinueWithComputerMove(io, service, game, gameId)
+      } catch (error) {
+        game.copyStateFrom(previousState)
+        callback?.({
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+  )
+
+  socket.on(
+    SocketEvents.ChoosePrincess,
+    async (
+      {
+        gameId,
+        cityId,
+        point,
+      }: { gameId: string; cityId: string; point: Point },
+      callback: SocketCallback
+    ) => {
+      const game = service.getGame(gameId)
+      if (!game) {
+        callback?.({ error: 'Game not found' })
+        return
+      }
+      if (!isPlayersTurn(game, socket.id)) {
+        callback?.({ error: "Not player's turn" })
+        return
+      }
+      if (!game.princessChoice) {
+        callback?.({ error: 'Princess choice is not pending' })
+        return
+      }
+      const previousState = game.clone()
+      try {
+        if (
+          typeof cityId !== 'string' ||
+          !point ||
+          !game.choosePrincessFollower(cityId, point)
+        ) {
+          throw new Error('Invalid princess city')
+        }
+        await service.saveGame(gameId)
+        io.to(gameId).emit(
+          SocketEvents.GameUpdated,
+          service.formatGameData(game)
+        )
+        callback?.({ success: true, game: service.formatGameData(game) })
+        maybeContinueWithComputerMove(io, service, game, gameId)
+      } catch (error) {
+        game.copyStateFrom(previousState)
+        callback?.({
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+  )
+
+  socket.on(
     SocketEvents.SkipFollower,
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
@@ -357,6 +471,10 @@ export function registerGameHandlers({
       }
       if (!isPlayersTurn(game, socket.id)) {
         callback?.({ error: "Not player's turn" })
+        return
+      }
+      if (game.princessChoice || game.dragonMove) {
+        callback?.({ error: 'Resolve the expansion action first' })
         return
       }
 

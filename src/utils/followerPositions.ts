@@ -118,6 +118,57 @@ const roadPositions: Record<TileId, FeaturePositions> = {
     [SideName.West]: [0.18, 0.5],
   },
   [TileId.RIVER_L]: {},
+  [TileId.PAD_A]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_B]: {},
+  [TileId.PAD_C]: {},
+  [TileId.PAD_D]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_E]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_F]: {},
+  [TileId.PAD_G]: {},
+  [TileId.PAD_H]: {},
+  [TileId.PAD_I]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_J]: {},
+  [TileId.PAD_K]: { [SideName.South]: [0.5, 0.82] },
+  [TileId.PAD_L]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_M]: {},
+  [TileId.PAD_N]: {},
+  [TileId.PAD_O]: {},
+  [TileId.PAD_P]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_Q]: {
+    [SideName.East]: [0.82, 0.5],
+    [SideName.South]: [0.5, 0.82],
+  },
+  [TileId.PAD_R]: {
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_S]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.82, 0.5],
+  },
+  [TileId.PAD_T]: {},
+  [TileId.PAD_U]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_V]: { [SideName.East]: [0.82, 0.5] },
+  [TileId.PAD_W]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.82, 0.5],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_X]: {},
+  [TileId.PAD_Y]: {},
+  [TileId.PAD_Z]: {},
+  [TileId.PAD_1]: {},
+  [TileId.PAD_2]: {},
+  [TileId.PAD_3]: { [SideName.South]: [0.5, 0.82] },
 }
 
 const cityPositions: Record<TileId, FeaturePositions> = {
@@ -231,6 +282,93 @@ const cityPositions: Record<TileId, FeaturePositions> = {
   [TileId.RIVER_J]: {},
   [TileId.RIVER_K]: {},
   [TileId.RIVER_L]: {},
+  [TileId.PAD_A]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_B]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_C]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+  },
+  [TileId.PAD_D]: {},
+  [TileId.PAD_E]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_F]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_G]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+  },
+  [TileId.PAD_H]: {},
+  [TileId.PAD_I]: {},
+  [TileId.PAD_J]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_K]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_L]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_M]: {},
+  [TileId.PAD_N]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_O]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_P]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_Q]: {},
+  [TileId.PAD_R]: {},
+  [TileId.PAD_S]: {},
+  [TileId.PAD_T]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_U]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.South]: [0.5, 0.82],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_V]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.West]: [0.18, 0.5],
+  },
+  [TileId.PAD_W]: {},
+  [TileId.PAD_X]: {},
+  [TileId.PAD_Y]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+  },
+  [TileId.PAD_Z]: {},
+  [TileId.PAD_1]: {
+    [SideName.North]: [0.5, 0.18],
+    [SideName.East]: [0.76, 0.5],
+    [SideName.West]: [0.24, 0.5],
+  },
+  [TileId.PAD_2]: {},
+  [TileId.PAD_3]: {},
 }
 
 const gardenPositions: Partial<Record<TileId, Position>> = {

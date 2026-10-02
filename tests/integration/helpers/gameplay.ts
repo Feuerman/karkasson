@@ -4,6 +4,7 @@ import {
   FollowerType,
   SideName,
   TileSideType,
+  type ExpansionName,
   type SideName as SideNameType,
   type TileSideType as TileSideTypeType,
 } from '@server/modules/types'
@@ -40,7 +41,7 @@ export interface TileSnapshot {
   hasGarden?: boolean
   hasInn?: boolean
   hasCathedral?: boolean
-  expansion?: 'innsAndCathedrals' | 'river'
+  expansion?: ExpansionName
   imgUrl?: string
 }
 

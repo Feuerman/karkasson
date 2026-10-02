@@ -33,6 +33,9 @@ import {
   type FollowerType,
   type GridTile,
   type GameRules,
+  type DragonMoveState,
+  type PrincessChoiceState,
+  type DragonPosition,
   type ObjectFollower,
   type Player,
   type PlayerId,
@@ -118,6 +121,11 @@ export interface IGameBoard {
   lastUpdate: number
   placedFollowers: PlacedFollower[]
   placingPoint?: { rowIndex: number; tileIndex: number }
+  dragonMove?: DragonMoveState
+  princessChoice?: PrincessChoiceState
+  dragonPosition?: DragonPosition
+  moveDragon(rowIndex: number, tileIndex: number): boolean
+  choosePrincessFollower(cityId: string, point: Point): boolean
   tilePlacesStats: TilePlacesStats
   startGame(): void
   placeFollower(
@@ -177,6 +185,11 @@ export class GameManager implements IGameBoard {
   actionsHistory: GameAction[]
   lastUpdate = 0
   placingPoint?: { rowIndex: number; tileIndex: number }
+  dragonMove?: DragonMoveState
+  princessChoice?: PrincessChoiceState
+  dragonPosition?: DragonPosition
+  pendingDragonMovement = false
+  private dragonResumePlayerIndex = 0
   private isPlacingStartTile = false
 
   constructor(
@@ -186,6 +199,7 @@ export class GameManager implements IGameBoard {
       finalScoringEnabled?: boolean
       innsAndCathedralsEnabled?: boolean
       riverEnabled?: boolean
+      princessAndDragonEnabled?: boolean
     } = {}
   ) {
     const players = params.players ?? []
@@ -198,6 +212,7 @@ export class GameManager implements IGameBoard {
       expansions: {
         innsAndCathedrals: params.innsAndCathedralsEnabled ?? false,
         river: params.riverEnabled ?? false,
+        princessAndDragon: params.princessAndDragonEnabled ?? false,
       },
     }
     this.tilesList = []
@@ -227,6 +242,7 @@ export class GameManager implements IGameBoard {
     this.availablePlacesTiles = []
     this.tileHistory = []
     this.actionsHistory = []
+    this.princessChoice = undefined
 
     this.initTilesList()
     this.initPlayers(players)
@@ -330,6 +346,7 @@ export class GameManager implements IGameBoard {
       this.moveCounter = this.moveCounter + 1
     }
     this.isPlacingFollower = false
+    this.princessChoice = undefined
 
     const nextPlayer = this.getNextPlayer(currentPlayer?.id)
 
@@ -338,7 +355,12 @@ export class GameManager implements IGameBoard {
       (player) => player.id === nextPlayer.id
     )
 
-    this.getRandomTileFromList()
+    if (this.pendingDragonMovement) {
+      this.pendingDragonMovement = false
+      this.startDragonMove()
+    } else if (!this.dragonMove) {
+      this.getRandomTileFromList()
+    }
   }
 
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player {
@@ -471,7 +493,35 @@ export class GameManager implements IGameBoard {
 
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
 
-    if (!this.isPlacingStartTile) this.checkAvailableFollowers()
+    if (!this.isPlacingStartTile && this.rules.expansions.princessAndDragon) {
+      this.applyPrincessAndDragonTile(tile, rowIndex, tileIndex)
+    }
+
+    if (this.princessChoice && !this.currentPlayer?.socketId) {
+      const follower = this.princessChoice.followers[0]
+      if (follower) {
+        this.choosePrincessFollower(follower.cityId, follower.point)
+      }
+    }
+
+    if (
+      !this.isPlacingStartTile &&
+      tile.hasVolcano &&
+      this.rules.expansions.princessAndDragon
+    ) {
+      this.dragonPosition = { rowIndex, tileIndex }
+      this.dragonMove = undefined
+      this.princessChoice = undefined
+      this.currentTile = null
+      this.availableFollowersPlaces = []
+      this.isPlacingFollower = false
+      this.endTurn()
+      return true
+    }
+
+    if (!this.isPlacingStartTile && !this.princessChoice) {
+      this.checkAvailableFollowers()
+    }
 
     if (!this.currentPlayer && !this.isPlacingStartTile) {
       this.endTurn()
@@ -574,6 +624,262 @@ export class GameManager implements IGameBoard {
     this.followerManager.skipFollower()
   }
 
+  moveDragon(rowIndex: number, tileIndex: number): boolean {
+    const move = this.dragonMove
+    if (!move || !Number.isInteger(rowIndex) || !Number.isInteger(tileIndex)) {
+      return false
+    }
+    if (this.currentPlayerIndex !== move.nextPlayerIndex) return false
+    const currentPosition = this.findDragonPosition()
+    if (!currentPosition) return false
+    const distance =
+      Math.abs(currentPosition.rowIndex - rowIndex) +
+      Math.abs(currentPosition.tileIndex - tileIndex)
+    if (distance !== 1) return false
+    if (
+      move.visited.some(
+        (position) =>
+          position.rowIndex === rowIndex && position.tileIndex === tileIndex
+      )
+    )
+      return false
+    const destination = this.tilePlacesStats[rowIndex]?.[tileIndex]
+    if (!destination) return false
+    if (this.currentPlayerIndex !== this.dragonMove?.nextPlayerIndex)
+      return false
+    this.dragonPosition = { rowIndex, tileIndex }
+
+    const occupants = this.placedFollowers.filter(
+      (follower) =>
+        follower.point.x === tileIndex && follower.point.y === rowIndex
+    )
+    for (const follower of occupants) this.removeFollowerFromBoard(follower)
+
+    move.visited.push({ rowIndex, tileIndex })
+    move.remainingSteps -= 1
+    move.nextPlayerIndex = this.players.length
+      ? (move.nextPlayerIndex + 1) % this.players.length
+      : 0
+    this.currentPlayerIndex = move.nextPlayerIndex
+    this.currentPlayer = this.players[this.currentPlayerIndex] ?? null
+    if (move.remainingSteps <= 0) {
+      this.finishDragonMove()
+    } else {
+      this.advanceDragonMove()
+    }
+    return true
+  }
+
+  choosePrincessFollower(cityId: string, point: Point): boolean {
+    const choice = this.princessChoice
+    if (!choice) return false
+    const city = this.temporaryObjects.cities.find(({ id }) => id === cityId)
+    if (!city) return false
+    const selectedFollower = choice.followers.find(
+      (candidate) =>
+        candidate.cityId === cityId &&
+        candidate.point.x === point.x &&
+        candidate.point.y === point.y &&
+        candidate.point.direction === point.direction
+    )
+    if (!selectedFollower) return false
+    const follower = this.placedFollowers.find(
+      (placed) =>
+        placed.objectId === city.id &&
+        placed.point.x === selectedFollower.point.x &&
+        placed.point.y === selectedFollower.point.y &&
+        placed.point.direction === selectedFollower.point.direction
+    )
+    if (!follower) return false
+    this.removeFollowerFromBoard(follower)
+    this.princessChoice = undefined
+    if (this.currentTile) this.checkAvailableFollowers()
+    return true
+  }
+
+  private applyPrincessAndDragonTile(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ) {
+    if (!this.rules.expansions.princessAndDragon) return
+
+    if (tile.hasPrincess) {
+      const adjacentCities = this.findCitiesOnPrincessTile(rowIndex, tileIndex)
+      if (adjacentCities.length) {
+        this.princessChoice = {
+          followers: adjacentCities.flatMap((city) =>
+            city.followers.map((follower) => ({
+              cityId: city.id,
+              point: follower.point,
+            }))
+          ),
+        }
+      }
+    }
+
+    if (tile.hasDragon && this.dragonPosition) this.pendingDragonMovement = true
+  }
+
+  private findCitiesOnPrincessTile(rowIndex: number, tileIndex: number) {
+    return this.temporaryObjects.cities.filter(
+      (city) =>
+        city.followers.length > 0 &&
+        city.points.some(
+          (point) => point.x === tileIndex && point.y === rowIndex
+        )
+    )
+  }
+
+  private findDragonPosition(): DragonPosition | undefined {
+    if (this.dragonPosition) return this.dragonPosition
+    for (const [row, tiles] of Object.entries(this.tilePlacesStats)) {
+      for (const [column, tile] of Object.entries(tiles)) {
+        if (tile.hasVolcano) {
+          this.dragonPosition = {
+            rowIndex: Number(row),
+            tileIndex: Number(column),
+          }
+          return this.dragonPosition
+        }
+      }
+    }
+    return undefined
+  }
+
+  private startDragonMove() {
+    const position = this.findDragonPosition()
+    if (!position) {
+      this.getRandomTileFromList()
+      return
+    }
+    // endTurn() advances to the player after the tile placer. The placer moves
+    // the dragon first; once movement ends, normal turns resume at that already
+    // selected next player.
+    this.dragonResumePlayerIndex = this.currentPlayerIndex
+    this.dragonMove = {
+      remainingSteps: 6,
+      nextPlayerIndex: this.players.length
+        ? (this.currentPlayerIndex - 1 + this.players.length) %
+          this.players.length
+        : 0,
+      resumePlayerIndex: this.dragonResumePlayerIndex,
+      visited: [{ ...position }],
+    }
+    this.advanceDragonMove()
+  }
+
+  private advanceDragonMove() {
+    const move = this.dragonMove
+    if (!move) return
+    const currentPosition = move.visited[move.visited.length - 1]
+    const validDestinations = currentPosition
+      ? this.getDragonDestinations(currentPosition)
+      : []
+    if (!validDestinations.length) {
+      this.finishDragonMove()
+      return
+    }
+    this.currentPlayerIndex = move.nextPlayerIndex
+    this.currentPlayer = this.players[this.currentPlayerIndex] ?? null
+    if (this.currentPlayer && !this.currentPlayer.socketId) {
+      const destination = validDestinations[0]
+      if (destination)
+        this.moveDragon(destination.rowIndex, destination.tileIndex)
+    }
+  }
+
+  private getDragonDestinations(position: DragonPosition): DragonPosition[] {
+    const offsets = [
+      { rowIndex: -1, tileIndex: 0 },
+      { rowIndex: 0, tileIndex: 1 },
+      { rowIndex: 1, tileIndex: 0 },
+      { rowIndex: 0, tileIndex: -1 },
+    ]
+    const move = this.dragonMove
+    if (!move) return []
+    return offsets
+      .map((offset) => ({
+        rowIndex: position.rowIndex + offset.rowIndex,
+        tileIndex: position.tileIndex + offset.tileIndex,
+      }))
+      .filter((destination) => {
+        const tile =
+          this.tilePlacesStats[destination.rowIndex]?.[destination.tileIndex]
+        return (
+          Boolean(tile) &&
+          !move.visited.some(
+            (visited) =>
+              visited.rowIndex === destination.rowIndex &&
+              visited.tileIndex === destination.tileIndex
+          )
+        )
+      })
+  }
+
+  private finishDragonMove() {
+    const move = this.dragonMove
+    this.dragonMove = undefined
+    this.isPlacingFollower = false
+    this.availableFollowersPlaces = []
+    if (move && this.players.length) {
+      this.currentPlayerIndex = move.resumePlayerIndex
+      this.currentPlayer = this.players[move.resumePlayerIndex] ?? null
+    }
+    this.getRandomTileFromList()
+  }
+
+  private removeFollowerFromBoard(follower: PlacedFollower | undefined) {
+    if (!follower) return
+    const collections = [
+      this.temporaryObjects.cities,
+      this.temporaryObjects.roads,
+      this.temporaryObjects.monasteries,
+      this.temporaryObjects.gardens,
+      this.completedObjects.cities,
+      this.completedObjects.roads,
+      this.completedObjects.monasteries,
+      this.completedObjects.gardens,
+    ]
+    for (const collection of collections) {
+      const object = collection.find(({ id }) => id === follower.objectId)
+      if (!object) continue
+      object.followers = object.followers.filter(
+        (placed) =>
+          !(
+            placed.playerId === follower.playerId &&
+            placed.point.x === follower.point.x &&
+            placed.point.y === follower.point.y &&
+            placed.point.direction === follower.point.direction
+          )
+      )
+    }
+    const pool = this.playersFollowers[follower.playerId]
+    if (pool) {
+      if (follower.isAbbot) pool.monks += 1
+      else if (follower.isBigFollower)
+        pool.bigFollowers = (pool.bigFollowers ?? 0) + 1
+      else pool.ordinaryFollowers += 1
+    }
+    this.placedFollowers = this.placedFollowers.filter(
+      (placed) => placed !== follower
+    )
+    this.actionsHistory.push({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: {
+        followers: [
+          {
+            playerId: follower.playerId,
+            objectId: follower.objectId,
+            point: follower.point,
+            isAbbot: follower.isAbbot,
+            isBigFollower: follower.isBigFollower,
+          },
+        ],
+      },
+    })
+  }
+
   /**
    * Отзыв аббата в ход владельца: аббат снимается с монастыря или сада
    * (завершённого или нет) и начисляются очки за «незавершённый» объект —
@@ -609,6 +915,16 @@ export class GameManager implements IGameBoard {
   async autoPlaceTile(): Promise<void> {
     if (this.gameIsEnded) return
 
+    if (this.dragonMove) {
+      const currentPosition = this.dragonMove.visited.at(-1)
+      const destination = currentPosition
+        ? this.getDragonDestinations(currentPosition)[0]
+        : undefined
+      if (destination)
+        this.moveDragon(destination.rowIndex, destination.tileIndex)
+      return
+    }
+
     // Ensure we have a current tile
     if (!this.currentTile) {
       this.getRandomTileFromList()
@@ -636,6 +952,14 @@ export class GameManager implements IGameBoard {
         move.tileIndex
       )
       if (!tilePlaced) return
+
+      if (this.princessChoice) {
+        const follower = this.princessChoice.followers[0]
+        if (follower) {
+          this.choosePrincessFollower(follower.cityId, follower.point)
+        }
+        return
+      }
 
       if (move.followerPlace && move.followerType) {
         const actualPlace = this.availableFollowersPlaces.find(

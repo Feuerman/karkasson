@@ -54,6 +54,35 @@ export const TileId = {
   RIVER_J: 'RIVER-J',
   RIVER_K: 'RIVER-K',
   RIVER_L: 'RIVER-L',
+  PAD_A: 'PAD_A',
+  PAD_B: 'PAD_B',
+  PAD_C: 'PAD_C',
+  PAD_D: 'PAD_D',
+  PAD_E: 'PAD_E',
+  PAD_F: 'PAD_F',
+  PAD_G: 'PAD_G',
+  PAD_H: 'PAD_H',
+  PAD_I: 'PAD_I',
+  PAD_J: 'PAD_J',
+  PAD_K: 'PAD_K',
+  PAD_L: 'PAD_L',
+  PAD_M: 'PAD_M',
+  PAD_N: 'PAD_N',
+  PAD_O: 'PAD_O',
+  PAD_P: 'PAD_P',
+  PAD_Q: 'PAD_Q',
+  PAD_R: 'PAD_R',
+  PAD_S: 'PAD_S',
+  PAD_T: 'PAD_T',
+  PAD_U: 'PAD_U',
+  PAD_V: 'PAD_V',
+  PAD_W: 'PAD_W',
+  PAD_X: 'PAD_X',
+  PAD_Y: 'PAD_Y',
+  PAD_Z: 'PAD_Z',
+  PAD_1: 'PAD_1',
+  PAD_2: 'PAD_2',
+  PAD_3: 'PAD_3',
 } as const
 
 export type TileId = (typeof TileId)[keyof typeof TileId]
@@ -180,6 +209,7 @@ export type FollowerType = (typeof FollowerType)[keyof typeof FollowerType]
 export const ExpansionName = {
   InnsAndCathedrals: 'innsAndCathedrals',
   River: 'river',
+  PrincessAndDragon: 'princessAndDragon',
 } as const
 
 export type ExpansionName = (typeof ExpansionName)[keyof typeof ExpansionName]
@@ -202,6 +232,8 @@ export const SocketEvents = {
   UpdateCurrentTile: 'updateCurrentTile',
   PlaceTile: 'placeTile',
   PlaceFollower: 'placeFollower',
+  MoveDragon: 'moveDragon',
+  ChoosePrincess: 'choosePrincess',
   RecallAbbot: 'recallAbbot',
   SkipFollower: 'skipFollower',
   GameUpdated: 'gameUpdated',
@@ -217,7 +249,24 @@ export interface GameRules {
   expansions: {
     innsAndCathedrals: boolean
     river: boolean
+    princessAndDragon: boolean
   }
+}
+
+export interface DragonPosition {
+  rowIndex: number
+  tileIndex: number
+}
+
+export interface DragonMoveState {
+  remainingSteps: number
+  nextPlayerIndex: number
+  resumePlayerIndex: number
+  visited: DragonPosition[]
+}
+
+export interface PrincessChoiceState {
+  followers: Array<{ cityId: string; point: Point }>
 }
 
 export interface ObjectFollower {
@@ -289,6 +338,9 @@ export interface Tile {
   hasGarden?: boolean
   hasInn?: boolean
   hasCathedral?: boolean
+  hasPrincess?: boolean
+  hasDragon?: boolean
+  hasVolcano?: boolean
   expansion?: ExpansionName
   /** Связанные между собой участки дороги на этой плитке. */
   roadGroups?: SideName[][]
