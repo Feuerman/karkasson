@@ -47,8 +47,18 @@ test('игрок создаёт лобби, занимает слот и нач�
     const finalScoringCheckbox = page.getByRole('checkbox', {
       name: 'Финальный подсчёт очков',
     })
+    const princessAndDragonCheckbox = page.getByRole('checkbox', {
+      name: 'Принцесса и дракон',
+    })
     await expect(finalScoringCheckbox).not.toBeChecked()
+    await expect(princessAndDragonCheckbox).not.toBeChecked()
+    await expect(
+      page.getByText(
+        'Тестовый режим: возможны небольшие несоответствия в игровой логике.'
+      )
+    ).toBeVisible()
     await finalScoringCheckbox.check()
+    await princessAndDragonCheckbox.check()
     await page.getByRole('button', { name: 'Создать игру' }).click()
 
     await expect(
@@ -57,8 +67,14 @@ test('игрок создаёт лобби, занимает слот и нач�
     await expect(
       page.getByRole('heading', { name: /Комната № \d{6}/ })
     ).toBeVisible()
+    await expect(page.getByText('Принцесса и дракон:')).toContainText(
+      'включены'
+    )
     await expect.poll(() => gameServer.gameService.allGames().length).toBe(1)
     expect(gameServer.gameService.allGames()[0]?.finalScoringEnabled).toBe(true)
+    expect(
+      gameServer.gameService.allGames()[0]?.rules.expansions.princessAndDragon
+    ).toBe(true)
 
     const availableSlots = page.getByRole('checkbox')
     await expect(availableSlots).toHaveCount(8)

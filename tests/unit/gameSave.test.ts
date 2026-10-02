@@ -26,13 +26,61 @@ describe('Схема сохранения игры', () => {
       startImmediately: false,
       innsAndCathedralsEnabled: true,
       riverEnabled: true,
+      princessAndDragonEnabled: true,
     })
     game.id = 'expansion-save'
     const restored = deserializeGameState(serializeGameState(game))
 
     expect(restored.rules.expansions.innsAndCathedrals).toBe(true)
     expect(restored.rules.expansions.river).toBe(true)
-    expect(restored.tilesList).toHaveLength(102)
+    expect(restored.rules.expansions.princessAndDragon).toBe(true)
+    expect(restored.tilesList).toHaveLength(131)
+  })
+
+  it('сохраняет незавершённое движение дракона и выбор города принцессы', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'princess-dragon-progress'
+    game.dragonPosition = { rowIndex: 15, tileIndex: 15 }
+    game.dragonMove = {
+      remainingSteps: 3,
+      nextPlayerIndex: 1,
+      resumePlayerIndex: 0,
+      visited: [{ rowIndex: 15, tileIndex: 15 }],
+    }
+    game.princessChoice = {
+      followers: [
+        {
+          cityId: 'city-1',
+          point: { x: 14, y: 15, direction: 'north' },
+        },
+      ],
+    }
+
+    const restored = deserializeGameState(serializeGameState(game))
+
+    expect(restored.dragonPosition).toEqual({ rowIndex: 15, tileIndex: 15 })
+    expect(restored.dragonMove).toEqual(game.dragonMove)
+    expect(restored.princessChoice).toEqual(game.princessChoice)
+  })
+
+  it('восстанавливает старое значение правил без флага принцессы и дракона', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'old-expansion-rules'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    const rules = legacyState.rules as {
+      expansions: Record<string, unknown>
+    }
+    delete rules.expansions.princessAndDragon
+
+    const restored = deserializeGameState({
+      schemaVersion: 4,
+      state: legacyState,
+    })
+
+    expect(restored.rules.expansions.princessAndDragon).toBe(false)
   })
 
   it('читает legacy-сохранение без envelope версии и добавляет gardens', () => {
@@ -52,6 +100,7 @@ describe('Схема сохранения игры', () => {
     expect(restored.finalScoringEnabled).toBe(false)
     expect(restored.rules.expansions.innsAndCathedrals).toBe(false)
     expect(restored.rules.expansions.river).toBe(false)
+    expect(restored.rules.expansions.princessAndDragon).toBe(false)
   })
 
   it('читает сохранение версии 1 и выключает новую настройку по умолчанию', () => {

@@ -49,12 +49,21 @@
         :game-board="gameState"
         :drag-enabled="isLayoutEditMode"
       />
+      <GamePrincessAndDragon
+        :game-board="gameState"
+        :drag-enabled="isLayoutEditMode"
+      />
       <GameAbbotRecall
         :game-board="gameState"
         :drag-enabled="isLayoutEditMode"
       />
       <Draggable
-        v-if="!gameState.isPlacingFollower && !gameState.gameIsEnded"
+        v-if="
+          !gameState.isPlacingFollower &&
+          !gameState.dragonMove &&
+          !gameState.princessChoice &&
+          !gameState.gameIsEnded
+        "
         is-none-style
         :initial-x="currentStatePosition.x"
         :initial-y="currentStatePosition.y"
@@ -165,6 +174,17 @@
                   :highlight-points="highlightPoints"
                   :size="115"
                 />
+                <div
+                  v-if="
+                    gameState.dragonPosition?.rowIndex === rowIndex &&
+                    gameState.dragonPosition?.tileIndex === tileIndex
+                  "
+                  class="pointer-events-none absolute inset-0 flex items-center justify-center text-5xl drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]"
+                  role="img"
+                  aria-label="Дракон"
+                >
+                  🐉
+                </div>
               </div>
             </div>
           </div>
@@ -236,6 +256,7 @@ import GameActionsHistory from './components/GameActionsHistory'
 import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
 import GameAbbotRecall from './components/GameAbbotRecall.vue'
+import GamePrincessAndDragon from './components/GamePrincessAndDragon.vue'
 import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -351,6 +372,13 @@ const updateSelectedPlacingPoint = throttle(
 
 const handleTileClick = (rowIndex: number, tileIndex: number) => {
   if (gameState.value.isMyTurn) {
+    if (gameState.value.dragonMove) {
+      void GameService.moveDragon({ rowIndex, tileIndex }).catch((error) => {
+        notifyError(error, 'Не удалось переместить дракона')
+      })
+      return
+    }
+
     hoveredTile.value.rowIndex = rowIndex
     hoveredTile.value.tileIndex = tileIndex
 
@@ -393,6 +421,12 @@ const highlightObject = (objectData: { points?: Point[] }) => {
 
 const applyGameState = (game: IGame): boolean => {
   const isMyTurn = game.currentPlayer?.socketId === GameService.socket?.id
+  if (game.dragonMove) {
+    hoveredTile.value = {
+      rowIndex: game.dragonPosition?.rowIndex,
+      tileIndex: game.dragonPosition?.tileIndex,
+    }
+  }
   gameState.value = { ...game, isMyTurn } as IGameBoard
   return isMyTurn
 }

@@ -33,7 +33,11 @@ export interface TestGameData {
   finalScoringEnabled: boolean
   rules?: {
     finalScoringEnabled: boolean
-    expansions: { innsAndCathedrals: boolean; river: boolean }
+    expansions: {
+      innsAndCathedrals: boolean
+      river: boolean
+      princessAndDragon: boolean
+    }
   }
   moveCounter: number
   scores: Record<string, number>

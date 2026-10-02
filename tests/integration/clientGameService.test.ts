@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameService } from '@/modules/GameService'
+import { SideName, TileSideType } from '@server/modules/types'
 import { findValidPlacement, type GameStateSnapshot } from './helpers/gameplay'
 import {
   startTestServer,
@@ -106,6 +107,7 @@ describe('Клиентское приложение (GameService)', () => {
       finalScoringEnabled: true,
       innsAndCathedralsEnabled: true,
       riverEnabled: true,
+      princessAndDragonEnabled: true,
     })
     expect(alice.gameId).toBeTruthy()
     expect(created.id).toBe(alice.gameId)
@@ -113,8 +115,9 @@ describe('Клиентское приложение (GameService)', () => {
     expect(created.finalScoringEnabled).toBe(true)
     expect(created.rules.expansions.innsAndCathedrals).toBe(true)
     expect(created.rules.expansions.river).toBe(true)
+    expect(created.rules.expansions.princessAndDragon).toBe(true)
     expect(created.playersFollowers[1]?.bigFollowers).toBe(1)
-    expect(created.tilesList).toHaveLength(102)
+    expect(created.tilesList).toHaveLength(131)
 
     await alice.addPlayer({ name: 'Alice', index: 0 })
 
@@ -146,6 +149,118 @@ describe('Клиентское приложение (GameService)', () => {
     unsubscribe()
 
     expect(client.socket?.listeners('gameUpdated')).not.toContain(listener)
+  })
+
+  it('передаёт выбор включённого дополнения в правила и колоду партии', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-princess-dragon',
+    })
+    services.push(client)
+    client.connect()
+    await waitUntilConnected(client)
+    await waitForServerDevice(server, client)
+
+    const game = await client.createGame({ princessAndDragonEnabled: true })
+
+    expect(game.rules.expansions.princessAndDragon).toBe(true)
+    expect(game.tilesList).toHaveLength(101)
+    expect(game.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
+  })
+
+  it('передаёт включённое дополнение в начатую игру через GameService', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-princess-choice',
+    })
+    services.push(client)
+    client.connect()
+    await waitUntilConnected(client)
+    await waitForServerDevice(server, client)
+    const game = await client.createGame({ princessAndDragonEnabled: true })
+    await client.addPlayer({ name: 'Alice', index: 0 })
+    await client.addPlayer({ name: null, index: 1 })
+    const started = await client.startGame()
+    expect(started.rules.expansions.princessAndDragon).toBe(true)
+    expect(started.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
+
+    const serverGame = server.handle.gameService.getGame(game.id ?? '')
+    expect(serverGame).toBeTruthy()
+    if (!serverGame) return
+
+    const point = {
+      x: 15,
+      y: 14,
+      direction: SideName.South,
+      pointType: TileSideType.City,
+    }
+    const city = {
+      id: 'protocol-princess-city',
+      points: [point],
+      followers: [
+        {
+          playerId: serverGame.players[0]?.id ?? 1,
+          objectId: 'protocol-princess-city',
+          point,
+        },
+      ],
+    }
+    serverGame.temporaryObjects.cities = [city]
+    serverGame.placedFollowers = [
+      {
+        playerId: serverGame.players[0]?.id ?? 1,
+        objectId: city.id,
+        point,
+      },
+    ]
+    serverGame.princessChoice = {
+      followers: [{ cityId: city.id, point }],
+    }
+    await client.choosePrincessFollower(city.id, point)
+    expect(serverGame.temporaryObjects.cities[0]?.followers).toHaveLength(0)
+
+    serverGame.currentPlayerIndex = 0
+    serverGame.currentPlayer = serverGame.players[0] ?? null
+    serverGame.tilesList = []
+    serverGame.dragonPosition = { rowIndex: 10, tileIndex: 10 }
+    serverGame.dragonMove = {
+      remainingSteps: 2,
+      nextPlayerIndex: 0,
+      resumePlayerIndex: 0,
+      visited: [{ rowIndex: 10, tileIndex: 10 }],
+    }
+    serverGame.tilePlacesStats = {
+      10: {
+        10: {
+          id: 'dragon-origin',
+          rotation: 0,
+          x: 10,
+          y: 10,
+          sides: {
+            north: TileSideType.Field,
+            east: TileSideType.Field,
+            south: TileSideType.Field,
+            west: TileSideType.Field,
+          },
+        },
+        11: {
+          id: 'dragon-destination',
+          rotation: 0,
+          x: 11,
+          y: 10,
+          sides: {
+            north: TileSideType.Field,
+            east: TileSideType.Field,
+            south: TileSideType.Field,
+            west: TileSideType.Field,
+          },
+        },
+      },
+    }
+    await client.moveDragon({ rowIndex: 10, tileIndex: 11 })
+    expect(serverGame.dragonPosition).toEqual({ rowIndex: 10, tileIndex: 11 })
   })
 
   it('играет ход через клиентский сервис и получает отказ вне очереди', async () => {

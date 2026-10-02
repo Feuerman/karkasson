@@ -147,6 +147,26 @@
                 идёт обычная колода.
               </p>
             </div>
+            <div class="space-y-2">
+              <UCheckbox
+                label="Принцесса и дракон"
+                color="primary"
+                :model-value="princessAndDragonEnabled"
+                :ui="{ label: '!text-base' }"
+                class="text-base text-text"
+                @update:model-value="princessAndDragonEnabled = Boolean($event)"
+              />
+              <p class="text-sm leading-relaxed text-text-muted">
+                Добавляет тайлы с принцессой, драконом и вулканом.
+              </p>
+              <p
+                class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed text-warning"
+                role="note"
+              >
+                Тестовый режим: возможны небольшие несоответствия в игровой
+                логике.
+              </p>
+            </div>
           </section>
         </div>
       </template>
@@ -203,6 +223,16 @@
         Река:
         <strong class="text-text">
           {{ currentGame.rules?.expansions.river ? 'включена' : 'выключена' }}
+        </strong>
+      </p>
+      <p class="text-center text-sm text-text-muted">
+        Принцесса и дракон:
+        <strong class="text-text">
+          {{
+            currentGame.rules?.expansions.princessAndDragon
+              ? 'включены'
+              : 'выключены'
+          }}
         </strong>
       </p>
 
@@ -307,6 +337,7 @@ const showEndedGames = ref(false)
 const finalScoringEnabled = ref(false)
 const innsAndCathedralsEnabled = ref(false)
 const riverEnabled = ref(false)
+const princessAndDragonEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const isLoadingGames = ref(true)
@@ -332,6 +363,7 @@ function createGame() {
     finalScoringEnabled: finalScoringEnabled.value,
     innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,
     riverEnabled: riverEnabled.value,
+    princessAndDragonEnabled: princessAndDragonEnabled.value,
   })
 }
 

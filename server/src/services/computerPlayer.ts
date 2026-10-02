@@ -196,6 +196,7 @@ async function processComputerMoves(
   const activePlayerId: PlayerId = game.currentPlayer.id
   const previousState = game.clone()
   const previousTileCount = countPlacedTiles(game)
+  const isDragonMove = Boolean(game.dragonMove)
 
   try {
     await game.autoPlaceTile()
@@ -208,6 +209,7 @@ async function processComputerMoves(
       return
     }
     if (
+      !isDragonMove &&
       !updatedGame.gameIsEnded &&
       countPlacedTiles(updatedGame) === previousTileCount
     ) {

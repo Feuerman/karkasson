@@ -57,6 +57,12 @@
               v-else-if="marker.kind === RulesMarkerKind.Completed"
               class="absolute inset-0 block rounded-lg border-2 border-success shadow-[0_0_10px_rgba(76,175,80,0.55)]"
             ></span>
+            <span
+              v-else-if="marker.kind === RulesMarkerKind.Dragon"
+              class="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-600 px-1 text-xs font-bold text-white ring-2 ring-white shadow-soft"
+            >
+              {{ marker.step === 0 ? 'Д' : marker.step }}
+            </span>
           </span>
         </div>
       </div>
@@ -68,6 +74,20 @@
     >
       {{ example.caption }}
     </p>
+
+    <div
+      v-if="example.returnedFollowers?.length"
+      class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-success/40 bg-success/5 px-3 py-2 text-sm text-text"
+    >
+      <span
+        v-for="(color, index) in example.returnedFollowers"
+        :key="index"
+        class="inline-block h-4 w-4 rounded-full ring-2 ring-white shadow-soft"
+        :class="followerColorClass(color)"
+        aria-hidden="true"
+      ></span>
+      <span>Подданный возвращён в запас</span>
+    </div>
   </div>
 </template>
 
@@ -137,6 +157,9 @@ const markerPositionClasses = (direction: PointDirection) => {
 const markerClasses = (marker: RulesMarker) => {
   if (marker.kind === 'new' || marker.kind === 'completed') {
     return 'left-0 top-0 h-full w-full'
+  }
+  if (marker.kind === RulesMarkerKind.Dragon) {
+    return 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
   }
   return markerPositionClasses(marker.direction)
 }

@@ -5,6 +5,7 @@ export const RulesMarkerKind = {
   Invalid: 'no',
   New: 'new',
   Completed: 'completed',
+  Dragon: 'dragon',
 } as const
 
 export type RulesMarkerKind =
@@ -40,11 +41,18 @@ export interface RulesMarkerCompleted {
   kind: typeof RulesMarkerKind.Completed
 }
 
+/** Порядковый номер посещения тайла драконом в примере. */
+export interface RulesMarkerDragon {
+  kind: typeof RulesMarkerKind.Dragon
+  step: number
+}
+
 export type RulesMarker =
   | RulesMarkerFollower
   | RulesMarkerInvalid
   | RulesMarkerNew
   | RulesMarkerCompleted
+  | RulesMarkerDragon
 
 /** Ссылка на тайл в примере. Достаточно id + поворота. */
 export interface RulesTileRef {
@@ -69,6 +77,8 @@ export interface RulesExample {
   description?: string
   grid: RulesGridCell[][]
   caption?: string
+  /** Цвет подданного, снятого драконом и возвращённого в запас. */
+  returnedFollowers?: RulesMarkerColor[]
   /** Пример намеренно показывает неверную позицию: грани могут не совпадать. */
   intentionalMismatch?: boolean
 }

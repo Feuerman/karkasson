@@ -17,6 +17,9 @@ export interface TileDefinition {
   isSolidCity?: boolean
   hasInn?: boolean
   hasCathedral?: boolean
+  hasPrincess?: boolean
+  hasDragon?: boolean
+  hasVolcano?: boolean
   roadGroups?: SideName[][]
   cityGroups?: SideName[][]
   /** City sections on this tile that contain a shield. */

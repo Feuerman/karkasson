@@ -2,13 +2,18 @@ import { GameManager, type IGameBoard } from './GameManager'
 import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { riverTiles } from '../data/riverTiles'
+import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
 
-export const GAME_SAVE_SCHEMA_VERSION = 4
+export const GAME_SAVE_SCHEMA_VERSION = 5
 
 const DEFAULT_RULES: GameRules = {
   finalScoringEnabled: false,
-  expansions: { innsAndCathedrals: false, river: false },
+  expansions: {
+    innsAndCathedrals: false,
+    river: false,
+    princessAndDragon: false,
+  },
 }
 
 interface VersionedGameSave {
@@ -237,21 +242,41 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
       typeof rules.finalScoringEnabled !== 'boolean') ||
     (expansions.innsAndCathedrals !== undefined &&
       typeof expansions.innsAndCathedrals !== 'boolean') ||
-    (expansions.river !== undefined && typeof expansions.river !== 'boolean')
+    (expansions.river !== undefined && typeof expansions.river !== 'boolean') ||
+    (expansions.princessAndDragon !== undefined &&
+      typeof expansions.princessAndDragon !== 'boolean')
   ) {
     throw new Error('Game save contains invalid rules')
+  }
+  if (
+    expansions.princessAndDragon === true &&
+    (!Array.isArray(value.tilesList) ||
+      !value.tilesList.every(
+        (tile) =>
+          isRecord(tile) &&
+          (tiles.some(({ id }) => id === tile.id) ||
+            princessAndDragonTiles.some(({ id }) => id === tile.id) ||
+            (expansions.innsAndCathedrals === true &&
+              innsAndCathedralsTiles.some(({ id }) => id === tile.id)) ||
+            (expansions.river === true &&
+              riverTiles.some(({ id }) => id === tile.id)))
+      ))
+  ) {
+    throw new Error('Game save contains an invalid tile')
   }
   const normalizedRules: GameRules = {
     finalScoringEnabled: value.finalScoringEnabled === true,
     expansions: {
       innsAndCathedrals: expansions.innsAndCathedrals === true,
       river: expansions.river === true,
+      princessAndDragon: expansions.princessAndDragon === true,
     },
   }
   value.rules = normalizedRules
   if (
     normalizedRules.expansions.innsAndCathedrals ||
-    normalizedRules.expansions.river
+    normalizedRules.expansions.river ||
+    normalizedRules.expansions.princessAndDragon
   ) {
     const allowedTileIds = new Set<string>([
       ...tiles.map((tile) => tile.id),
@@ -260,6 +285,9 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
         : []),
       ...(normalizedRules.expansions.river
         ? riverTiles.map((tile) => tile.id)
+        : []),
+      ...(normalizedRules.expansions.princessAndDragon
+        ? princessAndDragonTiles.map((tile) => tile.id)
         : []),
     ])
     const tileCollections = [value.tilesList, value.tileHistory]
@@ -276,6 +304,47 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
         throw new Error('Game save contains an invalid tile')
       }
     }
+  }
+  if (
+    value.dragonPosition !== undefined &&
+    (!isRecord(value.dragonPosition) ||
+      !Number.isInteger(value.dragonPosition.rowIndex) ||
+      !Number.isInteger(value.dragonPosition.tileIndex))
+  ) {
+    throw new Error('Game save contains an invalid dragon position')
+  }
+  if (
+    value.dragonMove !== undefined &&
+    (!isRecord(value.dragonMove) ||
+      !Number.isInteger(value.dragonMove.remainingSteps) ||
+      Number(value.dragonMove.remainingSteps) < 0 ||
+      Number(value.dragonMove.remainingSteps) > 6 ||
+      !Number.isInteger(value.dragonMove.nextPlayerIndex) ||
+      !Number.isInteger(value.dragonMove.resumePlayerIndex) ||
+      !Array.isArray(value.dragonMove.visited) ||
+      !value.dragonMove.visited.every(
+        (position) =>
+          isRecord(position) &&
+          Number.isInteger(position.rowIndex) &&
+          Number.isInteger(position.tileIndex)
+      ))
+  ) {
+    throw new Error('Game save contains an invalid dragon move')
+  }
+  if (
+    value.princessChoice !== undefined &&
+    (!isRecord(value.princessChoice) ||
+      !Array.isArray(value.princessChoice.followers) ||
+      !value.princessChoice.followers.every(
+        (follower) =>
+          isRecord(follower) &&
+          typeof follower.cityId === 'string' &&
+          isRecord(follower.point) &&
+          typeof follower.point.x === 'number' &&
+          typeof follower.point.y === 'number'
+      ))
+  ) {
+    throw new Error('Game save contains an invalid princess choice')
   }
   if (isRecord(value.playersFollowers)) {
     for (const pool of Object.values(value.playersFollowers)) {
@@ -329,6 +398,7 @@ export function deserializeGameState(raw: unknown): IGameBoard {
       parsed.schemaVersion !== 1 &&
       parsed.schemaVersion !== 2 &&
       parsed.schemaVersion !== 3 &&
+      parsed.schemaVersion !== 4 &&
       parsed.schemaVersion !== GAME_SAVE_SCHEMA_VERSION
     ) {
       throw new Error(
