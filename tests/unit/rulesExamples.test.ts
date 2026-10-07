@@ -89,6 +89,48 @@ describe('примеры правил', () => {
     })
   })
 
+  it('объясняет базовую игру и отличия от настольной версии', () => {
+    const baseSection = baseGameRules.sections[0]
+    const exampleIds = collectExamples([baseGameRules])
+      .map(({ id }) => id)
+      .filter((id) =>
+        [
+          'shared-road',
+          'shared-city-majority',
+          'final-scoring',
+          'completed-road-ring',
+          'completed-city-ring',
+          'completed-monastery',
+        ].includes(id)
+      )
+    expect(exampleIds).toEqual([
+      'completed-road-ring',
+      'completed-city-ring',
+      'completed-monastery',
+      'shared-road',
+      'shared-city-majority',
+      'final-scoring',
+    ])
+
+    const texts = (baseSection?.blocks ?? [])
+      .map((block) =>
+        block.type === 'paragraph' || block.type === 'callout'
+          ? `${block.title ?? ''} ${block.text}`
+          : block.type === 'list'
+            ? `${block.title ?? ''} ${block.items.join(' ')}`
+            : ''
+      )
+      .join(' ')
+
+    expect(texts).toContain('в онлайн-версии дорожки нет')
+    expect(texts).toContain('поля и крестьяне не реализованы')
+    expect(texts).toContain('до размещения подданного')
+    expect(texts).toContain(
+      'При равенстве каждый лидер получает полную награду'
+    )
+    expect(texts).toContain('домашние правила')
+  })
+
   it('показывает прямой, поворотный и досрочно завершённый маршрут дракона', () => {
     const examples = collectExamples([baseGameRules])
     const dragonExamples = examples.filter(({ id }) =>
