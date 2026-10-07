@@ -2,9 +2,11 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type {
   AvailableFollowerPlace,
   FollowerType,
+  PlacementConflict,
   Point,
   Tile,
 } from '../../modules/types'
+import { describePlacementFailure } from '../../modules/gameGeometry'
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
 import tiles from '../../data/tiles'
 import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
@@ -36,6 +38,17 @@ function isValidPosition(position: { rowIndex: number; tileIndex: number }) {
   return (
     Number.isInteger(position.rowIndex) && Number.isInteger(position.tileIndex)
   )
+}
+
+/** Отказ разместить тайл с причиной (стороны или правила реки). */
+class TilePlacementError extends Error {
+  readonly conflicts: PlacementConflict[]
+
+  constructor(conflicts: PlacementConflict[]) {
+    super(describePlacementFailure(conflicts))
+    this.name = 'TilePlacementError'
+    this.conflicts = conflicts
+  }
 }
 
 function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
@@ -199,7 +212,16 @@ export function registerGameHandlers({
           position.tileIndex
         )
         if (!isValidMove) {
-          throw new Error('Невозможно разместить тайл на данной позиции')
+          const failedTile = game.currentTile
+          throw new TilePlacementError(
+            failedTile
+              ? game.getPlacementFailure(
+                  failedTile,
+                  position.rowIndex,
+                  position.tileIndex
+                )
+              : []
+          )
         }
 
         try {
@@ -218,6 +240,13 @@ export function registerGameHandlers({
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         console.error('Error placing tile:', error)
+        if (error instanceof TilePlacementError) {
+          callback?.({
+            error: error.message,
+            ...(error.conflicts.length ? { conflicts: error.conflicts } : {}),
+          })
+          return
+        }
         callback?.({
           error: error instanceof Error ? error.message : String(error),
         })

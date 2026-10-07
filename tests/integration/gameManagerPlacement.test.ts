@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import tiles from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
+import { riverTiles } from '@server/data/riverTiles'
 import { GameManager } from '@server/modules/GameManager'
 import {
   PointDirection,
@@ -69,6 +70,140 @@ describe('Размещение тайла не зависит от порядк�
 
     // Запад должен быть road (E.east), а тут city — размещение невалидно.
     expect(game.isCorrectTilePosition(tile, 15, 16)).toBe(false)
+  })
+})
+
+describe('Диагностика неудачного размещения тайла', () => {
+  it('возвращает конфликтующую сторону и координаты соседа', () => {
+    const game = new GameManager({ players: makePlayers() })
+    const cityTile = tiles.find(({ id }) => id === TileId.C)
+    if (!cityTile) throw new Error('Tile C is missing')
+
+    // Стартовый D на (15,15): восток — дорога. Городской тайл C в клетке
+    // (15,16) не совпадает с ней по западной стороне.
+    expect(
+      game.getPlacementFailure({ ...cityTile, rotation: 0 }, 15, 16)
+    ).toEqual([
+      {
+        side: SideName.West,
+        rowIndex: 15,
+        tileIndex: 15,
+        own: TileSideType.City,
+        adjacent: TileSideType.Road,
+      },
+    ])
+  })
+
+  it('возвращает пустой список для подходящего тайла и для занятой клетки', () => {
+    const game = new GameManager({ players: makePlayers() })
+    const roadTile = tiles.find(({ id }) => id === TileId.L)
+    if (!roadTile) throw new Error('Tile L is missing')
+
+    // Запад L — дорога, как и восток стартового D.
+    expect(
+      game.getPlacementFailure({ ...roadTile, rotation: 0 }, 15, 16)
+    ).toEqual([])
+    expect(
+      game.getPlacementFailure({ ...roadTile, rotation: 0 }, 15, 15)
+    ).toEqual([])
+  })
+})
+
+describe('Диагностика отказа по правилам реки', () => {
+  function startRiverGame() {
+    const game = new GameManager({
+      players: makePlayers(),
+      riverEnabled: true,
+      startImmediately: false,
+    })
+    game.startGame()
+    const currentTile = game.currentTile
+    if (!currentTile) throw new Error('Current river tile is missing')
+    expect(game.tilePlacesStats[15]?.[15]?.id).toBe(TileId.RIVER_A)
+    return { game, currentTile }
+  }
+
+  function rotateTo(game: GameManager, tile: Tile, turns: number): Tile {
+    let rotated: Tile = { ...tile, rotation: 0 }
+    for (let index = 0; index < turns; index += 1) {
+      rotated = game.rotateTile(rotated)
+    }
+    return rotated
+  }
+
+  it('указывает незакрытый конец русла для клетки вне открытого конца', () => {
+    const { game, currentTile } = startRiverGame()
+
+    // Открытый конец стартового истока смотрит на юг в (16,15);
+    // клетка (15,16) к нему не примыкает ни при каком повороте.
+    expect(game.getPlacementFailure({ ...currentTile }, 15, 16)).toEqual([
+      { reason: 'openEnd', rowIndex: 15, tileIndex: 15, side: SideName.South },
+    ])
+    expect(game.placeTile({ ...currentTile }, 15, 16)).toBe(false)
+    expect(game.tilePlacesStats[15]?.[16]).toBeUndefined()
+  })
+
+  it('указывает не ту сторону русла, когда русло не выходит к открытому концу', () => {
+    const { game, currentTile } = startRiverGame()
+
+    let rotated: Tile | undefined
+    for (let turns = 0; turns < 4; turns += 1) {
+      const candidate = rotateTo(game, currentTile, turns)
+      if (!candidate.riverGroups?.flat().includes(SideName.North)) {
+        rotated = candidate
+        break
+      }
+    }
+    if (!rotated) throw new Error('Rotation without north river side')
+
+    expect(game.getPlacementFailure(rotated, 16, 15)).toEqual([
+      {
+        reason: 'wrongSide',
+        rowIndex: 15,
+        tileIndex: 15,
+        side: SideName.South,
+      },
+    ])
+    expect(game.placeTile(rotated, 16, 15)).toBe(false)
+    expect(game.tilePlacesStats[16]?.[15]).toBeUndefined()
+  })
+
+  it('отклоняет русло, выходящее вверх, и принимает поворот с выходом вниз', () => {
+    const { game } = startRiverGame()
+    const bend = riverTiles.find(({ id }) => id === TileId.RIVER_J)
+    const houseBend = riverTiles.find(({ id }) => id === TileId.RIVER_G)
+    const curved = riverTiles.find(({ id }) => id === TileId.RIVER_I)
+    if (!bend || !houseBend || !curved) throw new Error('River tile is missing')
+
+    expect(game.placeTile({ ...bend, rotation: 270 }, 16, 15)).toBe(true)
+
+    expect(
+      game.getPlacementFailure({ ...houseBend, rotation: 0 }, 16, 16)
+    ).toEqual([
+      { reason: 'wrongSide', rowIndex: 16, tileIndex: 15, side: SideName.East },
+    ])
+    expect(game.placeTile({ ...houseBend, rotation: 0 }, 16, 16)).toBe(false)
+    expect(game.tilePlacesStats[16]?.[16]).toBeUndefined()
+
+    expect(game.placeTile({ ...curved, rotation: 90 }, 16, 16)).toBe(true)
+  })
+
+  it('не сообщает причин для валидного продолжения русла и занятой клетки', () => {
+    const { game, currentTile } = startRiverGame()
+
+    let rotated: Tile | undefined
+    for (let turns = 0; turns < 4; turns += 1) {
+      const candidate = rotateTo(game, currentTile, turns)
+      if (candidate.riverGroups?.flat().includes(SideName.North)) {
+        rotated = candidate
+        break
+      }
+    }
+    if (!rotated) throw new Error('Rotation with north river side')
+
+    expect(game.getPlacementFailure(rotated, 16, 15)).toEqual([])
+    expect(game.getPlacementFailure(rotated, 15, 15)).toEqual([])
+    expect(game.placeTile(rotated, 16, 15)).toBe(true)
   })
 })
 

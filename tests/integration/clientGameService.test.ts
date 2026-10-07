@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { GameService } from '@/modules/GameService'
+import { GameService, SocketAckError } from '@/modules/GameService'
 import { SideName, TileSideType } from '@server/modules/types'
-import { findValidPlacement, type GameStateSnapshot } from './helpers/gameplay'
+import {
+  findValidPlacement,
+  isValidPosition,
+  rotateSides,
+  type GameStateSnapshot,
+  type TileSnapshot,
+} from './helpers/gameplay'
 import {
   startTestServer,
   stopTestServer,
@@ -75,6 +81,32 @@ function waitGameUpdated(
     }
     service.socket?.on('gameUpdated', handler)
   })
+}
+
+/** Поворот и позиция, при которых стороны текущего тайла не сходятся */
+function findInvalidPlacement(state: GameStateSnapshot): {
+  tile: TileSnapshot
+  place: { rowIndex: number; tileIndex: number }
+} | null {
+  const tile = state.currentTile ?? null
+  if (!tile?.sides) return null
+
+  for (const place of state.availablePlacesTiles ?? []) {
+    for (let rotation = 1; rotation < 4; rotation++) {
+      const sides = rotateSides(tile.sides, rotation)
+      if (!isValidPosition(state, sides, place.rowIndex, place.tileIndex)) {
+        return {
+          tile: {
+            ...tile,
+            sides,
+            rotation: (tile.rotation + rotation * 90) % 360,
+          },
+          place: { rowIndex: place.rowIndex, tileIndex: place.tileIndex },
+        }
+      }
+    }
+  }
+  return null
 }
 
 describe('Клиентское приложение (GameService)', () => {
@@ -303,6 +335,29 @@ describe('Клиентское приложение (GameService)', () => {
     const move = findValidPlacement(started as unknown as GameStateSnapshot)
     expect(move).not.toBeNull()
 
+    // Невозможное размещение: сервис отклоняет SocketAckError с конфликтами
+    const invalid = findInvalidPlacement(
+      started as unknown as GameStateSnapshot
+    )
+    expect(invalid).not.toBeNull()
+    if (!invalid) return
+
+    const failure = await alice
+      .placeTile(invalid.tile, {
+        rowIndex: invalid.place.rowIndex,
+        tileIndex: invalid.place.tileIndex,
+      })
+      .catch((error: unknown) => error)
+
+    if (!(failure instanceof SocketAckError)) {
+      throw new Error('Ожидалась ошибка SocketAckError')
+    }
+    expect(failure.message).toContain(
+      'Невозможно разместить тайл на данной позиции'
+    )
+    expect(failure.conflicts.length).toBeGreaterThan(0)
+    expect(failure.conflicts[0]?.side).toBeTruthy()
+
     const updated = await alice.setCurrentTileRotation(move!.tile.rotation)
     expect(updated).toMatchObject({ success: true })
 
@@ -332,5 +387,43 @@ describe('Клиентское приложение (GameService)', () => {
         tileIndex: move!.tileIndex,
       })
     ).rejects.toThrow("Not player's turn")
+  })
+
+  it('возвращает причину отказа по реке и подсветку открытого конца', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-river-conflict',
+    })
+    services.push(client)
+    client.connect()
+    await waitUntilConnected(client)
+    await waitForServerDevice(server, client)
+
+    await client.createGame({ riverEnabled: true })
+    await client.addPlayer({ name: 'Alice', index: 0 })
+    await client.addPlayer({ name: null, index: 1 })
+    const started = await client.startGame()
+    expect(started.rules.expansions.river).toBe(true)
+    const tile = started.currentTile
+    if (!tile) throw new Error('Ожидался речной тайл')
+
+    // Клетка (15,16) не примыкает к единственному открытому концу русла
+    // стартового истока в (15,15), поэтому отказ должен быть про реку.
+    const failure = await client
+      .placeTile(tile, { rowIndex: 15, tileIndex: 16 })
+      .catch((error: unknown) => error)
+
+    if (!(failure instanceof SocketAckError)) {
+      throw new Error('Ожидалась ошибка SocketAckError')
+    }
+    expect(failure.message).toContain(
+      'Невозможно разместить тайл на данной позиции'
+    )
+    expect(failure.message).toContain('река')
+    expect(failure.message).toContain('незакрытый конец')
+    expect(failure.conflicts).toEqual([
+      { reason: 'openEnd', rowIndex: 15, tileIndex: 15, side: SideName.South },
+    ])
   })
 })
