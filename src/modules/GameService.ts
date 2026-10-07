@@ -8,6 +8,7 @@ import {
   type GridTile,
   type Tile,
   type FollowerType as FollowerTypeValue,
+  type PlacementConflict,
 } from '@server/modules/types'
 import type {
   SocketAck,
@@ -28,6 +29,17 @@ export interface IGameService {
 }
 
 export type SocketPayload = Record<string, unknown>
+
+/** Ошибка ack-ответа сервера; conflicts описывает причину отказа размещения. */
+export class SocketAckError extends Error {
+  readonly conflicts: PlacementConflict[]
+
+  constructor(message: string, conflicts: PlacementConflict[] = []) {
+    super(message)
+    this.name = 'SocketAckError'
+    this.conflicts = conflicts
+  }
+}
 
 export interface GameServiceOptions {
   serverUrl?: string
@@ -89,7 +101,7 @@ export class GameService implements IGameService {
       const callback = (response: SocketAck) => {
         clearTimeout(timeout)
         if (response.error) {
-          reject(new Error(response.error))
+          reject(new SocketAckError(response.error, response.conflicts ?? []))
         } else {
           resolve(response as T)
         }

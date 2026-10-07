@@ -162,6 +162,9 @@
                   hoveredTile?.tileIndex === tileIndex
                     ? 'tile-pulse'
                     : '',
+                  conflictCells.has(`${rowIndex}:${tileIndex}`)
+                    ? 'tile-conflict'
+                    : '',
                 ]"
                 :data-row-index="rowIndex"
                 :data-tile-index="tileIndex"
@@ -267,7 +270,7 @@ import { notifyError, throttle } from './utils/common'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
-import GameService from './modules/GameService'
+import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
@@ -278,6 +281,7 @@ import {
   SideName,
   SocketEvents,
   TileSideType,
+  type PlacementConflict,
   type Player,
   type Point,
 } from '@server/modules/types'
@@ -334,6 +338,17 @@ const hoveredTile = ref({
   tileIndex: undefined as number | undefined,
 })
 
+const placementConflicts = ref<PlacementConflict[]>([])
+
+const conflictCells = computed(
+  () =>
+    new Set(
+      placementConflicts.value.map(
+        (conflict) => `${conflict.rowIndex}:${conflict.tileIndex}`
+      )
+    )
+)
+
 const EMPTY_TILE: ITile = {
   id: '',
   rotation: 0,
@@ -379,6 +394,7 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
       return
     }
 
+    placementConflicts.value = []
     hoveredTile.value.rowIndex = rowIndex
     hoveredTile.value.tileIndex = tileIndex
 
@@ -539,6 +555,7 @@ const handleGameCreated = (gameId: string) => {
 }
 
 const rotateLocalTile = (tile: ITile, direction: RotationDirection) => {
+  placementConflicts.value = []
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
   void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
@@ -555,9 +572,13 @@ const placeTile = async (
     return
   }
 
+  placementConflicts.value = []
   try {
     await GameService.placeTile(tile, { rowIndex, tileIndex })
   } catch (e: unknown) {
+    if (e instanceof SocketAckError) {
+      placementConflicts.value = e.conflicts
+    }
     notifyError(e, 'Произошла ошибка при размещении плитки')
   }
 }

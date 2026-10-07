@@ -1,7 +1,11 @@
 import { riverTiles } from '../data/riverTiles'
 import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
-import { getPrecisionCoordinates, isOppositePoint } from './gameGeometry'
+import {
+  findTileSideConflicts,
+  getPrecisionCoordinates,
+  isOppositePoint,
+} from './gameGeometry'
 import { rotateTileGroups, rotateTileSides } from './tileRotation'
 import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager } from './FollowerManager'
@@ -40,6 +44,7 @@ import {
   type Player,
   type PlayerId,
   type PlacedFollower,
+  type PlacementConflict,
   type Point,
   type PointDirection,
   type RotationDirection,
@@ -135,6 +140,11 @@ export interface IGameBoard {
   skipFollower(): void
   recallAbbot(): boolean
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
+  getPlacementFailure(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): PlacementConflict[]
   autoPlaceTile(): Promise<void>
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
   calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
@@ -387,8 +397,8 @@ export class GameManager implements IGameBoard {
     return this.followerManager.findAvailableFollowersPlaces(tile)
   }
 
-  placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
-    if (this.gameIsEnded) return false
+  private resolvePlacementTile(tile: Tile): Tile | undefined {
+    if (this.gameIsEnded) return undefined
     const tileDefinition = this.tileManager.findTileDefinition(tile.id)
     const authoritativeTile: Tile = tileDefinition
       ? { ...tileDefinition, rotation: 0 }
@@ -397,13 +407,13 @@ export class GameManager implements IGameBoard {
       authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
       !this.rules.expansions.innsAndCathedrals
     ) {
-      return false
+      return undefined
     }
     if (
       authoritativeTile.expansion === ExpansionName.River &&
       !this.rules.expansions.river
     ) {
-      return false
+      return undefined
     }
     if (
       this.rules.expansions.river &&
@@ -415,7 +425,7 @@ export class GameManager implements IGameBoard {
         )
       )
     ) {
-      return false
+      return undefined
     }
     let resolvedTile: Tile
     const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
@@ -454,10 +464,51 @@ export class GameManager implements IGameBoard {
         normalizedTurns
       )
     }
-    tile = resolvedTile
+    return resolvedTile
+  }
+
+  getPlacementFailure(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): PlacementConflict[] {
+    const resolvedTile = this.resolvePlacementTile(tile)
+    if (!resolvedTile) return []
+    if (this.tilePlacesStats[rowIndex]?.[tileIndex]) return []
+
+    if (
+      this.rules.expansions.river &&
+      resolvedTile.expansion === ExpansionName.River
+    ) {
+      const riverConflict = this.tileManager.getRiverConflict(
+        resolvedTile,
+        rowIndex,
+        tileIndex
+      )
+      return riverConflict ? [riverConflict] : []
+    }
+
+    if (
+      this.tileManager.isCorrectTilePosition(resolvedTile, rowIndex, tileIndex)
+    ) {
+      return []
+    }
+
+    return findTileSideConflicts(
+      resolvedTile,
+      rowIndex,
+      tileIndex,
+      this.tilePlacesStats,
+      this.isEmptyGrid()
+    )
+  }
+
+  placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
+    const resolvedTile = this.resolvePlacementTile(tile)
+    if (!resolvedTile) return false
 
     const isCorrectPosition = this.tileManager.isValidTilePlacement(
-      tile,
+      resolvedTile,
       rowIndex,
       tileIndex
     )
@@ -465,6 +516,8 @@ export class GameManager implements IGameBoard {
     if (!isCorrectPosition) {
       return false
     }
+
+    tile = resolvedTile
 
     if (this.currentTile && !this.isPlacingStartTile) {
       this.currentTile.x = tileIndex

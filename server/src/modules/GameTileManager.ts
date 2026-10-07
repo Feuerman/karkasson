@@ -10,6 +10,7 @@ import {
   TileId,
   type GameRules,
   type GridTile,
+  type RiverPlacementConflict,
   type Tile,
   type TilePlacesStats,
 } from './types'
@@ -40,6 +41,19 @@ function createTileCopies(definitions: TileDefinition[]): Tile[] {
   return definitions.flatMap<Tile>((tile) =>
     Array.from({ length: tile.count }, () => ({ ...tile, rotation: 0 }))
   )
+}
+
+/** Конфликт для открытого конца русла на подсвечиваемом соседе. */
+function toRiverConflict(
+  openEnd: { rowIndex: number; tileIndex: number; side: SideName },
+  reason: RiverPlacementConflict['reason']
+): RiverPlacementConflict {
+  return {
+    reason,
+    side: openEnd.side,
+    rowIndex: openEnd.rowIndex,
+    tileIndex: openEnd.tileIndex,
+  }
 }
 
 /** Owns deck construction, drawing, and tile placement validation. */
@@ -181,7 +195,7 @@ export class GameTileManager {
     ) {
       return (
         !this.state.tilePlacesStats[rowIndex]?.[tileIndex] &&
-        this.isValidRiverPlacement(tile, rowIndex, tileIndex)
+        this.checkRiverPlacement(tile, rowIndex, tileIndex).valid
       )
     }
 
@@ -192,7 +206,7 @@ export class GameTileManager {
         tileIndex,
         this.state.tilePlacesStats,
         this.state.isEmptyGrid()
-      ) && this.isValidRiverPlacement(tile, rowIndex, tileIndex)
+      ) && this.checkRiverPlacement(tile, rowIndex, tileIndex).valid
     )
   }
 
@@ -232,26 +246,30 @@ export class GameTileManager {
     return undefined
   }
 
-  private isValidRiverPlacement(
+  /** Проверка правил реки; conflict заполняется для диагностики отказа. */
+  private checkRiverPlacement(
     tile: Tile,
     rowIndex: number,
     tileIndex: number
-  ): boolean {
-    if (!this.state.rules.expansions.river) return true
+  ): { valid: boolean; conflict?: RiverPlacementConflict } {
+    if (!this.state.rules.expansions.river) return { valid: true }
     if (this.isPlacingStartTile()) {
-      return tile.id === TileId.RIVER_A && rowIndex === 15 && tileIndex === 15
+      return {
+        valid:
+          tile.id === TileId.RIVER_A && rowIndex === 15 && tileIndex === 15,
+      }
     }
-    if (!Object.keys(this.state.tilePlacesStats).length) return true
-    if (tile.id === TileId.RIVER_A) return false
+    if (!Object.keys(this.state.tilePlacesStats).length) return { valid: true }
+    if (tile.id === TileId.RIVER_A) return { valid: false }
     const hasRiverEnd = Object.values(this.state.tilePlacesStats).some((row) =>
       Object.values(row).some((placedTile) => placedTile.id === TileId.RIVER_L)
     )
-    if (hasRiverEnd) return !tile.riverGroups?.length
-    if (!tile.riverGroups?.length) return false
+    if (hasRiverEnd) return { valid: !tile.riverGroups?.length }
+    if (!tile.riverGroups?.length) return { valid: false }
 
     const riverSides = tile.riverGroups.flat()
-    if (tile.riverGroups.length !== 1) return false
-    if (tile.id === TileId.RIVER_A) return false
+    if (tile.riverGroups.length !== 1) return { valid: false }
+    if (tile.id === TileId.RIVER_A) return { valid: false }
 
     const placedRivers = Object.values(this.state.tilePlacesStats).flatMap(
       (row) =>
@@ -259,8 +277,8 @@ export class GameTileManager {
           (placedTile) => placedTile.riverGroups?.length
         )
     )
-    if (!placedRivers.length) return false
-    if (riverSides.length < 1 || riverSides.length > 2) return false
+    if (!placedRivers.length) return { valid: false }
+    if (riverSides.length < 1 || riverSides.length > 2) return { valid: false }
 
     const oppositeSide: Record<SideName, SideName> = {
       [SideName.North]: SideName.South,
@@ -304,7 +322,7 @@ export class GameTileManager {
         }
       }
     }
-    if (openEnds.length !== 1) return false
+    if (openEnds.length !== 1) return { valid: false }
 
     const openEnd = openEnds[0]
     const connections = (Object.keys(offsets) as SideName[]).flatMap((side) => {
@@ -325,14 +343,41 @@ export class GameTileManager {
       !openEnd ||
       connection.rowIndex !== openEnd.rowIndex ||
       connection.tileIndex !== openEnd.tileIndex ||
-      openEnd.side !== oppositeSide[connection.side] ||
-      !riverSides.includes(connection.side)
+      openEnd.side !== oppositeSide[connection.side]
     ) {
-      return false
+      return {
+        valid: false,
+        conflict: toRiverConflict(openEnd, 'openEnd'),
+      }
+    }
+    if (!riverSides.includes(connection.side)) {
+      return {
+        valid: false,
+        conflict: toRiverConflict(openEnd, 'wrongSide'),
+      }
+    }
+    const exitSide = riverSides.find((side) => side !== connection.side)
+    if (exitSide === SideName.North) {
+      return {
+        valid: false,
+        conflict: toRiverConflict(openEnd, 'wrongSide'),
+      }
     }
 
-    return tile.id === TileId.RIVER_L
-      ? riverSides.length === 1
-      : riverSides.length === 2
+    return {
+      valid:
+        tile.id === TileId.RIVER_L
+          ? riverSides.length === 1
+          : riverSides.length === 2,
+    }
+  }
+
+  /** Причина отказа по правилам реки; undefined, если размещение проходит. */
+  getRiverConflict(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): RiverPlacementConflict | undefined {
+    return this.checkRiverPlacement(tile, rowIndex, tileIndex).conflict
   }
 }

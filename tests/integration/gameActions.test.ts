@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
 import { SideName } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
@@ -154,8 +155,8 @@ describe('Действия в игре: валидация ходов', () => {
     // В базовой колоде всегда есть неподходящий поворот
     expect(invalid).toBeTruthy()
 
-    await expect(
-      lobby.creator.emitAck('placeTile', {
+    const failure = await lobby.creator
+      .emitAck<never>('placeTile', {
         gameId,
         rotation: invalid!.tile.rotation,
         position: {
@@ -163,7 +164,12 @@ describe('Действия в игре: валидация ходов', () => {
           tileIndex: invalid!.place.tileIndex,
         },
       })
-    ).rejects.toThrow('Невозможно разместить тайл на данной позиции')
+      .catch((error: Error) => error)
+
+    expect(failure).toBeInstanceOf(Error)
+    expect(failure.message).toContain(PLACEMENT_FAILURE_MESSAGE)
+    expect(failure.message).toMatch(/(север|восток|юг|запад) —/)
+    expect(failure.message).toMatch(/(поле|дорога|город)/)
   })
 
   it('сервер игнорирует подменённый тайл и сохраняет состояние до ack', async () => {

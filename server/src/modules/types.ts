@@ -361,6 +361,39 @@ export interface GridTile extends Tile {
 
 export type TilePlacesStats = Record<number, Record<number, GridTile>>
 
+/** Несовпадение сторон при попытке размещения тайл. */
+export interface TileSideConflict {
+  /** Сторона нового тайла, не совпавшая с соседом. */
+  side: SideName
+  /** Координаты конфликтующей соседней клетки. */
+  rowIndex: number
+  tileIndex: number
+  /** Тип стороны нового тайла. */
+  own: TileSideType
+  /** Тип противоположной стороны уже стоящего соседа. */
+  adjacent: TileSideType
+}
+
+/** Отказ по правилам реки при попытке разместить речной тайл. */
+export interface RiverPlacementConflict {
+  /** Незакрытый конец русла либо выход русла не в ту сторону. */
+  reason: 'openEnd' | 'wrongSide'
+  /** Сторона подсвечиваемого соседа, с которой открыто русло. */
+  side: SideName
+  /** Координаты подсвечиваемой соседней клетки. */
+  rowIndex: number
+  tileIndex: number
+}
+
+/** Причина отказа при неудачном размещении тайла. */
+export type PlacementConflict = TileSideConflict | RiverPlacementConflict
+
+export function isRiverPlacementConflict(
+  conflict: PlacementConflict
+): conflict is RiverPlacementConflict {
+  return 'reason' in conflict
+}
+
 export interface FollowerCount {
   ordinaryFollowers: number
   bigFollowers?: number

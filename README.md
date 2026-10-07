@@ -141,14 +141,20 @@
 
 - `placeTile(tile, row, col)` — валидирует соседство и повороты
   (`isCorrectTilePosition`, `checkAvailablePlacesForTile`);
+- `getPlacementFailure(tile, row, col)` — причина отказа: несовпавшие
+  стороны соседей либо отказ по правилам реки (незакрытый конец русла,
+  не та сторона выхода) для подробного сообщения и подсветки;
 - `placeFollower` / `skipFollower` — расчёт доступных точек для подданных
   (`checkAvailableFollowers`), размещение и возврат;
 - `checkRoads` / `checkCities` / `checkMonasteries` — завершение объектов
   и начисление очков;
 - `checkAvailablePlacements` — список легальных точек для текущей плитки.
 
-Ошибки возвращаются как `{ error }` в ack или событие `error`; клиент
-показывает их через `notifyError` → toast Nuxt UI.
+Ошибки возвращаются как `{ error }` в ack или событие `error`; при
+невозможном размещении тайла к `{ error }` добавляется `conflicts` —
+список конфликтующих соседних клеток (для реки — сосед с открытым
+руслом и причина `reason`). Клиент показывает их через `notifyError`
+→ toast Nuxt UI.
 
 ### Подсчёт очков
 

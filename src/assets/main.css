@@ -112,11 +112,32 @@
       border-color: rgba(255, 193, 90, 0.85);
     }
   }
+
+  @keyframes tile-conflict {
+    0%,
+    100% {
+      box-shadow: 0 0 10px 3px rgba(191, 68, 51, 0.55);
+      border-color: rgba(191, 68, 51, 0.7);
+    }
+    50% {
+      box-shadow: 0 0 22px 8px rgba(191, 68, 51, 0.8);
+      border-color: rgba(191, 68, 51, 0.95);
+    }
+  }
 }
 
 /* Runtime-toggled highlight for the hovered/active board tile */
 @utility tile-pulse {
   animation: var(--animate-tile-pulse, tile-pulse 1s infinite ease-in-out);
+  z-index: 5;
+}
+
+/* Runtime-toggled highlight for the neighbours blocking placement */
+@utility tile-conflict {
+  animation: var(
+    --animate-tile-conflict,
+    tile-conflict 1s infinite ease-in-out
+  );
   z-index: 5;
 }
 

@@ -1,9 +1,11 @@
 import type { GameSummary, GameData } from '@server/services/GameService'
-import type { Player } from '@server/modules/types'
+import type { Player, PlacementConflict } from '@server/modules/types'
 
 export interface SocketAckBase {
   error?: string
   success?: boolean
+  /** Конфликтующие соседние клетки при неудачном размещении тайла. */
+  conflicts?: PlacementConflict[]
 }
 
 export type SocketAck<T extends object = object> = SocketAckBase & T
