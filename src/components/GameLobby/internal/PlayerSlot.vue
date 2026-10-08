@@ -4,6 +4,7 @@
   >
     <UCheckbox
       :class="playerTextColorClass(player.color)"
+      :data-testid="TEST_IDS.playerSlotCheckbox"
       :model-value="Boolean(player.name)"
       :disabled="checkboxDisabled"
       @update:model-value="emit('toggleCheckbox', player, index)"
@@ -52,6 +53,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UInput from '@nuxt/ui/components/Input.vue'
 import type { Player } from '@server/modules/types'
+import { TEST_IDS } from '@/data/testIds'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
 import { canToggleSlot } from './helpers'
 
