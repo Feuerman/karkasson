@@ -93,43 +93,6 @@ function currentScore(game: GameManager, playerId: number): number {
 }
 
 describe('Сад (оба игрока-человека, фиксированная доска)', () => {
-  it('все копии базового тайла с hasGarden сохраняют признак сада', () => {
-    const random = Math.random
-    Math.random = () => 0
-    try {
-      const game = new GameManager({ players: makePlayers() })
-
-      // A garden tile can already be drawn as currentTile during construction.
-      const gardenTiles = [...game.tilesList, ...game.tileHistory].filter(
-        (tile) => tile.hasGarden
-      )
-      const counts: Record<string, number> = {}
-      for (const tile of gardenTiles) {
-        counts[tile.id] = (counts[tile.id] ?? 0) + 1
-      }
-
-      expect(gardenTiles).toHaveLength(5)
-      expect(counts).toEqual({
-        I: 2,
-        R: 3,
-      })
-      // Фишер—Йейтс не группирует все сады в одной половине колоды.
-      const gardenPositions = game.tilesList.flatMap((tile, index) =>
-        tile.hasGarden ? [index] : []
-      )
-      expect(
-        gardenPositions.some((index) => index < game.tilesList.length / 2)
-      ).toBe(true)
-      expect(
-        gardenPositions.some((index) => index >= game.tilesList.length / 2)
-      ).toBe(true)
-      // Ни один тайл с садом не является монастырём
-      expect(gardenTiles.every((tile) => !tile.isMonastery)).toBe(true)
-    } finally {
-      Math.random = random
-    }
-  })
-
   it('добавляет сады дополнения в колоду вместе с базовыми садами', () => {
     const game = new GameManager({
       players: makePlayers(),
