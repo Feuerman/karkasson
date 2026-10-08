@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
 import { createRequire } from 'node:module'
+import { TEST_IDS } from '@/data/testIds'
 import { InMemoryDatabase } from '../integration/helpers/inMemoryDatabase'
 import {
   startTestFrontend,
@@ -35,48 +36,46 @@ test('игрок создаёт лобби, занимает слот и нач�
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
     await page.goto(frontend.url)
-    const createGameButton = page.getByRole('button', {
-      name: 'Создать новую игру',
-    })
+    const createGameButton = page.getByTestId(TEST_IDS.lobbyCreateGame)
     await expect(createGameButton).toBeVisible()
     await createGameButton.click()
-    await expect(
-      page.getByRole('heading', { name: 'Создание игры' })
-    ).toBeVisible()
 
-    const finalScoringCheckbox = page.getByRole('checkbox', {
-      name: 'Финальный подсчёт очков',
-    })
-    const princessAndDragonCheckbox = page.getByRole('checkbox', {
-      name: 'Принцесса и дракон',
-    })
+    const createGameModalTitle = page.getByTestId(TEST_IDS.createGameModalTitle)
+    await expect(createGameModalTitle).toBeVisible()
+    await expect(createGameModalTitle).toContainText('Создание игры')
+
+    const finalScoringCheckbox = page.getByTestId(
+      TEST_IDS.createGameFinalScoring
+    )
+    const princessAndDragonCheckbox = page.getByTestId(
+      TEST_IDS.createGamePrincessDragon
+    )
     await expect(finalScoringCheckbox).not.toBeChecked()
     await expect(princessAndDragonCheckbox).not.toBeChecked()
     await expect(
-      page.getByText(
-        'Тестовый режим: возможны небольшие несоответствия в игровой логике.'
-      )
-    ).toBeVisible()
+      page.getByTestId(TEST_IDS.createGameTestModeNote)
+    ).toContainText(
+      'Тестовый режим: возможны небольшие несоответствия в игровой логике.'
+    )
     await finalScoringCheckbox.check()
     await princessAndDragonCheckbox.check()
-    await page.getByRole('button', { name: 'Создать игру' }).click()
+    await page.getByTestId(TEST_IDS.createGameSubmit).click()
 
+    const startGameButton = page.getByTestId(TEST_IDS.lobbyStartGame)
+    await expect(startGameButton).toBeVisible()
+    const roomHeading = page.getByTestId(TEST_IDS.lobbyRoomHeading)
+    await expect(roomHeading).toBeVisible()
+    await expect(roomHeading).toContainText(/Комната № \d{6}/)
     await expect(
-      page.getByRole('button', { name: 'Начать игру' })
-    ).toBeVisible()
-    await expect(
-      page.getByRole('heading', { name: /Комната № \d{6}/ })
-    ).toBeVisible()
-    await expect(page.getByText('Принцесса и дракон:')).toContainText(
-      'включены'
-    )
+      page.getByTestId(TEST_IDS.lobbyPrincessDragonStatus)
+    ).toContainText('включены')
     await expect.poll(() => gameServer.gameService.allGames().length).toBe(1)
     expect(gameServer.gameService.allGames()[0]?.finalScoringEnabled).toBe(true)
     expect(
       gameServer.gameService.allGames()[0]?.rules.expansions.princessAndDragon
     ).toBe(true)
 
-    const availableSlots = page.getByRole('checkbox')
+    const availableSlots = page.getByTestId(TEST_IDS.playerSlotCheckbox)
     await expect(availableSlots).toHaveCount(8)
     for (let slot = 1; slot < 4; slot++) {
       await availableSlots.nth(slot).click()
@@ -88,14 +87,14 @@ test('игрок создаёт лобби, занимает слот и нач�
       })
       .toBe(4)
 
-    await page.getByRole('button', { name: 'Начать игру' }).click()
-    await expect(page.getByText('Ваш ход')).toBeVisible()
+    await startGameButton.click()
+    const currentPlayerLabel = page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)
+    await expect(currentPlayerLabel).toBeVisible()
+    await expect(currentPlayerLabel).toContainText('Ваш ход')
     await expect(
       page.locator("[data-row-index='15'][data-tile-index='15']")
     ).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: 'Выйти из игры' })
-    ).toBeVisible()
+    await expect(page.getByTestId(TEST_IDS.gameExit)).toBeVisible()
   } finally {
     await frontend?.close()
     await gameServer.close()
@@ -117,13 +116,13 @@ test('игрок находит комнату и подключается по 
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
     const creatorPage = await creatorContext.newPage()
     await creatorPage.goto(frontend.url)
-    await creatorPage
-      .getByRole('button', { name: 'Создать новую игру' })
-      .click()
-    await creatorPage.getByRole('button', { name: 'Создать игру' }).click()
-    await expect(
-      creatorPage.getByRole('heading', { name: /Комната № \d{6}/ })
-    ).toBeVisible()
+    await creatorPage.getByTestId(TEST_IDS.lobbyCreateGame).click()
+    await creatorPage.getByTestId(TEST_IDS.createGameSubmit).click()
+    const creatorRoomHeading = creatorPage.getByTestId(
+      TEST_IDS.lobbyRoomHeading
+    )
+    await expect(creatorRoomHeading).toBeVisible()
+    await expect(creatorRoomHeading).toContainText(/Комната № \d{6}/)
 
     const roomCode = gameServer.gameService.allGames()[0]?.roomCode
     if (!roomCode) throw new Error('Номер комнаты не создан')
@@ -136,22 +135,18 @@ test('игрок находит комнату и подключается по 
       localStorage.setItem('deviceId', 'unrelated-guest-device')
     })
     await guestPage.goto(frontend.url)
-    const roomSearch = guestPage.getByRole('searchbox', {
-      name: 'Найти комнату по номеру',
-    })
+    const roomSearch = guestPage.getByTestId(TEST_IDS.lobbyRoomSearch)
     await expect(roomSearch).toBeVisible()
     await roomSearch.fill(roomCode)
     await roomSearch.press('Enter')
-    await expect(
-      guestPage.getByRole('heading', { name: `Комната № ${roomCode}` })
-    ).toBeVisible()
+    const guestRoomHeading = guestPage.getByTestId(TEST_IDS.lobbyRoomHeading)
+    await expect(guestRoomHeading).toBeVisible()
+    await expect(guestRoomHeading).toContainText(`Комната № ${roomCode}`)
     const guestDeviceId = await guestPage.evaluate(() =>
       localStorage.getItem('deviceId')
     )
     expect(guestDeviceId).not.toBe(creatorDeviceId)
-    await expect(
-      guestPage.getByRole('button', { name: 'Начать игру' })
-    ).toHaveCount(0)
+    await expect(guestPage.getByTestId(TEST_IDS.lobbyStartGame)).toHaveCount(0)
   } finally {
     await creatorContext.close()
     await guestContext.close()

@@ -10,6 +10,7 @@
       />
       <span
         :title="gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel"
+        :data-testid="TEST_IDS.gameStatsCurrentPlayer"
         class="title-medieval min-w-0 truncate text-lg leading-none font-bold text-black"
       >
         {{ gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel }}
@@ -98,6 +99,7 @@
 import { computed } from 'vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { IGameBoard } from '@/types/game'
+import { TEST_IDS } from '@/data/testIds'
 import { playerBackgroundColorClass } from '@/utils/colors'
 
 const props = defineProps<{

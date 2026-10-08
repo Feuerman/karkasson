@@ -28,7 +28,7 @@
               place.temporaryObject?.isMonastery ||
               place.temporaryObject?.isGarden
             "
-            data-testid="follower-placement-options"
+            :data-testid="TEST_IDS.followerPlacementOptions"
             class="flex flex-col gap-1.5"
           >
             <UButton
@@ -160,6 +160,7 @@ import Draggable from '@/components/Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
+import { TEST_IDS } from '@/data/testIds'
 import {
   followerPlaceIcon as placeIcon,
   pointDirectionTitle,

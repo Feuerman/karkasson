@@ -37,6 +37,7 @@
           />
           <UButton
             color="primary"
+            :data-testid="TEST_IDS.lobbyCreateGame"
             class="btn-primary-action min-h-11 cursor-pointer gap-2 rounded-lg px-6 py-2.5 text-base font-semibold shadow-soft"
             @click="isCreateGameModalOpen = true"
           >
@@ -53,6 +54,7 @@
           Найти комнату по номеру
           <input
             v-model="roomCodeSearch"
+            :data-testid="TEST_IDS.lobbyRoomSearch"
             type="search"
             inputmode="numeric"
             autocomplete="off"
@@ -92,15 +94,20 @@
 
     <UModal
       v-model:open="isCreateGameModalOpen"
-      title="Создание игры"
       description="Настройте правила новой партии"
     >
+      <template #title>
+        <span :data-testid="TEST_IDS.createGameModalTitle">
+          Создание игры
+        </span>
+      </template>
       <template #body>
         <div class="space-y-5">
           <section class="space-y-2">
             <UCheckbox
               label="Финальный подсчёт очков"
               color="primary"
+              :data-testid="TEST_IDS.createGameFinalScoring"
               :model-value="finalScoringEnabled"
               :ui="{ label: '!text-base' }"
               class="text-base text-text"
@@ -151,6 +158,7 @@
               <UCheckbox
                 label="Принцесса и дракон"
                 color="primary"
+                :data-testid="TEST_IDS.createGamePrincessDragon"
                 :model-value="princessAndDragonEnabled"
                 :ui="{ label: '!text-base' }"
                 class="text-base text-text"
@@ -162,6 +170,7 @@
               <p
                 class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed text-warning"
                 role="note"
+                :data-testid="TEST_IDS.createGameTestModeNote"
               >
                 Тестовый режим: возможны небольшие несоответствия в игровой
                 логике.
@@ -182,6 +191,7 @@
           </UButton>
           <UButton
             color="primary"
+            :data-testid="TEST_IDS.createGameSubmit"
             class="btn-primary-action cursor-pointer"
             @click="createGame"
           >
@@ -201,6 +211,7 @@
         :title="`Комната № ${currentGame?.roomCode ?? '—'}`"
         subtitle="Займите свободные слоты или оставьте их искусственному интеллекту"
         size="md"
+        :data-testid="TEST_IDS.lobbyRoomHeading"
       />
 
       <p class="mt-3 text-center text-sm text-text-muted">
@@ -225,7 +236,10 @@
           {{ currentGame.rules?.expansions.river ? 'включена' : 'выключена' }}
         </strong>
       </p>
-      <p class="text-center text-sm text-text-muted">
+      <p
+        class="text-center text-sm text-text-muted"
+        :data-testid="TEST_IDS.lobbyPrincessDragonStatus"
+      >
         Принцесса и дракон:
         <strong class="text-text">
           {{
@@ -264,6 +278,7 @@
           </UButton>
           <UButton
             v-if="isLobbyCreator"
+            :data-testid="TEST_IDS.lobbyStartGame"
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             @click="startGame"
           >
@@ -280,6 +295,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import GameService from '@/modules/GameService'
 import type { CreateGameOptions } from '@/modules/GameService'
 import { notifyError } from '@/utils/common'
+import { TEST_IDS } from '@/data/testIds'
 import type { IGame, IGameBoard, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'

@@ -226,6 +226,7 @@
           v-if="!showLobby"
           color="primary"
           icon="i-lucide-arrow-left"
+          :data-testid="TEST_IDS.gameExit"
           aria-label="Выйти из игры"
           title="Выйти из игры"
           class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
@@ -267,6 +268,7 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError, throttle } from './utils/common'
+import { TEST_IDS } from './data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
