@@ -15,7 +15,6 @@ import {
   FollowerType as FollowerTypes,
   SocketEvents,
   TILE_ROTATIONS,
-  TileRotation,
 } from '../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { CommonErrors, GameErrors } from '../../modules/errors'
@@ -95,7 +94,7 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
   const definition = findTileDefinitionById(currentTile.id, game.rules)
   if (!definition) return false
 
-  const quarterTurns = rotation / TileRotation.QuarterTurn
+  const quarterTurns = rotation / 90
   const sides = rotateTileSides(definition.sides, quarterTurns)
 
   const rotatedTile: Tile = {

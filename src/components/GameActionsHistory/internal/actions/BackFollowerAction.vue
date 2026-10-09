@@ -1,9 +1,9 @@
 <template>
   <ActionRow icon="i-lucide-rotate-ccw">
     <strong class="mr-[3px] text-text">Возврат подданных.</strong>
-    <span v-for="(count, playerId) in followersByPlayer" :key="playerId">
-      <PlayerName :color="playerColor(playerId)">
-        {{ playerName(playerId) }} — {{ count }},&nbsp;
+    <span v-for="group in followersByPlayer" :key="group.playerId">
+      <PlayerName :color="playerColor(group.playerId)" :title="bigFollowerHint">
+        {{ playerName(group.playerId) }} — {{ group.names.join(', ') }},&nbsp;
       </PlayerName>
     </span>
   </ActionRow>
@@ -13,10 +13,14 @@
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
 import type { Player } from '@server/modules/types'
-import { countBy } from '@/utils/common'
 import ActionRow from '../ActionRow.vue'
 import PlayerName from '../PlayerName.vue'
 import { playerById } from '../players'
+import {
+  groupFollowerNamesByPlayer,
+  hasBigFollower,
+  BIG_FOLLOWER_HINT,
+} from '../followerNames'
 import { computed } from 'vue'
 
 const { action, players } = defineProps<{
@@ -25,7 +29,11 @@ const { action, players } = defineProps<{
 }>()
 
 const followersByPlayer = computed(() =>
-  countBy(action.actionData.followers, (follower) => String(follower.playerId))
+  groupFollowerNamesByPlayer(action.actionData.followers)
+)
+
+const bigFollowerHint = computed(() =>
+  hasBigFollower(action.actionData.followers) ? BIG_FOLLOWER_HINT : undefined
 )
 
 const playerColor = (playerId: string | number) =>

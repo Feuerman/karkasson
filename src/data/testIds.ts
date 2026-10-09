@@ -7,7 +7,6 @@ export const TEST_IDS = {
   createGameModalTitle: 'create-game-modal-title',
   createGameFinalScoring: 'create-game-final-scoring',
   createGamePrincessDragon: 'create-game-princess-dragon',
-  createGameTestModeNote: 'create-game-test-mode-note',
   createGameSubmit: 'create-game-submit',
   playerSlotCheckbox: 'player-slot-checkbox',
   gameStatsCurrentPlayer: 'game-stats-current-player',
@@ -18,6 +17,7 @@ export const TEST_IDS = {
   historyFinalScoringGroup: 'history-final-scoring-group',
   historyScoreDetails: 'history-score-details',
   historyScoreDetailsTooltip: 'history-score-details-tooltip',
+  historyObjectFocus: 'history-object-focus',
   boardCell: 'board-cell',
 } as const
 

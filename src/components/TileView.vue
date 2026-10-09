@@ -39,7 +39,6 @@ import { playerColorValue } from '@/utils/colors'
 const props = defineProps({
   tile: Object,
   rotation: Number,
-  highlightPoints: Array,
   size: {
     type: Number,
     default: 110,
@@ -400,7 +399,7 @@ const drawTile = () => {
   // Настройки стиля для точек
   ctx.lineWidth = 2
 
-  const highlightPoints = props.followers
+  const followerPoints = props.followers
     .map((follower) => {
       return {
         ...follower.point,
@@ -416,7 +415,7 @@ const drawTile = () => {
     )
 
   // Рисуем каждую точку с учетом направления
-  highlightPoints.forEach((point) => {
+  followerPoints.forEach((point) => {
     const tileSideType =
       point.direction &&
       point.direction !== PointDirection.Center &&

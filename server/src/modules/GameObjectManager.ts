@@ -301,7 +301,7 @@ export class GameObjectManager {
         this.removePlacedFollower(follower)
         this.state.recordAction({
           actionType: ActionTypes.BACK_FOLLOWER,
-          actionData: { followers: [follower] },
+          actionData: { followers: [{ ...follower, objectType }] },
         })
       }
     }
@@ -478,9 +478,15 @@ export class GameObjectManager {
     }
 
     if (feature.followers.length) {
+      const objectType = LINEAR_FEATURE_TYPES[kind]
       this.state.recordAction({
         actionType: ActionTypes.BACK_FOLLOWER,
-        actionData: { followers: feature.followers },
+        actionData: {
+          followers: feature.followers.map((follower) => ({
+            ...follower,
+            objectType,
+          })),
+        },
       })
     }
   }

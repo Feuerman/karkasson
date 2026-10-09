@@ -1,6 +1,5 @@
 import {
   SideName,
-  TileRotation,
   type SideName as SideNameValue,
   type TileSides,
 } from './types'
@@ -17,7 +16,7 @@ export function rotateTileSides(
   quarterTurns: number
 ): TileSides {
   let rotatedSides = { ...sides }
-  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const turnCount = 360 / 90
   const turns = ((quarterTurns % turnCount) + turnCount) % turnCount
 
   for (let turn = 0; turn < turns; turn++) {
@@ -38,7 +37,7 @@ export function rotateTileGroups(
 ): SideNameValue[][] | undefined {
   if (!groups) return groups
 
-  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const turnCount = 360 / 90
   const turns = ((quarterTurns % turnCount) + turnCount) % turnCount
   return groups
     .map((group) =>

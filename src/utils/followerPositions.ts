@@ -2,7 +2,6 @@ import {
   PointDirection,
   SideName,
   TileSideType,
-  TileRotation,
   TileId,
   type PointType,
 } from '@server/modules/types'
@@ -387,8 +386,8 @@ function getCanonicalDirection(
   rotation: number
 ): SideDirection {
   const directionIndex = sideDirections.indexOf(direction)
-  const rotationSteps = Math.round(rotation / TileRotation.QuarterTurn)
-  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const rotationSteps = Math.round(rotation / 90)
+  const turnCount = 360 / 90
   const baseIndex = (directionIndex - rotationSteps + turnCount) % turnCount
   return sideDirections[baseIndex] ?? direction
 }
@@ -397,11 +396,9 @@ function rotatePosition(
   [x, y]: readonly [number, number],
   rotation: number
 ): Position {
-  const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+  const turnCount = 360 / 90
   const rotationSteps =
-    ((Math.round(rotation / TileRotation.QuarterTurn) % turnCount) +
-      turnCount) %
-    turnCount
+    ((Math.round(rotation / 90) % turnCount) + turnCount) % turnCount
   let rotatedPosition: Position
 
   switch (rotationSteps) {

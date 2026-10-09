@@ -154,22 +154,7 @@ export const RotationDirection = {
 export type RotationDirection =
   (typeof RotationDirection)[keyof typeof RotationDirection]
 
-export const TileRotation = {
-  None: 0,
-  QuarterTurn: 90,
-  HalfTurn: 180,
-  ThreeQuarterTurn: 270,
-  FullTurn: 360,
-} as const
-
-export type TileRotation = (typeof TileRotation)[keyof typeof TileRotation]
-
-export const TILE_ROTATIONS = [
-  TileRotation.None,
-  TileRotation.QuarterTurn,
-  TileRotation.HalfTurn,
-  TileRotation.ThreeQuarterTurn,
-] as const
+export const TILE_ROTATIONS = [0, 90, 180, 270] as const
 
 export const RotationTurns = {
   Quarter: 1,
@@ -275,6 +260,16 @@ export interface ObjectFollower {
   point: Point
   isAbbot?: boolean
   isBigFollower?: boolean
+}
+
+/**
+ * Подданный, которого сняли с поля: та же фишка плюс объект, на котором она
+ * стояла. Тип объекта определяет наименование подданного в истории: разбойник
+ * на дороге, рыцарь в городе, монах в монастыре, аббат в монастыре или саду.
+ * Не заполняется для сохранений старых версий.
+ */
+export interface ReturnedFollower extends ObjectFollower {
+  objectType?: ObjectTypes
 }
 
 export interface PlacedFollower {

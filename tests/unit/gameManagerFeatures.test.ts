@@ -367,6 +367,12 @@ describe('Слияние и завершение дорог и городов', 
         (action) => action.actionType === ActionTypes.BACK_FOLLOWER
       )
       expect(returnAction?.actionData.followers).toHaveLength(2)
+      expect(
+        returnAction?.actionType === ActionTypes.BACK_FOLLOWER &&
+          returnAction.actionData.followers.map(
+            (follower) => follower.objectType
+          )
+      ).toEqual([objectType, objectType])
     }
   )
 })
