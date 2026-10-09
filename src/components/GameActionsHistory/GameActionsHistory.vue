@@ -85,7 +85,7 @@
           :key="index"
           :group="group"
           :players="gameBoard.players"
-          @highlight-object="forwardHighlightObject"
+          @focus="focusCells"
           @zoom="zoomToCoordinates"
         />
       </div>
@@ -97,11 +97,11 @@
 import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import type { BaseObject } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
+import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import Draggable from '@/components/Draggable.vue'
-import { pulseTile, scrollToTile } from '@/utils/board'
+import { highlightCells } from '@/utils/board'
 import HistoryGroupBlock from './internal/HistoryGroupBlock.vue'
 import {
   countActionsByFilter,
@@ -117,11 +117,7 @@ const { gameBoard } = defineProps<{
   dragEnabled?: boolean
 }>()
 
-const emits = defineEmits<{
-  highlightObject: [objectData: BaseObject]
-}>()
-
-let cancelTilePulse: (() => void) | undefined
+let cancelHighlight: (() => void) | undefined
 const isCollapsed = ref(false)
 const activeFilter = ref<HistoryFilter>(HistoryFilters.ALL)
 const historyScroll = ref<HTMLElement | null>(null)
@@ -146,16 +142,16 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  cancelTilePulse?.()
+  cancelHighlight?.()
 })
 
-const forwardHighlightObject = (objectData: BaseObject) => {
-  emits('highlightObject', objectData)
+/** Подсвечивает клетки доски вместо предыдущего выделения. */
+const focusCells = (cells: TileCoordinates[]) => {
+  cancelHighlight?.()
+  cancelHighlight = highlightCells(cells)
 }
 
 const zoomToCoordinates = (rowIndex: number, tileIndex: number) => {
-  scrollToTile(rowIndex, tileIndex)
-  cancelTilePulse?.()
-  cancelTilePulse = pulseTile(rowIndex, tileIndex)
+  focusCells([{ rowIndex, tileIndex }])
 }
 </script>

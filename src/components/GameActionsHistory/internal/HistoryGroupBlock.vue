@@ -37,12 +37,13 @@
         v-else-if="action.actionType === ActionTypes.PLACE_FOLLOWER"
         :action="action"
         @zoom="forwardZoom"
+        @focus="forwardFocus"
       />
       <AddingScoresAction
         v-else-if="action.actionType === ActionTypes.ADDING_SCORES"
         :action="action"
         :players="players"
-        @highlight-object="emit('highlightObject', $event)"
+        @focus="forwardFocus"
       />
       <BackFollowerAction
         v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER"
@@ -68,7 +69,8 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { ActionTypes } from '@server/modules/types'
-import type { BaseObject, Player } from '@server/modules/types'
+import type { Player } from '@server/modules/types'
+import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import type { HistoryGroup } from './historyGroups'
 import PlaceTileAction from './actions/PlaceTileAction.vue'
@@ -84,11 +86,15 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  highlightObject: [objectData: BaseObject]
+  focus: [cells: TileCoordinates[]]
   zoom: [rowIndex: number, tileIndex: number]
 }>()
 
 const forwardZoom = (rowIndex: number, tileIndex: number) => {
   emit('zoom', rowIndex, tileIndex)
+}
+
+const forwardFocus = (cells: TileCoordinates[]) => {
+  emit('focus', cells)
 }
 </script>

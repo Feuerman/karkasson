@@ -53,11 +53,6 @@ test('игрок создаёт лобби, занимает слот и нач�
     )
     await expect(finalScoringCheckbox).not.toBeChecked()
     await expect(princessAndDragonCheckbox).not.toBeChecked()
-    await expect(
-      page.getByTestId(TEST_IDS.createGameTestModeNote)
-    ).toContainText(
-      'Тестовый режим: возможны небольшие несоответствия в игровой логике.'
-    )
     await finalScoringCheckbox.check()
     await princessAndDragonCheckbox.check()
     await page.getByTestId(TEST_IDS.createGameSubmit).click()

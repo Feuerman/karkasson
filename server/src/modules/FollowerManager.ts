@@ -69,16 +69,7 @@ export class FollowerManager {
     const currentPlayer = this.state.currentPlayer
     if (!currentPlayer) return
 
-    const followerPool = this.state.playersFollowers[currentPlayer.id]
-    if (
-      followerPool &&
-      !followerPool.ordinaryFollowers &&
-      !(
-        this.state.rules.expansions.innsAndCathedrals &&
-        followerPool.bigFollowers
-      ) &&
-      !followerPool.monks
-    ) {
+    if (!this.hasAnyFollowers(this.state.playersFollowers[currentPlayer.id])) {
       this.state.endTurn()
       return
     }
@@ -156,24 +147,15 @@ export class FollowerManager {
           return false
         }
       }
-      // Сад доступен только аббату, и только если он есть в запасе.
-      if (object.isGarden && !followerPool?.monks) {
-        return false
+      // Сад занимает только аббат. В монастырь можно поставить любого
+      // подданного — он станет монахом, — а вот на стороне тайла аббата быть
+      // не может.
+      if (side === PointDirections.Center) {
+        return object.isGarden
+          ? this.hasAbbot(followerPool)
+          : this.hasAnyFollowers(followerPool)
       }
-      if (place.point.direction === PointDirections.Center || object.isGarden) {
-        return Boolean(followerPool?.monks)
-      }
-      if (
-        followerPool &&
-        !followerPool.ordinaryFollowers &&
-        !(
-          this.state.rules.expansions.innsAndCathedrals &&
-          followerPool.bigFollowers
-        )
-      ) {
-        return false
-      }
-      return true
+      return this.hasCommonFollowers(followerPool)
     })
   }
 
@@ -182,21 +164,31 @@ export class FollowerManager {
     const followerPool = currentPlayer
       ? this.state.playersFollowers[currentPlayer.id]
       : null
-    if (
-      !currentPlayer ||
-      !followerPool ||
-      (!followerPool.ordinaryFollowers &&
-        !(
-          this.state.rules.expansions.innsAndCathedrals &&
-          followerPool.bigFollowers
-        ) &&
-        !followerPool.monks)
-    ) {
+    if (!currentPlayer || !this.hasAnyFollowers(followerPool)) {
       this.state.endTurn()
     } else {
       this.state.currentTile = null
       this.state.isPlacingFollower = true
     }
+  }
+
+  /** Обычные подданные и, при расширении, большие подданные. */
+  private hasCommonFollowers(pool: FollowerCount | undefined | null): boolean {
+    if (!pool) return false
+    return Boolean(
+      pool.ordinaryFollowers ||
+      (this.state.rules.expansions.innsAndCathedrals && pool.bigFollowers)
+    )
+  }
+
+  /** Аббат хранится в запасе как монах. */
+  private hasAbbot(pool: FollowerCount | undefined | null): boolean {
+    return Boolean(pool?.monks)
+  }
+
+  /** Есть ли хоть одна фишка, которой игрок может начать ход. */
+  private hasAnyFollowers(pool: FollowerCount | undefined | null): boolean {
+    return this.hasCommonFollowers(pool) || this.hasAbbot(pool)
   }
 
   placeFollower(
@@ -340,7 +332,16 @@ export class FollowerManager {
     this.state.playersFollowers[currentPlayer.id].monks += 1
     this.state.recordAction({
       actionType: ActionTypes.BACK_FOLLOWER,
-      actionData: { followers: [abbot] },
+      actionData: {
+        followers: [
+          {
+            ...abbot,
+            objectType: target.isGarden
+              ? ObjectTypes.GARDEN
+              : ObjectTypes.MONASTERY,
+          },
+        ],
+      },
     })
     return true
   }

@@ -3,6 +3,7 @@ import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import { GameManager } from '@server/modules/GameManager'
 import {
   ActionTypes,
+  ObjectTypes,
   SideName,
   TileSideType,
   type Player,
@@ -159,7 +160,14 @@ describe('Правила дополнения «Принцесса и драко
     expect(dragonAction?.actionData).toEqual({
       from: { rowIndex: 15, tileIndex: 10 },
       to: { rowIndex: 15, tileIndex: 11 },
-      eatenFollowers: [{ playerId: 1, objectId: 'road-with-follower', point }],
+      eatenFollowers: [
+        {
+          playerId: 1,
+          objectId: 'road-with-follower',
+          point,
+          objectType: ObjectTypes.ROAD,
+        },
+      ],
       remainingSteps: 1,
     })
     expect(dragonAction?.initiator?.id).toBe(players[0]?.id)
@@ -173,7 +181,14 @@ describe('Правила дополнения «Принцесса и драко
     expect(
       backAction?.actionType === ActionTypes.BACK_FOLLOWER &&
         backAction.actionData.followers
-    ).toEqual([{ playerId: 1, objectId: 'road-with-follower', point }])
+    ).toEqual([
+      {
+        playerId: 1,
+        objectId: 'road-with-follower',
+        point,
+        objectType: ObjectTypes.ROAD,
+      },
+    ])
   })
 
   it('записывает шаг дракона без съеденных подданных и фиксирует инициатора', () => {
@@ -567,14 +582,26 @@ describe('Правила дополнения «Принцесса и драко
         princessAction.actionData
     ).toEqual({
       cityId: 'city-a',
-      takenFollower: { playerId: 2, objectId: 'city-a', point },
+      takenFollower: {
+        playerId: 2,
+        objectId: 'city-a',
+        point,
+        objectType: ObjectTypes.CITY,
+      },
     })
     expect(princessAction?.initiator?.id).toBe(players[0]?.id)
     const backAction = game.actionsHistory[1]
     expect(
       backAction?.actionType === ActionTypes.BACK_FOLLOWER &&
         backAction.actionData.followers
-    ).toEqual([{ playerId: 2, objectId: 'city-a', point }])
+    ).toEqual([
+      {
+        playerId: 2,
+        objectId: 'city-a',
+        point,
+        objectType: ObjectTypes.CITY,
+      },
+    ])
   })
 
   it('не записывает историю, если фишка принцессы уже снята с поля', () => {

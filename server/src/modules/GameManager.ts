@@ -29,7 +29,6 @@ import {
   RotationTurns,
   SIDE_NAMES,
   SideName,
-  TileRotation,
   TileId,
   TileSideType,
   type AvailableFollowerPlace,
@@ -43,11 +42,11 @@ import {
   type DragonMoveState,
   type PrincessChoiceState,
   type DragonPosition,
-  type ObjectFollower,
   type Player,
   type PlayerId,
   type PlacedFollower,
   type PlacementConflict,
+  type ReturnedFollower,
   type Point,
   type PointDirection,
   type RotationDirection,
@@ -92,7 +91,7 @@ export interface AddingScoresActionData {
 }
 
 export interface BackFollowerActionData {
-  followers: ObjectFollower[]
+  followers: ReturnedFollower[]
 }
 
 /**
@@ -103,7 +102,7 @@ export interface BackFollowerActionData {
 export interface DragonMoveActionData {
   from: DragonPosition
   to: DragonPosition
-  eatenFollowers: ObjectFollower[]
+  eatenFollowers: ReturnedFollower[]
   /** Шагов осталось после перемещения. */
   remainingSteps: number
 }
@@ -116,7 +115,7 @@ export interface DragonMoveActionData {
 export interface PrincessTakeFollowerActionData {
   /** Город, у которого забрали подданного. */
   cityId: string
-  takenFollower: ObjectFollower
+  takenFollower: ReturnedFollower
 }
 
 /** Общая часть любой записи истории ходов. */
@@ -503,11 +502,9 @@ export class GameManager implements IGameBoard {
       return undefined
     }
     let resolvedTile: Tile
-    const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+    const turnCount = 360 / 90
     const normalizedTurns =
-      ((Math.round(tile.rotation / TileRotation.QuarterTurn) % turnCount) +
-        turnCount) %
-      turnCount
+      ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
     if (tileDefinition) {
       resolvedTile = { ...authoritativeTile, rotation: 0 }
       for (let turn = 0; turn < normalizedTurns; turn++) {
@@ -781,7 +778,7 @@ export class GameManager implements IGameBoard {
       (follower) =>
         follower.point.x === tileIndex && follower.point.y === rowIndex
     )
-    const eatenFollowers: ObjectFollower[] = []
+    const eatenFollowers: ReturnedFollower[] = []
     for (const follower of occupants) {
       const eaten = this.removeFollowerFromBoard(follower)
       if (eaten) eatenFollowers.push(eaten)
@@ -990,21 +987,23 @@ export class GameManager implements IGameBoard {
    */
   private removeFollowerFromBoard(
     follower: PlacedFollower | undefined
-  ): ObjectFollower | undefined {
+  ): ReturnedFollower | undefined {
     if (!follower) return undefined
-    const collections = [
-      this.temporaryObjects.cities,
-      this.temporaryObjects.roads,
-      this.temporaryObjects.monasteries,
-      this.temporaryObjects.gardens,
-      this.completedObjects.cities,
-      this.completedObjects.roads,
-      this.completedObjects.monasteries,
-      this.completedObjects.gardens,
+    const collections: ReadonlyArray<readonly [BaseObject[], ObjectTypes]> = [
+      [this.temporaryObjects.cities, ObjectTypes.CITY],
+      [this.temporaryObjects.roads, ObjectTypes.ROAD],
+      [this.temporaryObjects.monasteries, ObjectTypes.MONASTERY],
+      [this.temporaryObjects.gardens, ObjectTypes.GARDEN],
+      [this.completedObjects.cities, ObjectTypes.CITY],
+      [this.completedObjects.roads, ObjectTypes.ROAD],
+      [this.completedObjects.monasteries, ObjectTypes.MONASTERY],
+      [this.completedObjects.gardens, ObjectTypes.GARDEN],
     ]
-    for (const collection of collections) {
+    let objectType: ObjectTypes | undefined
+    for (const [collection, type] of collections) {
       const object = collection.find(({ id }) => id === follower.objectId)
       if (!object) continue
+      objectType ??= type
       object.followers = object.followers.filter(
         (placed) =>
           !(
@@ -1025,18 +1024,19 @@ export class GameManager implements IGameBoard {
     this.placedFollowers = this.placedFollowers.filter(
       (placed) => placed !== follower
     )
-    const eaten: ObjectFollower = {
+    const eaten: ReturnedFollower = {
       playerId: follower.playerId,
       objectId: follower.objectId,
       point: follower.point,
       isAbbot: follower.isAbbot,
       isBigFollower: follower.isBigFollower,
+      objectType,
     }
     return eaten
   }
 
   /** Запись истории о возврате подданных владельцам. */
-  private recordBackFollowers(followers: ObjectFollower[]) {
+  private recordBackFollowers(followers: ReturnedFollower[]) {
     if (!followers.length) return
     this.recordAction({
       actionType: ActionTypes.BACK_FOLLOWER,
@@ -1103,11 +1103,7 @@ export class GameManager implements IGameBoard {
       const currentTile = this.currentTile
       if (!currentTile) return
       let rotatedTile: Tile = { ...currentTile, rotation: 0 }
-      for (
-        let turn = 0;
-        turn < move.rotation / TileRotation.QuarterTurn;
-        turn++
-      ) {
+      for (let turn = 0; turn < move.rotation / 90; turn++) {
         rotatedTile = this.rotateTile(rotatedTile)
       }
       const tilePlaced = this.placeTile(
@@ -1399,10 +1395,7 @@ export class GameManager implements IGameBoard {
         : definition?.roadGroups
     const groups =
       tileGroups ??
-      this.rotateTileGroups(
-        definitionGroups,
-        Math.round(tile.rotation / TileRotation.QuarterTurn)
-      ) ??
+      this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
       []
 
     // Т-образные перекрёстки и четырёхсторонние перекрёстки делят дорожные
@@ -1459,21 +1452,15 @@ export class GameManager implements IGameBoard {
         ? RotationTurns.Quarter
         : RotationTurns.ThreeQuarter
     if (direction === RotationDirections.Clockwise) {
-      if (
-        processedTile.rotation + TileRotation.QuarterTurn >
-        TileRotation.FullTurn
-      ) {
-        processedTile.rotation = TileRotation.None
+      if (processedTile.rotation + 90 > 360) {
+        processedTile.rotation = 0
       }
-      processedTile.rotation += TileRotation.QuarterTurn
+      processedTile.rotation += 90
     } else {
-      if (
-        processedTile.rotation - TileRotation.QuarterTurn <
-        TileRotation.None
-      ) {
-        processedTile.rotation = TileRotation.FullTurn
+      if (processedTile.rotation - 90 < 0) {
+        processedTile.rotation = 360
       }
-      processedTile.rotation -= TileRotation.QuarterTurn
+      processedTile.rotation -= 90
     }
 
     processedTile.sides = rotateTileSides(processedTile.sides, quarterTurns)
@@ -1569,11 +1556,9 @@ export class GameManager implements IGameBoard {
     let resolvedTile: Tile
     if (this.tileManager.findTileDefinition(tile.id)) {
       resolvedTile = { ...authoritativeTile, rotation: 0 }
-      const turnCount = TileRotation.FullTurn / TileRotation.QuarterTurn
+      const turnCount = 360 / 90
       const normalizedTurns =
-        ((Math.round(tile.rotation / TileRotation.QuarterTurn) % turnCount) +
-          turnCount) %
-        turnCount
+        ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
       for (let turn = 0; turn < normalizedTurns; turn++) {
         resolvedTile = this.rotateTile(resolvedTile)
       }

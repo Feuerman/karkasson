@@ -43,7 +43,6 @@
       <GameActionsHistory
         :game-board="gameState"
         :drag-enabled="isLayoutEditMode"
-        @highlight-object="highlightObject"
       />
       <GamePlacingFollowers
         :game-board="gameState"
@@ -175,7 +174,6 @@
                   :tile="gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]"
                   :followers="gameState.placedFollowers"
                   :players="gameState.players"
-                  :highlight-points="highlightPoints"
                   :size="115"
                 />
                 <div
@@ -286,7 +284,6 @@ import {
   TileSideType,
   type PlacementConflict,
   type Player,
-  type Point,
 } from '@server/modules/types'
 import type { RulesDocument } from './rules/types'
 
@@ -431,11 +428,6 @@ const zoomToTile = ({
     return
   }
   scrollToTile(rowIndex, tileIndex)
-}
-
-const highlightPoints = ref<Point[]>([])
-const highlightObject = (objectData: { points?: Point[] }) => {
-  highlightPoints.value = objectData.points ?? []
 }
 
 const applyGameState = (game: IGame): boolean => {

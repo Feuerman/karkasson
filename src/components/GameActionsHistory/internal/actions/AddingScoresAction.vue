@@ -1,12 +1,16 @@
 <template>
   <ActionRow icon="i-lucide-coins">
     <strong class="mr-[3px] text-text">Завершён объект.</strong>
-    <span
-      class="cursor-pointer"
-      @click="emit('highlightObject', action.actionData.objectData)"
+    <button
+      type="button"
+      class="cursor-pointer font-bold text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary-dark hover:decoration-primary disabled:cursor-default disabled:text-text disabled:no-underline"
+      :disabled="!objectCells.length"
+      :data-testid="TEST_IDS.historyObjectFocus"
+      title="Показать объект на доске"
+      @click="emit('focus', objectCells)"
     >
       {{ objectLabel }}
-    </span>
+    </button>
     <span class="text-text">Начислено очков:</span>
     <UTooltip
       :content="{ side: 'left', sideOffset: 8 }"
@@ -74,8 +78,10 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import UTooltip from '@nuxt/ui/components/Tooltip.vue'
 import { computed } from 'vue'
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
-import type { BaseObject, Player } from '@server/modules/types'
+import type { Player } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
+import type { TileCoordinates } from '@/utils/board'
+import { cellsOfPoints } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import { pluralForm } from '@/utils/common'
 import ActionRow from '../ActionRow.vue'
@@ -88,7 +94,7 @@ const { action, players } = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  highlightObject: [objectData: BaseObject]
+  focus: [cells: TileCoordinates[]]
 }>()
 
 /** Тултип поверх пергамента: светлая подложка, рамка и перенос строк. */
@@ -104,6 +110,10 @@ const OBJECT_LABELS: Record<ObjectTypes, string> = {
 
 const objectLabel = computed(
   () => OBJECT_LABELS[action.actionData.objectType] ?? 'объект'
+)
+
+const objectCells = computed(() =>
+  cellsOfPoints(action.actionData.objectData.points)
 )
 
 const hasDetails = computed(

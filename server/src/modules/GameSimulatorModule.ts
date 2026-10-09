@@ -6,7 +6,7 @@ import type {
   ObjectFollower,
   Tile,
 } from './types'
-import { FollowerType as FollowerTypes, TileRotation } from './types'
+import { FollowerType as FollowerTypes } from './types'
 import { rotateTileGroups, rotateTileSides } from './tileRotation'
 
 export interface SimulationMove {
@@ -139,12 +139,8 @@ export class GameSimulatorModule {
     let bestMoves: SimulationMove[] = []
 
     this.gameState.availablePlacesTiles.forEach(({ rowIndex, tileIndex }) => {
-      for (
-        let rotation = TileRotation.None;
-        rotation < TileRotation.FullTurn;
-        rotation += TileRotation.QuarterTurn
-      ) {
-        const turns = rotation / TileRotation.QuarterTurn
+      for (let rotation = 0; rotation < 360; rotation += 90) {
+        const turns = rotation / 90
         const rotatedSides = rotateTileSides(tile.sides, turns)
         const rotatedTile: Tile = {
           ...tile,

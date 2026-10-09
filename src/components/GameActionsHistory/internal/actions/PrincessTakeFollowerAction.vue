@@ -10,8 +10,11 @@
       />
     </span>
     <span class="text-text"> Подданный: </span>
-    <PlayerName :color="playerColor(takenFollower.playerId)">
-      {{ playerName(takenFollower.playerId) }}
+    <PlayerName
+      :color="playerColor(takenFollower.playerId)"
+      :title="takenFollower.isBigFollower ? BIG_FOLLOWER_HINT : undefined"
+    >
+      {{ playerName(takenFollower.playerId) }} — {{ takenFollowerName }}
     </PlayerName>
   </ActionRow>
 </template>
@@ -25,6 +28,7 @@ import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerName from '../PlayerName.vue'
 import { playerById } from '../players'
+import { BIG_FOLLOWER_HINT, followerName } from '../followerNames'
 
 const { action, players } = defineProps<{
   action: Extract<
@@ -39,6 +43,10 @@ const emit = defineEmits<{
 }>()
 
 const takenFollower = computed(() => action.actionData.takenFollower)
+
+const takenFollowerName = computed(() =>
+  followerName(action.actionData.takenFollower)
+)
 
 const playerColor = (playerId: string | number) =>
   playerById(players, playerId)?.color

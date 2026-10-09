@@ -195,8 +195,9 @@ Firebase Realtime Database (состояние сериализуется в JSO
 - `Draggable.vue` — перетаскиваемые панели с режимом настройки расположения;
 - `utils/followerPositions.ts` — координаты маркеров фишек на изображениях
   тайлов с учётом стороны и поворота;
-- `utils/board.ts` — `scrollToTile` / `pulseTile` для перехода к объекту
-  из истории действий;
+- `utils/board.ts` — `scrollToTile` / `highlightCells` для перехода к клеткам
+  из истории действий: клик по координатам или по названию объекта подсвечивает
+  на доске клетку или все клетки объекта;
 - уведомления — `plugins/notification.ts` через мост `ToastBridge.vue`
   к `useToast()` Nuxt UI.
 

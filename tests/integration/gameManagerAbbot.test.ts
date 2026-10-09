@@ -133,6 +133,33 @@ describe('Аббат (оба игрока-человека, фиксирован
     expect(game.placedFollowers[0]?.isAbbot).toBe(true)
   })
 
+  it('в монастырь ставится обычный подданный, даже если аббата в запасе нет', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.playersFollowers[1].monks = 0
+
+    stashDeck(game)
+    expect(placeMonastery(game, 16, 15)).toBe(true)
+    expect(game.isPlacingFollower).toBe(true)
+
+    // Подданный становится монахом, поэтому место доступно и без аббата
+    const monasteryPlace = game.availableFollowersPlaces.find(
+      (place) => place.temporaryObject.isMonastery
+    )
+    expect(monasteryPlace).toBeTruthy()
+
+    stashDeck(game)
+    game.placeFollower(monasteryPlace!, FollowerType.Follower)
+
+    expect(game.playersFollowers[1]).toEqual({
+      ordinaryFollowers: 6,
+      monks: 0,
+    })
+    expect(game.placedFollowers).toHaveLength(1)
+    expect(game.placedFollowers[0]?.isMonastery).toBe(true)
+    expect(game.placedFollowers[0]?.isAbbot).toBeUndefined()
+    expect(game.currentPlayer!.id).toBe(2)
+  })
+
   it('аббат ставится только на монастырь и списывает пул monks, а не обычных фишек', () => {
     const game = new GameManager({ players: makePlayers() })
 
@@ -280,11 +307,13 @@ describe('Аббат (оба игрока-человека, фиксирован
     }
     expect(data.objectType).toBe(ObjectTypes.MONASTERY)
     expect(data.score.total).toBe(2)
+    const backAction = game.actionsHistory.find(
+      (action) => action.actionType === ActionTypes.BACK_FOLLOWER
+    )
     expect(
-      game.actionsHistory.some(
-        (action) => action.actionType === ActionTypes.BACK_FOLLOWER
-      )
-    ).toBe(true)
+      backAction?.actionType === ActionTypes.BACK_FOLLOWER &&
+        backAction.actionData.followers.map((follower) => follower.objectType)
+    ).toEqual([ObjectTypes.MONASTERY])
 
     // Ход не расходуется: по-прежнему ход Алисы
     expect(game.currentPlayer!.id).toBe(1)

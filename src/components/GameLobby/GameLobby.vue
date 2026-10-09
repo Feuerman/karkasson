@@ -167,14 +167,6 @@
               <p class="text-sm leading-relaxed text-text-muted">
                 Добавляет тайлы с принцессой, драконом и вулканом.
               </p>
-              <p
-                class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm leading-relaxed text-warning"
-                role="note"
-                :data-testid="TEST_IDS.createGameTestModeNote"
-              >
-                Тестовый режим: возможны небольшие несоответствия в игровой
-                логике.
-              </p>
             </div>
           </section>
         </div>

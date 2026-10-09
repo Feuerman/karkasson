@@ -63,7 +63,7 @@ describe('Начисление очков за завершённые центр
         game.actionsHistory
           .filter((action) => action.actionType === ActionTypes.BACK_FOLLOWER)
           .flatMap((action) => action.actionData.followers)
-      ).toEqual([follower])
+      ).toEqual([{ ...follower, objectType }])
     }
   )
 })

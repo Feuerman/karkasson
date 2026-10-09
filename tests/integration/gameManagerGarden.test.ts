@@ -135,6 +135,23 @@ describe('Сад (оба игрока-человека, фиксированна
     expect(game.currentPlayer!.id).toBe(2)
   })
 
+  it('сад не предлагается, если в запасе нет аббата: ход сразу завершается', () => {
+    const game = new GameManager({ players: makePlayers() })
+    game.playersFollowers[1].monks = 0
+
+    stashDeck(game)
+    expect(placeGarden(game, 16, 15)).toBe(true)
+
+    // Все стороны тайла — поле, поэтому единственное место (сад) отпадает
+    expect(game.availableFollowersPlaces).toEqual([])
+    expect(game.isPlacingFollower).toBe(false)
+    expect(game.playersFollowers[1]).toEqual({
+      ordinaryFollowers: 7,
+      monks: 0,
+    })
+    expect(game.currentPlayer!.id).toBe(2)
+  })
+
   it('аббат ставится на сад и списывает пул monks', () => {
     const game = new GameManager({ players: makePlayers() })
 

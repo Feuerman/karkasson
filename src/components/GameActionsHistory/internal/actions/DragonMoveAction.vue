@@ -20,9 +20,12 @@
     </span>
     <template v-if="hasEatenFollowers">
       <span class="text-text"> Съедены подданные: </span>
-      <span v-for="(count, playerId) in eatenByPlayer" :key="playerId">
-        <PlayerName :color="playerColor(playerId)">
-          {{ playerName(playerId) }} — {{ followerLabel(count) }}&nbsp;
+      <span v-for="group in eatenByPlayer" :key="group.playerId">
+        <PlayerName
+          :color="playerColor(group.playerId)"
+          :title="bigFollowerHint"
+        >
+          {{ playerName(group.playerId) }} — {{ group.names.join(', ') }}&nbsp;
         </PlayerName>
       </span>
     </template>
@@ -34,11 +37,15 @@ import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
 import type { Player } from '@server/modules/types'
 import { computed } from 'vue'
-import { countBy, pluralForm } from '@/utils/common'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerName from '../PlayerName.vue'
 import { playerById } from '../players'
+import {
+  BIG_FOLLOWER_HINT,
+  groupFollowerNamesByPlayer,
+  hasBigFollower,
+} from '../followerNames'
 
 const { action, players } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.DRAGON_MOVE }>
@@ -50,17 +57,16 @@ const emit = defineEmits<{
 }>()
 
 const eatenByPlayer = computed(() =>
-  countBy(action.actionData.eatenFollowers, (follower) =>
-    String(follower.playerId)
-  )
+  groupFollowerNamesByPlayer(action.actionData.eatenFollowers)
 )
 
-const hasEatenFollowers = computed(
-  () => Object.keys(eatenByPlayer.value).length > 0
-)
+const hasEatenFollowers = computed(() => eatenByPlayer.value.length > 0)
 
-const followerLabel = (count: number) =>
-  `${count} ${pluralForm(count, 'подданный', 'подданных', 'подданных')}`
+const bigFollowerHint = computed(() =>
+  hasBigFollower(action.actionData.eatenFollowers)
+    ? BIG_FOLLOWER_HINT
+    : undefined
+)
 
 const playerColor = (playerId: string | number) =>
   playerById(players, playerId)?.color

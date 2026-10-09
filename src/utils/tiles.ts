@@ -2,7 +2,6 @@ import type { ITile } from '@/types/game'
 import {
   RotationDirection as RotationDirections,
   SideName,
-  TileRotation,
   type RotationDirection,
   type TileSides,
 } from '@server/modules/types'
@@ -15,10 +14,10 @@ export const normalizeRotation = (rotation: number): number =>
   FULL_ROTATION_DEGREES
 
 const ROTATION_CLASSES: Record<number, string> = {
-  [TileRotation.None]: 'rotate-0',
-  [TileRotation.QuarterTurn]: 'rotate-90',
-  [TileRotation.HalfTurn]: 'rotate-180',
-  [TileRotation.ThreeQuarterTurn]: 'rotate-270',
+  0: 'rotate-0',
+  90: 'rotate-90',
+  180: 'rotate-180',
+  270: 'rotate-270',
 }
 
 export const rotationClass = (rotation: number): string =>
@@ -51,10 +50,7 @@ export const rotateTile = (
 ): ITile => ({
   ...tile,
   rotation: normalizeRotation(
-    tile.rotation +
-      (direction === RotationDirections.Clockwise
-        ? TileRotation.QuarterTurn
-        : -TileRotation.QuarterTurn)
+    tile.rotation + (direction === RotationDirections.Clockwise ? 90 : -90)
   ),
   sides: rotateSides(tile.sides, direction),
 })
