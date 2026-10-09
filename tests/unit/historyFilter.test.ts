@@ -71,12 +71,25 @@ const dragonAction: GameAction = {
   },
 }
 
+const princessAction: GameAction = {
+  actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER,
+  actionData: {
+    cityId: 'o1',
+    takenFollower: {
+      playerId: 1,
+      objectId: 'o1',
+      point: { x: 0, y: 0, direction: SideName.North },
+    },
+  },
+}
+
 const history = [
   tileAction,
   followerAction,
   scoresAction,
   backAction,
   dragonAction,
+  princessAction,
 ]
 
 describe('фильтр истории по типу действия', () => {
@@ -100,6 +113,9 @@ describe('фильтр истории по типу действия', () => {
     expect(filterActionsHistory(history, HistoryFilters.DRAGON)).toEqual([
       dragonAction,
     ])
+    expect(filterActionsHistory(history, HistoryFilters.PRINCESS)).toEqual([
+      princessAction,
+    ])
   })
 
   it('пустая история не ломает отбор', () => {
@@ -111,12 +127,13 @@ describe('фильтр истории по типу действия', () => {
   it('счётчики совпадают с результатами отбора', () => {
     const counts = countActionsByFilter(history)
     expect(counts).toEqual({
-      ALL: 5,
+      ALL: 6,
       TILE: 1,
       FOLLOWER: 1,
       SCORES: 1,
       RETURN: 1,
       DRAGON: 1,
+      PRINCESS: 1,
     })
     for (const { value } of HISTORY_FILTERS) {
       expect(filterActionsHistory(history, value)).toHaveLength(counts[value])
@@ -131,6 +148,7 @@ describe('фильтр истории по типу действия', () => {
       SCORES: 0,
       RETURN: 0,
       DRAGON: 0,
+      PRINCESS: 0,
     })
   })
 

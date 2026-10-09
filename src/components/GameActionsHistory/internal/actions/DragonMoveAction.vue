@@ -18,7 +18,7 @@
     <span class="text-text-muted">
       Осталось шагов: {{ action.actionData.remainingSteps }}.
     </span>
-    <template v-if="eatenByPlayer.length">
+    <template v-if="hasEatenFollowers">
       <span class="text-text"> Съедены подданные: </span>
       <span v-for="(count, playerId) in eatenByPlayer" :key="playerId">
         <PlayerName :color="playerColor(playerId)">
@@ -53,6 +53,10 @@ const eatenByPlayer = computed(() =>
   countBy(action.actionData.eatenFollowers, (follower) =>
     String(follower.playerId)
   )
+)
+
+const hasEatenFollowers = computed(
+  () => Object.keys(eatenByPlayer.value).length > 0
 )
 
 const followerLabel = (count: number) =>

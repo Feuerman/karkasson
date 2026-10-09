@@ -9,6 +9,7 @@ export const HistoryFilters = {
   SCORES: 'SCORES',
   RETURN: 'RETURN',
   DRAGON: 'DRAGON',
+  PRINCESS: 'PRINCESS',
 } as const
 
 export type HistoryFilter = (typeof HistoryFilters)[keyof typeof HistoryFilters]
@@ -23,6 +24,7 @@ const FILTER_BY_ACTION_TYPE: Record<
   [HistoryFilters.SCORES]: [ActionTypes.ADDING_SCORES],
   [HistoryFilters.RETURN]: [ActionTypes.BACK_FOLLOWER],
   [HistoryFilters.DRAGON]: [ActionTypes.DRAGON_MOVE],
+  [HistoryFilters.PRINCESS]: [ActionTypes.PRINCESS_TAKE_FOLLOWER],
 }
 
 /** Пункты фильтра в порядке отображения. */
@@ -45,6 +47,11 @@ export const HISTORY_FILTERS: ReadonlyArray<{
     icon: 'i-lucide-rotate-ccw',
   },
   { value: HistoryFilters.DRAGON, label: 'Дракон', icon: 'i-lucide-flame' },
+  {
+    value: HistoryFilters.PRINCESS,
+    label: 'Принцесса',
+    icon: 'i-lucide-crown',
+  },
 ]
 
 export const matchesHistoryFilter = (
