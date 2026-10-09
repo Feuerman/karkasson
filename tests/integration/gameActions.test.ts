@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
-import { SideName } from '@server/modules/types'
+import { GameErrors, LobbyErrors } from '@server/modules/errors'
+import { SideName, SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -53,29 +54,29 @@ describe('Действия в игре: валидация ходов', () => {
 
     // Боб пытается действовать на ходу Алисы
     await expect(
-      lobby.joiner.emitAck('selectPlacingPoint', {
+      lobby.joiner.emitAck(SocketEvents.SelectPlacingPoint, {
         gameId,
         point: { rowIndex: 15, tileIndex: 16 },
       })
-    ).rejects.toThrow("Not player's turn")
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     await expect(
-      lobby.joiner.emitAck('updateCurrentTile', {
+      lobby.joiner.emitAck(SocketEvents.UpdateCurrentTile, {
         gameId,
         rotation: move!.tile.rotation,
       })
-    ).rejects.toThrow("Not player's turn")
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     await expect(
-      lobby.joiner.emitAck('placeFollower', {
+      lobby.joiner.emitAck(SocketEvents.PlaceFollower, {
         gameId,
         place: { point: { x: 0, y: 0 }, temporaryObject: { id: 'x' } },
       })
-    ).rejects.toThrow("Not player's turn")
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     await expect(
-      lobby.joiner.emitAck('skipFollower', { gameId })
-    ).rejects.toThrow("Not player's turn")
+      lobby.joiner.emitAck(SocketEvents.SkipFollower, { gameId })
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     // Алиса по-прежнему может ходить
     const after = await makeAliceTurn(lobby.creator, gameId, state)
@@ -93,7 +94,7 @@ describe('Действия в игре: валидация ходов', () => {
     const selected = await lobby.creator.emitAck<{
       success: boolean
       game: { placingPoint: { rowIndex: number; tileIndex: number } }
-    }>('selectPlacingPoint', {
+    }>(SocketEvents.SelectPlacingPoint, {
       gameId,
       point: { rowIndex: place.rowIndex, tileIndex: place.tileIndex },
     })
@@ -108,7 +109,10 @@ describe('Действия в игре: валидация ходов', () => {
     const updated = await lobby.creator.emitAck<{
       success: boolean
       game: { currentTile: TileSnapshot | null }
-    }>('updateCurrentTile', { gameId, rotation: move!.tile.rotation })
+    }>(SocketEvents.UpdateCurrentTile, {
+      gameId,
+      rotation: move!.tile.rotation,
+    })
     expect(updated.success).toBe(true)
     expect(updated.game.currentTile?.sides).toEqual(move!.tile.sides)
 
@@ -156,7 +160,7 @@ describe('Действия в игре: валидация ходов', () => {
     expect(invalid).toBeTruthy()
 
     const failure = await lobby.creator
-      .emitAck<never>('placeTile', {
+      .emitAck<never>(SocketEvents.PlaceTile, {
         gameId,
         rotation: invalid!.tile.rotation,
         position: {
@@ -191,7 +195,7 @@ describe('Действия в игре: валидация ходов', () => {
     const placing = lobby.creator.emitAck<{
       success: boolean
       game: TestGameData
-    }>('placeTile', {
+    }>(SocketEvents.PlaceTile, {
       gameId,
       rotation: move!.tile.rotation,
       position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
@@ -232,7 +236,7 @@ describe('Действия в игре: валидация ходов', () => {
 
     server.db.saveError = new Error('storage unavailable')
     await expect(
-      lobby.creator.emitAck('placeTile', {
+      lobby.creator.emitAck(SocketEvents.PlaceTile, {
         gameId,
         rotation: move!.tile.rotation,
         position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
@@ -279,16 +283,16 @@ describe('Действия в игре: валидация ходов', () => {
     const { gameId } = lobby
 
     await expect(
-      lobby.joiner.emitAck('addPlayer', {
+      lobby.joiner.emitAck(SocketEvents.AddPlayer, {
         gameId,
         name: 'Mallory',
         index: 2,
       })
-    ).rejects.toThrow('Недостаточно прав')
+    ).rejects.toThrow(LobbyErrors.SlotEditForbidden)
 
-    await expect(lobby.joiner.emitAck('startGame', { gameId })).rejects.toThrow(
-      'Только создатель лобби'
-    )
+    await expect(
+      lobby.joiner.emitAck(SocketEvents.StartGame, { gameId })
+    ).rejects.toThrow(LobbyErrors.OnlyLobbyOwnerCanStart)
   })
 
   it('leaveGame в начатой игре освобождает сокет, но сохраняет deviceId', async () => {
@@ -300,7 +304,7 @@ describe('Действия в игре: валидация ходов', () => {
     expect(started.gameIsStarted).toBe(true)
 
     // Боб «покидает» уже начатую игру
-    lobby.joiner.emit('leaveGame', { gameId })
+    lobby.joiner.emit(SocketEvents.LeaveGame, { gameId })
     const afterLeave = await latestGame(
       lobby.creator,
       (g: TestGameData) =>
@@ -317,7 +321,7 @@ describe('Действия в игре: валидация ходов', () => {
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
     lobby.joiner.registerDevice()
-    lobby.joiner.emit('rejoinGame', {
+    lobby.joiner.emit(SocketEvents.RejoinGame, {
       gameId,
       deviceId: lobby.joiner.deviceId,
     })
@@ -358,14 +362,14 @@ async function makeAliceTurn(
   const move = findValidPlacement(state)
   if (!move) throw new Error('Не найдено легальное место для текущего тайла')
 
-  await creator.emitAck('updateCurrentTile', {
+  await creator.emitAck(SocketEvents.UpdateCurrentTile, {
     gameId,
     rotation: move.tile.rotation,
   })
   const placed = await creator.emitAck<{
     success: boolean
     game: TestGameData & { isPlacingFollower?: boolean }
-  }>('placeTile', {
+  }>(SocketEvents.PlaceTile, {
     gameId,
     position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
   })
@@ -375,7 +379,7 @@ async function makeAliceTurn(
   if (game.isPlacingFollower) {
     game = (
       await creator.emitAck<{ success: boolean; game: TestGameData }>(
-        'skipFollower',
+        SocketEvents.SkipFollower,
         { gameId }
       )
     ).game

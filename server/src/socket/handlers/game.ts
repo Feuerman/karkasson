@@ -20,6 +20,7 @@ import {
   TileRotation,
 } from '../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../types'
+import { CommonErrors, GameErrors } from '../../modules/errors'
 
 function playerIndexesForSocket(game: IGameBoard, socketId: string): number[] {
   return game.players.reduce<number[]>((acc, player, index) => {
@@ -110,11 +111,11 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
 
@@ -139,11 +140,11 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
 
@@ -155,7 +156,7 @@ export function registerGameHandlers({
         typeof requestedRotation !== 'number' ||
         !setCurrentTileRotation(game, requestedRotation)
       ) {
-        callback?.({ error: 'Invalid tile rotation' })
+        callback?.({ error: GameErrors.InvalidTileRotation })
         return
       }
       io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
@@ -179,11 +180,11 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
       if (
@@ -203,7 +204,7 @@ export function registerGameHandlers({
       const previousState = game.clone()
       try {
         if (rotation !== undefined && !setCurrentTileRotation(game, rotation)) {
-          callback?.({ error: 'Invalid tile rotation' })
+          callback?.({ error: GameErrors.InvalidTileRotation })
           return
         }
         const isValidMove = game.placeTile(
@@ -270,15 +271,15 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
       if (game.princessChoice || game.dragonMove) {
-        callback?.({ error: 'Resolve the expansion action first' })
+        callback?.({ error: GameErrors.ResolveExpansionActionFirst })
         return
       }
 
@@ -355,11 +356,11 @@ export function registerGameHandlers({
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
 
@@ -403,7 +404,7 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (
@@ -454,11 +455,11 @@ export function registerGameHandlers({
     ) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
       if (!game.princessChoice) {
@@ -495,15 +496,15 @@ export function registerGameHandlers({
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: "Not player's turn" })
+        callback?.({ error: GameErrors.NotPlayersTurn })
         return
       }
       if (game.princessChoice || game.dragonMove) {
-        callback?.({ error: 'Resolve the expansion action first' })
+        callback?.({ error: GameErrors.ResolveExpansionActionFirst })
         return
       }
 

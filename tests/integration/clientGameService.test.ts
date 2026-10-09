@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameService, SocketAckError } from '@/modules/GameService'
-import { SideName, TileSideType } from '@server/modules/types'
+import { GameErrors } from '@server/modules/errors'
+import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
+import { SideName, SocketEvents, TileSideType } from '@server/modules/types'
 import {
   findValidPlacement,
   isValidPosition,
@@ -69,17 +71,17 @@ function waitGameUpdated(
 ): Promise<AnyGame> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      service.socket?.off('gameUpdated', handler)
+      service.socket?.off(SocketEvents.GameUpdated, handler)
       reject(new Error('Таймаут ожидания gameUpdated'))
     }, timeoutMs)
     const handler = (game: AnyGame) => {
       if (predicate(game)) {
         clearTimeout(timer)
-        service.socket?.off('gameUpdated', handler)
+        service.socket?.off(SocketEvents.GameUpdated, handler)
         resolve(game)
       }
     }
-    service.socket?.on('gameUpdated', handler)
+    service.socket?.on(SocketEvents.GameUpdated, handler)
   })
 }
 
@@ -176,11 +178,15 @@ describe('Клиентское приложение (GameService)', () => {
     const listener = () => undefined
     const unsubscribe = client.onGameUpdated(listener)
 
-    expect(client.socket?.listeners('gameUpdated')).toContain(listener)
+    expect(client.socket?.listeners(SocketEvents.GameUpdated)).toContain(
+      listener
+    )
 
     unsubscribe()
 
-    expect(client.socket?.listeners('gameUpdated')).not.toContain(listener)
+    expect(client.socket?.listeners(SocketEvents.GameUpdated)).not.toContain(
+      listener
+    )
   })
 
   it('передаёт выбор включённого дополнения в правила и колоду партии', async () => {
@@ -352,9 +358,7 @@ describe('Клиентское приложение (GameService)', () => {
     if (!(failure instanceof SocketAckError)) {
       throw new Error('Ожидалась ошибка SocketAckError')
     }
-    expect(failure.message).toContain(
-      'Невозможно разместить тайл на данной позиции'
-    )
+    expect(failure.message).toContain(PLACEMENT_FAILURE_MESSAGE)
     expect(failure.conflicts.length).toBeGreaterThan(0)
     expect(failure.conflicts[0]?.side).toBeTruthy()
 
@@ -386,7 +390,7 @@ describe('Клиентское приложение (GameService)', () => {
         rowIndex: move!.rowIndex,
         tileIndex: move!.tileIndex,
       })
-    ).rejects.toThrow("Not player's turn")
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
   })
 
   it('возвращает причину отказа по реке и подсветку открытого конца', async () => {
@@ -417,9 +421,7 @@ describe('Клиентское приложение (GameService)', () => {
     if (!(failure instanceof SocketAckError)) {
       throw new Error('Ожидалась ошибка SocketAckError')
     }
-    expect(failure.message).toContain(
-      'Невозможно разместить тайл на данной позиции'
-    )
+    expect(failure.message).toContain(PLACEMENT_FAILURE_MESSAGE)
     expect(failure.message).toContain('река')
     expect(failure.message).toContain('незакрытый конец')
     expect(failure.conflicts).toEqual([

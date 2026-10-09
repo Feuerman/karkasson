@@ -14,7 +14,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-import { FollowerType } from '@server/modules/types'
+import { FollowerType, SocketEvents } from '@server/modules/types'
 
 describe('Размещение фишек', () => {
   let server: RunningServer | undefined
@@ -54,7 +54,7 @@ describe('Размещение фишек', () => {
     const placed = await creator.emitAck<{
       success: boolean
       game: GameStateSnapshot
-    }>('placeFollower', {
+    }>(SocketEvents.PlaceFollower, {
       gameId,
       place,
       followerType: place.temporaryObject.isGarden
@@ -127,7 +127,7 @@ describe('Размещение фишек', () => {
     const skipped = await creator.emitAck<{
       success: boolean
       game: GameStateSnapshot
-    }>('skipFollower', { gameId })
+    }>(SocketEvents.SkipFollower, { gameId })
 
     const afterGame = skipped.game
     expect(afterGame.isPlacingFollower).toBe(false)

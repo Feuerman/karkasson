@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   assertFollowerInvariants,
@@ -37,21 +38,31 @@ describe('Полностью автоматическая партия (4 ком
       // Лобби из четырёх компьютерных игроков (без реальных человека - все слоты ИИ).
       // Создатель по умолчанию занимает слот 0, поэтому освобождаем его —
       // иначе `startGame` не увидит «всех компьютеров» и не запустит автоигру.
-      creator.emit('createGame', { princessAndDragonEnabled: true })
-      const { gameId } = (await creator.waitForEvent('gameCreated')) as {
+      creator.emit(SocketEvents.CreateGame, { princessAndDragonEnabled: true })
+      const { gameId } = (await creator.waitForEvent(
+        SocketEvents.GameCreated
+      )) as {
         gameId: string
       }
       // Создатель освобождает свой слот; все игровые места занимают компьютеры.
-      await creator.emitAck('removePlayer', { gameId, index: 0, name: null })
+      await creator.emitAck(SocketEvents.RemovePlayer, {
+        gameId,
+        index: 0,
+        name: null,
+      })
       for (let index = 0; index < 4; index++) {
-        await creator.emitAck('addPlayer', { gameId, name: null, index })
+        await creator.emitAck(SocketEvents.AddPlayer, {
+          gameId,
+          name: null,
+          index,
+        })
       }
 
       // Старт автоматически запускает цепочку компьютерных ходов
-      creator.emit('startGame', { gameId })
+      creator.emit(SocketEvents.StartGame, { gameId })
 
       const started = await creator.waitForEvent(
-        'gameUpdated',
+        SocketEvents.GameUpdated,
         (payload) =>
           (payload as GameStateSnapshot).gameIsStarted === true &&
           (payload as GameStateSnapshot).gameIsEnded === false
@@ -62,7 +73,7 @@ describe('Полностью автоматическая партия (4 ком
 
       // Ждём завершения партии (71 ход колоды + стартовый тайл)
       const endedPayload = await creator.waitForEvent(
-        'gameUpdated',
+        SocketEvents.GameUpdated,
         (payload) => (payload as GameStateSnapshot).gameIsEnded === true,
         120_000
       )
@@ -95,7 +106,7 @@ describe('Полностью автоматическая партия (4 ком
       // Общий список игр обновлён: игра помечена как завершённая
       const { games } = await creator.emitAck<{
         games: Array<{ id: string; gameIsEnded: boolean }>
-      }>('getGamesList')
+      }>(SocketEvents.GetGamesList)
       const summary = games.find((g) => g.id === gameId)
       expect(summary?.gameIsEnded).toBe(true)
 

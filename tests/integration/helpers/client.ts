@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
+import { SocketEvents } from '@server/modules/types'
 
 interface Waiter {
   predicate: (payload: unknown) => boolean
@@ -75,7 +76,7 @@ export class TestClient {
   }
 
   registerDevice(): void {
-    this.socket.emit('registerDevice', { deviceId: this.deviceId })
+    this.socket.emit(SocketEvents.RegisterDevice, { deviceId: this.deviceId })
   }
 
   /** emit с acknowledgement-колбэком сервера */

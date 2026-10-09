@@ -1,3 +1,4 @@
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './client'
 import type { TileSnapshot } from './gameplay'
 
@@ -67,24 +68,40 @@ export async function createLobbyWithPlayers(
   await joiner.connect()
   joiner.registerDevice()
 
-  creator.emit('createGame')
-  const created = (await creator.waitForEvent('gameCreated')) as {
+  creator.emit(SocketEvents.CreateGame)
+  const created = (await creator.waitForEvent(SocketEvents.GameCreated)) as {
     gameId: string
   }
   const gameId = created.gameId
 
   // Слот 0 — создатель, реальный игрок
-  await creator.emitAck('addPlayer', { gameId, name: 'Alice', index: 0 })
+  await creator.emitAck(SocketEvents.AddPlayer, {
+    gameId,
+    name: 'Alice',
+    index: 0,
+  })
 
   // Слот 1 — второй реальный игрок
-  joiner.emit('joinGame', { gameId })
-  await joiner.waitForEvent('gameUpdated')
+  joiner.emit(SocketEvents.JoinGame, { gameId })
+  await joiner.waitForEvent(SocketEvents.GameUpdated)
 
-  await joiner.emitAck('addPlayer', { gameId, name: 'Bob', index: 1 })
+  await joiner.emitAck(SocketEvents.AddPlayer, {
+    gameId,
+    name: 'Bob',
+    index: 1,
+  })
 
   // Слоты 2 и 3 — компьютерные игроки (без socketId и deviceId)
-  await creator.emitAck('addPlayer', { gameId, name: null, index: 2 })
-  await creator.emitAck('addPlayer', { gameId, name: null, index: 3 })
+  await creator.emitAck(SocketEvents.AddPlayer, {
+    gameId,
+    name: null,
+    index: 2,
+  })
+  await creator.emitAck(SocketEvents.AddPlayer, {
+    gameId,
+    name: null,
+    index: 3,
+  })
 
   return { gameId, creator, joiner }
 }
@@ -95,7 +112,7 @@ export async function latestGame(
   predicate: (game: TestGameData) => boolean = () => true
 ): Promise<TestGameData> {
   return (await client.waitForEvent(
-    'gameUpdated',
+    SocketEvents.GameUpdated,
     predicate as (payload: unknown) => boolean
   )) as TestGameData
 }
