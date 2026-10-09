@@ -8,11 +8,9 @@ import type {
 } from '../../modules/types'
 import { describePlacementFailure } from '../../modules/gameGeometry'
 import { rotateTileGroups, rotateTileSides } from '../../modules/tileRotation'
-import tiles from '../../data/tiles'
-import { innsAndCathedralsTiles } from '../../data/innsAndCathedralsTiles'
-import { riverTiles } from '../../data/riverTiles'
-import { princessAndDragonTiles } from '../../data/princessAndDragonTiles'
+import { findTileDefinitionById } from '../../data/tileDefinitions'
 import { maybeContinueWithComputerMove } from '../../services/computerPlayer'
+import type { GameService } from '../../services/GameService'
 import {
   FollowerType as FollowerTypes,
   SocketEvents,
@@ -21,6 +19,8 @@ import {
 } from '../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { CommonErrors, GameErrors } from '../../modules/errors'
+import { getErrorMessage } from '../../utils/common'
+import { ackGameUpdated } from './shared'
 
 function playerIndexesForSocket(game: IGameBoard, socketId: string): number[] {
   return game.players.reduce<number[]>((acc, player, index) => {
@@ -33,6 +33,37 @@ function isPlayersTurn(game: IGameBoard, socketId: string): boolean {
   return playerIndexesForSocket(game, socketId).some(
     (index) => index === game.currentPlayerIndex
   )
+}
+
+type PlayersTurnLookup = { game: IGameBoard } | { error: string }
+
+/** Проверяет существование партии и очередь хода вызывающего игрока. */
+function requirePlayersTurn(
+  service: GameService,
+  gameId: string,
+  socketId: string
+): PlayersTurnLookup {
+  const game = service.getGame(gameId)
+  if (!game) return { error: CommonErrors.GameNotFound }
+  if (!isPlayersTurn(game, socketId)) {
+    return { error: GameErrors.NotPlayersTurn }
+  }
+  return { game }
+}
+
+/** Сохраняет партию; при ошибке откатывает состояние к снимку. */
+async function saveGameOrRollback(
+  game: IGameBoard,
+  gameId: string,
+  service: GameService,
+  previousState: IGameBoard
+): Promise<void> {
+  try {
+    await service.saveGame(gameId)
+  } catch (error) {
+    game.copyStateFrom(previousState)
+    throw error
+  }
 }
 
 function isValidPosition(position: { rowIndex: number; tileIndex: number }) {
@@ -61,17 +92,7 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
     return false
   }
 
-  const definition =
-    (game.rules.expansions.princessAndDragon
-      ? princessAndDragonTiles.find((tile) => tile.id === currentTile.id)
-      : undefined) ??
-    tiles.find((tile) => tile.id === currentTile.id) ??
-    (game.rules.expansions.innsAndCathedrals
-      ? innsAndCathedralsTiles.find((tile) => tile.id === currentTile.id)
-      : undefined) ??
-    (game.rules.expansions.river
-      ? riverTiles.find((tile) => tile.id === currentTile.id)
-      : undefined)
+  const definition = findTileDefinitionById(currentTile.id, game.rules)
   if (!definition) return false
 
   const quarterTurns = rotation / TileRotation.QuarterTurn
@@ -109,22 +130,18 @@ export function registerGameHandlers({
       }: { gameId: string; point: { rowIndex: number; tileIndex: number } },
       callback: SocketCallback
     ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
 
       game.placingPoint = {
         rowIndex: point.rowIndex,
         tileIndex: point.tileIndex,
       }
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
-      callback?.({ success: true, game: service.formatGameData(game) })
+      ackGameUpdated(io, service, gameId, game, callback)
     }
   )
 
@@ -138,15 +155,12 @@ export function registerGameHandlers({
       }: { gameId: string; rotation?: number; tile?: Pick<Tile, 'rotation'> },
       callback: SocketCallback
     ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
 
       const requestedRotation = rotation ?? tile?.rotation
       if (
@@ -159,8 +173,7 @@ export function registerGameHandlers({
         callback?.({ error: GameErrors.InvalidTileRotation })
         return
       }
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
-      callback?.({ success: true, game: service.formatGameData(game) })
+      ackGameUpdated(io, service, gameId, game, callback)
     }
   )
 
@@ -178,15 +191,12 @@ export function registerGameHandlers({
       },
       callback: SocketCallback
     ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
       if (
         game.isPlacingFollower ||
         game.princessChoice ||
@@ -225,18 +235,9 @@ export function registerGameHandlers({
           )
         }
 
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          game.copyStateFrom(previousState)
-          throw error
-        }
+        await saveGameOrRollback(game, gameId, service, previousState)
 
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        ackGameUpdated(io, service, gameId, game, callback)
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
@@ -249,7 +250,7 @@ export function registerGameHandlers({
           return
         }
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }
@@ -269,15 +270,12 @@ export function registerGameHandlers({
       },
       callback: SocketCallback
     ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
       if (game.princessChoice || game.dragonMove) {
         callback?.({ error: GameErrors.ResolveExpansionActionFirst })
         return
@@ -328,24 +326,15 @@ export function registerGameHandlers({
         if (game.placedFollowers.length !== followersBefore + 1) {
           throw new Error('Follower placement is no longer available')
         }
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          game.copyStateFrom(previousState)
-          throw error
-        }
+        await saveGameOrRollback(game, gameId, service, previousState)
 
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        ackGameUpdated(io, service, gameId, game, callback)
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         console.error('Error placing follower:', error)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }
@@ -354,40 +343,28 @@ export function registerGameHandlers({
   socket.on(
     SocketEvents.RecallAbbot,
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
 
       const previousState = game.clone()
       try {
         if (!game.recallAbbot()) {
           throw new Error('У игрока нет аббата на доске')
         }
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          game.copyStateFrom(previousState)
-          throw error
-        }
+        await saveGameOrRollback(game, gameId, service, previousState)
 
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        ackGameUpdated(io, service, gameId, game, callback)
 
         // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         console.error('Error recalling abbot:', error)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }
@@ -422,22 +399,13 @@ export function registerGameHandlers({
         ) {
           throw new Error('Invalid dragon destination')
         }
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          game.copyStateFrom(previousState)
-          throw error
-        }
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        await saveGameOrRollback(game, gameId, service, previousState)
+        ackGameUpdated(io, service, gameId, game, callback)
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         game.copyStateFrom(previousState)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }
@@ -453,15 +421,12 @@ export function registerGameHandlers({
       }: { gameId: string; cityId: string; point: Point },
       callback: SocketCallback
     ) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
       if (!game.princessChoice) {
         callback?.({ error: 'Princess choice is not pending' })
         return
@@ -475,17 +440,13 @@ export function registerGameHandlers({
         ) {
           throw new Error('Invalid princess city')
         }
-        await service.saveGame(gameId)
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        await saveGameOrRollback(game, gameId, service, previousState)
+        ackGameUpdated(io, service, gameId, game, callback)
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         game.copyStateFrom(previousState)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }
@@ -494,15 +455,12 @@ export function registerGameHandlers({
   socket.on(
     SocketEvents.SkipFollower,
     async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
-      const game = service.getGame(gameId)
-      if (!game) {
-        callback?.({ error: CommonErrors.GameNotFound })
+      const lookup = requirePlayersTurn(service, gameId, socket.id)
+      if ('error' in lookup) {
+        callback?.({ error: lookup.error })
         return
       }
-      if (!isPlayersTurn(game, socket.id)) {
-        callback?.({ error: GameErrors.NotPlayersTurn })
-        return
-      }
+      const { game } = lookup
       if (game.princessChoice || game.dragonMove) {
         callback?.({ error: GameErrors.ResolveExpansionActionFirst })
         return
@@ -511,24 +469,15 @@ export function registerGameHandlers({
       const previousState = game.clone()
       try {
         game.skipFollower()
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          game.copyStateFrom(previousState)
-          throw error
-        }
+        await saveGameOrRollback(game, gameId, service, previousState)
 
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
-        callback?.({ success: true, game: service.formatGameData(game) })
+        ackGameUpdated(io, service, gameId, game, callback)
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
         console.error('Error skipping follower:', error)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
       }
     }

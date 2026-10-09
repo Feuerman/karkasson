@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
 import { createRequire } from 'node:module'
 import { TEST_IDS, boardCellTestId } from '@/data/testIds'
-import { InMemoryDatabase } from '../integration/helpers/inMemoryDatabase'
 import {
   startTestFrontend,
   type RunningFrontend,
@@ -11,6 +10,8 @@ import {
 const require = createRequire(import.meta.url)
 const { createGameServer } =
   require('../../server/dist/app.js') as typeof import('../../server/src/app')
+const { InMemoryDatabase } =
+  require('../integration/helpers/inMemoryDatabase') as typeof import('../integration/helpers/inMemoryDatabase')
 
 async function listenOnRandomPort(server: import('node:http').Server) {
   await new Promise<void>((resolve, reject) => {

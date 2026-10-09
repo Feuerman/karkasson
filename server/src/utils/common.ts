@@ -1,3 +1,6 @@
+export const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error)
+
 export const deepClone = <T>(obj: T): T => {
   if (typeof obj !== 'object' || obj === null) {
     return obj

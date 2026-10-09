@@ -2,6 +2,7 @@ import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { riverTiles } from '../data/riverTiles'
 import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
+import { findTileDefinitionById } from '../data/tileDefinitions'
 import type { TileDefinition } from '../data/tiles'
 import { isCorrectTilePosition } from './gameGeometry'
 import {
@@ -65,22 +66,7 @@ export class GameTileManager {
   ) {}
 
   findTileDefinition(tileId: string): TileDefinition | undefined {
-    const standardTile = tiles.find(({ id }) => id === tileId)
-    if (standardTile) return standardTile
-    if (this.state.rules.expansions.princessAndDragon) {
-      const princessAndDragonTile = princessAndDragonTiles.find(
-        ({ id }) => id === tileId
-      )
-      if (princessAndDragonTile) return princessAndDragonTile
-    }
-    return (
-      (this.state.rules.expansions.innsAndCathedrals
-        ? innsAndCathedralsTiles.find(({ id }) => id === tileId)
-        : undefined) ??
-      (this.state.rules.expansions.river
-        ? riverTiles.find(({ id }) => id === tileId)
-        : undefined)
-    )
+    return findTileDefinitionById(tileId, this.state.rules)
   }
 
   initializeDeck() {

@@ -1,7 +1,8 @@
-import type { SocketHandlerContext } from '../types'
+import type { SocketCallback, SocketHandlerContext } from '../types'
 import { continueComputerGame } from '../../services/computerPlayer'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
+import { ackGameUpdated } from './shared'
 
 function isTemporaryDisconnect(reason: string): boolean {
   return reason === 'transport close' || reason === 'ping timeout'
@@ -39,20 +40,20 @@ export function registerConnectionHandlers({
         service.releasePlayerSlot(gameId, socket.id)
       }
 
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
+      ackGameUpdated(io, service, gameId, game)
       return
     }
 
     if (game.gameIsStarted) {
       service.clearPlayerSocket(gameId, socket.id)
       continueComputerGame(io, service, gameId)
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
+      ackGameUpdated(io, service, gameId, game)
       return
     }
 
     if (service.hasOtherConnectedPlayers(game, socket.id)) {
       service.releasePlayerSlot(gameId, socket.id)
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
+      ackGameUpdated(io, service, gameId, game)
     } else {
       void service.deleteGame(gameId).catch((error: unknown) => {
         console.error('Failed to delete game:', error)
@@ -70,9 +71,9 @@ export function registerConnectionHandlers({
         ((response: { error?: string; game?: unknown }) => void) | unknown,
       maybeCallback?: (response: { error?: string; game?: unknown }) => void
     ) => {
-      const callback =
+      const callback: SocketCallback | undefined =
         typeof callbackOrPayload === 'function'
-          ? callbackOrPayload
+          ? (callbackOrPayload as SocketCallback)
           : maybeCallback
       const result = service.rejoinGame(gameId, deviceId, socket.id)
       if (!result) {
@@ -84,16 +85,12 @@ export function registerConnectionHandlers({
       const { game, players } = result
       if (players.length > 0) {
         socket.join(gameId)
-        io.to(gameId).emit(
-          SocketEvents.GameUpdated,
-          service.formatGameData(game)
-        )
+        ackGameUpdated(io, service, gameId, game, callback)
       } else {
         socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
         callback?.({ error: CommonErrors.PlayerNotFoundInGame })
         return
       }
-      callback?.({ game: service.formatGameData(game) })
 
       if (game.gameIsStarted) continueComputerGame(io, service, gameId)
     }
