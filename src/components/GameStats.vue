@@ -1,5 +1,5 @@
 <template>
-  <div class="panel-parchment w-[270px] overflow-hidden text-text shadow-card">
+  <div class="panel-parchment w-[300px] overflow-hidden text-text shadow-card">
     <div
       :class="playerBackgroundColorClass(headerColor)"
       class="flex items-center justify-center gap-2 px-3 py-2.5"
@@ -33,7 +33,9 @@
         >
           {{ player.name }}
         </span>
-        <span class="flex shrink-0 items-center gap-1 text-xs tabular-nums">
+        <span
+          class="flex shrink-0 items-center gap-1.5 text-[.85rem] tabular-nums"
+        >
           <span
             :title="`${gameBoard.playersFollowers[player.id].ordinaryFollowers} подданных в запасе`"
             class="flex items-center gap-1"
@@ -56,7 +58,7 @@
           </span>
           <UIcon
             name="i-lucide-church"
-            class="ml-1 h-4 w-4"
+            class="ml-0.5 h-4 w-4"
             :class="
               gameBoard.playersFollowers[player.id].monks > 0
                 ? 'text-gold-dark'

@@ -15,7 +15,7 @@
           Отзыв аббата
         </span>
       </div>
-      <p class="mb-2 text-[13px] text-text-muted">
+      <p class="mb-2 text-[.9rem] leading-relaxed text-text-muted">
         Снять аббата с {{ abbotLocation }} и получить
         {{ potentialPoints }} очк{{ pluralSuffix }}.
       </p>

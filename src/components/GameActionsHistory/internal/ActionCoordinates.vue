@@ -1,6 +1,6 @@
 <template>
   <span
-    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary-soft px-2 py-0.5 font-bold tabular-nums text-primary underline-offset-2 transition-opacity hover:opacity-80 active:no-underline"
+    class="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary-soft px-1.5 py-0.5 font-bold tabular-nums text-primary underline-offset-2 transition-opacity hover:opacity-80 active:no-underline"
     :title="`Строка ${row}, столбец ${col}`"
     @click="emit('zoom', row, col)"
   >

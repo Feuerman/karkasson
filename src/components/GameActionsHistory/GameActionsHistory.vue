@@ -7,7 +7,7 @@
     :drag-enabled="dragEnabled"
   >
     <div
-      class="panel-parchment w-[300px] max-w-[90vw] overflow-hidden shadow-card"
+      class="panel-parchment w-[330px] max-w-[90vw] overflow-hidden shadow-card"
     >
       <div
         class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gold-dark/30 bg-surface/90 px-3 py-2 backdrop-blur"
@@ -58,7 +58,7 @@
             :icon="item.icon"
             :disabled="!filterCounts[item.value]"
             :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
-            class="h-6 cursor-pointer gap-1 px-1.5 text-[.7rem]"
+            class="h-7 cursor-pointer gap-1.5 px-2 text-[.78rem]"
             @click="activeFilter = item.value"
           >
             {{ item.label }}
@@ -76,7 +76,7 @@
       >
         <p
           v-if="!visibleActions.length"
-          class="px-1 py-2 text-center text-[.8rem] text-text-muted"
+          class="px-1 py-3 text-center text-[.85rem] text-text-muted"
         >
           Нет действий этого типа
         </p>

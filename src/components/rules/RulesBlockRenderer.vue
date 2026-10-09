@@ -101,7 +101,7 @@
           <TileView :tile="tile" :size="88" :followers="[]" />
           <span
             v-if="block.labels?.[index]"
-            class="text-center text-[13px] leading-tight text-text-muted"
+            class="text-center text-[.8rem] leading-tight text-text-muted"
           >
             {{ block.labels[index] }}
           </span>

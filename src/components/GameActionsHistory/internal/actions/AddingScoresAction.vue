@@ -24,7 +24,7 @@
           <PlayerName :color="playerColor(playerId)">
             {{ playerName(playerId) }}
           </PlayerName>
-          <strong class="text-[.95rem] font-bold text-text">
+          <strong class="font-bold text-text">
             — {{ score ?? 0 }}
             {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
           </strong>
@@ -32,7 +32,7 @@
         <UIcon
           v-if="hasDetails"
           name="i-lucide-info"
-          class="ml-0.5 inline-block h-3 w-3 align-baseline text-gold-dark"
+          class="ml-0.5 inline-block h-3.5 w-3.5 align-middle text-gold-dark"
         />
       </span>
       <template v-if="hasDetails" #content>
