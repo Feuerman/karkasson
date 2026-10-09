@@ -7,6 +7,8 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
+import { getErrorMessage } from '../../utils/common'
+import { ackGameUpdated } from './shared'
 
 function isComputerOnlyGame(game: IGameBoard): boolean {
   return game.players.length > 0 && game.players.every(isComputerPlayer)
@@ -23,7 +25,7 @@ export function registerLobbyHandlers({
       callback?.({ games })
     } catch (error) {
       callback?.({
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       })
     }
   })
@@ -86,7 +88,7 @@ export function registerLobbyHandlers({
       } catch (error) {
         await service.deleteGame(game.id)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
         return
       }
@@ -146,15 +148,11 @@ export function registerLobbyHandlers({
         service.releasePlayerSlot(resolvedGameId, socket.id)
         socket.leave(resolvedGameId)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
         return
       }
-      io.to(resolvedGameId).emit(
-        SocketEvents.GameUpdated,
-        service.formatGameData(result.game)
-      )
-      callback?.({ success: true, game: service.formatGameData(result.game) })
+      ackGameUpdated(io, service, resolvedGameId, result.game, callback)
     }
   )
 
@@ -192,18 +190,11 @@ export function registerLobbyHandlers({
       } catch (error) {
         currentGame.players = previousPlayers
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
         return
       }
-      io.to(gameId).emit(
-        SocketEvents.GameUpdated,
-        service.formatGameData(currentGame)
-      )
-      callback?.({
-        success: true,
-        game: service.formatGameData(currentGame),
-      })
+      ackGameUpdated(io, service, gameId, currentGame, callback)
     }
   )
 
@@ -232,18 +223,11 @@ export function registerLobbyHandlers({
       } catch (error) {
         currentGame.players = previousPlayers
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
         return
       }
-      io.to(gameId).emit(
-        SocketEvents.GameUpdated,
-        service.formatGameData(currentGame)
-      )
-      callback?.({
-        success: true,
-        game: service.formatGameData(currentGame),
-      })
+      ackGameUpdated(io, service, gameId, currentGame, callback)
     }
   )
 
@@ -274,16 +258,12 @@ export function registerLobbyHandlers({
       } catch (error) {
         service.restoreGame(gameId, previousGame)
         callback?.({
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         })
         return
       }
 
-      io.to(gameId).emit(
-        SocketEvents.GameUpdated,
-        service.formatGameData(newGame)
-      )
-      callback?.({ success: true, game: service.formatGameData(newGame) })
+      ackGameUpdated(io, service, gameId, newGame, callback)
 
       if (game.players.every((p) => !p.socketId && !p.deviceId)) {
         scheduleComputerMove(io, service, gameId)
@@ -308,7 +288,7 @@ export function registerLobbyHandlers({
             await service.deleteGame(gameId)
           } catch (error) {
             callback?.({
-              error: error instanceof Error ? error.message : String(error),
+              error: getErrorMessage(error),
             })
             return
           }
@@ -321,8 +301,7 @@ export function registerLobbyHandlers({
       }
 
       socket.leave(gameId)
-      io.to(gameId).emit(SocketEvents.GameUpdated, service.formatGameData(game))
-      callback?.({ success: true, game: service.formatGameData(game) })
+      ackGameUpdated(io, service, gameId, game, callback)
     }
   )
 }
