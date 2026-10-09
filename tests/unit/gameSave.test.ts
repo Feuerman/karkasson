@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
+import { SaveErrors } from '@server/modules/errors'
 import {
   deserializeGameState,
   GAME_SAVE_SCHEMA_VERSION,
@@ -172,7 +173,9 @@ describe('Схема сохранения игры', () => {
     >
     brokenTile[0].sides = { north: 'forest' }
     state.tilesList = brokenTile
-    expect(() => deserializeGameState(state)).toThrow('invalid tile')
+    expect(() => deserializeGameState(state)).toThrow(
+      SaveErrors.SaveInvalidTile
+    )
 
     const validState = JSON.parse(JSON.stringify(game)) as Record<
       string,
@@ -183,7 +186,9 @@ describe('Схема сохранения игры', () => {
       Record<string, number>
     >
     pools['1'].ordinaryFollowers = -1
-    expect(() => deserializeGameState(validState)).toThrow('follower pool')
+    expect(() => deserializeGameState(validState)).toThrow(
+      SaveErrors.SaveInvalidFollowerPool
+    )
 
     const invalidBigFollowerPool = JSON.parse(JSON.stringify(game)) as Record<
       string,
@@ -195,7 +200,7 @@ describe('Схема сохранения игры', () => {
     >
     invalidPools['1'].bigFollowers = -1
     expect(() => deserializeGameState(invalidBigFollowerPool)).toThrow(
-      'follower pool'
+      SaveErrors.SaveInvalidFollowerPool
     )
   })
 

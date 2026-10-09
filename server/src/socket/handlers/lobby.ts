@@ -6,6 +6,7 @@ import {
 import type { IGameBoard } from '../../modules/GameManager'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
+import { CommonErrors, LobbyErrors } from '../../modules/errors'
 
 function isComputerOnlyGame(game: IGameBoard): boolean {
   return game.players.length > 0 && game.players.every(isComputerPlayer)
@@ -109,7 +110,7 @@ export function registerLobbyHandlers({
       const existingGame = service.getGameByIdentifier(gameId)
       const resolvedGameId = existingGame?.id
       if (!existingGame || !resolvedGameId) {
-        const error = 'Game not found'
+        const error = CommonErrors.GameNotFound
         socket.emit(SocketEvents.Error, error)
         callback?.({ error })
         return
@@ -169,12 +170,12 @@ export function registerLobbyHandlers({
     ) => {
       const deviceId = service.getDeviceBySocketId(socket.id)
       if (!service.canEditLobbySlot(gameId, socket.id, index)) {
-        callback?.({ error: 'Недостаточно прав для изменения этого слота' })
+        callback?.({ error: LobbyErrors.SlotEditForbidden })
         return
       }
       const currentGame = service.getGame(gameId)
       if (!currentGame) {
-        callback?.({ error: 'Game not found' })
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       const previousPlayers = JSON.parse(
@@ -218,7 +219,7 @@ export function registerLobbyHandlers({
     ) => {
       const currentGame = service.getGame(gameId)
       if (!currentGame || !service.canEditLobbySlot(gameId, socket.id, index)) {
-        callback?.({ error: 'Недостаточно прав для изменения этого слота' })
+        callback?.({ error: LobbyErrors.SlotEditForbidden })
         return
       }
       const previousPlayers = JSON.parse(
@@ -251,16 +252,13 @@ export function registerLobbyHandlers({
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit(SocketEvents.Error, 'Game not found')
-        callback?.({ error: 'Game not found' })
+        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
       if (!service.canStartLobby(gameId, socket.id)) {
-        socket.emit(
-          SocketEvents.Error,
-          'Только создатель лобби может начать игру'
-        )
-        callback?.({ error: 'Только создатель лобби может начать игру' })
+        socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
+        callback?.({ error: LobbyErrors.OnlyLobbyOwnerCanStart })
         return
       }
 
@@ -298,8 +296,8 @@ export function registerLobbyHandlers({
     async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit(SocketEvents.Error, 'Game not found')
-        callback?.({ error: 'Game not found' })
+        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
 

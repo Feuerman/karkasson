@@ -1,5 +1,6 @@
 import type { IGameBoard } from '@server/modules/GameManager'
 import type { IGameDatabase } from '@server/modules/Database'
+import { SaveErrors } from '@server/modules/errors'
 
 /**
  * Хранилище игр в памяти вместо Firebase.
@@ -23,7 +24,7 @@ export class InMemoryDatabase implements IGameDatabase {
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
     if (this.saveError) throw this.saveError
     if (gameState.id !== gameId) {
-      throw new Error('Game id does not match its storage key')
+      throw new Error(SaveErrors.StorageKeyMismatch)
     }
     const state = JSON.parse(JSON.stringify(gameState)) as IGameBoard
     state.lastUpdate = Date.now()

@@ -4,6 +4,7 @@ import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { riverTiles } from '../data/riverTiles'
 import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
+import { SaveErrors } from './errors'
 
 export const GAME_SAVE_SCHEMA_VERSION = 5
 
@@ -124,7 +125,7 @@ function validateTileLists(value: Record<string, unknown>): void {
     !tileHistory.every(isTile) ||
     (value.currentTile !== null && !isTile(value.currentTile))
   ) {
-    throw new Error('Game save contains an invalid tile')
+    throw new Error(SaveErrors.SaveInvalidTile)
   }
 }
 
@@ -212,12 +213,12 @@ function validateRequiredGameState(value: Record<string, unknown>): void {
             Number(pool.bigFollowers) >= 0))
     )
   ) {
-    throw new Error('Game save contains an invalid follower pool')
+    throw new Error(SaveErrors.SaveInvalidFollowerPool)
   }
 }
 
 function migrateLegacyGameState(value: unknown): IGameBoard {
-  if (!isRecord(value)) throw new Error('Game save must be an object')
+  if (!isRecord(value)) throw new Error(SaveErrors.SaveMustBeObject)
   if (typeof value.id !== 'string' || value.id.length === 0) {
     throw new Error('Game save has no valid id')
   }
@@ -262,7 +263,7 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
               riverTiles.some(({ id }) => id === tile.id)))
       ))
   ) {
-    throw new Error('Game save contains an invalid tile')
+    throw new Error(SaveErrors.SaveInvalidTile)
   }
   const normalizedRules: GameRules = {
     finalScoringEnabled: value.finalScoringEnabled === true,
@@ -301,7 +302,7 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
             !allowedTileIds.has(tile.id)
         )
       ) {
-        throw new Error('Game save contains an invalid tile')
+        throw new Error(SaveErrors.SaveInvalidTile)
       }
     }
   }
@@ -391,7 +392,7 @@ export function serializeGameState(game: IGameBoard): string {
 
 export function deserializeGameState(raw: unknown): IGameBoard {
   const parsed = parseJsonValue(raw)
-  if (!isRecord(parsed)) throw new Error('Game save must be an object')
+  if (!isRecord(parsed)) throw new Error(SaveErrors.SaveMustBeObject)
 
   if ('schemaVersion' in parsed) {
     if (

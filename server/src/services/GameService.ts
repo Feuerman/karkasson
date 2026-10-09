@@ -1,6 +1,7 @@
 import { GameManager, type IGameBoard } from '../modules/GameManager'
 import { deserializeGameState } from '../modules/gameSave'
 import type { IGameDatabase } from '../modules/Database'
+import { CommonErrors, LobbyErrors } from '../modules/errors'
 import { randomInt } from 'node:crypto'
 import {
   playerColorForIndex,
@@ -255,20 +256,20 @@ export class GameService {
     deviceId?: string
   ): JoinResult | { game: IGameBoard; playerIndex: number } {
     const game = this.games[gameId]
-    if (!game) return { error: 'Game not found' }
+    if (!game) return { error: CommonErrors.GameNotFound }
     if (game.gameIsStarted) return { error: 'Игра уже началась' }
     if (game.players.some((player) => player.socketId === socketId)) {
       return { error: 'Вы уже присоединились к игре' }
     }
     if (game.players.every((p) => p.socketId)) {
-      return { error: 'Все слоты заняты' }
+      return { error: LobbyErrors.AllSlotsTaken }
     }
 
     const playerIndex = game.players.findIndex(
       (p) => !p.socketId && !p.deviceId
     )
     if (playerIndex === -1) {
-      return { error: 'Все слоты заняты' }
+      return { error: LobbyErrors.AllSlotsTaken }
     }
 
     const player = game.players[playerIndex]

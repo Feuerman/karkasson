@@ -10,6 +10,7 @@ import {
 import { firebaseConfig } from '../config'
 import type { IGameBoard } from './GameManager'
 import { deserializeGameState, serializeGameState } from './gameSave'
+import { SaveErrors } from './errors'
 
 /** Абстракция хранилища игр, чтобы сервер можно было тестировать без Firebase */
 export interface IGameDatabase {
@@ -25,7 +26,7 @@ export class InMemoryGameDatabase implements IGameDatabase {
 
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
     if (gameState.id !== gameId) {
-      throw new Error('Game id does not match its storage key')
+      throw new Error(SaveErrors.StorageKeyMismatch)
     }
     gameState.lastUpdate = Date.now()
     this.games.set(gameId, serializeGameState(gameState))
@@ -63,7 +64,7 @@ class GameDatabase implements IGameDatabase {
   // Сохранение состояния игры
   async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
     if (gameState.id !== gameId) {
-      throw new Error('Game id does not match its storage key')
+      throw new Error(SaveErrors.StorageKeyMismatch)
     }
     gameState.lastUpdate = Date.now()
     await set(

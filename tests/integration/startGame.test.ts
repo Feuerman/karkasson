@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -30,7 +31,7 @@ describe('Запуск игры', () => {
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    lobby.creator.emit('startGame', { gameId: lobby.gameId })
+    lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
     const started = (await latestGame(
       lobby.creator,
       (g) => g.gameIsStarted === true
@@ -63,7 +64,7 @@ describe('Запуск игры', () => {
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    lobby.creator.emit('startGame', { gameId: lobby.gameId })
+    lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
     const started = (await latestGame(
       lobby.creator,
       (g) => g.gameIsStarted === true
@@ -75,7 +76,7 @@ describe('Запуск игры', () => {
     const placed = await lobby.creator.emitAck<{
       success: boolean
       game: TestGameData & { isPlacingFollower?: boolean }
-    }>('placeTile', {
+    }>(SocketEvents.PlaceTile, {
       gameId: lobby.gameId,
       rotation: move!.tile.rotation,
       position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
@@ -90,7 +91,7 @@ describe('Запуск игры', () => {
       const skipped = await lobby.creator.emitAck<{
         success: boolean
         game: TestGameData
-      }>('skipFollower', { gameId: lobby.gameId })
+      }>(SocketEvents.SkipFollower, { gameId: lobby.gameId })
       expect(skipped.success).toBe(true)
       state = skipped.game
     }

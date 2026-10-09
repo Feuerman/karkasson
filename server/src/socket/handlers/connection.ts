@@ -1,6 +1,7 @@
 import type { SocketHandlerContext } from '../types'
 import { continueComputerGame } from '../../services/computerPlayer'
 import { SocketEvents } from '../../modules/types'
+import { CommonErrors } from '../../modules/errors'
 
 function isTemporaryDisconnect(reason: string): boolean {
   return reason === 'transport close' || reason === 'ping timeout'
@@ -75,8 +76,8 @@ export function registerConnectionHandlers({
           : maybeCallback
       const result = service.rejoinGame(gameId, deviceId, socket.id)
       if (!result) {
-        socket.emit(SocketEvents.Error, 'Game not found')
-        callback?.({ error: 'Game not found' })
+        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        callback?.({ error: CommonErrors.GameNotFound })
         return
       }
 
@@ -88,8 +89,8 @@ export function registerConnectionHandlers({
           service.formatGameData(game)
         )
       } else {
-        socket.emit(SocketEvents.Error, 'Player not found in game')
-        callback?.({ error: 'Player not found in game' })
+        socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
+        callback?.({ error: CommonErrors.PlayerNotFoundInGame })
         return
       }
       callback?.({ game: service.formatGameData(game) })

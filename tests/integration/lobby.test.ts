@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { LobbyErrors } from '@server/modules/errors'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -71,8 +73,8 @@ describe('Лобби', () => {
     await creator.connect()
     creator.registerDevice()
 
-    creator.emit('createGame')
-    const created = (await creator.waitForEvent('gameCreated')) as {
+    creator.emit(SocketEvents.CreateGame)
+    const created = (await creator.waitForEvent(SocketEvents.GameCreated)) as {
       gameId: string
     }
 
@@ -82,7 +84,7 @@ describe('Лобби', () => {
         roomCode: string
         players: TestGameData['players']
       }>
-    }>('getGamesList')
+    }>(SocketEvents.GetGamesList)
     const found = games.find((g) => g.id === created.gameId)
     expect(found).toBeTruthy()
     expect(found!.players).toHaveLength(8)
@@ -104,7 +106,7 @@ describe('Лобби', () => {
     const response = await visitor.emitAck<{
       success: boolean
       game: TestGameData
-    }>('joinGame', { gameId: game.roomCode })
+    }>(SocketEvents.JoinGame, { gameId: game.roomCode })
 
     expect(response.success).toBe(true)
     expect(response.game.id).toBe(lobby.gameId)
@@ -127,8 +129,10 @@ describe('Лобби', () => {
     await creator.connect()
     creator.registerDevice()
 
-    creator.emit('createGame')
-    const { gameId, game } = (await creator.waitForEvent('gameCreated')) as {
+    creator.emit(SocketEvents.CreateGame)
+    const { gameId, game } = (await creator.waitForEvent(
+      SocketEvents.GameCreated
+    )) as {
       gameId: string
       game: TestGameData
     }
@@ -143,19 +147,21 @@ describe('Лобби', () => {
       others.push(client)
       await client.connect()
       client.registerDevice()
-      client.emit('joinGame', { gameId })
+      client.emit(SocketEvents.JoinGame, { gameId })
     }
 
-    await Promise.all(others.map((c) => c.waitForEvent('gameUpdated')))
+    await Promise.all(
+      others.map((c) => c.waitForEvent(SocketEvents.GameUpdated))
+    )
 
     const extra = new TestClient(server.url, 'device-full-extra')
     clients.push(extra)
     await extra.connect()
     extra.registerDevice()
-    extra.emit('joinGame', { gameId })
+    extra.emit(SocketEvents.JoinGame, { gameId })
 
-    const error = (await extra.waitForEvent('error')) as unknown
-    expect(error).toBe('Все слоты заняты')
+    const error = (await extra.waitForEvent(SocketEvents.Error)) as unknown
+    expect(error).toBe(LobbyErrors.AllSlotsTaken)
   })
 
   it('leaveGame удаляет пустое лобби и обновляет список игр', async () => {
@@ -166,7 +172,7 @@ describe('Лобби', () => {
     // joiner уходит первым — creator ещё в лобби, игра остаётся.
     // Берём слепок из того же предикатного latestGame (повторный вызов
     // создавал бы гонку между двумя разными socket-соединениями).
-    lobby.joiner.emit('leaveGame', { gameId: lobby.gameId })
+    lobby.joiner.emit(SocketEvents.LeaveGame, { gameId: lobby.gameId })
     const afterJoiner = (
       await latestGame(
         lobby.creator,
@@ -185,12 +191,12 @@ describe('Лобби', () => {
 
     // creator (последний активный игрок) уходит тоже — лобби пустеет,
     // сервер удаляет игру, шлёт gameDeleted и обновляет updateGamesList.
-    lobby.creator.emit('leaveGame', { gameId: lobby.gameId })
-    await lobby.creator.waitForEvent('gameDeleted')
+    lobby.creator.emit(SocketEvents.LeaveGame, { gameId: lobby.gameId })
+    await lobby.creator.waitForEvent(SocketEvents.GameDeleted)
 
     const { games } = await lobby.creator.emitAck<{
       games: Array<{ id: string }>
-    }>('getGamesList')
+    }>(SocketEvents.GetGamesList)
     expect(games.find((g) => g.id === lobby.gameId)).toBeFalsy()
   })
 
@@ -199,7 +205,7 @@ describe('Лобби', () => {
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    await lobby.creator.emitAck('removePlayer', {
+    await lobby.creator.emitAck(SocketEvents.RemovePlayer, {
       gameId: lobby.gameId,
       index: 2,
       name: null,
@@ -216,7 +222,7 @@ describe('Лобби', () => {
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    await lobby.joiner.emitAck('addPlayer', {
+    await lobby.joiner.emitAck(SocketEvents.AddPlayer, {
       gameId: lobby.gameId,
       name: 'Robert',
       index: 1,
@@ -251,7 +257,7 @@ describe('Лобби', () => {
     const response = await observer.emitAck<{
       success: boolean
       game: TestGameData
-    }>('joinGame', { gameId: lobby.gameId })
+    }>(SocketEvents.JoinGame, { gameId: lobby.gameId })
 
     expect(response.success).toBe(true)
     expect(response.game.gameIsEnded).toBe(true)
@@ -284,7 +290,7 @@ describe('Лобби', () => {
     const response = await observer.emitAck<{
       success: boolean
       game: TestGameData
-    }>('joinGame', { gameId: lobby.gameId })
+    }>(SocketEvents.JoinGame, { gameId: lobby.gameId })
 
     expect(response.success).toBe(true)
     expect(response.game.gameIsStarted).toBe(true)

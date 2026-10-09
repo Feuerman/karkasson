@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { GameErrors } from '@server/modules/errors'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
 import {
@@ -93,11 +95,11 @@ describe('Последовательность ходов', () => {
     expect(move).not.toBeNull()
 
     await expect(
-      lobby.joiner.emitAck('placeTile', {
+      lobby.joiner.emitAck(SocketEvents.PlaceTile, {
         gameId,
         position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
       })
-    ).rejects.toThrow("Not player's turn")
+    ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     // Игра при этом не сломалась: Алиса по-прежнему может сделать ход
     const after = await makeHumanMove(lobby.creator, gameId, state)

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
 import { resumeComputerGames } from '@server/services/computerPlayer'
-import type { Player } from '@server/modules/types'
+import { SocketEvents, type Player } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   countPlacedTiles,
@@ -168,7 +168,7 @@ describe('Сохранение данных лобби', () => {
     clients.push(resumer)
     await resumer.connect()
     resumer.registerDevice()
-    resumer.emit('rejoinGame', {
+    resumer.emit(SocketEvents.RejoinGame, {
       gameId: lobby.gameId,
       deviceId: 'device-human',
     })
@@ -253,11 +253,11 @@ describe('Сохранение данных лобби', () => {
     alice.registerDevice()
     bob.registerDevice()
     await Promise.all([
-      alice.emitAck('rejoinGame', {
+      alice.emitAck(SocketEvents.RejoinGame, {
         gameId: 'mixed-game',
         deviceId: alice.deviceId,
       }),
-      bob.emitAck('rejoinGame', {
+      bob.emitAck(SocketEvents.RejoinGame, {
         gameId: 'mixed-game',
         deviceId: bob.deviceId,
       }),

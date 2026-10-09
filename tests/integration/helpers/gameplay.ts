@@ -3,6 +3,7 @@ import { TestClient } from './client'
 import {
   FollowerType,
   SideName,
+  SocketEvents,
   TileSideType,
   type ExpansionName,
   type SideName as SideNameType,
@@ -254,16 +255,20 @@ export async function createLobbyWithSingleHuman(
   await creator.connect()
   creator.registerDevice()
 
-  creator.emit('createGame')
-  const created = (await creator.waitForEvent('gameCreated')) as {
+  creator.emit(SocketEvents.CreateGame)
+  const created = (await creator.waitForEvent(SocketEvents.GameCreated)) as {
     gameId: string
   }
   const gameId = created.gameId
 
-  await creator.emitAck('addPlayer', { gameId, name: 'Alice', index: 0 })
+  await creator.emitAck(SocketEvents.AddPlayer, {
+    gameId,
+    name: 'Alice',
+    index: 0,
+  })
 
   for (let index = 1; index <= 3; index++) {
-    await creator.emitAck('addPlayer', { gameId, name: null, index })
+    await creator.emitAck(SocketEvents.AddPlayer, { gameId, name: null, index })
   }
 
   return { gameId, creator, aliceId: 1 }
@@ -274,7 +279,7 @@ export async function startGame(
   client: TestClient,
   gameId: string
 ): Promise<GameStateSnapshot> {
-  client.emit('startGame', { gameId })
+  client.emit(SocketEvents.StartGame, { gameId })
   const started = await latestGame(
     client,
     (game) => game.gameIsStarted === true
@@ -317,7 +322,11 @@ export async function waitForHumanTurnOrEnd(
   while (Date.now() < deadline) {
     let event: unknown
     try {
-      event = await client.waitForEvent('gameUpdated', () => true, quietMs)
+      event = await client.waitForEvent(
+        SocketEvents.GameUpdated,
+        () => true,
+        quietMs
+      )
     } catch {
       if (lastPlayerState) return lastPlayerState
       // Пока ход игрока ещё не наблюдался, quietMs — лишь интервал опроса.
@@ -361,7 +370,7 @@ export async function makeHumanMove(
 
   // Как и фронтенд, синхронизируем повёрнутый тайл с сервером,
   // чтобы «подсказки» для фишек совпадали с реально размещённым тайлом.
-  await client.emitAck('updateCurrentTile', {
+  await client.emitAck(SocketEvents.UpdateCurrentTile, {
     gameId,
     rotation: move.tile.rotation,
   })
@@ -369,7 +378,7 @@ export async function makeHumanMove(
   const placed = await client.emitAck<{
     success: boolean
     game: GameStateSnapshot
-  }>('placeTile', {
+  }>(SocketEvents.PlaceTile, {
     gameId,
     position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
   })
@@ -383,7 +392,7 @@ export async function makeHumanMove(
       const follower = await client.emitAck<{
         success: boolean
         game: GameStateSnapshot
-      }>('placeFollower', {
+      }>(SocketEvents.PlaceFollower, {
         gameId,
         place: placedFollower,
         followerType: placedFollower.temporaryObject.isGarden
@@ -395,7 +404,7 @@ export async function makeHumanMove(
       const skipped = await client.emitAck<{
         success: boolean
         game: GameStateSnapshot
-      }>('skipFollower', { gameId })
+      }>(SocketEvents.SkipFollower, { gameId })
       game = skipped.game
     }
   }
@@ -435,14 +444,14 @@ export async function driveTurnsUntilFollowerOffer(
     const move = findValidPlacement(state)
     if (!move) throw new Error('Не найдено легальное место для текущего тайла')
 
-    await client.emitAck('updateCurrentTile', {
+    await client.emitAck(SocketEvents.UpdateCurrentTile, {
       gameId,
       rotation: move.tile.rotation,
     })
     const placed = await client.emitAck<{
       success: boolean
       game: GameStateSnapshot
-    }>('placeTile', {
+    }>(SocketEvents.PlaceTile, {
       gameId,
       position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
     })
@@ -455,7 +464,7 @@ export async function driveTurnsUntilFollowerOffer(
       const skipped = await client.emitAck<{
         success: boolean
         game: GameStateSnapshot
-      }>('skipFollower', { gameId })
+      }>(SocketEvents.SkipFollower, { gameId })
       game = skipped.game
     }
 

@@ -181,7 +181,7 @@ export class GameService implements IGameService {
       this.isConnected.value = false
     })
 
-    this.socket.on('error', (error: Error) => {
+    this.socket.on(SocketEvents.Error, (error: Error) => {
       console.error('Server error:', error)
     })
   }

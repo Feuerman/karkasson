@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { continueComputerGame } from '@server/services/computerPlayer'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -51,7 +52,7 @@ describe('Отключение и переподключение игроков'
     clients.push(lobby.creator, lobby.joiner)
 
     // Начинаем игру
-    lobby.creator.emit('startGame', { gameId: lobby.gameId })
+    lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
     const started = await latestGame(
       lobby.creator,
       (g) => g.gameIsStarted === true
@@ -70,7 +71,7 @@ describe('Отключение и переподключение игроков'
     )
 
     const tempEvent = (await lobby.creator.waitForEvent(
-      'playerTemporaryDisconnected',
+      SocketEvents.PlayerTemporaryDisconnected,
       (p) => (p as { deviceId?: string }).deviceId === 'device-joiner'
     )) as { deviceId: string }
     expect(tempEvent.deviceId).toBe('device-joiner')
@@ -85,7 +86,7 @@ describe('Отключение и переподключение игроков'
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
     lobby.joiner.registerDevice()
-    lobby.joiner.emit('rejoinGame', {
+    lobby.joiner.emit(SocketEvents.RejoinGame, {
       gameId: lobby.gameId,
       deviceId: lobby.joiner.deviceId,
     })
@@ -117,7 +118,7 @@ describe('Отключение и переподключение игроков'
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
     lobby.joiner.registerDevice()
-    lobby.joiner.emit('joinGame', { gameId: lobby.gameId })
+    lobby.joiner.emit(SocketEvents.JoinGame, { gameId: lobby.gameId })
 
     const rejoined = await latestGame(
       lobby.joiner,
@@ -136,8 +137,10 @@ describe('Отключение и переподключение игроков'
     await creator.connect()
     creator.registerDevice()
 
-    creator.emit('createGame')
-    const { gameId } = (await creator.waitForEvent('gameCreated')) as {
+    creator.emit(SocketEvents.CreateGame)
+    const { gameId } = (await creator.waitForEvent(
+      SocketEvents.GameCreated
+    )) as {
       gameId: string
     }
 
@@ -156,7 +159,7 @@ describe('Отключение и переподключение игроков'
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    lobby.creator.emit('startGame', { gameId: lobby.gameId })
+    lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
     const before = await latestGame(
       lobby.creator,
       (g) => g.gameIsStarted === true
@@ -172,7 +175,7 @@ describe('Отключение и переподключение игроков'
     lobby.creator.reconnect()
     await lobby.creator.connect()
     lobby.creator.registerDevice()
-    lobby.creator.emit('rejoinGame', {
+    lobby.creator.emit(SocketEvents.RejoinGame, {
       gameId: lobby.gameId,
       deviceId: lobby.creator.deviceId,
     })
@@ -192,7 +195,9 @@ describe('Отключение и переподключение игроков'
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    await lobby.creator.emitAck('startGame', { gameId: lobby.gameId })
+    await lobby.creator.emitAck(SocketEvents.StartGame, {
+      gameId: lobby.gameId,
+    })
     const game = server.handle.gameService.getGame(lobby.gameId)
     if (!game) throw new Error('Игра не найдена')
     const computer = game.players[2]
@@ -229,7 +234,7 @@ describe('Отключение и переподключение игроков'
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
     lobby.joiner.registerDevice()
-    await lobby.joiner.emitAck('rejoinGame', {
+    await lobby.joiner.emitAck(SocketEvents.RejoinGame, {
       gameId: lobby.gameId,
       deviceId: lobby.joiner.deviceId,
     })
@@ -248,7 +253,9 @@ describe('Отключение и переподключение игроков'
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    await lobby.creator.emitAck('startGame', { gameId: lobby.gameId })
+    await lobby.creator.emitAck(SocketEvents.StartGame, {
+      gameId: lobby.gameId,
+    })
     const game = server.handle.gameService.getGame(lobby.gameId)
     if (!game) throw new Error('Игра не найдена')
     const computer = game.players[2]
