@@ -387,17 +387,23 @@ export async function makeHumanMove(
   let placedFollower: FollowerPlaceSnapshot | null = null
 
   if (game.isPlacingFollower) {
-    if (game.availableFollowersPlaces?.length) {
-      placedFollower = game.availableFollowersPlaces[0]
+    const place = game.availableFollowersPlaces?.[0]
+    const currentId = game.currentPlayer?.id
+    const pool =
+      currentId === undefined
+        ? undefined
+        : game.playersFollowers?.[String(currentId)]
+    const followerType = place ? chooseFollowerType(place, pool) : null
+
+    if (place && followerType) {
+      placedFollower = place
       const follower = await client.emitAck<{
         success: boolean
         game: GameStateSnapshot
       }>(SocketEvents.PlaceFollower, {
         gameId,
-        place: placedFollower,
-        followerType: placedFollower.temporaryObject.isGarden
-          ? FollowerType.Abbot
-          : FollowerType.Follower,
+        place,
+        followerType,
       })
       game = follower.game
     } else {
@@ -420,6 +426,28 @@ export function chooseFollowerPlace(
     places.find((place) => place.point.pointType === TileSideType.Road) ??
     places[0]
   )
+}
+
+/**
+ * Тип фишки для предложенного места, как в клиентском интерфейсе: сад только
+ * аббатом, монастырь — обычный подданный, а при пустом запасе обычных
+ * подданных — аббат. Сервер отклоняет фишку, которой нет в запасе, и в
+ * этом случае молча завершает ход, поэтому тип выбирается по запасу.
+ * `null` — допустимого типа нет, выставление нужно пропустить.
+ */
+export function chooseFollowerType(
+  place: FollowerPlaceSnapshot,
+  pool: FollowerCountSnapshot | undefined
+): FollowerType | null {
+  const isGarden = Boolean(place.temporaryObject.isGarden)
+  const isCenter = isGarden || Boolean(place.temporaryObject.isMonastery)
+  const hasOrdinary = Boolean(pool?.ordinaryFollowers)
+
+  if (isGarden || (isCenter && !hasOrdinary)) {
+    return pool?.monks ? FollowerType.Abbot : null
+  }
+  if (isCenter || hasOrdinary) return FollowerType.Follower
+  return null
 }
 
 /** Играет ходы до тех пор, пока сервер не предложит разместить фишку */
