@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { IGameBoard } from '@server/modules/GameManager'
+import { ActionTypes } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   assertFollowerInvariants,
@@ -104,6 +105,56 @@ describe('Подсчёт очков и полная партия', () => {
     expect(stats.aliceFollowerReturns + stats.aliceFollowersOnBoardAtEnd).toBe(
       stats.aliceFollowedObjects
     )
+
+    // Каждое начисление очков в истории приходит с детализацией расчёта,
+    // а строки детализации сходятся с начисленной игроку суммой.
+    const scoreActions = (endState.actionsHistory ?? []).filter(
+      (action) => action.actionType === ActionTypes.ADDING_SCORES
+    )
+    expect(scoreActions.length).toBeGreaterThan(0)
+    for (const action of scoreActions) {
+      const { details, modifiers, score } = action.actionData ?? {}
+      expect(
+        details?.length,
+        `нет детализации: ${JSON.stringify(details)}`
+      ).toBeGreaterThan(0)
+      expect(Array.isArray(modifiers)).toBe(true)
+      expect(details!.every((line) => line.count > 0)).toBe(true)
+
+      const detailsTotal = details!.reduce((sum, line) => sum + line.total, 0)
+      const awarded = Object.values(score?.players ?? {})
+      // При ничьей за объект очки получает несколько игроков, поэтому
+      // сумма строк совпадает с начисленным одному лидеру, а не с общей.
+      if (awarded.length === 1) {
+        expect(detailsTotal).toBe(awarded[0])
+      } else {
+        expect(awarded.length).toBeGreaterThan(0)
+        expect(awarded.every((value) => value === detailsTotal)).toBe(true)
+      }
+    }
+
+    // Каждая запись истории принадлежит конкретному ходу: интерфейс
+    // группирует записи по нему и рисует заголовок «Ход N».
+    const history = endState.actionsHistory ?? []
+    expect(
+      history.every((action) => Number.isInteger(action.moveNumber)),
+      `запись без номера хода: ${JSON.stringify(history.find((action) => !Number.isInteger(action.moveNumber)))}`
+    ).toBe(true)
+    expect(
+      history.every(
+        (action) =>
+          action.moveNumber! >= 1 && action.moveNumber! <= endState.moveCounter
+      )
+    ).toBe(true)
+
+    // Начисления по итогам партии помечены флагом и образуют хвост истории.
+    // В этом лобби финальный подсчёт выключен, поэтому помеченных записей
+    // быть не должно вовсе (проверка самого флага — в finalScoring.test.ts).
+    const finalScoringFlags = scoreActions.map(
+      (action) => action.actionData?.isFinalScoring === true
+    )
+    expect(endState.finalScoringEnabled).toBe(false)
+    expect(finalScoringFlags.some(Boolean)).toBe(false)
 
     // Итоговые очки равны сумме очков за завершённые строения
     verifyScoringAgainstServer(endState)

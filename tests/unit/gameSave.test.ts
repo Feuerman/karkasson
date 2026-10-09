@@ -6,6 +6,7 @@ import {
   GAME_SAVE_SCHEMA_VERSION,
   serializeGameState,
 } from '@server/modules/gameSave'
+import { ActionTypes, ObjectTypes } from '@server/modules/types'
 
 describe('Схема сохранения игры', () => {
   it('сериализует игру с явной версией схемы', () => {
@@ -144,6 +145,64 @@ describe('Схема сохранения игры', () => {
       ordinaryFollowers: 7,
       monks: 1,
     })
+  })
+
+  it('сохраняет номер хода и признак финального подсчёта в записях истории', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'history-save'
+    game.moveCounter = 7
+    game.recordAction({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: { followers: [] },
+    })
+    game.recordAction({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType: ObjectTypes.ROAD,
+        objectData: { id: 'road-1', points: [], followers: [] },
+        score: { total: 2, players: { 1: 2 } },
+        isFinalScoring: true,
+      },
+    })
+
+    const restored = deserializeGameState(serializeGameState(game))
+    const history = restored.actionsHistory
+
+    expect(history).toHaveLength(2)
+    expect(history.every((action) => action.moveNumber === 7)).toBe(true)
+    const finalScoring = history.find(
+      (action) => action.actionType === ActionTypes.ADDING_SCORES
+    )
+    if (finalScoring?.actionType !== ActionTypes.ADDING_SCORES) {
+      throw new Error('Expected a final scoring entry')
+    }
+    expect(finalScoring.actionData.isFinalScoring).toBe(true)
+  })
+
+  it('принимает сохранения старых версий: записи истории без номера хода', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'history-legacy-save'
+    const startTile = game.tilesList[0]
+    if (!startTile) throw new Error('Expected tiles in the deck')
+
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    legacyState.actionsHistory = [
+      {
+        actionType: ActionTypes.PLACE_TILE,
+        actionData: { tile: startTile, rowIndex: 15, tileIndex: 16 },
+      },
+    ]
+
+    const restored = deserializeGameState({
+      schemaVersion: 4,
+      state: legacyState,
+    })
+
+    expect(restored.actionsHistory).toHaveLength(1)
+    expect(restored.actionsHistory[0]?.moveNumber).toBeUndefined()
   })
 
   it('отклоняет неизвестную версию схемы', () => {

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager, type IGameBoard } from '@server/modules/GameManager'
 import { serializeGameState } from '@server/modules/gameSave'
-import { SideName, TileSideType, type Player } from '@server/modules/types'
+import {
+  ActionTypes,
+  ObjectTypes,
+  SideName,
+  TileSideType,
+  type Player,
+} from '@server/modules/types'
 
 const players: Player[] = [
   {
@@ -79,5 +85,41 @@ describe('Копирование состояния GameManager', () => {
     expect(restored).toBeInstanceOf(GameManager)
     expect(serializeGameState(restored)).toBe(serializeGameState(game))
     assertIndependentGameState(savedState.state, restored)
+  })
+})
+
+describe('Записи истории', () => {
+  it('получают текущий номер хода, а финальный подсчёт помечается отдельно', () => {
+    const game = new GameManager({ players })
+    game.id = 'history-move-numbers'
+    game.moveCounter = 3
+
+    game.recordAction({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: { followers: [] },
+    })
+
+    // Счётчик ходов растёт в конце полного круга: записи следующего хода
+    // получают следующий номер, даже если ходили все игроки по очереди.
+    game.moveCounter = 4
+    game.recordAction({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType: ObjectTypes.ROAD,
+        objectData: { id: 'road-1', points: [], followers: [] },
+        score: { total: 3, players: { 1: 3 } },
+        isFinalScoring: true,
+      },
+    })
+
+    // Конструктор уже создал запись о стартовом тайле, поэтому сверяем хвост.
+    expect(
+      game.actionsHistory.slice(-2).map((action) => action.moveNumber)
+    ).toEqual([3, 4])
+    const finalScoring = game.actionsHistory[game.actionsHistory.length - 1]
+    if (finalScoring?.actionType !== ActionTypes.ADDING_SCORES) {
+      throw new Error('Expected a final scoring entry')
+    }
+    expect(finalScoring.actionData.isFinalScoring).toBe(true)
   })
 })

@@ -13,6 +13,11 @@ export const TEST_IDS = {
   gameStatsCurrentPlayer: 'game-stats-current-player',
   gameExit: 'game-exit',
   followerPlacementOptions: 'follower-placement-options',
+  historyFilter: 'history-filter',
+  historyMoveHeader: 'history-move-header',
+  historyFinalScoringGroup: 'history-final-scoring-group',
+  historyScoreDetails: 'history-score-details',
+  historyScoreDetailsTooltip: 'history-score-details-tooltip',
   boardCell: 'board-cell',
 } as const
 

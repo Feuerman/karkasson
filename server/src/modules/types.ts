@@ -296,6 +296,27 @@ export interface ScoreForObject {
   objectId?: string
 }
 
+/**
+ * Строка детализации расчёта очков объекта: из чего сложилась сумма.
+ * Формируется сервером, клиент только отображает.
+ */
+export interface ScoreDetailLine {
+  /** Что посчитано: «Тайлы дороги», «Гербы в городе», «Занятые клетки». */
+  label: string
+  /** Сколько единиц учтено в составляющей. */
+  count: number
+  /** Очки за одну единицу с учётом бонусов объекта. */
+  pointsPerUnit: number
+  /** Сумма составляющей в очках. */
+  total: number
+}
+
+/** Детализация начисления очков: строки расчёта и повлиявшие бонусы. */
+export interface ScoreDetails {
+  details: ScoreDetailLine[]
+  modifiers: string[]
+}
+
 export type Scores = Record<PlayerId, number>
 
 export interface BaseObject {
@@ -426,6 +447,7 @@ export enum ActionTypes {
   PLACE_FOLLOWER = 'PLACE_FOLLOWER',
   ADDING_SCORES = 'ADDING_SCORES',
   BACK_FOLLOWER = 'BACK_FOLLOWER',
+  DRAGON_MOVE = 'DRAGON_MOVE',
 }
 
 export enum ObjectTypes {

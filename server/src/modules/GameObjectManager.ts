@@ -1,5 +1,6 @@
-import type { GameAction } from './GameManager'
+import type { GameAction, NewGameAction } from './GameManager'
 import { deepClone } from '../utils/common'
+import { describeCompletedCentralObject } from './scoring'
 import {
   ActionTypes,
   ObjectTypes,
@@ -12,6 +13,7 @@ import {
   type ObjectFollower,
   type PlacedFollower,
   type Point,
+  type ScoreDetails,
   type ScoreForObject,
   type Scores,
   type TemporaryObjects,
@@ -67,11 +69,14 @@ interface GameObjectState {
   playersFollowers: Record<PlayerId, FollowerCount>
   placedFollowers: PlacedFollower[]
   actionsHistory: GameAction[]
+  recordAction(action: NewGameAction): void
   getTileFeatureGroups(tile: GridTile, feature: LinearFeatureKind): SideName[][]
   getPrecisionCoordinates(point: Point): { x: number; y: number }
   isOppositePoint(point: Point, oppositePoint: Point): boolean
   calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
+  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
+  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
 }
 
 /** Owns feature-object discovery, merging, completion and follower return. */
@@ -270,7 +275,10 @@ export class GameObjectManager {
         if (follower.isAbbot) continue
 
         this.state.scores[follower.playerId] += 9
-        this.state.actionsHistory.push({
+        const { details, modifiers } = describeCompletedCentralObject(
+          objectType === ObjectTypes.GARDEN ? 'сада' : 'монастыря'
+        )
+        this.state.recordAction({
           actionType: ActionTypes.ADDING_SCORES,
           actionData: {
             objectType,
@@ -280,6 +288,8 @@ export class GameObjectManager {
               players: { [follower.playerId]: 9 },
               total: 9,
             },
+            details,
+            modifiers,
           },
         })
         if (follower.isBigFollower) {
@@ -289,7 +299,7 @@ export class GameObjectManager {
           this.state.playersFollowers[follower.playerId].ordinaryFollowers += 1
         }
         this.removePlacedFollower(follower)
-        this.state.actionsHistory.push({
+        this.state.recordAction({
           actionType: ActionTypes.BACK_FOLLOWER,
           actionData: { followers: [follower] },
         })
@@ -441,12 +451,18 @@ export class GameObjectManager {
     })
 
     if (feature.followers.length) {
-      this.state.actionsHistory.push({
+      const { details, modifiers } =
+        kind === TileSideType.Road
+          ? this.state.describeScoreForRoad(feature)
+          : this.state.describeScoreForCity(feature)
+      this.state.recordAction({
         actionType: ActionTypes.ADDING_SCORES,
         actionData: {
           objectType: LINEAR_FEATURE_TYPES[kind],
           objectData: feature,
           score,
+          details,
+          modifiers,
         },
       })
     }
@@ -462,7 +478,7 @@ export class GameObjectManager {
     }
 
     if (feature.followers.length) {
-      this.state.actionsHistory.push({
+      this.state.recordAction({
         actionType: ActionTypes.BACK_FOLLOWER,
         actionData: { followers: feature.followers },
       })

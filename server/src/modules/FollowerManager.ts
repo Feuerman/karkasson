@@ -1,5 +1,9 @@
-import type { GameAction } from './GameManager'
-import { calcGardenPoints, calcMonasteryPoints } from './scoring'
+import type { GameAction, NewGameAction } from './GameManager'
+import {
+  calcGardenPoints,
+  calcMonasteryPoints,
+  describeCentralObjectPoints,
+} from './scoring'
 import {
   ActionTypes,
   FollowerType as FollowerTypes,
@@ -42,6 +46,7 @@ interface FollowerState {
   placedFollowers: PlacedFollower[]
   scores: Scores
   actionsHistory: GameAction[]
+  recordAction(action: NewGameAction): void
   getTileFeatureGroups(
     tile: GridTile,
     feature: LinearFeatureKind
@@ -258,7 +263,7 @@ export class FollowerManager {
     })
 
     this.state.availableFollowersPlaces = []
-    this.state.actionsHistory.push({
+    this.state.recordAction({
       actionType: ActionTypes.PLACE_FOLLOWER,
       actionData: {
         ...availablePlace,
@@ -304,7 +309,7 @@ export class FollowerManager {
     this.state.scores[currentPlayer.id] =
       (this.state.scores[currentPlayer.id] ?? 0) + points
 
-    this.state.actionsHistory.push({
+    this.state.recordAction({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
         objectType: target.isGarden
@@ -316,6 +321,10 @@ export class FollowerManager {
           players: { [currentPlayer.id]: points },
           total: points,
         },
+        ...describeCentralObjectPoints(
+          points,
+          target.isGarden ? 'сада' : 'монастыря'
+        ),
       },
     })
 
@@ -329,7 +338,7 @@ export class FollowerManager {
     if (placedIndex !== -1) this.state.placedFollowers.splice(placedIndex, 1)
 
     this.state.playersFollowers[currentPlayer.id].monks += 1
-    this.state.actionsHistory.push({
+    this.state.recordAction({
       actionType: ActionTypes.BACK_FOLLOWER,
       actionData: { followers: [abbot] },
     })

@@ -118,11 +118,17 @@ describe('Финальный подсчёт очков', () => {
     })
     expect(game.completedObjects.monasteries[0]?.score?.total).toBe(1)
     expect(game.completedObjects.gardens[0]?.score?.total).toBe(1)
+    const scoringActions = game.actionsHistory.filter(
+      (action) => action.actionType === ActionTypes.ADDING_SCORES
+    )
+    expect(scoringActions).toHaveLength(4)
+    // Интерфейс выделяет эти начисления отдельным блоком, поэтому все
+    // записи финального подсчёта должны быть помечены.
     expect(
-      game.actionsHistory.filter(
-        (action) => action.actionType === ActionTypes.ADDING_SCORES
+      scoringActions.every(
+        (action) => action.actionData.isFinalScoring === true
       )
-    ).toHaveLength(4)
+    ).toBe(true)
 
     game.getRandomTileFromList()
     expect(game.scores).toEqual({ 1: 5, 2: 3 })
