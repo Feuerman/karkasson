@@ -13,4 +13,8 @@ export const TEST_IDS = {
   gameStatsCurrentPlayer: 'game-stats-current-player',
   gameExit: 'game-exit',
   followerPlacementOptions: 'follower-placement-options',
+  boardCell: 'board-cell',
 } as const
+
+export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>
+  `${TEST_IDS.boardCell}-${rowIndex}-${tileIndex}`
