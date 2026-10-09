@@ -168,6 +168,7 @@
                 ]"
                 :data-row-index="rowIndex"
                 :data-tile-index="tileIndex"
+                :data-testid="boardCellTestId(rowIndex, tileIndex)"
                 @click="handleTileClick(rowIndex, tileIndex)"
               >
                 <TileView
@@ -268,7 +269,7 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError, throttle } from './utils/common'
-import { TEST_IDS } from './data/testIds'
+import { TEST_IDS, boardCellTestId } from './data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
 import { createRequire } from 'node:module'
-import { TEST_IDS } from '@/data/testIds'
+import { TEST_IDS, boardCellTestId } from '@/data/testIds'
 import { InMemoryDatabase } from '../integration/helpers/inMemoryDatabase'
 import {
   startTestFrontend,
@@ -91,9 +91,7 @@ test('игрок создаёт лобби, занимает слот и нач�
     const currentPlayerLabel = page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)
     await expect(currentPlayerLabel).toBeVisible()
     await expect(currentPlayerLabel).toContainText('Ваш ход')
-    await expect(
-      page.locator("[data-row-index='15'][data-tile-index='15']")
-    ).toBeVisible()
+    await expect(page.getByTestId(boardCellTestId(15, 15))).toBeVisible()
     await expect(page.getByTestId(TEST_IDS.gameExit)).toBeVisible()
   } finally {
     await frontend?.close()
