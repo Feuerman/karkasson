@@ -119,6 +119,7 @@ export interface GameStateSnapshot {
   gameIsEnded: boolean
   moveCounter: number
   scores: Record<string, number>
+  finalScoringEnabled?: boolean
   tilesList: unknown[]
   currentTile?: TileSnapshot | null
   tilePlacesStats: Record<number, Record<number, TileSnapshot>>
@@ -138,6 +139,19 @@ export interface GameStateSnapshot {
   actionsHistory?: Array<{
     actionType: string
     initiator?: { socketId?: string | null; deviceId?: string | null } | null
+    moveNumber?: number
+    actionData?: {
+      objectType?: string
+      score?: { total: number; players: Record<string, number> }
+      details?: Array<{
+        label: string
+        count: number
+        pointsPerUnit: number
+        total: number
+      }>
+      modifiers?: string[]
+      isFinalScoring?: boolean
+    }
   }>
 }
 

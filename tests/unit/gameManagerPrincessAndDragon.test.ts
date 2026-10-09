@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import { GameManager } from '@server/modules/GameManager'
-import { SideName, TileSideType, type Player } from '@server/modules/types'
+import {
+  ActionTypes,
+  SideName,
+  TileSideType,
+  type Player,
+} from '@server/modules/types'
 
 const players: Player[] = [1, 2].map((id) => ({
   id,
@@ -119,6 +124,8 @@ describe('Правила дополнения «Принцесса и драко
       },
     }
     game.tilesList = []
+    game.currentPlayer = players[0] ?? null
+    game.currentPlayerIndex = 0
     game.playersFollowers[1].ordinaryFollowers = 6
     const point = { x: 11, y: 15, direction: SideName.North }
     game.temporaryObjects.roads.push({
@@ -145,7 +152,56 @@ describe('Правила дополнения «Принцесса и драко
     expect(game.playersFollowers[1].ordinaryFollowers).toBe(7)
     expect(game.placedFollowers).toHaveLength(0)
     expect(game.dragonMove).toBeUndefined()
-    expect(game.actionsHistory.at(-1)?.actionType).toBe('BACK_FOLLOWER')
+
+    const dragonAction = game.actionsHistory.find(
+      (action) => action.actionType === ActionTypes.DRAGON_MOVE
+    )
+    expect(dragonAction?.actionData).toEqual({
+      from: { rowIndex: 15, tileIndex: 10 },
+      to: { rowIndex: 15, tileIndex: 11 },
+      eatenFollowers: [{ playerId: 1, objectId: 'road-with-follower', point }],
+      remainingSteps: 1,
+    })
+    expect(dragonAction?.initiator?.id).toBe(players[0]?.id)
+    // Съеденные драконом подданные перечислены в его шаге, отдельной записи
+    // о возврате не создаётся.
+    expect(
+      game.actionsHistory.some(
+        (action) => action.actionType === ActionTypes.BACK_FOLLOWER
+      )
+    ).toBe(false)
+  })
+
+  it('записывает шаг дракона без съеденных подданных и фиксирует инициатора', () => {
+    const game = new GameManager({
+      players,
+      startImmediately: false,
+      princessAndDragonEnabled: true,
+    })
+    game.dragonPosition = { rowIndex: 15, tileIndex: 10 }
+    game.dragonMove = {
+      remainingSteps: 2,
+      nextPlayerIndex: 0,
+      resumePlayerIndex: 0,
+      visited: [{ rowIndex: 15, tileIndex: 10 }],
+    }
+    game.tilePlacesStats = {
+      15: {
+        10: fieldTile('volcano', 10, true),
+        11: fieldTile('empty', 11),
+      },
+    }
+    game.tilesList = []
+
+    expect(game.moveDragon(15, 11)).toBe(true)
+
+    expect(game.actionsHistory).toHaveLength(1)
+    const dragonAction = game.actionsHistory[0]
+    expect(dragonAction?.actionType).toBe(ActionTypes.DRAGON_MOVE)
+    expect(
+      dragonAction?.actionType === ActionTypes.DRAGON_MOVE &&
+        dragonAction.actionData.eatenFollowers
+    ).toEqual([])
   })
 
   it('съедает подданного на вулкане только при обычном шаге дракона', () => {

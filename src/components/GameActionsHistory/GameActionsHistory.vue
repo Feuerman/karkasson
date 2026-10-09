@@ -41,36 +41,53 @@
       </div>
       <div
         v-if="!isCollapsed"
+        data-no-drag
+        class="border-b border-gold-dark/20 bg-surface/60 px-2 py-1.5"
+      >
+        <div
+          class="flex flex-wrap gap-1"
+          role="group"
+          aria-label="Фильтр истории"
+        >
+          <UButton
+            v-for="item in HISTORY_FILTERS"
+            :key="item.value"
+            size="xs"
+            :color="activeFilter === item.value ? 'primary' : 'neutral'"
+            :variant="activeFilter === item.value ? 'solid' : 'ghost'"
+            :icon="item.icon"
+            :disabled="!filterCounts[item.value]"
+            :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
+            class="h-6 cursor-pointer gap-1 px-1.5 text-[.7rem]"
+            @click="activeFilter = item.value"
+          >
+            {{ item.label }}
+            <span class="tabular-nums opacity-70">{{
+              filterCounts[item.value]
+            }}</span>
+          </UButton>
+        </div>
+      </div>
+      <div
+        v-if="!isCollapsed"
         ref="historyScroll"
         data-no-drag
         class="max-h-[min(62vh,560px)] overflow-y-auto px-2 pb-2 pt-1"
       >
-        <div
-          v-for="(action, index) in gameBoard.actionsHistory ?? []"
-          :key="index"
+        <p
+          v-if="!visibleActions.length"
+          class="px-1 py-2 text-center text-[.8rem] text-text-muted"
         >
-          <PlaceTileAction
-            v-if="action.actionType === ActionTypes.PLACE_TILE"
-            :action="action"
-            @zoom="zoomToCoordinates"
-          />
-          <PlaceFollowerAction
-            v-else-if="action.actionType === ActionTypes.PLACE_FOLLOWER"
-            :action="action"
-            @zoom="zoomToCoordinates"
-          />
-          <AddingScoresAction
-            v-else-if="action.actionType === ActionTypes.ADDING_SCORES"
-            :action="action"
-            :players="gameBoard.players"
-            @highlight-object="forwardHighlightObject"
-          />
-          <BackFollowerAction
-            v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER"
-            :action="action"
-            :players="gameBoard.players"
-          />
-        </div>
+          Нет действий этого типа
+        </p>
+        <HistoryGroupBlock
+          v-for="(group, index) in visibleGroups"
+          :key="index"
+          :group="group"
+          :players="gameBoard.players"
+          @highlight-object="forwardHighlightObject"
+          @zoom="zoomToCoordinates"
+        />
       </div>
     </div>
   </Draggable>
@@ -79,16 +96,21 @@
 <script setup lang="ts">
 import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { ActionTypes } from '@server/modules/types'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { BaseObject } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
+import { TEST_IDS } from '@/data/testIds'
 import Draggable from '@/components/Draggable.vue'
 import { pulseTile, scrollToTile } from '@/utils/board'
-import PlaceTileAction from './internal/actions/PlaceTileAction.vue'
-import PlaceFollowerAction from './internal/actions/PlaceFollowerAction.vue'
-import AddingScoresAction from './internal/actions/AddingScoresAction.vue'
-import BackFollowerAction from './internal/actions/BackFollowerAction.vue'
+import HistoryGroupBlock from './internal/HistoryGroupBlock.vue'
+import {
+  countActionsByFilter,
+  filterActionsHistory,
+  HISTORY_FILTERS,
+  HistoryFilters,
+  type HistoryFilter,
+} from './internal/historyFilter'
+import { groupActionsHistory } from './internal/historyGroups'
 
 const { gameBoard } = defineProps<{
   gameBoard: IGameBoard
@@ -101,10 +123,18 @@ const emits = defineEmits<{
 
 let cancelTilePulse: (() => void) | undefined
 const isCollapsed = ref(false)
+const activeFilter = ref<HistoryFilter>(HistoryFilters.ALL)
 const historyScroll = ref<HTMLElement | null>(null)
 
+const actions = computed(() => gameBoard.actionsHistory ?? [])
+const filterCounts = computed(() => countActionsByFilter(actions.value))
+const visibleActions = computed(() =>
+  filterActionsHistory(actions.value, activeFilter.value)
+)
+const visibleGroups = computed(() => groupActionsHistory(visibleActions.value))
+
 watch(
-  () => [gameBoard.actionsHistory?.length ?? 0, isCollapsed.value],
+  () => [actions.value.length, isCollapsed.value, activeFilter.value],
   async () => {
     if (isCollapsed.value) return
     await nextTick()

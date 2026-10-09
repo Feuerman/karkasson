@@ -94,6 +94,11 @@ test('игрок создаёт лобби, занимает слот и нач�
     await expect(currentPlayerLabel).toContainText('Ваш ход')
     await expect(page.getByTestId(boardCellTestId(15, 15))).toBeVisible()
     await expect(page.getByTestId(TEST_IDS.gameExit)).toBeVisible()
+
+    // История сгруппирована по ходам: у первой группы есть заголовок с номером
+    const moveHeader = page.getByTestId(TEST_IDS.historyMoveHeader).first()
+    await expect(moveHeader).toBeVisible()
+    await expect(moveHeader).toContainText('Ход 1')
   } finally {
     await frontend?.close()
     await gameServer.close()

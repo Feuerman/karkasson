@@ -15,6 +15,9 @@ import {
   calcGardenPoints,
   calcMonasteryPoints,
   calcRoadScore,
+  describeCentralObjectPoints,
+  describeCityScore,
+  describeRoadScore,
   distributeScore,
 } from './scoring'
 import {
@@ -48,6 +51,8 @@ import {
   type Point,
   type PointDirection,
   type RotationDirection,
+  type ScoreDetailLine,
+  type ScoreDetails,
   type ScoreForObject,
   type Scores,
   type TemporaryObjects,
@@ -67,37 +72,82 @@ export interface PlaceFollowerActionData extends AvailableFollowerPlace {
   followerType?: FollowerType
 }
 
+/**
+ * Строка детализации расчёта очков объекта: из чего сложилась сумма.
+ * Формируется сервером, клиент только отображает.
+ */
 export interface AddingScoresActionData {
   objectType: ObjectTypes
   objectData: BaseObject
   score: ScoreForObject
+  /** Строки расчёта очков. Не заполняется для сохранений старых версий. */
+  details?: ScoreDetailLine[]
+  /** Текстовые бонусы, повлиявшие на расчёт: таверна, собор. */
+  modifiers?: string[]
+  /**
+   * Начисление сделано по итогам партии, а не в её ходе: недозавершённые
+   * дороги, города, монастыри и сады. Не заполняется для сохранений старых версий.
+   */
+  isFinalScoring?: boolean
 }
 
 export interface BackFollowerActionData {
   followers: ObjectFollower[]
 }
 
+/**
+ * Шаг дракона: откуда и куда он перешёл и каких подданных съел на клетке
+ * назначения. Съеденные подданные возвращаются в пул владельца, но отдельной
+ * записи о возврате не создаётся — они перечислены здесь.
+ */
+export interface DragonMoveActionData {
+  from: DragonPosition
+  to: DragonPosition
+  eatenFollowers: ObjectFollower[]
+  /** Шагов осталось после перемещения. */
+  remainingSteps: number
+}
+
+/** Общая часть любой записи истории ходов. */
+export interface GameActionBase {
+  /** Игрок, которому принадлежит действие. Не заполняется для части действий. */
+  initiator?: Player | null
+  /**
+   * Номер хода (счётчик раундов), на который приходится действие. Группирует
+   * записи истории по ходам в интерфейсе. Не заполняется для сохранений старых
+   * версий, поэтому история таких партий показывается одним блоком.
+   */
+  moveNumber?: number
+}
+
 export type GameAction =
-  | {
+  | (GameActionBase & {
       actionType: ActionTypes.PLACE_TILE
       actionData: PlaceTileActionData
-      initiator?: Player | null
-    }
-  | {
+    })
+  | (GameActionBase & {
       actionType: ActionTypes.PLACE_FOLLOWER
       actionData: PlaceFollowerActionData
-      initiator?: Player | null
-    }
-  | {
+    })
+  | (GameActionBase & {
       actionType: ActionTypes.ADDING_SCORES
       actionData: AddingScoresActionData
-      initiator?: Player | null
-    }
-  | {
+    })
+  | (GameActionBase & {
       actionType: ActionTypes.BACK_FOLLOWER
       actionData: BackFollowerActionData
-      initiator?: Player | null
-    }
+    })
+  | (GameActionBase & {
+      actionType: ActionTypes.DRAGON_MOVE
+      actionData: DragonMoveActionData
+    })
+
+/** Запись истории до простановки номера хода: `moveNumber` проставляет сервер. */
+export type NewGameAction = DistributiveOmit<GameAction, 'moveNumber'>
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never
 
 export interface IGameBoard {
   id?: string
@@ -148,6 +198,8 @@ export interface IGameBoard {
   autoPlaceTile(): Promise<void>
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
   calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
+  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
+  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
   cloneForSimulation(): IGameBoard
@@ -346,6 +398,14 @@ export class GameManager implements IGameBoard {
     if (!isPlaced) throw new Error('Unable to place starting tile')
   }
 
+  /**
+   * Единственная точка добавления записи в историю: проставляет номер хода,
+   * чтобы группировка по ходам в интерфейсе не расходилась между видами действий.
+   */
+  recordAction(action: NewGameAction) {
+    this.actionsHistory.push({ ...action, moveNumber: this.moveCounter })
+  }
+
   endTurn() {
     const currentPlayer = this.currentPlayer
 
@@ -536,7 +596,7 @@ export class GameManager implements IGameBoard {
     }
     this.lastPlacement = { tileIndex, rowIndex }
 
-    this.actionsHistory.push({
+    this.recordAction({
       actionType: ActionTypes.PLACE_TILE,
       actionData: { tile, rowIndex, tileIndex },
       initiator: this.currentPlayer,
@@ -706,10 +766,27 @@ export class GameManager implements IGameBoard {
       (follower) =>
         follower.point.x === tileIndex && follower.point.y === rowIndex
     )
-    for (const follower of occupants) this.removeFollowerFromBoard(follower)
+    const eatenFollowers: ObjectFollower[] = []
+    for (const follower of occupants) {
+      const eaten = this.removeFollowerFromBoard(follower, false)
+      if (eaten) eatenFollowers.push(eaten)
+    }
 
     move.visited.push({ rowIndex, tileIndex })
     move.remainingSteps -= 1
+    this.recordAction({
+      actionType: ActionTypes.DRAGON_MOVE,
+      actionData: {
+        from: {
+          rowIndex: currentPosition.rowIndex,
+          tileIndex: currentPosition.tileIndex,
+        },
+        to: { rowIndex, tileIndex },
+        eatenFollowers,
+        remainingSteps: Math.max(move.remainingSteps, 0),
+      },
+      initiator: this.currentPlayer,
+    })
     move.nextPlayerIndex = this.players.length
       ? (move.nextPlayerIndex + 1) % this.players.length
       : 0
@@ -882,8 +959,17 @@ export class GameManager implements IGameBoard {
     this.getRandomTileFromList()
   }
 
-  private removeFollowerFromBoard(follower: PlacedFollower | undefined) {
-    if (!follower) return
+  /**
+   * Снимает подданного с поля и возвращает его в пул владельца.
+   * `recordHistory` отключается, когда съеденные фишки перечисляются в
+   * отдельной записи (шаг дракона), чтобы не дублировать их в истории.
+   * Возвращает описание фишки для истории или `undefined`, если её не было.
+   */
+  private removeFollowerFromBoard(
+    follower: PlacedFollower | undefined,
+    recordHistory = true
+  ): ObjectFollower | undefined {
+    if (!follower) return undefined
     const collections = [
       this.temporaryObjects.cities,
       this.temporaryObjects.roads,
@@ -917,20 +1003,20 @@ export class GameManager implements IGameBoard {
     this.placedFollowers = this.placedFollowers.filter(
       (placed) => placed !== follower
     )
-    this.actionsHistory.push({
-      actionType: ActionTypes.BACK_FOLLOWER,
-      actionData: {
-        followers: [
-          {
-            playerId: follower.playerId,
-            objectId: follower.objectId,
-            point: follower.point,
-            isAbbot: follower.isAbbot,
-            isBigFollower: follower.isBigFollower,
-          },
-        ],
-      },
-    })
+    const eaten: ObjectFollower = {
+      playerId: follower.playerId,
+      objectId: follower.objectId,
+      point: follower.point,
+      isAbbot: follower.isAbbot,
+      isBigFollower: follower.isBigFollower,
+    }
+    if (recordHistory) {
+      this.recordAction({
+        actionType: ActionTypes.BACK_FOLLOWER,
+        actionData: { followers: [eaten] },
+      })
+    }
+    return eaten
   }
 
   /**
@@ -1065,20 +1151,35 @@ export class GameManager implements IGameBoard {
 
     for (const road of unfinishedRoads) {
       const score = this.calcScoreForRoad(road, false)
-      this.recordFinalObjectScore(road, score, ObjectTypes.ROAD)
+      this.recordFinalObjectScore(
+        road,
+        score,
+        ObjectTypes.ROAD,
+        this.describeScoreForRoad(road, false)
+      )
       this.completedObjects.roads.push({ ...deepClone(road), score })
     }
 
     for (const city of unfinishedCities) {
       const score = this.calcScoreForCity(city, false)
-      this.recordFinalObjectScore(city, score, ObjectTypes.CITY)
+      this.recordFinalObjectScore(
+        city,
+        score,
+        ObjectTypes.CITY,
+        this.describeScoreForCity(city, false)
+      )
       this.completedObjects.cities.push({ ...deepClone(city), score })
     }
 
     for (const monastery of unfinishedMonasteries) {
       const points = calcMonasteryPoints(this.tilePlacesStats, monastery)
       const score = distributeScore(points, monastery.followers, this.scores)
-      this.recordFinalObjectScore(monastery, score, ObjectTypes.MONASTERY)
+      this.recordFinalObjectScore(
+        monastery,
+        score,
+        ObjectTypes.MONASTERY,
+        describeCentralObjectPoints(points, 'монастыря')
+      )
       this.completedObjects.monasteries.push({
         ...deepClone(monastery),
         score,
@@ -1088,7 +1189,12 @@ export class GameManager implements IGameBoard {
     for (const garden of unfinishedGardens) {
       const points = calcGardenPoints(this.tilePlacesStats, garden)
       const score = distributeScore(points, garden.followers, this.scores)
-      this.recordFinalObjectScore(garden, score, ObjectTypes.GARDEN)
+      this.recordFinalObjectScore(
+        garden,
+        score,
+        ObjectTypes.GARDEN,
+        describeCentralObjectPoints(points, 'сада')
+      )
       this.completedObjects.gardens.push({ ...deepClone(garden), score })
     }
 
@@ -1109,7 +1215,8 @@ export class GameManager implements IGameBoard {
       this.recordFinalObjectScore(
         { ...object, followers: abbots },
         score,
-        isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY
+        isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY,
+        describeCentralObjectPoints(points, isGarden ? 'сада' : 'монастыря')
       )
     }
   }
@@ -1117,15 +1224,19 @@ export class GameManager implements IGameBoard {
   private recordFinalObjectScore(
     object: BaseObject,
     score: ScoreForObject,
-    objectType: ObjectTypes
+    objectType: ObjectTypes,
+    { details, modifiers }: ScoreDetails
   ) {
     if (!object.followers.length) return
-    this.actionsHistory.push({
+    this.recordAction({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
         objectType,
         objectData: deepClone(object),
         score,
+        details,
+        modifiers,
+        isFinalScoring: true,
       },
     })
   }
@@ -1207,6 +1318,26 @@ export class GameManager implements IGameBoard {
       this.scores,
       isCompleted,
       this.rules.expansions.innsAndCathedrals,
+      this.rules.expansions.innsAndCathedrals
+    )
+  }
+
+  /** Описание расчёта очков дороги для истории ходов. */
+  describeScoreForRoad(road: BaseObject, isCompleted = true): ScoreDetails {
+    return describeRoadScore(
+      this.tilePlacesStats,
+      road,
+      isCompleted,
+      this.rules.expansions.innsAndCathedrals
+    )
+  }
+
+  /** Описание расчёта очков города для истории ходов. */
+  describeScoreForCity(city: BaseObject, isCompleted = true): ScoreDetails {
+    return describeCityScore(
+      this.tilePlacesStats,
+      city,
+      isCompleted,
       this.rules.expansions.innsAndCathedrals
     )
   }
