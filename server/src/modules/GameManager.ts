@@ -97,8 +97,8 @@ export interface BackFollowerActionData {
 
 /**
  * Шаг дракона: откуда и куда он перешёл и каких подданных съел на клетке
- * назначения. Съеденные подданные возвращаются в пул владельца, но отдельной
- * записи о возврате не создаётся — они перечислены здесь.
+ * назначения. Съеденные подданные возвращаются в пул владельца и сразу после
+ * шага записываются отдельной записью о возврате.
  */
 export interface DragonMoveActionData {
   from: DragonPosition
@@ -106,6 +106,17 @@ export interface DragonMoveActionData {
   eatenFollowers: ObjectFollower[]
   /** Шагов осталось после перемещения. */
   remainingSteps: number
+}
+
+/**
+ * Действие принцессы: у города на её тайле выбран подданный, которого она
+ * забирает. Фишка возвращается владельцу и сразу после этого записывается
+ * отдельной записью о возврате.
+ */
+export interface PrincessTakeFollowerActionData {
+  /** Город, у которого забрали подданного. */
+  cityId: string
+  takenFollower: ObjectFollower
 }
 
 /** Общая часть любой записи истории ходов. */
@@ -140,6 +151,10 @@ export type GameAction =
   | (GameActionBase & {
       actionType: ActionTypes.DRAGON_MOVE
       actionData: DragonMoveActionData
+    })
+  | (GameActionBase & {
+      actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER
+      actionData: PrincessTakeFollowerActionData
     })
 
 /** Запись истории до простановки номера хода: `moveNumber` проставляет сервер. */
@@ -768,7 +783,7 @@ export class GameManager implements IGameBoard {
     )
     const eatenFollowers: ObjectFollower[] = []
     for (const follower of occupants) {
-      const eaten = this.removeFollowerFromBoard(follower, false)
+      const eaten = this.removeFollowerFromBoard(follower)
       if (eaten) eatenFollowers.push(eaten)
     }
 
@@ -787,6 +802,7 @@ export class GameManager implements IGameBoard {
       },
       initiator: this.currentPlayer,
     })
+    this.recordBackFollowers(eatenFollowers)
     move.nextPlayerIndex = this.players.length
       ? (move.nextPlayerIndex + 1) % this.players.length
       : 0
@@ -821,7 +837,14 @@ export class GameManager implements IGameBoard {
         placed.point.direction === selectedFollower.point.direction
     )
     if (!follower) return false
-    this.removeFollowerFromBoard(follower)
+    const takenFollower = this.removeFollowerFromBoard(follower)
+    if (!takenFollower) return false
+    this.recordAction({
+      actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER,
+      actionData: { cityId: city.id, takenFollower },
+      initiator: this.currentPlayer,
+    })
+    this.recordBackFollowers([takenFollower])
     this.princessChoice = undefined
     if (this.currentTile) this.checkAvailableFollowers()
     return true
@@ -961,13 +984,12 @@ export class GameManager implements IGameBoard {
 
   /**
    * Снимает подданного с поля и возвращает его в пул владельца.
-   * `recordHistory` отключается, когда съеденные фишки перечисляются в
-   * отдельной записи (шаг дракона), чтобы не дублировать их в истории.
    * Возвращает описание фишки для истории или `undefined`, если её не было.
+   * Запись о возврате вызывающий код делает сам — так, чтобы она шла в
+   * истории сразу после записи о действии, которое сняло фишку.
    */
   private removeFollowerFromBoard(
-    follower: PlacedFollower | undefined,
-    recordHistory = true
+    follower: PlacedFollower | undefined
   ): ObjectFollower | undefined {
     if (!follower) return undefined
     const collections = [
@@ -1010,13 +1032,16 @@ export class GameManager implements IGameBoard {
       isAbbot: follower.isAbbot,
       isBigFollower: follower.isBigFollower,
     }
-    if (recordHistory) {
-      this.recordAction({
-        actionType: ActionTypes.BACK_FOLLOWER,
-        actionData: { followers: [eaten] },
-      })
-    }
     return eaten
+  }
+
+  /** Запись истории о возврате подданных владельцам. */
+  private recordBackFollowers(followers: ObjectFollower[]) {
+    if (!followers.length) return
+    this.recordAction({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: { followers },
+    })
   }
 
   /**

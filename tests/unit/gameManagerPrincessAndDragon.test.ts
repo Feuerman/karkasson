@@ -163,13 +163,17 @@ describe('Правила дополнения «Принцесса и драко
       remainingSteps: 1,
     })
     expect(dragonAction?.initiator?.id).toBe(players[0]?.id)
-    // Съеденные драконом подданные перечислены в его шаге, отдельной записи
-    // о возврате не создаётся.
+    // Съеденные драконом подданные перечислены в его шаге и сразу после него
+    // возвращены владельцам отдельной записью.
+    expect(game.actionsHistory.map(({ actionType }) => actionType)).toEqual([
+      ActionTypes.DRAGON_MOVE,
+      ActionTypes.BACK_FOLLOWER,
+    ])
+    const backAction = game.actionsHistory[1]
     expect(
-      game.actionsHistory.some(
-        (action) => action.actionType === ActionTypes.BACK_FOLLOWER
-      )
-    ).toBe(false)
+      backAction?.actionType === ActionTypes.BACK_FOLLOWER &&
+        backAction.actionData.followers
+    ).toEqual([{ playerId: 1, objectId: 'road-with-follower', point }])
   })
 
   it('записывает шаг дракона без съеденных подданных и фиксирует инициатора', () => {
@@ -523,5 +527,78 @@ describe('Правила дополнения «Принцесса и драко
     expect(game.temporaryObjects.cities[0]?.followers).toHaveLength(0)
     expect(game.playersFollowers[2].ordinaryFollowers).toBe(7)
     expect(game.placedFollowers).toHaveLength(0)
+  })
+
+  it('записывает в историю действие принцессы и возврат фишки её владельцу', () => {
+    const game = new GameManager({ players, startImmediately: false })
+    game.currentPlayer = players[0] ?? null
+    game.currentPlayerIndex = 0
+    game.currentTile = null
+    game.princessChoice = {
+      followers: [
+        {
+          cityId: 'city-a',
+          point: { x: 14, y: 15, direction: SideName.North },
+        },
+      ],
+    }
+    game.playersFollowers[2].ordinaryFollowers = 6
+    const point = { x: 14, y: 15, direction: SideName.North }
+    game.temporaryObjects.cities.push({
+      id: 'city-a',
+      points: [{ ...point, pointType: TileSideType.City }],
+      followers: [{ playerId: 2, objectId: 'city-a', point }],
+    })
+    game.placedFollowers.push({
+      playerId: 2,
+      objectId: 'city-a',
+      point,
+    })
+
+    expect(game.choosePrincessFollower('city-a', point)).toBe(true)
+
+    expect(game.actionsHistory.map(({ actionType }) => actionType)).toEqual([
+      ActionTypes.PRINCESS_TAKE_FOLLOWER,
+      ActionTypes.BACK_FOLLOWER,
+    ])
+    const princessAction = game.actionsHistory[0]
+    expect(
+      princessAction?.actionType === ActionTypes.PRINCESS_TAKE_FOLLOWER &&
+        princessAction.actionData
+    ).toEqual({
+      cityId: 'city-a',
+      takenFollower: { playerId: 2, objectId: 'city-a', point },
+    })
+    expect(princessAction?.initiator?.id).toBe(players[0]?.id)
+    const backAction = game.actionsHistory[1]
+    expect(
+      backAction?.actionType === ActionTypes.BACK_FOLLOWER &&
+        backAction.actionData.followers
+    ).toEqual([{ playerId: 2, objectId: 'city-a', point }])
+  })
+
+  it('не записывает историю, если фишка принцессы уже снята с поля', () => {
+    const game = new GameManager({ players, startImmediately: false })
+    game.currentPlayer = players[0] ?? null
+    game.currentPlayerIndex = 0
+    game.currentTile = null
+    game.princessChoice = {
+      followers: [
+        {
+          cityId: 'city-a',
+          point: { x: 14, y: 15, direction: SideName.North },
+        },
+      ],
+    }
+    const point = { x: 14, y: 15, direction: SideName.North }
+    game.temporaryObjects.cities.push({
+      id: 'city-a',
+      points: [{ ...point, pointType: TileSideType.City }],
+      followers: [],
+    })
+
+    expect(game.choosePrincessFollower('city-a', point)).toBe(false)
+    expect(game.actionsHistory).toHaveLength(0)
+    expect(game.princessChoice).toBeDefined()
   })
 })
