@@ -1,14 +1,13 @@
 <template>
-  <Draggable
+  <GamePanel
     v-if="gameBoard.gameIsStarted"
     draggable-id="game-actions-history"
     :initial-y="16"
     :right-offset="16"
     :drag-enabled="dragEnabled"
+    surface-class="w-[330px] max-w-[90vw] overflow-hidden"
   >
-    <div
-      class="panel-parchment w-[330px] max-w-[90vw] overflow-hidden shadow-card"
-    >
+    <template #header>
       <div
         class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gold-dark/30 bg-surface/90 px-3 py-2 backdrop-blur"
       >
@@ -39,58 +38,59 @@
           />
         </div>
       </div>
+    </template>
+
+    <div
+      v-if="!isCollapsed"
+      data-no-drag
+      class="border-b border-gold-dark/20 bg-surface/60 px-2 py-1.5"
+    >
       <div
-        v-if="!isCollapsed"
-        data-no-drag
-        class="border-b border-gold-dark/20 bg-surface/60 px-2 py-1.5"
+        class="flex flex-wrap gap-1"
+        role="group"
+        aria-label="Фильтр истории"
       >
-        <div
-          class="flex flex-wrap gap-1"
-          role="group"
-          aria-label="Фильтр истории"
+        <UButton
+          v-for="item in HISTORY_FILTERS"
+          :key="item.value"
+          size="xs"
+          :color="activeFilter === item.value ? 'primary' : 'neutral'"
+          :variant="activeFilter === item.value ? 'solid' : 'ghost'"
+          :icon="item.icon"
+          :disabled="!filterCounts[item.value]"
+          :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
+          class="h-7 cursor-pointer gap-1.5 px-2 text-[.78rem]"
+          @click="activeFilter = item.value"
         >
-          <UButton
-            v-for="item in HISTORY_FILTERS"
-            :key="item.value"
-            size="xs"
-            :color="activeFilter === item.value ? 'primary' : 'neutral'"
-            :variant="activeFilter === item.value ? 'solid' : 'ghost'"
-            :icon="item.icon"
-            :disabled="!filterCounts[item.value]"
-            :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
-            class="h-7 cursor-pointer gap-1.5 px-2 text-[.78rem]"
-            @click="activeFilter = item.value"
-          >
-            {{ item.label }}
-            <span class="tabular-nums opacity-70">{{
-              filterCounts[item.value]
-            }}</span>
-          </UButton>
-        </div>
-      </div>
-      <div
-        v-if="!isCollapsed"
-        ref="historyScroll"
-        data-no-drag
-        class="max-h-[min(62vh,560px)] overflow-y-auto px-2 pb-2 pt-1"
-      >
-        <p
-          v-if="!visibleActions.length"
-          class="px-1 py-3 text-center text-[.85rem] text-text-muted"
-        >
-          Нет действий этого типа
-        </p>
-        <HistoryGroupBlock
-          v-for="(group, index) in visibleGroups"
-          :key="index"
-          :group="group"
-          :players="gameBoard.players"
-          @focus="focusCells"
-          @zoom="zoomToCoordinates"
-        />
+          {{ item.label }}
+          <span class="tabular-nums opacity-70">{{
+            filterCounts[item.value]
+          }}</span>
+        </UButton>
       </div>
     </div>
-  </Draggable>
+    <div
+      v-if="!isCollapsed"
+      ref="historyScroll"
+      data-no-drag
+      class="max-h-[min(62vh,560px)] overflow-y-auto px-2 pb-2 pt-1"
+    >
+      <p
+        v-if="!visibleActions.length"
+        class="px-1 py-3 text-center text-[.85rem] text-text-muted"
+      >
+        Нет действий этого типа
+      </p>
+      <HistoryGroupBlock
+        v-for="(group, index) in visibleGroups"
+        :key="index"
+        :group="group"
+        :players="gameBoard.players"
+        @focus="focusCells"
+        @zoom="zoomToCoordinates"
+      />
+    </div>
+  </GamePanel>
 </template>
 
 <script setup lang="ts">
@@ -100,7 +100,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import type { IGameBoard } from '@/types/game'
 import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
-import Draggable from '@/components/Draggable.vue'
+import GamePanel from '@/components/GamePanel.vue'
 import { highlightCells } from '@/utils/board'
 import HistoryGroupBlock from './internal/HistoryGroupBlock.vue'
 import {

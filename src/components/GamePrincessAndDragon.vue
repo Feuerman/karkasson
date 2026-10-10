@@ -1,48 +1,45 @@
 <template>
-  <Draggable
+  <GamePanel
     v-if="gameBoard.dragonMove || gameBoard.princessChoice"
     draggable-id="princess-and-dragon-actions"
     :initial-x="16"
     :initial-y="170"
     :drag-enabled="dragEnabled"
+    surface-class="min-w-[240px] max-w-[320px] space-y-2 p-3"
+    aria-live="polite"
   >
-    <section
-      class="panel-parchment min-w-[240px] max-w-[320px] space-y-2 p-3 text-text shadow-card"
-      aria-live="polite"
-    >
-      <div v-if="gameBoard.dragonMove">
-        <h2 class="title-medieval text-base">Движение дракона</h2>
-        <p class="text-sm text-text-muted">
-          Выберите соседний выложенный тайл на игровом поле. Осталось шагов:
-          {{ gameBoard.dragonMove.remainingSteps }}.
-        </p>
-      </div>
+    <div v-if="gameBoard.dragonMove">
+      <h2 class="title-medieval text-base">Движение дракона</h2>
+      <p class="text-sm text-text-muted">
+        Выберите соседний выложенный тайл на игровом поле. Осталось шагов:
+        {{ gameBoard.dragonMove.remainingSteps }}.
+      </p>
+    </div>
 
-      <div v-if="gameBoard.princessChoice" class="space-y-1.5">
-        <h2 class="title-medieval text-base">Принцесса</h2>
-        <p class="text-sm text-text-muted">
-          Выберите город, из которого нужно снять подданного.
-        </p>
-        <UButton
-          v-for="(follower, index) in gameBoard.princessChoice.followers"
-          :key="`${follower.cityId}-${follower.point.x}-${follower.point.y}-${index}`"
-          block
-          variant="ghost"
-          class="btn-choice cursor-pointer justify-start font-semibold text-text"
-          :disabled="!gameBoard.isMyTurn"
-          @click="choosePrincessFollower(follower.cityId, follower.point)"
-        >
-          {{ princessChoiceLabel(follower.cityId, follower.point, index) }}
-        </UButton>
-      </div>
-    </section>
-  </Draggable>
+    <div v-if="gameBoard.princessChoice" class="space-y-1.5">
+      <h2 class="title-medieval text-base">Принцесса</h2>
+      <p class="text-sm text-text-muted">
+        Выберите город, из которого нужно снять подданного.
+      </p>
+      <UButton
+        v-for="(follower, index) in gameBoard.princessChoice.followers"
+        :key="`${follower.cityId}-${follower.point.x}-${follower.point.y}-${index}`"
+        block
+        variant="ghost"
+        class="btn-choice cursor-pointer justify-start font-semibold text-text"
+        :disabled="!gameBoard.isMyTurn"
+        @click="choosePrincessFollower(follower.cityId, follower.point)"
+      >
+        {{ princessChoiceLabel(follower.cityId, follower.point, index) }}
+      </UButton>
+    </div>
+  </GamePanel>
 </template>
 
 <script setup lang="ts">
 import type { Point } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
-import Draggable from '@/components/Draggable.vue'
+import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 import { notifyError } from '@/utils/common'

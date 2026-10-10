@@ -32,7 +32,7 @@
             color="primary"
             :model-value="Boolean(showEndedGames)"
             :ui="{ label: '!text-base' }"
-            class="text-base text-text-muted"
+            class="text-base text-text-muted items-center"
             @update:model-value="showEndedGames = !showEndedGames"
           />
           <UButton
@@ -103,21 +103,12 @@
       </template>
       <template #body>
         <div class="space-y-5">
-          <section class="space-y-2">
-            <UCheckbox
-              label="Финальный подсчёт очков"
-              color="primary"
-              :data-testid="TEST_IDS.createGameFinalScoring"
-              :model-value="finalScoringEnabled"
-              :ui="{ label: '!text-base' }"
-              class="text-base text-text"
-              @update:model-value="finalScoringEnabled = Boolean($event)"
-            />
-            <p class="text-sm leading-relaxed text-text-muted">
-              Если включить опцию, в конце партии очки начислятся за
-              незавершённые дороги, города, монастыри и сады.
-            </p>
-          </section>
+          <OptionToggle
+            v-model="finalScoringEnabled"
+            label="Финальный подсчёт очков"
+            description="Если включить опцию, в конце партии очки начислятся за незавершённые дороги, города, монастыри и сады."
+            :test-id="TEST_IDS.createGameFinalScoring"
+          />
 
           <div class="border-t border-gold-dark/30" />
 
@@ -127,47 +118,22 @@
             >
               Дополнения
             </h3>
-            <div class="space-y-2">
-              <UCheckbox
-                label="Таверны и соборы"
-                color="primary"
-                :model-value="innsAndCathedralsEnabled"
-                :ui="{ label: '!text-base' }"
-                class="text-base text-text"
-                @update:model-value="innsAndCathedralsEnabled = Boolean($event)"
-              />
-              <p class="text-sm leading-relaxed text-text-muted">
-                Добавляет 18 тайлов дополнения и большого подданного.
-              </p>
-            </div>
-            <div class="space-y-2">
-              <UCheckbox
-                label="Река"
-                color="primary"
-                :model-value="riverEnabled"
-                :ui="{ label: '!text-base' }"
-                class="text-base text-text"
-                @update:model-value="riverEnabled = Boolean($event)"
-              />
-              <p class="text-sm leading-relaxed text-text-muted">
-                В начале партии выкладывается река от истока до озера, затем
-                идёт обычная колода.
-              </p>
-            </div>
-            <div class="space-y-2">
-              <UCheckbox
-                label="Принцесса и дракон"
-                color="primary"
-                :data-testid="TEST_IDS.createGamePrincessDragon"
-                :model-value="princessAndDragonEnabled"
-                :ui="{ label: '!text-base' }"
-                class="text-base text-text"
-                @update:model-value="princessAndDragonEnabled = Boolean($event)"
-              />
-              <p class="text-sm leading-relaxed text-text-muted">
-                Добавляет тайлы с принцессой, драконом и вулканом.
-              </p>
-            </div>
+            <OptionToggle
+              v-model="innsAndCathedralsEnabled"
+              label="Таверны и соборы"
+              description="Добавляет 18 тайлов дополнения и большого подданного."
+            />
+            <OptionToggle
+              v-model="riverEnabled"
+              label="Река"
+              description="В начале партии выкладывается река от истока до озера, затем идёт обычная колода."
+            />
+            <OptionToggle
+              v-model="princessAndDragonEnabled"
+              label="Принцесса и дракон"
+              description="Добавляет тайлы с принцессой, драконом и вулканом."
+              :test-id="TEST_IDS.createGamePrincessDragon"
+            />
           </section>
         </div>
       </template>
@@ -206,41 +172,17 @@
         :data-testid="TEST_IDS.lobbyRoomHeading"
       />
 
-      <p class="mt-3 text-center text-sm text-text-muted">
-        Финальный подсчёт очков:
-        <strong class="text-text">
-          {{ currentGame.finalScoringEnabled ? 'включён' : 'выключен' }}
-        </strong>
-      </p>
-      <p class="text-center text-sm text-text-muted">
-        Таверны и соборы:
-        <strong class="text-text">
-          {{
-            currentGame.rules?.expansions.innsAndCathedrals
-              ? 'включены'
-              : 'выключены'
-          }}
-        </strong>
-      </p>
-      <p class="text-center text-sm text-text-muted">
-        Река:
-        <strong class="text-text">
-          {{ currentGame.rules?.expansions.river ? 'включена' : 'выключена' }}
-        </strong>
-      </p>
-      <p
-        class="text-center text-sm text-text-muted"
-        :data-testid="TEST_IDS.lobbyPrincessDragonStatus"
-      >
-        Принцесса и дракон:
-        <strong class="text-text">
-          {{
-            currentGame.rules?.expansions.princessAndDragon
-              ? 'включены'
-              : 'выключены'
-          }}
-        </strong>
-      </p>
+      <div class="mt-3">
+        <RuleStatusLine
+          v-for="rule in activeGameRules"
+          :key="rule.label"
+          :label="rule.label"
+          :enabled="rule.enabled"
+          :enabled-text="rule.enabledText"
+          :disabled-text="rule.disabledText"
+          :test-id="rule.testId"
+        />
+      </div>
 
       <LoadingState
         v-if="!gameService.isConnected.value"
@@ -298,8 +240,10 @@ import UModal from '@nuxt/ui/components/Modal.vue'
 import ConnectionBadge from './internal/ConnectionBadge.vue'
 import LobbyHeader from './internal/LobbyHeader.vue'
 import LoadingState from './internal/LoadingState.vue'
+import OptionToggle from './internal/OptionToggle.vue'
 import GameCard from './internal/GameCard.vue'
 import PlayerSlot from './internal/PlayerSlot.vue'
+import RuleStatusLine from './internal/RuleStatusLine.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -338,6 +282,43 @@ const isLobbyCreator = computed(() => {
       gameService.socket?.id &&
       creator.socketId === gameService.socket.id)
   )
+})
+
+const activeGameRules = computed(() => {
+  const game = props.currentGame
+  if (!game) return []
+  const expansions = game.rules?.expansions
+
+  return [
+    {
+      label: 'Финальный подсчёт очков',
+      enabled: Boolean(game.finalScoringEnabled),
+      enabledText: 'включён',
+      disabledText: 'выключен',
+      testId: undefined,
+    },
+    {
+      label: 'Таверны и соборы',
+      enabled: Boolean(expansions?.innsAndCathedrals),
+      enabledText: 'включены',
+      disabledText: 'выключены',
+      testId: undefined,
+    },
+    {
+      label: 'Река',
+      enabled: Boolean(expansions?.river),
+      enabledText: 'включена',
+      disabledText: 'выключена',
+      testId: undefined,
+    },
+    {
+      label: 'Принцесса и дракон',
+      enabled: Boolean(expansions?.princessAndDragon),
+      enabledText: 'включены',
+      disabledText: 'выключены',
+      testId: TEST_IDS.lobbyPrincessDragonStatus,
+    },
+  ]
 })
 
 const currentPlayerName = ref('')

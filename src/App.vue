@@ -3,28 +3,10 @@
     <UToaster />
     <ToastBridge />
     <div class="relative flex h-full flex-col bg-surface-muted text-text">
-      <div
+      <ReconnectingOverlay
         v-if="playersReconnectProcess"
-        class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-5 bg-black/80 text-lg font-medium text-white"
-      >
-        <div class="flex flex-col items-center gap-2.5">
-          <UIcon
-            name="i-lucide-loader-circle"
-            class="h-10 w-10 animate-spin text-white"
-          />
-          <div>Ожидание подключения игроков</div>
-        </div>
-        <div class="flex flex-wrap justify-center gap-2.5">
-          <UBadge
-            v-for="player in reconnectingPlayers"
-            :key="player.id"
-            variant="subtle"
-            class="!bg-white/20 !text-white"
-          >
-            {{ player.name }}
-          </UBadge>
-        </div>
-      </div>
+        :players="reconnectingPlayers"
+      />
       <GameLobby
         v-if="showLobby"
         :game="gameState"
@@ -202,38 +184,14 @@
       >
         100%
       </UButton>
-      <div class="fixed bottom-4 left-4 z-[9998] flex items-center gap-2">
-        <GameMenu :items="menuItems" @select="onMenuSelect" />
-        <UButton
-          v-if="!showLobby"
-          color="primary"
-          :icon="
-            isLayoutEditMode ? 'i-lucide-check' : 'i-lucide-panels-top-left'
-          "
-          :aria-pressed="isLayoutEditMode"
-          :aria-label="
-            isLayoutEditMode ? 'Завершить настройку окон' : 'Настроить окна'
-          "
-          class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
-          @click="isLayoutEditMode = !isLayoutEditMode"
-        >
-          <span class="hidden sm:inline">
-            {{ isLayoutEditMode ? 'Готово' : 'Настроить окна' }}
-          </span>
-        </UButton>
-        <UButton
-          v-if="!showLobby"
-          color="primary"
-          icon="i-lucide-arrow-left"
-          :data-testid="TEST_IDS.gameExit"
-          aria-label="Выйти из игры"
-          title="Выйти из игры"
-          class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
-          @click="goInLobby"
-        >
-          <span class="hidden sm:inline">Выйти из игры</span>
-        </UButton>
-      </div>
+      <BottomToolbar
+        :items="menuItems"
+        :show-lobby="showLobby"
+        :layout-edit-mode="isLayoutEditMode"
+        @select="onMenuSelect"
+        @toggle-layout-edit="isLayoutEditMode = !isLayoutEditMode"
+        @exit="goInLobby"
+      />
       <RulesPanel
         v-if="rulesDocument"
         v-model:open="showRules"
@@ -260,14 +218,15 @@ import Draggable from './components/Draggable.vue'
 import GamePlacingFollowers from './components/GamePlacingFollowers.vue'
 import GameAbbotRecall from './components/GameAbbotRecall.vue'
 import GamePrincessAndDragon from './components/GamePrincessAndDragon.vue'
-import GameMenu, { type GameMenuItem } from './components/GameMenu.vue'
+import type { GameMenuItem } from './components/GameMenu.vue'
+import BottomToolbar from './components/BottomToolbar.vue'
+import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
-import UIcon from '@nuxt/ui/components/Icon.vue'
 import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError, throttle } from './utils/common'
-import { TEST_IDS, boardCellTestId } from './data/testIds'
+import { boardCellTestId } from './data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
@@ -596,29 +555,48 @@ const getGamesList = async () => {
   }
 }
 
+/**
+ * Общая часть входа и переподключения: начатая партия открывает доску,
+ * иначе остаёмся в лобби комнаты.
+ */
+const enterGame = (game: IGame) => {
+  if (game.gameIsStarted) {
+    showLobby.value = false
+    return
+  }
+  currentGame.value = game
+  playersList.value = game.players
+}
+
 const joinGame = async (gameId: string) => {
   try {
-    const game = await GameService.joinGame(gameId)
-    console.log(game, game.gameIsStarted)
-    if (!game.gameIsStarted) {
-      currentGame.value = game
-      playersList.value = game.players
-    } else {
-      showLobby.value = false
-    }
+    enterGame(await GameService.joinGame(gameId))
   } catch (error) {
     notifyError(error)
   }
 }
 
+const rejoinGame = async (gameId: string) => {
+  try {
+    enterGame(await GameService.rejoinGame(gameId))
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+/** Сбрасывает локальное состояние партии перед возвратом в лобби. */
+const clearSession = () => {
+  activeGameId = undefined
+  updateSelectedPlacingPoint.cancel()
+  clearGameUpdateTimeout()
+  playersList.value = []
+  currentGame.value = null
+}
+
 const leaveGame = async () => {
   try {
     await GameService.leaveGame()
-    activeGameId = undefined
-    updateSelectedPlacingPoint.cancel()
-    clearGameUpdateTimeout()
-    playersList.value = []
-    currentGame.value = null
+    clearSession()
     getGamesList()
   } catch (error) {
     notifyError(error)
@@ -628,13 +606,8 @@ const leaveGame = async () => {
 const goInLobby = async () => {
   try {
     await GameService.leaveGame()
-
-    activeGameId = undefined
-    updateSelectedPlacingPoint.cancel()
-    clearGameUpdateTimeout()
+    clearSession()
     showLobby.value = true
-    currentGame.value = null
-    playersList.value = []
     gameState.value = {} as IGameBoard
     getGamesList()
   } catch (error) {
@@ -647,20 +620,6 @@ const createGame = async (options: CreateGameOptions) => {
     const game = await GameService.createGame(options)
     currentGame.value = game
     playersList.value = game.players
-  } catch (error) {
-    notifyError(error)
-  }
-}
-
-const rejoinGame = async (gameId: string) => {
-  try {
-    const game = await GameService.rejoinGame(gameId)
-    if (!game.gameIsStarted) {
-      currentGame.value = game
-      playersList.value = game.players
-    } else {
-      showLobby.value = false
-    }
   } catch (error) {
     notifyError(error)
   }

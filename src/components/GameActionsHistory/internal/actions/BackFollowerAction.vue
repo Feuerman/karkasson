@@ -2,9 +2,13 @@
   <ActionRow icon="i-lucide-rotate-ccw">
     <strong class="mr-[3px] text-text">Возврат подданных.</strong>
     <span v-for="group in followersByPlayer" :key="group.playerId">
-      <PlayerName :color="playerColor(group.playerId)" :title="bigFollowerHint">
-        {{ playerName(group.playerId) }} — {{ group.names.join(', ') }},&nbsp;
-      </PlayerName>
+      <PlayerNameById
+        :players="players"
+        :player-id="group.playerId"
+        :title="bigFollowerHint"
+      >
+        {{ group.names.join(', ') }},&nbsp;
+      </PlayerNameById>
     </span>
   </ActionRow>
 </template>
@@ -14,8 +18,7 @@ import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
 import type { Player } from '@server/modules/types'
 import ActionRow from '../ActionRow.vue'
-import PlayerName from '../PlayerName.vue'
-import { playerById } from '../players'
+import PlayerNameById from '../PlayerNameById.vue'
 import {
   groupFollowerNamesByPlayer,
   hasBigFollower,
@@ -35,10 +38,4 @@ const followersByPlayer = computed(() =>
 const bigFollowerHint = computed(() =>
   hasBigFollower(action.actionData.followers) ? BIG_FOLLOWER_HINT : undefined
 )
-
-const playerColor = (playerId: string | number) =>
-  playerById(players, playerId)?.color
-
-const playerName = (playerId: string | number) =>
-  playerById(players, playerId)?.name
 </script>
