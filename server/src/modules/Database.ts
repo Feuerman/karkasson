@@ -7,7 +7,7 @@ import {
   remove,
   type Database,
 } from 'firebase/database'
-import { firebaseConfig } from '../config'
+import { getFirebaseConfig, type FirebaseConfig } from '../config'
 import type { IGameBoard } from './GameManager'
 import { deserializeGameState, serializeGameState } from './gameSave'
 import { SaveErrors } from './errors'
@@ -56,7 +56,7 @@ export class InMemoryGameDatabase implements IGameDatabase {
 class GameDatabase implements IGameDatabase {
   private firebaseDatabase: Database
 
-  constructor() {
+  constructor(firebaseConfig: FirebaseConfig) {
     const app = initializeApp(firebaseConfig)
     this.firebaseDatabase = getDatabase(app)
   }
@@ -121,9 +121,12 @@ let firebaseGameDatabase: GameDatabase | undefined
 export function createGameDatabase(
   environment: NodeJS.ProcessEnv = process.env
 ): IGameDatabase {
-  return environment.NODE_ENV === 'production'
-    ? (firebaseGameDatabase ??= new GameDatabase())
-    : new InMemoryGameDatabase()
+  if (environment.NODE_ENV !== 'production') {
+    return new InMemoryGameDatabase()
+  }
+  return (firebaseGameDatabase ??= new GameDatabase(
+    getFirebaseConfig(environment)
+  ))
 }
 
 export const gameDatabase = createGameDatabase()

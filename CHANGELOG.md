@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.8.3] - 2026-10-10
+
+### Changed
+
+- **Конфигурация Firebase вынесена из кода в переменные окружения** — web-конфиг
+  Firebase с ключом API больше не лежит в `server/src/config.ts`. Сервер читает
+  `FIREBASE_API_KEY`, `FIREBASE_DATABASE_URL` и необязательные `FIREBASE_*` при
+  старте; обязательные переменные проверяются, и без них production-запуск
+  завершается с понятной ошибкой. Firebase по-прежнему нужен только
+  production-серверу: в разработке и тестах работает in-memory хранилище.
+  **При развёртывании:** задайте `FIREBASE_API_KEY` и `FIREBASE_DATABASE_URL`
+  (шаблон — `server/.env.example`) и удалите прежние значения из репозитория —
+  прежний ключ следует считать скомпрометированным и ограничить в Google Cloud
+  Console вместе с правилами Firebase Security Rules.
+
 ## [2.8.2] - 2026-10-10
 
 ### Fixed

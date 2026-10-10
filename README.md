@@ -277,6 +277,14 @@ pnpm test
 | `SOCKET_ADMIN_UI_USERNAME` | сервер | не задано — Admin UI выключена      |
 | `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена |
 | `SOCKET_ADMIN_UI_READONLY` | сервер | `true`                              |
+| `FIREBASE_API_KEY`       | сервер   | обязательно для production          |
+| `FIREBASE_DATABASE_URL`  | сервер   | обязательно для production          |
+| `FIREBASE_AUTH_DOMAIN`   | сервер   | не задано                           |
+| `FIREBASE_PROJECT_ID`    | сервер   | не задано                           |
+| `FIREBASE_STORAGE_BUCKET` | сервер  | не задано                           |
+| `FIREBASE_MESSAGING_SENDER_ID` | сервер | не задано                        |
+| `FIREBASE_APP_ID`        | сервер   | не задано                           |
+| `FIREBASE_MEASUREMENT_ID` | сервер  | не задано                           |
 
 Для подключения к [Socket.IO Admin UI](https://admin.socket.io/) задайте обе
 переменные `SOCKET_ADMIN_UI_USERNAME` и `SOCKET_ADMIN_UI_PASSWORD_HASH`.
@@ -284,6 +292,33 @@ pnpm test
 отсутствии любой из переменных админка не запускается. По умолчанию включён
 режим только для чтения. Операции управления сокетами можно явно разрешить,
 задав `SOCKET_ADMIN_UI_READONLY=false`.
+
+### Firebase
+
+Firebase нужен только production-серверу: он сохраняет партии в Realtime
+Database. В разработке и тестах `NODE_ENV` не равен `production`, поэтому сервер
+работает с in-memory хранилищем и подключение к Firebase не требуется.
+
+Конфигурация Firebase не хранится в коде, а читается из переменных окружения
+при старте сервера. Обязательны `FIREBASE_API_KEY` и `FIREBASE_DATABASE_URL`,
+остальные `FIREBASE_*` необязательны; незаданные значения в конфиг не попадают.
+Если обязательной переменной нет, сервер завершает запуск с понятной ошибкой
+`Missing required environment variable ...`.
+
+- Шаблон набора переменных — `server/.env.example`; сам `server/.env`
+  игнорируется Git.
+- Локальный запуск с заполненным `server/.env` (Node.js 20+):
+
+  ```sh
+  node --env-file=server/.env server/dist/index.js
+  ```
+
+- В production переменные задаются в панели хостинга (например, Render →
+  Environment Variables), файл `.env` там не нужен.
+
+Значения из этого набора — публичный веб-конфиг Firebase, он по задуманию
+известен клиентам. Доступ к данным защищают правила Firebase Security Rules и
+ограничения API-ключа в Google Cloud Console, а не сокрытие конфигурации.
 
 ## Деплой
 
