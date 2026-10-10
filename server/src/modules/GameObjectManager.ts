@@ -1,6 +1,6 @@
 import type { GameAction, NewGameAction } from './GameManager'
 import { deepClone } from '../utils/common'
-import { describeCompletedCentralObject } from './scoring'
+import { CENTRAL_OBJECT_NAMES, describeCompletedCentralObject } from './scoring'
 import {
   ActionTypes,
   ObjectTypes,
@@ -59,7 +59,35 @@ const CENTRAL_OBJECT_COLLECTIONS: Record<
 const CENTRAL_OBJECT_TYPES: Record<CentralObjectKind, CentralObjectKind> = {
   [ObjectTypes.MONASTERY]: ObjectTypes.MONASTERY,
   [ObjectTypes.GARDEN]: ObjectTypes.GARDEN,
-} as const
+}
+
+/** Признак объекта в центре тайла, по которому он находится на доске. */
+const CENTRAL_OBJECT_FLAGS: Record<
+  CentralObjectKind,
+  Pick<BaseObject, 'isMonastery' | 'isGarden'>
+> = {
+  [ObjectTypes.MONASTERY]: { isMonastery: true },
+  [ObjectTypes.GARDEN]: { isGarden: true },
+}
+
+/**
+ * Совпадение двух подданных одного игрока: игрок, клетка и тип фишки.
+ * Идентификатор объекта не учитывается — при слиянии дорог и городов объект
+ * меняется, а фишка остаётся той же.
+ */
+function isSameFollower(
+  placed: PlacedFollower | ObjectFollower,
+  follower: PlacedFollower | ObjectFollower
+): boolean {
+  return (
+    String(placed.playerId) === String(follower.playerId) &&
+    placed.point.x === follower.point.x &&
+    placed.point.y === follower.point.y &&
+    placed.point.direction === follower.point.direction &&
+    Boolean(placed.isAbbot) === Boolean(follower.isAbbot) &&
+    Boolean(placed.isBigFollower) === Boolean(follower.isBigFollower)
+  )
+}
 
 interface GameObjectState {
   temporaryObjects: TemporaryObjects
@@ -83,55 +111,47 @@ interface GameObjectState {
 export class GameObjectManager {
   constructor(private readonly state: GameObjectState) {}
 
+  /**
+   * Обрабатывает только что поставленный тайл: находит появившиеся участки
+   * дороги и города, объединяет их с соседними и проверяет завершение.
+   */
   checkGridAfterPlacingTile(rowIndex: number, tileIndex: number) {
     const tile = this.state.tilePlacesStats[rowIndex]?.[tileIndex]
     if (!tile) return
 
-    const roadsPoints = this.getFeaturePoints(
-      tile,
-      rowIndex,
-      tileIndex,
-      TileSideType.Road
-    )
-    this.checkRoads(
-      roadsPoints,
-      this.getConnectedFeatureGroups(tile, roadsPoints, TileSideType.Road)
-    )
-
-    const citiesPoints = this.getFeaturePoints(
-      tile,
-      rowIndex,
-      tileIndex,
-      TileSideType.City
-    )
-    this.checkCities(
-      citiesPoints,
-      this.getConnectedFeatureGroups(tile, citiesPoints, TileSideType.City)
-    )
+    this.checkLinearFeatureOnTile(tile, rowIndex, tileIndex)
 
     this.checkMonasteries(tile)
     this.checkGardens(tile)
   }
 
-  checkMonasteries(tile: GridTile) {
-    if (tile.isMonastery) {
-      this.state.temporaryObjects.monasteries.push({
-        followers: [],
-        id: 'id' + Math.random(),
-        isMonastery: true,
-        points: [
-          {
-            x: tile.x,
-            y: tile.y,
-            direction: PointDirection.Center,
-            rowIndex: tile.y,
-            tileIndex: tile.x,
-          },
-        ],
-      })
+  /** Дороги и города одного вида на тайле разбираются одинаково. */
+  private checkLinearFeatureOnTile(
+    tile: GridTile,
+    rowIndex: number,
+    tileIndex: number
+  ) {
+    for (const kind of [
+      TileSideType.Road,
+      TileSideType.City,
+    ] as LinearFeatureKind[]) {
+      const featurePoints = this.getFeaturePoints(
+        tile,
+        rowIndex,
+        tileIndex,
+        kind
+      )
+      this.checkConnectedFeatures(
+        kind,
+        featurePoints,
+        this.getConnectedFeatureGroups(tile, featurePoints, kind)
+      )
     }
+  }
 
-    this.checkCompletedMonasteries()
+  /** Монастырь стоит в центре тайла, поэтому игнорирует поворот. */
+  checkMonasteries(tile: GridTile) {
+    this.addCentralObject(ObjectTypes.MONASTERY, tile, tile.isMonastery)
   }
 
   checkCompletedMonasteries() {
@@ -142,12 +162,30 @@ export class GameObjectManager {
     this.calcScoreForCentralObjects(monasteries, ObjectTypes.MONASTERY)
   }
 
+  /** Сад, как и монастырь, занимает центр тайла, но ставится только на свой тайл. */
   checkGardens(tile: GridTile) {
-    if (tile.hasGarden) {
-      this.state.temporaryObjects.gardens.push({
+    this.addCentralObject(ObjectTypes.GARDEN, tile, tile.hasGarden)
+  }
+
+  checkCompletedGardens() {
+    this.checkCompletedCentralObjects(ObjectTypes.GARDEN)
+  }
+
+  calcScoreForGardens(gardens: BaseObject[]) {
+    this.calcScoreForCentralObjects(gardens, ObjectTypes.GARDEN)
+  }
+
+  /** Создаёт объект в центре тайла, если такой тайл только что поставлен. */
+  private addCentralObject(
+    kind: CentralObjectKind,
+    tile: GridTile,
+    hasFeature: boolean | undefined
+  ) {
+    if (hasFeature) {
+      this.state.temporaryObjects[CENTRAL_OBJECT_COLLECTIONS[kind]].push({
         followers: [],
         id: 'id' + Math.random(),
-        isGarden: true,
+        ...CENTRAL_OBJECT_FLAGS[kind],
         points: [
           {
             x: tile.x,
@@ -160,15 +198,7 @@ export class GameObjectManager {
       })
     }
 
-    this.checkCompletedGardens()
-  }
-
-  checkCompletedGardens() {
-    this.checkCompletedCentralObjects(ObjectTypes.GARDEN)
-  }
-
-  calcScoreForGardens(gardens: BaseObject[]) {
-    this.calcScoreForCentralObjects(gardens, ObjectTypes.GARDEN)
+    this.checkCompletedCentralObjects(kind)
   }
 
   checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
@@ -265,19 +295,23 @@ export class GameObjectManager {
     }
   }
 
+  /**
+   * Завершённый монастырь или сад всегда приносит 9 очков каждому подданному.
+   * Аббат остаётся на объекте до отзыва владельцем, поэтому не возвращается.
+   */
   private calcScoreForCentralObjects(
     objects: BaseObject[],
-    objectType: ObjectTypes.MONASTERY | ObjectTypes.GARDEN
+    objectType: CentralObjectKind
   ) {
+    const details = describeCompletedCentralObject(
+      CENTRAL_OBJECT_NAMES[objectType]
+    )
+
     for (const object of objects) {
       for (const follower of object.followers) {
-        // Аббат остаётся на завершённом объекте до отзыва владельцем.
         if (follower.isAbbot) continue
 
         this.state.scores[follower.playerId] += 9
-        const { details, modifiers } = describeCompletedCentralObject(
-          objectType === ObjectTypes.GARDEN ? 'сада' : 'монастыря'
-        )
         this.state.recordAction({
           actionType: ActionTypes.ADDING_SCORES,
           actionData: {
@@ -288,23 +322,27 @@ export class GameObjectManager {
               players: { [follower.playerId]: 9 },
               total: 9,
             },
-            details,
-            modifiers,
+            ...details,
           },
         })
-        if (follower.isBigFollower) {
-          const pool = this.state.playersFollowers[follower.playerId]
-          if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
-        } else {
-          this.state.playersFollowers[follower.playerId].ordinaryFollowers += 1
-        }
-        this.removePlacedFollower(follower)
+        this.returnFollowerToPool(follower)
         this.state.recordAction({
           actionType: ActionTypes.BACK_FOLLOWER,
           actionData: { followers: [{ ...follower, objectType }] },
         })
       }
     }
+  }
+
+  /** Фишка уходит с поля и возвращается в запас владельца. */
+  private returnFollowerToPool(follower: ObjectFollower) {
+    const pool = this.state.playersFollowers[follower.playerId]
+    if (follower.isBigFollower) {
+      if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
+    } else {
+      pool.ordinaryFollowers += 1
+    }
+    this.removePlacedFollower(follower)
   }
 
   private checkConnectedFeatures(
@@ -419,25 +457,20 @@ export class GameObjectManager {
     this.checkCompleteLinearFeature(kind, mergedObject)
   }
 
+  /**
+   * Дорога и город завершены, когда каждая точка участка имеет пару с другой
+   * стороны той же клетки (то есть у каждого конца есть продолжение).
+   * Завершённый объект уходит в завершённые, а его подданные получают очки,
+   * возвращаются в запас и записываются в историю как снятые с поля.
+   */
   private checkCompleteLinearFeature(
     kind: LinearFeatureKind,
     feature: BaseObject
   ) {
-    const isComplete = feature.points.every((point) => {
-      const pointCoordinates = this.state.getPrecisionCoordinates(point)
-      return feature.points.some((otherPoint) => {
-        const otherPointCoordinates =
-          this.state.getPrecisionCoordinates(otherPoint)
-        return (
-          pointCoordinates.x === otherPointCoordinates.x &&
-          pointCoordinates.y === otherPointCoordinates.y &&
-          point.direction !== otherPoint.direction
-        )
-      })
-    })
-    if (!isComplete) return
+    if (!this.isLinearFeatureComplete(feature)) return
 
     const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const objectType = LINEAR_FEATURE_TYPES[kind]
     const score =
       kind === TileSideType.Road
         ? this.state.calcScoreForRoad(feature)
@@ -450,74 +483,66 @@ export class GameObjectManager {
       score,
     })
 
-    if (feature.followers.length) {
-      const { details, modifiers } =
-        kind === TileSideType.Road
+    if (!feature.followers.length) return
+
+    this.state.recordAction({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType,
+        objectData: feature,
+        score,
+        ...(kind === TileSideType.Road
           ? this.state.describeScoreForRoad(feature)
-          : this.state.describeScoreForCity(feature)
-      this.state.recordAction({
-        actionType: ActionTypes.ADDING_SCORES,
-        actionData: {
-          objectType: LINEAR_FEATURE_TYPES[kind],
-          objectData: feature,
-          score,
-          details,
-          modifiers,
-        },
-      })
-    }
-
+          : this.state.describeScoreForCity(feature)),
+      },
+    })
     for (const follower of feature.followers) {
-      if (follower.isBigFollower) {
-        const pool = this.state.playersFollowers[follower.playerId]
-        if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
-      } else {
-        this.state.playersFollowers[follower.playerId].ordinaryFollowers += 1
-      }
-      this.removePlacedFollower(follower)
+      this.returnFollowerToPool(follower)
     }
+    this.state.recordAction({
+      actionType: ActionTypes.BACK_FOLLOWER,
+      actionData: {
+        followers: feature.followers.map((follower) => ({
+          ...follower,
+          objectType,
+        })),
+      },
+    })
+  }
 
-    if (feature.followers.length) {
-      const objectType = LINEAR_FEATURE_TYPES[kind]
-      this.state.recordAction({
-        actionType: ActionTypes.BACK_FOLLOWER,
-        actionData: {
-          followers: feature.followers.map((follower) => ({
-            ...follower,
-            objectType,
-          })),
-        },
+  private isLinearFeatureComplete(feature: BaseObject): boolean {
+    return feature.points.every((point) => {
+      const coordinates = this.state.getPrecisionCoordinates(point)
+      return feature.points.some((otherPoint) => {
+        const otherCoordinates = this.state.getPrecisionCoordinates(otherPoint)
+        return (
+          coordinates.x === otherCoordinates.x &&
+          coordinates.y === otherCoordinates.y &&
+          point.direction !== otherPoint.direction
+        )
       })
-    }
+    })
   }
 
   private removePlacedFollower(follower: ObjectFollower) {
-    const index = this.state.placedFollowers.findIndex(
-      (placed) =>
-        String(placed.playerId) === String(follower.playerId) &&
-        placed.point.x === follower.point.x &&
-        placed.point.y === follower.point.y &&
-        placed.point.direction === follower.point.direction &&
-        Boolean(placed.isAbbot) === Boolean(follower.isAbbot) &&
-        Boolean(placed.isBigFollower) === Boolean(follower.isBigFollower)
+    const index = this.state.placedFollowers.findIndex((placed) =>
+      isSameFollower(placed, follower)
     )
     if (index >= 0) this.state.placedFollowers.splice(index, 1)
   }
 
+  /**
+   * После слияния подданные переходят на новый объект: идентификатор в истории
+   * и на доске должен совпадать с идентификатором объединённого объекта.
+   */
   private reassignFollowerObjectIds(
     followers: ObjectFollower[],
     objectId: string
   ) {
     for (const follower of followers) {
       follower.objectId = objectId
-      const placed = this.state.placedFollowers.find(
-        (candidate) =>
-          String(candidate.playerId) === String(follower.playerId) &&
-          candidate.point.x === follower.point.x &&
-          candidate.point.y === follower.point.y &&
-          candidate.point.direction === follower.point.direction &&
-          Boolean(candidate.isAbbot) === Boolean(follower.isAbbot) &&
-          Boolean(candidate.isBigFollower) === Boolean(follower.isBigFollower)
+      const placed = this.state.placedFollowers.find((candidate) =>
+        isSameFollower(candidate, follower)
       )
       if (placed) placed.objectId = objectId
     }

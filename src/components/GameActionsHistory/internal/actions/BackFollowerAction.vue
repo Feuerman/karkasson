@@ -7,7 +7,7 @@
         :player-id="group.playerId"
         :title="bigFollowerHint"
       >
-        {{ group.names.join(', ') }},&nbsp;
+        — {{ group.names.join(', ') }},&nbsp;
       </PlayerNameById>
     </span>
   </ActionRow>

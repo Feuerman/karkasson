@@ -4,9 +4,14 @@ import { riverTiles } from '../data/riverTiles'
 import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import { findTileDefinitionById } from '../data/tileDefinitions'
 import type { TileDefinition } from '../data/tiles'
-import { isCorrectTilePosition } from './gameGeometry'
+import {
+  isCorrectTilePosition,
+  neighborCoordinates,
+  NEIGHBOR_SIDES,
+} from './gameGeometry'
 import {
   ExpansionName,
+  OPPOSITE_SIDE,
   SideName,
   TileId,
   type GameRules,
@@ -15,6 +20,13 @@ import {
   type Tile,
   type TilePlacesStats,
 } from './types'
+
+/** Сторона уже стоящего тайла, у которой русло осталось открытым. */
+interface RiverOpenEnd {
+  rowIndex: number
+  tileIndex: number
+  side: SideName
+}
 
 interface GameTileState {
   gameIsEnded: boolean
@@ -106,9 +118,7 @@ export class GameTileManager {
       return
     }
 
-    const hasRiverEnd = Object.values(this.state.tilePlacesStats).some((row) =>
-      Object.values(row).some((placedTile) => placedTile.id === TileId.RIVER_L)
-    )
+    const hasRiverEnd = this.hasRiverEnd()
     if (this.state.rules.expansions.river && !hasRiverEnd) {
       const nextRiverTile = this.state.tilesList[0]
       if (!nextRiverTile || nextRiverTile.expansion !== ExpansionName.River) {
@@ -129,8 +139,10 @@ export class GameTileManager {
       )
     }
 
-    const dragonAwake = Object.values(this.state.tilePlacesStats).some((row) =>
-      Object.values(row).some((placedTile) => placedTile.hasVolcano)
+    // Дракон просыпается на вулкане: пока дракон на доске, тайлы с драконом
+    // не выдаём, иначе игрок не сможет сделать ход.
+    const dragonAwake = this.hasPlacedTile((placedTile) =>
+      Boolean(placedTile.hasVolcano)
     )
     const tilesToCheck = this.state.tilesList.length
     const checkedTiles = new Set<Tile>()
@@ -164,6 +176,21 @@ export class GameTileManager {
     }
 
     this.finishGame()
+  }
+
+  /** Есть ли на доске хотя бы один тайл, удовлетворяющий условию. */
+  hasPlacedTile(predicate: (tile: GridTile) => boolean): boolean {
+    return Object.values(this.state.tilePlacesStats).some((row) =>
+      Object.values(row).some(predicate)
+    )
+  }
+
+  /**
+   * Стоит ли на доске тайл, закрывающий русло. Пока его нет, ход River обязателен,
+   * а после его постановки остальные речные тайлы убираются из колоды.
+   */
+  hasRiverEnd(): boolean {
+    return this.hasPlacedTile((placedTile) => placedTile.id === TileId.RIVER_L)
   }
 
   checkAvailablePlacesForTile(tile: Tile): boolean {
@@ -233,6 +260,46 @@ export class GameTileManager {
   }
 
   /** Проверка правил реки; conflict заполняется для диагностики отказа. */
+  /**
+   * Открытые концы русла среди уже стоящих тайлов: сторона, у которой сосед
+   * не продолжает русло. Пока концов ровно один, речной тайл можно продолжить.
+   */
+  private findOpenRiverEnds(): RiverOpenEnd[] {
+    const openEnds: RiverOpenEnd[] = []
+    for (const [placedRowIndex, placedRow] of Object.entries(
+      this.state.tilePlacesStats
+    )) {
+      for (const [placedTileIndex, placedTile] of Object.entries(placedRow)) {
+        if (!placedTile.riverGroups?.length) continue
+        const coordinates = {
+          rowIndex: Number(placedRowIndex),
+          tileIndex: Number(placedTileIndex),
+        }
+        for (const side of placedTile.riverGroups.flat()) {
+          const neighbor = NEIGHBOR_SIDES.find(
+            (candidate) => candidate.side === side
+          )
+          if (!neighbor) continue
+          const adjacent = neighborCoordinates(
+            coordinates.rowIndex,
+            coordinates.tileIndex,
+            neighbor
+          )
+          const adjacentTile =
+            this.state.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]
+          if (
+            !adjacentTile?.riverGroups?.some((group) =>
+              group.includes(neighbor.oppositeSide)
+            )
+          ) {
+            openEnds.push({ ...coordinates, side })
+          }
+        }
+      }
+    }
+    return openEnds
+  }
+
   private checkRiverPlacement(
     tile: Tile,
     rowIndex: number,
@@ -266,60 +333,21 @@ export class GameTileManager {
     if (!placedRivers.length) return { valid: false }
     if (riverSides.length < 1 || riverSides.length > 2) return { valid: false }
 
-    const oppositeSide: Record<SideName, SideName> = {
-      [SideName.North]: SideName.South,
-      [SideName.East]: SideName.West,
-      [SideName.South]: SideName.North,
-      [SideName.West]: SideName.East,
-    }
-    const offsets: Record<SideName, { row: number; column: number }> = {
-      [SideName.North]: { row: -1, column: 0 },
-      [SideName.East]: { row: 0, column: 1 },
-      [SideName.South]: { row: 1, column: 0 },
-      [SideName.West]: { row: 0, column: -1 },
-    }
-    const openEnds: Array<{
-      rowIndex: number
-      tileIndex: number
-      side: SideName
-    }> = []
-    for (const [placedRowIndex, placedRow] of Object.entries(
-      this.state.tilePlacesStats
-    )) {
-      for (const [placedTileIndex, placedTile] of Object.entries(placedRow)) {
-        if (!placedTile.riverGroups?.length) continue
-        const placedCoordinates = {
-          rowIndex: Number(placedRowIndex),
-          tileIndex: Number(placedTileIndex),
-        }
-        for (const side of placedTile.riverGroups.flat()) {
-          const offset = offsets[side]
-          const neighbor =
-            this.state.tilePlacesStats[
-              placedCoordinates.rowIndex + offset.row
-            ]?.[placedCoordinates.tileIndex + offset.column]
-          if (
-            !neighbor?.riverGroups?.some((group) =>
-              group.includes(oppositeSide[side])
-            )
-          ) {
-            openEnds.push({ ...placedCoordinates, side })
-          }
-        }
-      }
-    }
+    // Русло должно продолжить ровно один открытый конец среди уже стоящих
+    // тайлов и не открывать новых: у открытого конца и у выхода нового тайла
+    // должны совпасть клетка и сторона.
+    const openEnds = this.findOpenRiverEnds()
     if (openEnds.length !== 1) return { valid: false }
 
     const openEnd = openEnds[0]
-    const connections = (Object.keys(offsets) as SideName[]).flatMap((side) => {
-      const offset = offsets[side]
-      const neighborRow = rowIndex + offset.row
-      const neighborColumn = tileIndex + offset.column
-      const neighbor = this.state.tilePlacesStats[neighborRow]?.[neighborColumn]
+    const connections = NEIGHBOR_SIDES.flatMap((side) => {
+      const adjacent = neighborCoordinates(rowIndex, tileIndex, side)
+      const neighbor =
+        this.state.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]
       return neighbor?.riverGroups?.some((group) =>
-        group.includes(oppositeSide[side])
+        group.includes(side.oppositeSide)
       )
-        ? [{ side, rowIndex: neighborRow, tileIndex: neighborColumn }]
+        ? [{ side: side.side, ...adjacent }]
         : []
     })
     const connection = connections[0]
@@ -329,7 +357,7 @@ export class GameTileManager {
       !openEnd ||
       connection.rowIndex !== openEnd.rowIndex ||
       connection.tileIndex !== openEnd.tileIndex ||
-      openEnd.side !== oppositeSide[connection.side]
+      openEnd.side !== OPPOSITE_SIDE[connection.side]
     ) {
       return {
         valid: false,

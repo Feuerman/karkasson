@@ -1,7 +1,6 @@
 <template>
-  <PlayerName :color="color" :title="title">
-    <slot>{{ name }}</slot>
-  </PlayerName>
+  <!-- Имя игрока выводится всегда, слот дописывает продолжение после него. -->
+  <PlayerName :color="color" :title="title"> {{ name }}<slot /> </PlayerName>
 </template>
 
 <script setup lang="ts">
