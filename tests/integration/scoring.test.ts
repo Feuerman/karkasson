@@ -16,8 +16,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+import { sleep } from './helpers/wait'
 
 describe('Подсчёт очков и полная партия', () => {
   let server: RunningServer | undefined

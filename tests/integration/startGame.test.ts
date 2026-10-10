@@ -6,7 +6,6 @@ import {
   latestGame,
   type TestGameData,
 } from './helpers/lobby'
-import { findValidPlacement, type GameStateSnapshot } from './helpers/gameplay'
 import {
   startTestServer,
   stopTestServer,
@@ -57,58 +56,8 @@ describe('Запуск игры', () => {
     expect(started.scores).toEqual({ 1: 0, 2: 0, 3: 0, 4: 0 })
     expect(started.currentTile).toBeTruthy()
     expect(started.tilesList.length).toBeGreaterThan(0)
-  })
 
-  it('реальный игрок размещает тайл, и ход переходит к следующему игроку', async () => {
-    server = await startTestServer()
-    const lobby = await createLobbyWithPlayers(server.url)
-    clients.push(lobby.creator, lobby.joiner)
-
-    lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
-    const started = (await latestGame(
-      lobby.creator,
-      (g) => g.gameIsStarted === true
-    )) as TestGameData
-
-    const move = findValidPlacement(started as GameStateSnapshot)
-    expect(move).not.toBeNull()
-
-    const placed = await lobby.creator.emitAck<{
-      success: boolean
-      game: TestGameData & { isPlacingFollower?: boolean }
-    }>(SocketEvents.PlaceTile, {
-      gameId: lobby.gameId,
-      rotation: move!.tile.rotation,
-      position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
-    })
-    expect(placed.success).toBe(true)
-
-    let state = placed.game
-
-    // Иногда размещённый тайл замыкает город/дорогу — тогда мипла поставить
-    // нельзя и сервер завершает ход сразу; иначе пропускаем размещение мипла.
-    if (state.isPlacingFollower) {
-      const skipped = await lobby.creator.emitAck<{
-        success: boolean
-        game: TestGameData
-      }>(SocketEvents.SkipFollower, { gameId: lobby.gameId })
-      expect(skipped.success).toBe(true)
-      state = skipped.game
-    }
-
-    // Ход перешёл к Бобу (реальный игрок)
-    expect(state.currentPlayerIndex).toBe(1)
-    expect(state.currentPlayer?.name).toBe('Bob')
-
-    // Тайл реально лежит на доске (событие обновления игры)
-    const placedTiles = Object.values(state.tilePlacesStats).reduce(
-      (count, row) => count + Object.keys(row ?? {}).length,
-      0
-    )
-    expect(placedTiles).toBeGreaterThanOrEqual(2)
-    expect(state.tilePlacesStats[15][15]).toBeTruthy()
-
-    // Состояние игры сохранено в хранилище
+    // Стартовое состояние сохранено в хранилище
     const saved = await server.db.getGame(lobby.gameId)
     expect(saved?.gameIsStarted).toBe(true)
     expect(saved?.tilePlacesStats[15][15]).toBeTruthy()

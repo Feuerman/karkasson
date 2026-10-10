@@ -6,27 +6,10 @@ import {
   ObjectTypes,
   SideName,
   TileSideType,
-  type Player,
 } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
-const players: Player[] = [
-  {
-    id: 1,
-    name: 'Alice',
-    color: 'coral',
-    score: 0,
-    socketId: 'socket-1',
-    deviceId: 'device-1',
-  },
-  {
-    id: 2,
-    name: 'Bob',
-    color: 'skyblue',
-    score: 0,
-    socketId: 'socket-2',
-    deviceId: 'device-2',
-  },
-]
+const players = makePlayers()
 
 function createGame(): GameManager {
   const game = new GameManager({ players })

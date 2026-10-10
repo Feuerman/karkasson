@@ -15,6 +15,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
+import { sleep } from './helpers/wait'
 
 /**
  * Тесты клиентского приложения: настоящий клиентский GameService
@@ -33,8 +34,6 @@ type AnyGame = Record<string, unknown> & {
   game?: { isPlacingFollower?: boolean }
   players: Array<{ id: number | string; name: string | null }>
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function waitUntilConnected(service: GameService): Promise<void> {
   const deadline = Date.now() + 10_000
@@ -189,7 +188,7 @@ describe('Клиентское приложение (GameService)', () => {
     )
   })
 
-  it('передаёт выбор включённого дополнения в правила и колоду партии', async () => {
+  it('передаёт включённое дополнение в правила, колоду и начатую игру', async () => {
     server = await startTestServer()
     const client = new GameService({
       serverUrl: server.url,
@@ -201,23 +200,10 @@ describe('Клиентское приложение (GameService)', () => {
     await waitForServerDevice(server, client)
 
     const game = await client.createGame({ princessAndDragonEnabled: true })
-
     expect(game.rules.expansions.princessAndDragon).toBe(true)
     expect(game.tilesList).toHaveLength(101)
     expect(game.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
-  })
 
-  it('передаёт включённое дополнение в начатую игру через GameService', async () => {
-    server = await startTestServer()
-    const client = new GameService({
-      serverUrl: server.url,
-      deviceId: 'client-princess-choice',
-    })
-    services.push(client)
-    client.connect()
-    await waitUntilConnected(client)
-    await waitForServerDevice(server, client)
-    const game = await client.createGame({ princessAndDragonEnabled: true })
     await client.addPlayer({ name: 'Alice', index: 0 })
     await client.addPlayer({ name: null, index: 1 })
     const started = await client.startGame()

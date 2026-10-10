@@ -7,53 +7,17 @@ import {
   describeCompletedCentralObject,
   describeRoadScore,
 } from '@server/modules/scoring'
-import {
-  ExpansionName,
-  SideName,
-  TileId,
-  TileSideType,
-} from '@server/modules/types'
-import type {
-  BaseObject,
-  GridTile,
-  Scores,
-  TilePlacesStats,
-} from '@server/modules/types'
+import { ExpansionName } from '@server/modules/types'
+import type { BaseObject } from '@server/modules/types'
+import { boardOf, emptyScores, follower } from '../helpers/fixtures'
 
 /**
  * Детализация начисления должна сходиться с реально начисленной суммой:
  * сумма строк равна очкам, а бонусы совпадают с правилами дополнения.
  */
 
-function gridTile(overrides: Partial<GridTile> = {}): GridTile {
-  return {
-    id: TileId.T,
-    rotation: 0,
-    x: 0,
-    y: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-    },
-    ...overrides,
-  } as GridTile
-}
-
-function boardOf(
-  tiles: Array<[number, number, Partial<GridTile>?]>
-): TilePlacesStats {
-  const board: TilePlacesStats = {}
-  for (const [y, x, overrides] of tiles) {
-    if (!board[y]) board[y] = {}
-    board[y][x] = gridTile({ x, y, ...(overrides ?? {}) })
-  }
-  return board
-}
-
-const follower = { playerId: 1, objectId: 'obj', point: { x: 0, y: 0 } }
-const scores = (): Scores => ({})
+const scores = emptyScores
+const ownFollower = follower(1, 'obj')
 
 const sumOf = (details: Array<{ total: number }>): number =>
   details.reduce((sum, line) => sum + line.total, 0)
@@ -62,7 +26,7 @@ describe('describeRoadScore', () => {
   const roadOf = (points: Array<[number, number]>, extra = {}): BaseObject => ({
     id: 'road',
     points: points.map(([x, y]) => ({ x, y })),
-    followers: [follower],
+    followers: [ownFollower],
     ...extra,
   })
 
@@ -141,7 +105,7 @@ describe('describeCityScore', () => {
   const cityOf = (points: Array<[number, number]>, extra = {}): BaseObject => ({
     id: 'city',
     points: points.map(([x, y]) => ({ x, y })),
-    followers: [follower],
+    followers: [ownFollower],
     ...extra,
   })
 

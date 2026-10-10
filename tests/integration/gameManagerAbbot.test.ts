@@ -8,7 +8,8 @@ import {
   TileId,
   TileSideType,
 } from '@server/modules/types'
-import type { Player, Tile, TileSides } from '@server/modules/types'
+import type { Tile, TileSides } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
 /**
  * Детерминированные тесты аббата на «живом» GameManager: колода и координаты
@@ -45,27 +46,6 @@ function monasteryWithRoadTile(): Tile {
     },
     isMonastery: true,
   }
-}
-
-function makePlayers(): Player[] {
-  return [
-    {
-      id: 1,
-      name: 'Alice',
-      color: 'red',
-      score: 0,
-      socketId: 's1',
-      deviceId: 'd1',
-    },
-    {
-      id: 2,
-      name: 'Bob',
-      color: 'blue',
-      score: 0,
-      socketId: 's2',
-      deviceId: 'd2',
-    },
-  ]
 }
 
 // Обеспечивает непустую колоду к моменту отрисовки следующего тайла в endTurn

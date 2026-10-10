@@ -5,11 +5,7 @@ import { renderToString } from 'vue/server-renderer'
 import PlayerNameById from '@/components/GameActionsHistory/internal/PlayerNameById.vue'
 import BackFollowerAction from '@/components/GameActionsHistory/internal/actions/BackFollowerAction.vue'
 import DragonMoveAction from '@/components/GameActionsHistory/internal/actions/DragonMoveAction.vue'
-import {
-  ActionTypes,
-  ObjectTypes,
-  TileSideType,
-} from '@server/modules/types'
+import { ActionTypes, ObjectTypes, TileSideType } from '@server/modules/types'
 import type { GameAction } from '@server/modules/GameManager'
 import type { Player, ReturnedFollower } from '@server/modules/types'
 

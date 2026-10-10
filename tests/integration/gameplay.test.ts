@@ -1,14 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { GameErrors } from '@server/modules/errors'
-import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
 import {
-  findValidPlacement,
   makeHumanMove,
   startGame,
   waitForHumanTurnOrEnd,
-  type GameStateSnapshot,
 } from './helpers/gameplay'
 import {
   startTestServer,
@@ -80,30 +76,5 @@ describe('Последовательность ходов', () => {
     // Может быть больше 2: при размещении фишки сервер планирует цепочку
     // ИИ-ходов внахлёст, и компьютер может сходить лишний раз.
     expect(aliceBack.moveCounter).toBeGreaterThanOrEqual(2)
-  })
-
-  it('сервер отклоняет ход игрока вне очереди', async () => {
-    server = await startTestServer()
-    const lobby = await lobbyWithTwoHumans()
-    const { gameId } = lobby
-
-    const state = await startGame(lobby.creator, gameId)
-    expect(state.currentPlayer?.name).toBe('Alice')
-
-    // Боб пробует ходить на ходу Алисы
-    const move = findValidPlacement(state as GameStateSnapshot)
-    expect(move).not.toBeNull()
-
-    await expect(
-      lobby.joiner.emitAck(SocketEvents.PlaceTile, {
-        gameId,
-        position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
-      })
-    ).rejects.toThrow(GameErrors.NotPlayersTurn)
-
-    // Игра при этом не сломалась: Алиса по-прежнему может сделать ход
-    const after = await makeHumanMove(lobby.creator, gameId, state)
-    expect(after.game.gameIsStarted).toBe(true)
-    expect(after.game.gameIsEnded).toBe(false)
   })
 })

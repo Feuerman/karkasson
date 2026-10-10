@@ -7,53 +7,14 @@ import {
   calcRoadScore,
 } from '@server/modules/scoring'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
-import type {
-  BaseObject,
-  GridTile,
-  Scores,
-  TilePlacesStats,
-} from '@server/modules/types'
+import type { BaseObject, GridTile } from '@server/modules/types'
+import { boardOf, emptyScores, follower, gridTile } from '../helpers/fixtures'
 
 /**
  * Детерминированные юнит-тесты подсчёта очков: в отличие от полной партии
  * здесь не работает случайность колоды — проверяются конкретные сценарии
  * (гербы, разделённые города, дублирующиеся подданные, объекты без фишек).
  */
-
-function gridTile(overrides: Partial<GridTile> = {}): GridTile {
-  return {
-    id: TileId.T,
-    rotation: 0,
-    x: 0,
-    y: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-    },
-    ...overrides,
-  } as GridTile
-}
-
-function boardOf(
-  tiles: Array<[number, number, Partial<GridTile>?]>
-): TilePlacesStats {
-  const board: TilePlacesStats = {}
-  for (const [y, x, overrides] of tiles) {
-    if (!board[y]) board[y] = {}
-    board[y][x] = gridTile({ x, y, ...(overrides ?? {}) })
-  }
-  return board
-}
-
-function scoresOf(): Scores {
-  return {}
-}
-
-function follower(playerId: number, objectId: string) {
-  return { playerId, objectId, point: { x: 0, y: 0 } }
-}
 
 describe('calcRoadScore', () => {
   it('удваивает очки завершённой дороги с таверной только в дополнении', () => {
@@ -70,7 +31,7 @@ describe('calcRoadScore', () => {
       followers: [follower(1, 'inn-road')],
       hasInn: true,
     }
-    const scores = scoresOf()
+    const scores = emptyScores()
 
     expect(calcRoadScore(board, road, scores, true, false).total).toBe(2)
     expect(calcRoadScore(board, road, scores, true, true).total).toBe(4)
@@ -83,7 +44,7 @@ describe('calcRoadScore', () => {
       followers: [follower(1, 'unfinished-inn-road')],
       hasInn: true,
     }
-    const scores = scoresOf()
+    const scores = emptyScores()
 
     expect(
       calcRoadScore(boardOf([[0, 0]]), road, scores, false, true).total
@@ -125,7 +86,7 @@ describe('calcRoadScore', () => {
       followers: [follower(1, 'road-1')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
     expect(result.total).toBe(3)
@@ -149,7 +110,7 @@ describe('calcRoadScore', () => {
       followers: [follower(2, 'road-bend')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
     // Уникальных тайлов — 2, поэтому 2 очка, а не 4
@@ -165,7 +126,7 @@ describe('calcRoadScore', () => {
       followers: [follower(1, 'road-x2'), follower(1, 'road-x2')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
     // Очко за саму дорогу, а не за каждого подданного
@@ -188,7 +149,7 @@ describe('calcRoadScore', () => {
       followers: [follower(1, 'road-shared'), follower(2, 'road-shared')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
     expect(result.total).toBe(4) // 2 + 2 (каждому по полному score)
@@ -205,7 +166,7 @@ describe('calcRoadScore', () => {
       followers: [],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
     expect(result.total).toBe(1)
@@ -276,7 +237,7 @@ describe('calcCityScore', () => {
       ],
       hasCathedral: true,
     }
-    const scores = scoresOf()
+    const scores = emptyScores()
 
     const result = calcCityScore(board, city, scores, true, true)
 
@@ -306,7 +267,7 @@ describe('calcCityScore', () => {
       followers: [follower(1, 'city-1')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     expect(result.total).toBe(2)
@@ -329,7 +290,7 @@ describe('calcCityScore', () => {
       followers: [follower(1, 'city-shield')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     // 2 тайла × 2 + герб × 2 = 6
@@ -356,7 +317,7 @@ describe('calcCityScore', () => {
       followers: [follower(1, 'city-shield-2')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     expect(result.total).toBe(8) // 3×2 + 1×2
@@ -371,7 +332,7 @@ describe('calcCityScore', () => {
       followers: [follower(1, 'city-shared'), follower(2, 'city-shared')],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     // 1 и 2 имеют по 1 фишке — оба лидеры, каждый получает полные очки
@@ -393,7 +354,7 @@ describe('calcCityScore', () => {
       ],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     expect(result.total).toBe(2)
@@ -416,7 +377,7 @@ describe('calcCityScore', () => {
       followers: [],
     }
 
-    const scores = scoresOf()
+    const scores = emptyScores()
     const result = calcCityScore(board, city, scores)
 
     expect(result.total).toBe(4)
@@ -426,22 +387,28 @@ describe('calcCityScore', () => {
   })
 })
 
-describe('calcMonasteryPoints', () => {
-  it('изолированный монастырь даёт 1 очко (только сам тайл)', () => {
-    const board = boardOf([[0, 0]])
-    const monastery: BaseObject = {
-      id: 'monastery-1',
-      points: [{ x: 0, y: 0, pointType: TileSideType.City }],
-      isMonastery: true,
-      followers: [],
-    }
-
-    const points = calcMonasteryPoints(board, monastery)
-
-    expect(points).toBe(1)
+/**
+ * Монастырь и сад считаются одинаково: очко за сам тайл и по очку за каждую
+ * занятую клетку окрестности 3×3, поэтому проверяются одним набором сценариев.
+ */
+describe.each([
+  ['сада', 'isGarden', calcGardenPoints],
+  ['монастыря', 'isMonastery', calcMonasteryPoints],
+] as const)('Центральный объект (%s)', (_name, flag, calcPoints) => {
+  const centralObject = (points: BaseObject['points']): BaseObject => ({
+    id: 'central-object',
+    points,
+    followers: [],
+    [flag]: true,
   })
 
-  it('монастырь в окружении 3×3 даёт 9 очков', () => {
+  it('изолированный объект даёт 1 очко (только сам тайл)', () => {
+    expect(calcPoints(boardOf([[0, 0]]), centralObject([{ x: 0, y: 0 }]))).toBe(
+      1
+    )
+  })
+
+  it('объект в окружении 3×3 даёт 9 очков', () => {
     const board = boardOf([
       [0, 0],
       [0, 1],
@@ -453,16 +420,8 @@ describe('calcMonasteryPoints', () => {
       [2, 1],
       [2, 2],
     ])
-    const monastery: BaseObject = {
-      id: 'monastery-full',
-      points: [{ x: 1, y: 1 }],
-      isMonastery: true,
-      followers: [],
-    }
 
-    const points = calcMonasteryPoints(board, monastery)
-
-    expect(points).toBe(9)
+    expect(calcPoints(board, centralObject([{ x: 1, y: 1 }]))).toBe(9)
   })
 
   it('пропуски в окрестности учитываются: 4 из 9 клеток заняты', () => {
@@ -472,83 +431,12 @@ describe('calcMonasteryPoints', () => {
       [1, 1],
       [2, 2],
     ])
-    board[1][1] = gridTile({ x: 1, y: 1, isMonastery: true })
-    const monastery: BaseObject = {
-      id: 'monastery-partial',
-      points: [{ x: 1, y: 1 }],
-      isMonastery: true,
-      followers: [],
-    }
-
-    const points = calcMonasteryPoints(board, monastery)
 
     // заняты: (0,1), (1,0), (1,1), (2,2) — ровно 4
-    expect(points).toBe(4)
+    expect(calcPoints(board, centralObject([{ x: 1, y: 1 }]))).toBe(4)
   })
 
-  it('монастырь без точки не даёт очков', () => {
-    const monastery: BaseObject = {
-      id: 'monastery-empty',
-      points: [],
-      isMonastery: true,
-      followers: [],
-    }
-
-    const points = calcMonasteryPoints({}, monastery)
-
-    expect(points).toBe(0)
-  })
-})
-
-describe('calcGardenPoints', () => {
-  it('изолированный сад даёт 1 очко (только сам тайл)', () => {
-    const board = boardOf([[0, 0]])
-    const garden: BaseObject = {
-      id: 'garden-1',
-      points: [{ x: 0, y: 0 }],
-      isGarden: true,
-      followers: [],
-    }
-
-    const points = calcGardenPoints(board, garden)
-
-    expect(points).toBe(1)
-  })
-
-  it('сад в окружении 3×3 даёт 9 очков', () => {
-    const board = boardOf([
-      [0, 0],
-      [0, 1],
-      [0, 2],
-      [1, 0],
-      [1, 1],
-      [1, 2],
-      [2, 0],
-      [2, 1],
-      [2, 2],
-    ])
-    const garden: BaseObject = {
-      id: 'garden-full',
-      points: [{ x: 1, y: 1 }],
-      isGarden: true,
-      followers: [],
-    }
-
-    const points = calcGardenPoints(board, garden)
-
-    expect(points).toBe(9)
-  })
-
-  it('сад без точки не даёт очков', () => {
-    const garden: BaseObject = {
-      id: 'garden-empty',
-      points: [],
-      isGarden: true,
-      followers: [],
-    }
-
-    const points = calcGardenPoints({}, garden)
-
-    expect(points).toBe(0)
+  it('объект без точки не даёт очков', () => {
+    expect(calcPoints({}, centralObject([]))).toBe(0)
   })
 })

@@ -8,15 +8,9 @@ import {
   TileSideType,
   type Player,
 } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
-const players: Player[] = [1, 2].map((id) => ({
-  id,
-  name: `Player ${id}`,
-  color: 'coral',
-  score: 0,
-  socketId: `socket-${id}`,
-  deviceId: `device-${id}`,
-}))
+const players = makePlayers()
 
 function fieldTile(id: string, x: number, hasVolcano = false) {
   return {
@@ -35,6 +29,31 @@ function fieldTile(id: string, x: number, hasVolcano = false) {
 }
 
 describe('Правила дополнения «Принцесса и дракон»', () => {
+  /** Ход принцессы: первый игрок выбирает фишку из чужого города. */
+  function princessTurn({ withFollower = true } = {}): {
+    game: GameManager
+    point: { x: number; y: number; direction: SideName }
+  } {
+    const game = new GameManager({ players, startImmediately: false })
+    const point = { x: 14, y: 15, direction: SideName.North }
+    game.currentPlayer = players[0] ?? null
+    game.currentPlayerIndex = 0
+    game.currentTile = null
+    game.princessChoice = { followers: [{ cityId: 'city-a', point }] }
+    if (withFollower) game.playersFollowers[2].ordinaryFollowers = 6
+    game.temporaryObjects.cities.push({
+      id: 'city-a',
+      points: [{ ...point, pointType: TileSideType.City }],
+      followers: withFollower
+        ? [{ playerId: 2, objectId: 'city-a', point }]
+        : [],
+    })
+    if (withFollower) {
+      game.placedFollowers.push({ playerId: 2, objectId: 'city-a', point })
+    }
+    return { game, point }
+  }
+
   it('включает набор только по флагу', () => {
     const disabledGame = new GameManager({ startImmediately: false })
     const enabledGame = new GameManager({
@@ -510,30 +529,7 @@ describe('Правила дополнения «Принцесса и драко
   })
 
   it('снимает с города выбранную фишку и возвращает её владельцу', () => {
-    const game = new GameManager({ players, startImmediately: false })
-    game.currentPlayer = players[0] ?? null
-    game.currentPlayerIndex = 0
-    game.currentTile = null
-    game.princessChoice = {
-      followers: [
-        {
-          cityId: 'city-a',
-          point: { x: 14, y: 15, direction: SideName.North },
-        },
-      ],
-    }
-    game.playersFollowers[2].ordinaryFollowers = 6
-    const point = { x: 14, y: 15, direction: SideName.North }
-    game.temporaryObjects.cities.push({
-      id: 'city-a',
-      points: [{ ...point, pointType: TileSideType.City }],
-      followers: [{ playerId: 2, objectId: 'city-a', point }],
-    })
-    game.placedFollowers.push({
-      playerId: 2,
-      objectId: 'city-a',
-      point,
-    })
+    const { game, point } = princessTurn({ withFollower: true })
 
     expect(game.choosePrincessFollower('city-a', { ...point, x: 99 })).toBe(
       false
@@ -545,30 +541,7 @@ describe('Правила дополнения «Принцесса и драко
   })
 
   it('записывает в историю действие принцессы и возврат фишки её владельцу', () => {
-    const game = new GameManager({ players, startImmediately: false })
-    game.currentPlayer = players[0] ?? null
-    game.currentPlayerIndex = 0
-    game.currentTile = null
-    game.princessChoice = {
-      followers: [
-        {
-          cityId: 'city-a',
-          point: { x: 14, y: 15, direction: SideName.North },
-        },
-      ],
-    }
-    game.playersFollowers[2].ordinaryFollowers = 6
-    const point = { x: 14, y: 15, direction: SideName.North }
-    game.temporaryObjects.cities.push({
-      id: 'city-a',
-      points: [{ ...point, pointType: TileSideType.City }],
-      followers: [{ playerId: 2, objectId: 'city-a', point }],
-    })
-    game.placedFollowers.push({
-      playerId: 2,
-      objectId: 'city-a',
-      point,
-    })
+    const { game, point } = princessTurn()
 
     expect(game.choosePrincessFollower('city-a', point)).toBe(true)
 
@@ -605,24 +578,7 @@ describe('Правила дополнения «Принцесса и драко
   })
 
   it('не записывает историю, если фишка принцессы уже снята с поля', () => {
-    const game = new GameManager({ players, startImmediately: false })
-    game.currentPlayer = players[0] ?? null
-    game.currentPlayerIndex = 0
-    game.currentTile = null
-    game.princessChoice = {
-      followers: [
-        {
-          cityId: 'city-a',
-          point: { x: 14, y: 15, direction: SideName.North },
-        },
-      ],
-    }
-    const point = { x: 14, y: 15, direction: SideName.North }
-    game.temporaryObjects.cities.push({
-      id: 'city-a',
-      points: [{ ...point, pointType: TileSideType.City }],
-      followers: [],
-    })
+    const { game, point } = princessTurn({ withFollower: false })
 
     expect(game.choosePrincessFollower('city-a', point)).toBe(false)
     expect(game.actionsHistory).toHaveLength(0)
