@@ -1,46 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
-import {
-  ActionTypes,
-  ObjectTypes,
-  SideName,
-  TileSideType,
-} from '@server/modules/types'
-import type { BaseObject, GridTile, Player } from '@server/modules/types'
+import { ActionTypes, ObjectTypes } from '@server/modules/types'
+import type { BaseObject, GridTile } from '@server/modules/types'
+import { gridTile, makePlayers } from '../helpers/fixtures'
 
-const players: Player[] = [
-  {
-    id: 1,
-    name: 'Alice',
-    color: 'coral',
-    score: 0,
-    socketId: null,
-    deviceId: null,
-  },
-  {
-    id: 2,
-    name: 'Bob',
-    color: 'skyblue',
-    score: 0,
-    socketId: null,
-    deviceId: null,
-  },
-]
+const players = makePlayers().map((player) => ({
+  ...player,
+  socketId: null,
+  deviceId: null,
+}))
 
 function tile(x: number, y: number, withShield = false): GridTile {
-  return {
-    id: `${x}-${y}`,
-    x,
-    y,
-    rotation: 0,
-    withShield,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
-  }
+  return gridTile({ x, y, withShield, id: `${x}-${y}` })
 }
 
 function object(

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
 import { GameErrors, LobbyErrors } from '@server/modules/errors'
-import { SideName, SocketEvents } from '@server/modules/types'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -11,6 +11,8 @@ import {
 import {
   findValidPlacement,
   isValidPosition,
+  makeHumanMove,
+  rotateSides,
   startGame,
   type GameStateSnapshot,
   type TileSnapshot,
@@ -79,7 +81,7 @@ describe('Действия в игре: валидация ходов', () => {
     ).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     // Алиса по-прежнему может ходить
-    const after = await makeAliceTurn(lobby.creator, gameId, state)
+    const after = (await makeHumanMove(lobby.creator, gameId, state)).game
     expect(after.gameIsStarted).toBe(true)
   })
 
@@ -117,7 +119,7 @@ describe('Действия в игре: валидация ходов', () => {
     expect(updated.game.currentTile?.sides).toEqual(move!.tile.sides)
 
     // Игра при этом не сломалась: ход по-прежнему можно завершить
-    const after = await makeAliceTurn(lobby.creator, gameId, state)
+    const after = (await makeHumanMove(lobby.creator, gameId, state)).game
     expect(after.gameIsStarted).toBe(true)
   })
 
@@ -140,16 +142,16 @@ describe('Действия в игре: валидация ходов', () => {
 
     for (const place of state.availablePlacesTiles ?? []) {
       for (let rotation = 1; rotation < 4; rotation++) {
-        const candidate = rotateTileState(tile, rotation)
-        if (
-          !isValidPosition(
-            state,
-            candidate.sides,
-            place.rowIndex,
-            place.tileIndex
-          )
-        ) {
-          invalid = { tile: candidate, place }
+        const sides = rotateSides(tile.sides, rotation)
+        if (!isValidPosition(state, sides, place.rowIndex, place.tileIndex)) {
+          invalid = {
+            tile: {
+              ...tile,
+              sides,
+              rotation: (tile.rotation + rotation * 90) % 360,
+            },
+            place,
+          }
           break
         }
       }
@@ -333,56 +335,3 @@ describe('Действия в игре: валидация ходов', () => {
     expect(rejoined.players[1].socketId).toBe(lobby.joiner.id)
   })
 })
-
-/** Поворачивает стороны тайла state-среза (зеркало rotateTile) */
-function rotateTileState(
-  tile: TileSnapshot,
-  rotation: number,
-  current = { ...tile.sides }
-): TileSnapshot {
-  let sides = current
-  for (let i = 0; i < rotation; i++) {
-    sides = {
-      ...sides,
-      [SideName.North]: sides[SideName.West],
-      [SideName.East]: sides[SideName.North],
-      [SideName.South]: sides[SideName.East],
-      [SideName.West]: sides[SideName.South],
-    }
-  }
-  return { ...tile, sides, rotation: (tile.rotation + rotation * 90) % 360 }
-}
-
-/** Полный ход Алисы: тайл + (при необходимости) скип фишки */
-async function makeAliceTurn(
-  creator: TestClient,
-  gameId: string,
-  state: GameStateSnapshot
-) {
-  const move = findValidPlacement(state)
-  if (!move) throw new Error('Не найдено легальное место для текущего тайла')
-
-  await creator.emitAck(SocketEvents.UpdateCurrentTile, {
-    gameId,
-    rotation: move.tile.rotation,
-  })
-  const placed = await creator.emitAck<{
-    success: boolean
-    game: TestGameData & { isPlacingFollower?: boolean }
-  }>(SocketEvents.PlaceTile, {
-    gameId,
-    position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
-  })
-  expect(placed.success).toBe(true)
-
-  let game = placed.game
-  if (game.isPlacingFollower) {
-    game = (
-      await creator.emitAck<{ success: boolean; game: TestGameData }>(
-        SocketEvents.SkipFollower,
-        { gameId }
-      )
-    ).game
-  }
-  return game
-}

@@ -1,18 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
 import { ActionTypes, ObjectTypes, PointDirection } from '@server/modules/types'
-import type { BaseObject, ObjectFollower, Player } from '@server/modules/types'
+import type { BaseObject, ObjectFollower } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
-const players: Player[] = [
-  {
-    id: 1,
-    name: 'Alice',
-    color: 'coral',
-    score: 0,
-    socketId: 'socket-1',
-    deviceId: 'device-1',
-  },
-]
+const players = makePlayers().slice(0, 1)
 
 describe('Начисление очков за завершённые центральные объекты', () => {
   it.each([

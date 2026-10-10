@@ -12,6 +12,7 @@ import {
   type GameStateSnapshot,
 } from './helpers/gameplay'
 import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
+import { waitForCondition } from './helpers/wait'
 import {
   createInMemoryStore,
   type InMemoryStore,
@@ -52,18 +53,6 @@ async function restartWithComputerGame(): Promise<RunningServer> {
   const restartedServer = await startTestServer(snapshot)
   await restartedServer.handle.gameService.loadSavedGames()
   return restartedServer
-}
-
-async function waitForCondition(
-  condition: () => boolean,
-  description: string
-): Promise<void> {
-  const deadline = Date.now() + 5_000
-  while (Date.now() < deadline) {
-    if (condition()) return
-    await new Promise((resolve) => setTimeout(resolve, 20))
-  }
-  throw new Error(`Таймаут ожидания: ${description}`)
 }
 
 describe('Сохранение данных лобби', () => {
@@ -263,21 +252,15 @@ describe('Сохранение данных лобби', () => {
       }),
     ])
 
-    const deadline = Date.now() + 5_000
-    while (Date.now() < deadline) {
-      const currentGame = server.handle.gameService.getGame('mixed-game')
-      if (
-        currentGame &&
+    await waitForCondition(
+      () =>
         countPlacedTiles(
-          server.handle.gameService.formatGameData(currentGame)
-            .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
-        ) > beforeRestart
-      ) {
-        return
-      }
-      await new Promise((resolve) => setTimeout(resolve, 20))
-    }
-    throw new Error('Ходы ИИ не возобновились после возвращения людей')
+          server!.handle.gameService.formatGameData(
+            server!.handle.gameService.getGame('mixed-game')!
+          ).tilePlacesStats as GameStateSnapshot['tilePlacesStats']
+        ) > beforeRestart,
+      'ходы ИИ после возвращения людей'
+    )
   })
 
   it('возобновляет начатую партию только компьютерных игроков после перезапуска', async () => {

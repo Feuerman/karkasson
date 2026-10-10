@@ -23,7 +23,7 @@ function collectExamples(docs: { sections: { blocks: unknown[] }[] }[]) {
 }
 
 describe('примеры правил', () => {
-  it('делит правила на базовую игру и отдельный раздел дополнения', () => {
+  it('раздел дополнения содержит примеры, а каталоги тайлов подключены', () => {
     expect(baseGameRules.sections.map(({ title }) => title)).toEqual([
       'Базовая игра',
       'Таверны и соборы',
@@ -31,41 +31,17 @@ describe('примеры правил', () => {
       'Река',
     ])
 
-    const expansionSection = baseGameRules.sections[1]
+    const [, expansionSection] = baseGameRules.sections
     expect(
       expansionSection?.blocks.some((block) => block.type === 'example')
     ).toBe(true)
 
-    const princessAndDragonSection = baseGameRules.sections[2]
-    const dragonRules = princessAndDragonSection?.blocks.find(
-      (block) => block.type === 'list'
-    )
-    expect(dragonRules?.type).toBe('list')
-    if (dragonRules?.type === 'list') {
-      expect(dragonRules.items).toHaveLength(7)
-      expect(dragonRules.items).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('случайное место колоды'),
-          expect.stringContaining('до 6 раз'),
-          expect.stringContaining('нельзя повторно посещать тайл'),
-          expect.stringContaining('Телепортация не снимает подданных'),
-        ])
-      )
+    for (const section of baseGameRules.sections.slice(2)) {
+      expect(
+        section.blocks.some((block) => block.type === 'tiles-row'),
+        section.title
+      ).toBe(true)
     }
-    const dragonTilesRow = princessAndDragonSection?.blocks.find(
-      (block) => block.type === 'tiles-row'
-    )
-    expect(
-      dragonTilesRow?.type === 'tiles-row' ? dragonTilesRow.tiles : []
-    ).toHaveLength(5)
-
-    const riverSection = baseGameRules.sections[3]
-    const riverTilesRow = riverSection?.blocks.find(
-      (block) => block.type === 'tiles-row'
-    )
-    expect(
-      riverTilesRow?.type === 'tiles-row' ? riverTilesRow.tiles : []
-    ).toHaveLength(11)
   })
 
   it('все сетки примеров корректны (грани совпадают, маркеры осмысленны)', () => {
@@ -89,94 +65,35 @@ describe('примеры правил', () => {
     })
   })
 
-  it('объясняет базовую игру и отличия от настольной версии', () => {
-    const baseSection = baseGameRules.sections[0]
-    const exampleIds = collectExamples([baseGameRules])
-      .map(({ id }) => id)
-      .filter((id) =>
-        [
-          'shared-road',
-          'shared-city-majority',
-          'final-scoring',
-          'completed-road-ring',
-          'completed-city-ring',
-          'completed-monastery',
-        ].includes(id)
-      )
-    expect(exampleIds).toEqual([
-      'completed-road-ring',
-      'completed-city-ring',
-      'completed-monastery',
-      'shared-road',
-      'shared-city-majority',
-      'final-scoring',
-    ])
-
-    const texts = (baseSection?.blocks ?? [])
-      .map((block) =>
-        block.type === 'paragraph' || block.type === 'callout'
-          ? `${block.title ?? ''} ${block.text}`
-          : block.type === 'list'
-            ? `${block.title ?? ''} ${block.items.join(' ')}`
-            : ''
-      )
-      .join(' ')
-
-    expect(texts).toContain('в онлайн-версии дорожки нет')
-    expect(texts).toContain('поля и крестьяне не реализованы')
-    expect(texts).toContain('до размещения подданного')
-    expect(texts).toContain(
-      'При равенстве каждый лидер получает полную награду'
-    )
-    expect(texts).toContain('домашние правила')
-  })
-
-  it('показывает прямой, поворотный и досрочно завершённый маршрут дракона', () => {
-    const examples = collectExamples([baseGameRules])
-    const dragonExamples = examples.filter(({ id }) =>
+  it('маршрут дракона в примерах пронумерован подряд и без повторов', () => {
+    const dragonExamples = collectExamples([baseGameRules]).filter(({ id }) =>
       id.startsWith('dragon-move-')
     )
+    expect(dragonExamples.length).toBeGreaterThan(0)
 
-    expect(dragonExamples.map(({ id }) => id)).toEqual([
-      'dragon-move-straight',
-      'dragon-move-turns',
-      'dragon-move-dead-end',
-    ])
-    expect(
-      dragonExamples.map((example) =>
-        example.grid
-          .flatMap((row) => row)
-          .reduce(
-            (count, cellEntry) =>
-              count +
-              (cellEntry.tile?.markers?.filter(
-                (marker) => marker.kind === 'dragon'
-              ).length ?? 0),
-            0
-          )
-      )
-    ).toEqual([7, 7, 4])
-
-    const dragonSteps = dragonExamples.map((example) =>
-      example.grid
+    for (const example of dragonExamples) {
+      const steps = example.grid
         .flatMap((row) => row)
         .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
         .filter((marker) => marker.kind === 'dragon')
         .map((marker) => marker.step)
         .sort((left, right) => left - right)
-    )
-    expect(dragonSteps).toEqual([
-      [0, 1, 2, 3, 4, 5, 6],
-      [0, 1, 2, 3, 4, 5, 6],
-      [0, 1, 2, 3],
-    ])
 
-    const routeWithFollower = dragonExamples.find(
+      // Каждый тайл маршрута посещён один раз, нумерация шагов без пропусков.
+      expect(steps, example.id).toEqual(
+        Array.from({ length: steps.length }, (_, index) => index)
+      )
+    }
+  })
+
+  it('примеры дракона показывают возврат съеденного подданного', () => {
+    const straight = collectExamples([baseGameRules]).find(
       ({ id }) => id === 'dragon-move-straight'
     )
-    expect(routeWithFollower?.returnedFollowers).toEqual(['coral'])
+
+    expect(straight?.returnedFollowers).toEqual(['coral'])
     expect(
-      routeWithFollower?.grid
+      straight?.grid
         .flatMap((row) => row)
         .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
         .some(

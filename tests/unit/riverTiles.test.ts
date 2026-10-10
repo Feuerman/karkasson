@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { riverTiles } from '@server/data/riverTiles'
 import { ExpansionName, SideName, TileId } from '@server/modules/types'
 import { rotateTileGroups } from '@server/modules/tileRotation'
@@ -72,8 +72,7 @@ describe('Тайлы дополнения «Река»', () => {
   })
 
   it('перемешивает средние тайлы реки при генерации колоды', () => {
-    const random = Math.random
-    Math.random = () => 0
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {
       const game = new GameManager({
         riverEnabled: true,
@@ -92,7 +91,7 @@ describe('Тайлы дополнения «Река»', () => {
       expect(generatedRiverIds).not.toEqual(catalogRiverIds)
       expect(game.tilesList[riverEndIndex]?.id).toBe(TileId.RIVER_L)
     } finally {
-      Math.random = random
+      random.mockRestore()
     }
   })
 
@@ -206,8 +205,7 @@ describe('Тайлы дополнения «Река»', () => {
   })
 
   it('выкладывает все речные тайлы по очереди и завершает реку озером', () => {
-    const random = Math.random
-    Math.random = () => 0.5
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
     try {
       const game = new GameManager({
         riverEnabled: true,
@@ -289,7 +287,7 @@ describe('Тайлы дополнения «Река»', () => {
       expect(game.currentTile?.id).toBe(TileId.B)
       expect(game.currentTile?.expansion).toBeUndefined()
     } finally {
-      Math.random = random
+      random.mockRestore()
     }
   })
 })

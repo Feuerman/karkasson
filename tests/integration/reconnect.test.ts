@@ -12,26 +12,8 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-
-function countPlacedTiles(game: TestGameData): number {
-  return Object.values(game.tilePlacesStats).reduce(
-    (count, row) => count + Object.keys(row).length,
-    0
-  )
-}
-
-async function waitForCondition(
-  condition: () => boolean,
-  description: string,
-  timeoutMs = 5_000
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (condition()) return
-    await new Promise((resolve) => setTimeout(resolve, 20))
-  }
-  throw new Error(`Таймаут ожидания: ${description}`)
-}
+import { sleep, waitForCondition } from './helpers/wait'
+import { countPlacedTiles } from './helpers/gameplay'
 
 describe('Отключение и переподключение игроков', () => {
   let server: RunningServer | undefined
@@ -221,15 +203,13 @@ describe('Отключение и переподключение игроков'
       server.handle.gameService,
       lobby.gameId
     )
-    const tilesBeforePause = countPlacedTiles(
-      server.handle.gameService.formatGameData(game) as TestGameData
-    )
-    await new Promise((resolve) => setTimeout(resolve, 250))
-    expect(
+    const placedTiles = () =>
       countPlacedTiles(
-        server.handle.gameService.formatGameData(game) as TestGameData
+        server!.handle.gameService.getGame(lobby.gameId)!.tilePlacesStats
       )
-    ).toBe(tilesBeforePause)
+    const tilesBeforePause = placedTiles()
+    await sleep(250)
+    expect(placedTiles()).toBe(tilesBeforePause)
 
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
@@ -240,10 +220,7 @@ describe('Отключение и переподключение игроков'
     })
 
     await waitForCondition(
-      () =>
-        countPlacedTiles(
-          server?.handle.gameService.formatGameData(game) as TestGameData
-        ) > tilesBeforePause,
+      () => placedTiles() > tilesBeforePause,
       'возобновление ходов компьютера после возвращения игроков'
     )
   })

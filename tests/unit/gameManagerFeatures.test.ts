@@ -10,44 +10,14 @@ import type {
   BaseObject,
   GridTile,
   ObjectFollower,
-  Player,
   Point,
 } from '@server/modules/types'
+import { gridTile, makePlayers } from '../helpers/fixtures'
 
-const players: Player[] = [
-  {
-    id: 1,
-    name: 'Alice',
-    color: 'coral',
-    score: 0,
-    socketId: 'socket-1',
-    deviceId: 'device-1',
-  },
-  {
-    id: 2,
-    name: 'Bob',
-    color: 'skyblue',
-    score: 0,
-    socketId: 'socket-2',
-    deviceId: 'device-2',
-  },
-]
+const players = makePlayers()
 
-function gridTile(x: number, withShield = false): GridTile {
-  return {
-    id: `tile-${x}`,
-    rotation: 0,
-    x,
-    y: 15,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
-    withShield,
-  }
-}
+const cellTile = (x: number, withShield = false): GridTile =>
+  gridTile({ x, y: 15, withShield, id: `tile-${x}` })
 
 function segment(id: string, point: Point, playerId: number): BaseObject {
   const follower: ObjectFollower = {
@@ -81,7 +51,7 @@ describe('Слияние и завершение дорог и городов', 
         },
       ],
     }
-    game.tilePlacesStats = { 15: { 15: gridTile(15) } }
+    game.tilePlacesStats = { 15: { 15: cellTile(15) } }
     game.playersFollowers[1].bigFollowers = 0
     const result = game.calcScoreForRoad(road)
 
@@ -112,10 +82,10 @@ describe('Слияние и завершение дорог и городов', 
       },
     ]
     game.tilePlacesStats = {
-      14: { 15: gridTile(15) },
+      14: { 15: cellTile(15) },
       15: {
-        14: gridTile(14),
-        16: gridTile(16),
+        14: cellTile(14),
+        16: cellTile(16),
         15: {
           id: 'bridge-city',
           rotation: 0,
@@ -195,11 +165,11 @@ describe('Слияние и завершение дорог и городов', 
     game.temporaryObjects.cities = [leftCity, rightCity]
     game.tilePlacesStats = {
       15: {
-        14: gridTile(14),
-        15: gridTile(15, true),
-        16: gridTile(16),
+        14: cellTile(14),
+        15: cellTile(15, true),
+        16: cellTile(16),
       },
-      14: { 14: { ...gridTile(14), y: 14 } },
+      14: { 14: { ...cellTile(14), y: 14 } },
     }
     game.playersFollowers[1].ordinaryFollowers = 5
     game.placedFollowers.push({
@@ -279,11 +249,11 @@ describe('Слияние и завершение дорог и городов', 
       firstSegment.points.push(openCityOrRoadEnd)
       game.temporaryObjects[collection] = [firstSegment, secondSegment]
       game.tilePlacesStats[15] = {
-        14: gridTile(14),
-        15: gridTile(15, feature === TileSideType.City),
-        16: gridTile(16),
+        14: cellTile(14),
+        15: cellTile(15, feature === TileSideType.City),
+        16: cellTile(16),
       }
-      game.tilePlacesStats[14] = { 14: gridTile(14) }
+      game.tilePlacesStats[14] = { 14: cellTile(14) }
       game.playersFollowers[1].ordinaryFollowers = 6
       game.playersFollowers[2].ordinaryFollowers = 6
       game.placedFollowers.push(

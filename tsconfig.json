@@ -24,6 +24,7 @@
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
+"tests/helpers/**/*.ts",
     "tests/unit/**/*.ts",
     "tests/integration/**/*.ts",
     "tests/browser/**/*.ts"

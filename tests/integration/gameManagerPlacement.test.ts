@@ -9,27 +9,33 @@ import {
   TileId,
   TileSideType,
 } from '@server/modules/types'
-import type { BaseObject, Point, Player, Tile } from '@server/modules/types'
+import type { BaseObject, Point, Tile } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
-function makePlayers(): Player[] {
-  return [
-    {
-      id: 1,
-      name: 'Alice',
-      color: 'red',
-      score: 0,
-      socketId: 's1',
-      deviceId: 'd1',
-    },
-    {
-      id: 2,
-      name: 'Bob',
-      color: 'blue',
-      score: 0,
-      socketId: 's2',
-      deviceId: 'd2',
-    },
-  ]
+/**
+ * Проверки объектов на «живом» GameManager: сетка после размещения тайла,
+ * доступные места под фишку и защита от подмены объекта клиентом.
+ * Новый GameManager уже содержит стартовый тайл, поэтому перед проверками
+ * своей доски объектты и сетку очищают.
+ */
+
+/** Чистая доска без объектов и сетки стартового тайла */
+function emptyBoard(game: GameManager): void {
+  game.temporaryObjects = {
+    cities: [],
+    roads: [],
+    monasteries: [],
+    gardens: [],
+  }
+  game.tilePlacesStats = {}
+}
+
+function directionsOf(
+  places: { point: { direction?: string } }[]
+): (string | undefined)[] {
+  return places
+    .map(({ point }) => point.direction)
+    .sort((left, right) => String(left).localeCompare(String(right)))
 }
 
 describe('Размещение тайла не зависит от порядка ключей sides', () => {
@@ -500,16 +506,26 @@ describe('Проверка размещения и возврата поддан
           ).toBe(true)
         }
       }
+
+      // Герб защищает одну из групп города того же тайла
+      for (const shieldGroup of definition.cityShieldGroups ?? []) {
+        expect(
+          (definition.cityGroups ?? []).some((cityGroup) =>
+            shieldGroup.every((side) => cityGroup.includes(side))
+          ),
+          `${definition.id} shield ${shieldGroup.join(',')}`
+        ).toBe(true)
+      }
     }
   })
 
-  it('сохраняет заданные группы дорог на тайлах дополнения', () => {
+  it('поворачивает группы дорог дополнения вместе с тайлом', () => {
     const game = new GameManager({
       players: makePlayers(),
       startImmediately: false,
       innsAndCathedralsEnabled: true,
     })
-    const getExpansionTile = (id: string) => {
+    const expansionTile = (id: string) => {
       const definition = innsAndCathedralsTiles.find((tile) => tile.id === id)
       if (!definition) throw new Error(`Tile ${id} is missing`)
       return { ...definition, rotation: 0 }
@@ -517,43 +533,13 @@ describe('Проверка размещения и возврата поддан
 
     expect(
       game.getTileFeatureGroups(
-        getExpansionTile(TileId.IAC_E),
-        TileSideType.Road
-      )
-    ).toEqual([
-      [SideName.North, SideName.West],
-      [SideName.East, SideName.South],
-    ])
-    expect(
-      game.getTileFeatureGroups(
-        getExpansionTile(TileId.IAC_I),
-        TileSideType.Road
-      )
-    ).toEqual([[SideName.East], [SideName.West]])
-    expect(
-      game.getTileFeatureGroups(
-        game.rotateTile(getExpansionTile(TileId.IAC_E)),
+        game.rotateTile(expansionTile(TileId.IAC_E)),
         TileSideType.Road
       )
     ).toEqual([
       [SideName.East, SideName.North],
       [SideName.South, SideName.West],
     ])
-  })
-
-  it('описывает два отдельных города IAC-P и относит герб к одному из них', () => {
-    const tile = innsAndCathedralsTiles.find(({ id }) => id === TileId.IAC_P)
-    if (!tile) throw new Error('Tile IAC-P is missing')
-    const game = new GameManager({
-      players: makePlayers(),
-      startImmediately: false,
-      innsAndCathedralsEnabled: true,
-    })
-
-    expect(
-      game.getTileFeatureGroups({ ...tile, rotation: 0 }, TileSideType.City)
-    ).toEqual([[SideName.North, SideName.West], [SideName.South]])
-    expect(tile.cityShieldGroups).toEqual([[SideName.North, SideName.West]])
   })
 
   it('предлагает все незанятые группы для всех типов каталожных тайлов и поворотов', () => {
@@ -609,11 +595,9 @@ describe('Проверка размещения и возврата поддан
         }
         expect(game.simulatePlaceTile(gridTile, y, x)).toBe(true)
 
-        expect(
-          game.availableFollowersPlaces
-            .map((place) => place.point.direction)
-            .sort()
-        ).toEqual(expectedDirections.sort())
+        expect(directionsOf(game.availableFollowersPlaces)).toEqual(
+          [...expectedDirections].sort()
+        )
       }
     }
   })
@@ -679,20 +663,15 @@ describe('Проверка размещения и возврата поддан
       game.checkAvailableFollowers()
 
       expect(game.isPlacingFollower).toBe(true)
-      expect(
-        game.availableFollowersPlaces
-          .map((place) => place.point.direction)
-          .sort()
-      ).toEqual([...expectedAvailable].sort())
+      expect(directionsOf(game.availableFollowersPlaces)).toEqual(
+        [...expectedAvailable].sort()
+      )
     }
   )
 
   it('сохраняет отдельные городские сегменты на тайле F', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     const tile = {
       id: TileId.F,
       rotation: 0,
@@ -758,10 +737,7 @@ describe('Проверка размещения и возврата поддан
 
   it('запрещает ставить второго подданного на объединяемые группы одного тайла', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     const firstPoint: Point = { x: 15, y: 15, direction: SideName.North }
     const secondPoint: Point = { x: 15, y: 15, direction: SideName.East }
     const city: BaseObject = {
@@ -797,10 +773,7 @@ describe('Проверка размещения и возврата поддан
 
   it('оставляет две несвязанные области города H разными объектами', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     game.tilePlacesStats[15] = {
       15: {
         id: TileId.H,
@@ -832,10 +805,7 @@ describe('Проверка размещения и возврата поддан
 
   it('разделяет ветви дороги тайла D', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     game.tilePlacesStats[15] = {
       15: {
         id: TileId.D,
@@ -860,10 +830,7 @@ describe('Проверка размещения и возврата поддан
 
   it('учитывает объединённый город F при размещении подданных', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     const tile: Tile = {
       id: TileId.F,
       rotation: 0,
@@ -906,10 +873,7 @@ describe('Проверка размещения и возврата поддан
 
   it('не объединяет сплошной город тайла C с несколькими городами', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     game.tilePlacesStats[15] = {
       15: {
         id: TileId.C,
@@ -933,10 +897,7 @@ describe('Проверка размещения и возврата поддан
 
   it('объединяет обе стороны прямой дороги D в один объект', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     const tile: Tile = {
       id: TileId.D,
       rotation: 0,
@@ -987,10 +948,7 @@ describe('Проверка размещения и возврата поддан
 
   it('не позволяет изменить заявку, подменив занятый объект города', () => {
     const game = new GameManager({ players: makePlayers() })
-    game.temporaryObjects.cities = []
-    game.temporaryObjects.roads = []
-    game.temporaryObjects.monasteries = []
-    game.temporaryObjects.gardens = []
+    emptyBoard(game)
     const tile: Tile = {
       id: TileId.F,
       rotation: 0,

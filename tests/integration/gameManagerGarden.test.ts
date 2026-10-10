@@ -9,7 +9,8 @@ import {
   TileId,
   TileSideType,
 } from '@server/modules/types'
-import type { Player, Tile, TileSides } from '@server/modules/types'
+import type { Tile, TileSides } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
 /**
  * Детерминированные тесты сада на «живом» GameManager: на сад ставится только
@@ -30,27 +31,6 @@ function gardenTile(): Tile {
     },
     hasGarden: true,
   }
-}
-
-function makePlayers(): Player[] {
-  return [
-    {
-      id: 1,
-      name: 'Alice',
-      color: 'red',
-      score: 0,
-      socketId: 's1',
-      deviceId: 'd1',
-    },
-    {
-      id: 2,
-      name: 'Bob',
-      color: 'blue',
-      score: 0,
-      socketId: 's2',
-      deviceId: 'd2',
-    },
-  ]
 }
 
 const stashDeck = (game: GameManager) => {
