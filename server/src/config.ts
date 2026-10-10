@@ -50,13 +50,59 @@ export const COMPUTER_MOVE_DELAY_MS =
 // Время на восстановление соединения всеми реальными игроками партии.
 export const PLAYER_RECONNECT_TIMEOUT_MS = 15 * 60 * 1000
 
-export const firebaseConfig = {
-  apiKey: 'AIzaSyDyRbOXPz22xQVZndSmwwXWwfBXXQw-adw',
-  authDomain: 'karkassone-a5080.firebaseapp.com',
-  projectId: 'karkassone-a5080',
-  storageBucket: 'karkassone-a5080.firebasestorage.app',
-  messagingSenderId: '142905740344',
-  appId: '1:142905740344:web:4d9ea0c2ec278d3d92aacd',
-  measurementId: 'G-KYYJTPJXYH',
-  databaseURL: 'https://karkassone-a5080-default-rtdb.firebaseio.com/',
+export interface FirebaseConfig {
+  apiKey: string
+  databaseURL: string
+  authDomain?: string
+  projectId?: string
+  storageBucket?: string
+  messagingSenderId?: string
+  appId?: string
+  measurementId?: string
+}
+
+function readEnv(
+  environment: NodeJS.ProcessEnv,
+  name: string
+): string | undefined {
+  const value = environment[name]?.trim()
+  return value ? value : undefined
+}
+
+function requireEnv(environment: NodeJS.ProcessEnv, name: string): string {
+  const value = readEnv(environment, name)
+  if (!value) {
+    throw new Error(`Missing required environment variable ${name}`)
+  }
+  return value
+}
+
+/**
+ * Конфигурация Firebase Realtime Database. Значения приходят из окружения:
+ * обязательны FIREBASE_API_KEY и FIREBASE_DATABASE_URL, остальные необязательны
+ * и попадают в конфиг только когда заданы. Нужен только production-серверу,
+ * в разработке и тестах работает in-memory хранилище.
+ */
+export function getFirebaseConfig(
+  environment: NodeJS.ProcessEnv = process.env
+): FirebaseConfig {
+  const config: FirebaseConfig = {
+    apiKey: requireEnv(environment, 'FIREBASE_API_KEY'),
+    databaseURL: requireEnv(environment, 'FIREBASE_DATABASE_URL'),
+  }
+
+  const authDomain = readEnv(environment, 'FIREBASE_AUTH_DOMAIN')
+  if (authDomain) config.authDomain = authDomain
+  const projectId = readEnv(environment, 'FIREBASE_PROJECT_ID')
+  if (projectId) config.projectId = projectId
+  const storageBucket = readEnv(environment, 'FIREBASE_STORAGE_BUCKET')
+  if (storageBucket) config.storageBucket = storageBucket
+  const messagingSenderId = readEnv(environment, 'FIREBASE_MESSAGING_SENDER_ID')
+  if (messagingSenderId) config.messagingSenderId = messagingSenderId
+  const appId = readEnv(environment, 'FIREBASE_APP_ID')
+  if (appId) config.appId = appId
+  const measurementId = readEnv(environment, 'FIREBASE_MEASUREMENT_ID')
+  if (measurementId) config.measurementId = measurementId
+
+  return config
 }
