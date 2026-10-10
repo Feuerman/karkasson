@@ -72,6 +72,60 @@ interface SideMatch {
   adjacentTileIndex: number
 }
 
+/** Соседняя клетка по стороне тайла и сторона, с которой она соприкасается. */
+export interface NeighborSide {
+  side: SideName
+  /** Смещение соседа относительно тайла: Y (строка) и X (колонка). */
+  rowOffset: number
+  columnOffset: number
+  /** Сторона соседа, которой касается сторона `side` нового тайла. */
+  oppositeSide: SideName
+}
+
+/**
+ * Единственная таблица соседей доски. Сопоставление сторон всегда идёт по
+ * именам направлений, а не по порядку ключей `sides`: порядок меняется при
+ * повороте тайла.
+ */
+export const NEIGHBOR_SIDES: readonly NeighborSide[] = [
+  {
+    side: SideName.North,
+    rowOffset: -1,
+    columnOffset: 0,
+    oppositeSide: SideName.South,
+  },
+  {
+    side: SideName.East,
+    rowOffset: 0,
+    columnOffset: 1,
+    oppositeSide: SideName.West,
+  },
+  {
+    side: SideName.South,
+    rowOffset: 1,
+    columnOffset: 0,
+    oppositeSide: SideName.North,
+  },
+  {
+    side: SideName.West,
+    rowOffset: 0,
+    columnOffset: -1,
+    oppositeSide: SideName.East,
+  },
+]
+
+/** Координаты соседней клетки по стороне `side`. */
+export function neighborCoordinates(
+  rowIndex: number,
+  tileIndex: number,
+  neighbor: NeighborSide
+): { rowIndex: number; tileIndex: number } {
+  return {
+    rowIndex: rowIndex + neighbor.rowOffset,
+    tileIndex: tileIndex + neighbor.columnOffset,
+  }
+}
+
 /** Сопоставляет стороны нового тайла с противоположными сторонами соседей. */
 function collectSideMatches(
   tile: Tile,
@@ -79,49 +133,19 @@ function collectSideMatches(
   tileIndex: number,
   tilePlacesStats: TilePlacesStats
 ): SideMatch[] {
-  // Сопоставляем стороны явно: порядок ключей sides может меняться при повороте.
-  const neighbours: Array<{
-    side: SideName
-    neighbourSide: SideName
-    neighbourRowIndex: number
-    neighbourTileIndex: number
-  }> = [
-    {
-      side: SideName.North,
-      neighbourSide: SideName.South,
-      neighbourRowIndex: rowIndex - 1,
-      neighbourTileIndex: tileIndex,
-    },
-    {
-      side: SideName.East,
-      neighbourSide: SideName.West,
-      neighbourRowIndex: rowIndex,
-      neighbourTileIndex: tileIndex + 1,
-    },
-    {
-      side: SideName.South,
-      neighbourSide: SideName.North,
-      neighbourRowIndex: rowIndex + 1,
-      neighbourTileIndex: tileIndex,
-    },
-    {
-      side: SideName.West,
-      neighbourSide: SideName.East,
-      neighbourRowIndex: rowIndex,
-      neighbourTileIndex: tileIndex - 1,
-    },
-  ]
-
-  return neighbours.map((neighbour) => ({
-    side: neighbour.side,
-    own: tile.sides[neighbour.side],
-    adjacent:
-      tilePlacesStats[neighbour.neighbourRowIndex]?.[
-        neighbour.neighbourTileIndex
-      ]?.sides[neighbour.neighbourSide],
-    adjacentRowIndex: neighbour.neighbourRowIndex,
-    adjacentTileIndex: neighbour.neighbourTileIndex,
-  }))
+  return NEIGHBOR_SIDES.map((neighbor) => {
+    const coordinates = neighborCoordinates(rowIndex, tileIndex, neighbor)
+    return {
+      side: neighbor.side,
+      own: tile.sides[neighbor.side],
+      adjacent:
+        tilePlacesStats[coordinates.rowIndex]?.[coordinates.tileIndex]?.sides[
+          neighbor.oppositeSide
+        ],
+      adjacentRowIndex: coordinates.rowIndex,
+      adjacentTileIndex: coordinates.tileIndex,
+    }
+  })
 }
 
 export function isCorrectTilePosition(

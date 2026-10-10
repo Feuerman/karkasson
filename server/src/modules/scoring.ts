@@ -8,7 +8,19 @@ import type {
   Scores,
   TilePlacesStats,
 } from './types'
-import { ExpansionName, PointDirection } from './types'
+import { ExpansionName, ObjectTypes, PointDirection } from './types'
+
+/**
+ * Родительный падеж названия объекта для текстов детализации очков.
+ * Ключи совпадают с типами объектов, поэтому выбираются по типу объекта.
+ */
+export const CENTRAL_OBJECT_NAMES: Record<
+  ObjectTypes.MONASTERY | ObjectTypes.GARDEN,
+  'монастыря' | 'сада'
+> = {
+  [ObjectTypes.MONASTERY]: 'монастыря',
+  [ObjectTypes.GARDEN]: 'сада',
+}
 
 /**
  * Распределяет очки объекта между игроками-лидерами

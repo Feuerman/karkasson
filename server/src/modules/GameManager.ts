@@ -5,29 +5,28 @@ import {
   findTileSideConflicts,
   getPrecisionCoordinates,
   isOppositePoint,
+  neighborCoordinates,
+  NEIGHBOR_SIDES,
 } from './gameGeometry'
-import { rotateTileGroups, rotateTileSides } from './tileRotation'
+import { applyQuarterTurns, rotateTileGroups } from './tileRotation'
+import { resolveTileFeatureGroups } from './tileFeatureGroups'
 import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
+import { DragonPrincessManager } from './DragonPrincessManager'
+import { finalizeScoring } from './finalScoring'
 import {
   calcCityScore,
-  calcGardenPoints,
-  calcMonasteryPoints,
   calcRoadScore,
-  describeCentralObjectPoints,
   describeCityScore,
   describeRoadScore,
-  distributeScore,
 } from './scoring'
 import {
   ActionTypes,
-  ObjectTypes,
   ExpansionName,
   FollowerType as FollowerTypes,
   RotationDirection as RotationDirections,
   RotationTurns,
-  SIDE_NAMES,
   SideName,
   TileId,
   TileSideType,
@@ -46,11 +45,9 @@ import {
   type PlayerId,
   type PlacedFollower,
   type PlacementConflict,
-  type ReturnedFollower,
   type Point,
   type PointDirection,
   type RotationDirection,
-  type ScoreDetailLine,
   type ScoreDetails,
   type ScoreForObject,
   type Scores,
@@ -61,108 +58,34 @@ import {
 
 export type { AvailableFollowerPlace, RotationDirection } from './types'
 
-export interface PlaceTileActionData {
-  tile: Tile
-  rowIndex: number
-  tileIndex: number
-}
+// Формы записей истории описаны в gameActions; здесь они переэкспортируются,
+// чтобы клиент и остальной сервер могли импортировать их из одного места.
+export type {
+  AddingScoresActionData,
+  BackFollowerActionData,
+  DragonMoveActionData,
+  GameAction,
+  GameActionBase,
+  NewGameAction,
+  PlaceFollowerActionData,
+  PlaceTileActionData,
+  PrincessTakeFollowerActionData,
+} from './gameActions'
 
-export interface PlaceFollowerActionData extends AvailableFollowerPlace {
-  followerType?: FollowerType
-}
-
-/**
- * Строка детализации расчёта очков объекта: из чего сложилась сумма.
- * Формируется сервером, клиент только отображает.
- */
-export interface AddingScoresActionData {
-  objectType: ObjectTypes
-  objectData: BaseObject
-  score: ScoreForObject
-  /** Строки расчёта очков. Не заполняется для сохранений старых версий. */
-  details?: ScoreDetailLine[]
-  /** Текстовые бонусы, повлиявшие на расчёт: таверна, собор. */
-  modifiers?: string[]
-  /**
-   * Начисление сделано по итогам партии, а не в её ходе: недозавершённые
-   * дороги, города, монастыри и сады. Не заполняется для сохранений старых версий.
-   */
-  isFinalScoring?: boolean
-}
-
-export interface BackFollowerActionData {
-  followers: ReturnedFollower[]
-}
+import type { GameAction, NewGameAction } from './gameActions'
 
 /**
- * Шаг дракона: откуда и куда он перешёл и каких подданных съел на клетке
- * назначения. Съеденные подданные возвращаются в пул владельца и сразу после
- * шага записываются отдельной записью о возврате.
+ * Контракт игровой доски.
+ *
+ * Содержит только данные состояния и команды, которыми пользуются транспорт,
+ * лобби и симулятор ИИ. Сами правила живут в классе `GameManager` и его
+ * помощниках (`GameObjectManager`, `FollowerManager`, `GameTileManager`,
+ * `DragonPrincessManager`), а чистые расчёты — в `scoring.ts`.
+ *
+ * Передаётся в сохранения и в клиент через Socket.IO, поэтому все методы
+ * определены здесь же: восстановленная из сохранения партия должна вести себя
+ * так же, как живая.
  */
-export interface DragonMoveActionData {
-  from: DragonPosition
-  to: DragonPosition
-  eatenFollowers: ReturnedFollower[]
-  /** Шагов осталось после перемещения. */
-  remainingSteps: number
-}
-
-/**
- * Действие принцессы: у города на её тайле выбран подданный, которого она
- * забирает. Фишка возвращается владельцу и сразу после этого записывается
- * отдельной записью о возврате.
- */
-export interface PrincessTakeFollowerActionData {
-  /** Город, у которого забрали подданного. */
-  cityId: string
-  takenFollower: ReturnedFollower
-}
-
-/** Общая часть любой записи истории ходов. */
-export interface GameActionBase {
-  /** Игрок, которому принадлежит действие. Не заполняется для части действий. */
-  initiator?: Player | null
-  /**
-   * Номер хода (счётчик раундов), на который приходится действие. Группирует
-   * записи истории по ходам в интерфейсе. Не заполняется для сохранений старых
-   * версий, поэтому история таких партий показывается одним блоком.
-   */
-  moveNumber?: number
-}
-
-export type GameAction =
-  | (GameActionBase & {
-      actionType: ActionTypes.PLACE_TILE
-      actionData: PlaceTileActionData
-    })
-  | (GameActionBase & {
-      actionType: ActionTypes.PLACE_FOLLOWER
-      actionData: PlaceFollowerActionData
-    })
-  | (GameActionBase & {
-      actionType: ActionTypes.ADDING_SCORES
-      actionData: AddingScoresActionData
-    })
-  | (GameActionBase & {
-      actionType: ActionTypes.BACK_FOLLOWER
-      actionData: BackFollowerActionData
-    })
-  | (GameActionBase & {
-      actionType: ActionTypes.DRAGON_MOVE
-      actionData: DragonMoveActionData
-    })
-  | (GameActionBase & {
-      actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER
-      actionData: PrincessTakeFollowerActionData
-    })
-
-/** Запись истории до простановки номера хода: `moveNumber` проставляет сервер. */
-export type NewGameAction = DistributiveOmit<GameAction, 'moveNumber'>
-
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
-  ? Omit<T, K>
-  : never
-
 export interface IGameBoard {
   id?: string
   roomCode?: string
@@ -265,7 +188,6 @@ export class GameManager implements IGameBoard {
   princessChoice?: PrincessChoiceState
   dragonPosition?: DragonPosition
   pendingDragonMovement = false
-  private dragonResumePlayerIndex = 0
   private isPlacingStartTile = false
 
   constructor(
@@ -340,6 +262,10 @@ export class GameManager implements IGameBoard {
       () => this.finishGame(),
       () => this.isPlacingStartTile
     )
+  }
+
+  private get dragonManager(): DragonPrincessManager {
+    return new DragonPrincessManager(this)
   }
 
   initTilesList() {
@@ -420,6 +346,11 @@ export class GameManager implements IGameBoard {
     this.actionsHistory.push({ ...action, moveNumber: this.moveCounter })
   }
 
+  /**
+   * Завершает ход текущего игрока и передаёт ход следующему. Если в этом ходу
+   * проснулся дракон, его движение разворачивается раньше остальных игроков;
+   * иначе выдаётся следующий тайл.
+   */
   endTurn() {
     const currentPlayer = this.currentPlayer
 
@@ -441,7 +372,7 @@ export class GameManager implements IGameBoard {
 
     if (this.pendingDragonMovement) {
       this.pendingDragonMovement = false
-      this.startDragonMove()
+      this.dragonManager.startPendingDragonMove()
     } else if (!this.dragonMove) {
       this.getRandomTileFromList()
     }
@@ -471,72 +402,79 @@ export class GameManager implements IGameBoard {
     return this.followerManager.findAvailableFollowersPlaces(tile)
   }
 
+  /**
+   * Серверный источник истины для присланного тайла: стороны и группы берутся
+   * из каталога, а из клиентского объекта допускается только поворот (и флаг
+   * сада для тестовых тайлов). Возвращает `undefined`, если тайл нельзя играть
+   * при действующих расширениях.
+   */
   private resolvePlacementTile(tile: Tile): Tile | undefined {
     if (this.gameIsEnded) return undefined
     const tileDefinition = this.tileManager.findTileDefinition(tile.id)
     const authoritativeTile: Tile = tileDefinition
       ? { ...tileDefinition, rotation: 0 }
       : { ...tile }
+    if (!this.isExpansionTileAllowed(authoritativeTile)) return undefined
+    if (this.isRiverTileRequiredAndMissing(authoritativeTile)) return undefined
+    return this.applyRequestedRotation(
+      tile,
+      authoritativeTile,
+      Boolean(tileDefinition)
+    )
+  }
+
+  /** Расширение тайла должно быть включено в правила партии. */
+  private isExpansionTileAllowed(tile: Tile): boolean {
     if (
-      authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
+      tile.expansion === ExpansionName.InnsAndCathedrals &&
       !this.rules.expansions.innsAndCathedrals
     ) {
-      return undefined
+      return false
     }
-    if (
-      authoritativeTile.expansion === ExpansionName.River &&
-      !this.rules.expansions.river
-    ) {
-      return undefined
-    }
-    if (
-      this.rules.expansions.river &&
-      !this.isPlacingStartTile &&
-      !authoritativeTile.riverGroups?.length &&
-      !Object.values(this.tilePlacesStats).some((row) =>
-        Object.values(row).some(
-          (placedTile) => placedTile.id === TileId.RIVER_L
-        )
-      )
-    ) {
-      return undefined
-    }
-    let resolvedTile: Tile
-    const turnCount = 360 / 90
-    const normalizedTurns =
-      ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
-    if (tileDefinition) {
-      resolvedTile = { ...authoritativeTile, rotation: 0 }
-      for (let turn = 0; turn < normalizedTurns; turn++) {
-        resolvedTile = this.rotateTile(resolvedTile)
+    return !(
+      tile.expansion === ExpansionName.River && !this.rules.expansions.river
+    )
+  }
+
+  /**
+   * В партии с River, пока русло не закрыто, ход обязан продолжать реку.
+   * Стартовый тайл правило не распространяется: русло начинается на нём.
+   */
+  private isRiverTileRequiredAndMissing(tile: Tile): boolean {
+    if (!this.rules.expansions.river) return false
+    if (this.isPlacingStartTile) return false
+    return !tile.riverGroups?.length && !this.tileManager.hasRiverEnd()
+  }
+
+  /**
+   * Поворачивает каталожный тайл на запрошенный угол. Для тайла из колоды
+   * поворот применяется к определению, а для тестовых тайлов (`test*`), у
+   * которых определения нет, стороны остаются как есть.
+   */
+  private applyRequestedRotation(
+    tile: Tile,
+    authoritativeTile: Tile,
+    hasDefinition: boolean
+  ): Tile {
+    if (!hasDefinition) {
+      // Тестовый тайл приходит целиком с клиента: каталога для него нет.
+      return {
+        ...authoritativeTile,
+        hasGarden: tile.hasGarden ?? authoritativeTile.hasGarden,
       }
-    } else {
-      resolvedTile = { ...authoritativeTile }
     }
-    resolvedTile.hasGarden = tile.hasGarden ?? resolvedTile.hasGarden
-    if (tileDefinition) {
-      resolvedTile.sides = rotateTileSides(
-        authoritativeTile.sides,
-        normalizedTurns
-      )
-      resolvedTile.roadGroups = rotateTileGroups(
-        authoritativeTile.roadGroups,
-        normalizedTurns
-      )
-      resolvedTile.cityGroups = rotateTileGroups(
-        authoritativeTile.cityGroups,
-        normalizedTurns
-      )
-      resolvedTile.cityShieldGroups = rotateTileGroups(
-        authoritativeTile.cityShieldGroups,
-        normalizedTurns
-      )
-      resolvedTile.riverGroups = rotateTileGroups(
-        authoritativeTile.riverGroups,
-        normalizedTurns
-      )
+
+    // Угол из клиента не доверяем: округляем до четверти оборота.
+    const turnCount = 360 / 90
+    const turns =
+      ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
+
+    return {
+      ...applyQuarterTurns(authoritativeTile, turns),
+      hasGarden: tile.hasGarden ?? authoritativeTile.hasGarden,
+      // Угол сохраняется для истории и отображения: он уже нормализован.
+      rotation: turns * 90,
     }
-    return resolvedTile
   }
 
   getPlacementFailure(
@@ -575,23 +513,23 @@ export class GameManager implements IGameBoard {
     )
   }
 
+  /**
+   * Ставит тайл на доску и продвигает ход: обновляет объекты, применяет
+   * расширения и либо предлагает выставить подданного, либо сразу передаёт ход
+   * дальше. Возвращает `false`, если тайл нельзя поставить в эту клетку.
+   */
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
     const resolvedTile = this.resolvePlacementTile(tile)
     if (!resolvedTile) return false
-
-    const isCorrectPosition = this.tileManager.isValidTilePlacement(
-      resolvedTile,
-      rowIndex,
-      tileIndex
-    )
-
-    if (!isCorrectPosition) {
+    if (
+      !this.tileManager.isValidTilePlacement(resolvedTile, rowIndex, tileIndex)
+    ) {
       return false
     }
 
-    tile = resolvedTile
+    const isStartTile = this.isPlacingStartTile
 
-    if (this.currentTile && !this.isPlacingStartTile) {
+    if (this.currentTile && !isStartTile) {
       this.currentTile.x = tileIndex
       this.currentTile.y = rowIndex
     }
@@ -600,7 +538,7 @@ export class GameManager implements IGameBoard {
       this.tilePlacesStats[rowIndex] = {}
     }
     this.tilePlacesStats[rowIndex][tileIndex] = {
-      ...tile,
+      ...resolvedTile,
       rowIndex,
       tileIndex,
       x: tileIndex,
@@ -610,51 +548,46 @@ export class GameManager implements IGameBoard {
 
     this.recordAction({
       actionType: ActionTypes.PLACE_TILE,
-      actionData: { tile, rowIndex, tileIndex },
+      actionData: { tile: resolvedTile, rowIndex, tileIndex },
       initiator: this.currentPlayer,
     })
 
     this.setAvailablePlacesTiles({ rowIndex, tileIndex })
-
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
 
-    if (!this.isPlacingStartTile && this.rules.expansions.princessAndDragon) {
-      this.applyPrincessAndDragonTile(tile, rowIndex, tileIndex)
+    const expansionEnabled = this.rules.expansions.princessAndDragon
+    if (!isStartTile && expansionEnabled) {
+      this.dragonManager.applyTileEffects(resolvedTile, rowIndex, tileIndex)
+      this.dragonManager.choosePrincessFollowerForComputer()
     }
 
-    if (this.princessChoice && !this.currentPlayer?.socketId) {
-      const follower = this.princessChoice.followers[0]
-      if (follower) {
-        this.choosePrincessFollower(follower.cityId, follower.point)
-      }
-    }
-
-    if (
-      !this.isPlacingStartTile &&
-      tile.hasVolcano &&
-      this.rules.expansions.princessAndDragon
-    ) {
-      this.dragonPosition = { rowIndex, tileIndex }
-      this.dragonMove = undefined
-      this.princessChoice = undefined
+    // Вулкан будит дракона: ход заканчивается без выставления подданного,
+    // а сам дракон начнёт ходить в конце хода.
+    if (!isStartTile && expansionEnabled && resolvedTile.hasVolcano) {
+      this.dragonManager.handleVolcanoPlacement(rowIndex, tileIndex)
       this.currentTile = null
-      this.availableFollowersPlaces = []
-      this.isPlacingFollower = false
       this.endTurn()
       return true
     }
 
-    if (!this.isPlacingStartTile && !this.princessChoice) {
+    // Пока принцесса не выбрала подданного, ход не переходит дальше.
+    if (!isStartTile && !this.princessChoice) {
       this.checkAvailableFollowers()
     }
 
-    if (!this.currentPlayer && !this.isPlacingStartTile) {
+    if (!this.currentPlayer && !isStartTile) {
       this.endTurn()
     }
 
     return true
   }
 
+  /**
+   * Пересчитывает список клеток, куда можно положить следующий тайл:
+   * добавляет свободных соседей только что поставленного тайла и убирает
+   * саму занятую им клетку. Для каждого слота собираются примыкающие объекты
+   * — их интерфейс подсвечивает игроку при выборе.
+   */
   setAvailablePlacesTiles({
     rowIndex,
     tileIndex,
@@ -662,76 +595,44 @@ export class GameManager implements IGameBoard {
     rowIndex: number
     tileIndex: number
   }) {
-    const oppositeTilesCoords = [
-      { rowIndex: rowIndex - 1, tileIndex },
-      { rowIndex, tileIndex: tileIndex + 1 },
-      { rowIndex: rowIndex + 1, tileIndex },
-      { rowIndex, tileIndex: tileIndex - 1 },
-    ]
-
-    oppositeTilesCoords.forEach((tile) => {
+    for (const neighbor of NEIGHBOR_SIDES) {
+      const coordinates = neighborCoordinates(rowIndex, tileIndex, neighbor)
       const alreadyOccupied = Boolean(
-        this.tilePlacesStats[tile.rowIndex]?.[tile.tileIndex]
+        this.tilePlacesStats[coordinates.rowIndex]?.[coordinates.tileIndex]
       )
-      const alreadyPlanned = Boolean(
-        this.availablePlacesTiles.find(
-          (place) =>
-            place.rowIndex === tile.rowIndex &&
-            place.tileIndex === tile.tileIndex
-        )
+      const alreadyPlanned = this.availablePlacesTiles.some(
+        (place) =>
+          place.rowIndex === coordinates.rowIndex &&
+          place.tileIndex === coordinates.tileIndex
       )
-      if (alreadyOccupied || alreadyPlanned) return
+      if (alreadyOccupied || alreadyPlanned) continue
 
-      const adjacentTileMap: Record<
-        SideName,
-        { rowIndex: number; tileIndex: number; side: SideName }
-      > = {
-        [SideName.North]: {
-          rowIndex: tile.rowIndex - 1,
-          tileIndex: tile.tileIndex,
-          side: SideName.South,
-        },
-        [SideName.East]: {
-          rowIndex: tile.rowIndex,
-          tileIndex: tile.tileIndex + 1,
-          side: SideName.West,
-        },
-        [SideName.South]: {
-          rowIndex: tile.rowIndex + 1,
-          tileIndex: tile.tileIndex,
-          side: SideName.North,
-        },
-        [SideName.West]: {
-          rowIndex: tile.rowIndex,
-          tileIndex: tile.tileIndex - 1,
-          side: SideName.East,
-        },
-      }
-
-      const objects = (Object.keys(adjacentTileMap) as SideName[]).map(
-        (side) => {
-          const adjacent = adjacentTileMap[side]
-          const adjacentTile =
-            this.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]
-
-          if (!adjacentTile) return null
+      this.availablePlacesTiles.push({
+        ...coordinates,
+        objects: NEIGHBOR_SIDES.map((side) => {
+          const adjacent = neighborCoordinates(
+            coordinates.rowIndex,
+            coordinates.tileIndex,
+            side
+          )
+          if (!this.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]) {
+            return null
+          }
           return (
             this.findObjectByPoint(
               this.temporaryObjects,
               adjacent.tileIndex,
               adjacent.rowIndex,
-              adjacent.side
+              side.oppositeSide
             ) ?? null
           )
-        }
-      )
+        }),
+      })
+    }
 
-      this.availablePlacesTiles.push({ ...tile, objects })
-    })
-
-    this.availablePlacesTiles = this.availablePlacesTiles.filter((place) => {
-      return place.rowIndex !== rowIndex || place.tileIndex !== tileIndex
-    })
+    this.availablePlacesTiles = this.availablePlacesTiles.filter(
+      (place) => place.rowIndex !== rowIndex || place.tileIndex !== tileIndex
+    )
   }
 
   goPlaceFollower() {
@@ -749,299 +650,17 @@ export class GameManager implements IGameBoard {
     this.followerManager.skipFollower()
   }
 
+  /** Шаг дракона: перемещение и съедание подданных на клетке назначения. */
   moveDragon(rowIndex: number, tileIndex: number): boolean {
-    const move = this.dragonMove
-    if (!move || !Number.isInteger(rowIndex) || !Number.isInteger(tileIndex)) {
-      return false
-    }
-    if (this.currentPlayerIndex !== move.nextPlayerIndex) return false
-    const currentPosition = this.findDragonPosition()
-    if (!currentPosition) return false
-    const distance =
-      Math.abs(currentPosition.rowIndex - rowIndex) +
-      Math.abs(currentPosition.tileIndex - tileIndex)
-    if (distance !== 1) return false
-    if (
-      move.visited.some(
-        (position) =>
-          position.rowIndex === rowIndex && position.tileIndex === tileIndex
-      )
-    )
-      return false
-    const destination = this.tilePlacesStats[rowIndex]?.[tileIndex]
-    if (!destination) return false
-    if (this.currentPlayerIndex !== this.dragonMove?.nextPlayerIndex)
-      return false
-    this.dragonPosition = { rowIndex, tileIndex }
-
-    const occupants = this.placedFollowers.filter(
-      (follower) =>
-        follower.point.x === tileIndex && follower.point.y === rowIndex
-    )
-    const eatenFollowers: ReturnedFollower[] = []
-    for (const follower of occupants) {
-      const eaten = this.removeFollowerFromBoard(follower)
-      if (eaten) eatenFollowers.push(eaten)
-    }
-
-    move.visited.push({ rowIndex, tileIndex })
-    move.remainingSteps -= 1
-    this.recordAction({
-      actionType: ActionTypes.DRAGON_MOVE,
-      actionData: {
-        from: {
-          rowIndex: currentPosition.rowIndex,
-          tileIndex: currentPosition.tileIndex,
-        },
-        to: { rowIndex, tileIndex },
-        eatenFollowers,
-        remainingSteps: Math.max(move.remainingSteps, 0),
-      },
-      initiator: this.currentPlayer,
-    })
-    this.recordBackFollowers(eatenFollowers)
-    move.nextPlayerIndex = this.players.length
-      ? (move.nextPlayerIndex + 1) % this.players.length
-      : 0
-    this.currentPlayerIndex = move.nextPlayerIndex
-    this.currentPlayer = this.players[this.currentPlayerIndex] ?? null
-    if (move.remainingSteps <= 0) {
-      this.finishDragonMove()
-    } else {
-      this.advanceDragonMove()
-    }
-    return true
+    return this.dragonManager.moveDragon(rowIndex, tileIndex)
   }
 
   choosePrincessFollower(cityId: string, point: Point): boolean {
-    const choice = this.princessChoice
-    if (!choice) return false
-    const city = this.temporaryObjects.cities.find(({ id }) => id === cityId)
-    if (!city) return false
-    const selectedFollower = choice.followers.find(
-      (candidate) =>
-        candidate.cityId === cityId &&
-        candidate.point.x === point.x &&
-        candidate.point.y === point.y &&
-        candidate.point.direction === point.direction
-    )
-    if (!selectedFollower) return false
-    const follower = this.placedFollowers.find(
-      (placed) =>
-        placed.objectId === city.id &&
-        placed.point.x === selectedFollower.point.x &&
-        placed.point.y === selectedFollower.point.y &&
-        placed.point.direction === selectedFollower.point.direction
-    )
-    if (!follower) return false
-    const takenFollower = this.removeFollowerFromBoard(follower)
-    if (!takenFollower) return false
-    this.recordAction({
-      actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER,
-      actionData: { cityId: city.id, takenFollower },
-      initiator: this.currentPlayer,
-    })
-    this.recordBackFollowers([takenFollower])
-    this.princessChoice = undefined
-    if (this.currentTile) this.checkAvailableFollowers()
-    return true
-  }
-
-  private applyPrincessAndDragonTile(
-    tile: Tile,
-    rowIndex: number,
-    tileIndex: number
-  ) {
-    if (!this.rules.expansions.princessAndDragon) return
-
-    if (tile.hasPrincess) {
-      const adjacentCities = this.findCitiesOnPrincessTile(rowIndex, tileIndex)
-      if (adjacentCities.length) {
-        this.princessChoice = {
-          followers: adjacentCities.flatMap((city) =>
-            city.followers.map((follower) => ({
-              cityId: city.id,
-              point: follower.point,
-            }))
-          ),
-        }
-      }
-    }
-
-    if (tile.hasDragon && this.dragonPosition) this.pendingDragonMovement = true
-  }
-
-  private findCitiesOnPrincessTile(rowIndex: number, tileIndex: number) {
-    return this.temporaryObjects.cities.filter(
-      (city) =>
-        city.followers.length > 0 &&
-        city.points.some(
-          (point) => point.x === tileIndex && point.y === rowIndex
-        )
-    )
-  }
-
-  private findDragonPosition(): DragonPosition | undefined {
-    if (this.dragonPosition) return this.dragonPosition
-    for (const [row, tiles] of Object.entries(this.tilePlacesStats)) {
-      for (const [column, tile] of Object.entries(tiles)) {
-        if (tile.hasVolcano) {
-          this.dragonPosition = {
-            rowIndex: Number(row),
-            tileIndex: Number(column),
-          }
-          return this.dragonPosition
-        }
-      }
-    }
-    return undefined
-  }
-
-  private startDragonMove() {
-    const position = this.findDragonPosition()
-    if (!position) {
-      this.getRandomTileFromList()
-      return
-    }
-    // endTurn() advances to the player after the tile placer. The placer moves
-    // the dragon first; once movement ends, normal turns resume at that already
-    // selected next player.
-    this.dragonResumePlayerIndex = this.currentPlayerIndex
-    this.dragonMove = {
-      remainingSteps: 6,
-      nextPlayerIndex: this.players.length
-        ? (this.currentPlayerIndex - 1 + this.players.length) %
-          this.players.length
-        : 0,
-      resumePlayerIndex: this.dragonResumePlayerIndex,
-      visited: [{ ...position }],
-    }
-    this.advanceDragonMove()
-  }
-
-  private advanceDragonMove() {
-    const move = this.dragonMove
-    if (!move) return
-    const currentPosition = move.visited[move.visited.length - 1]
-    const validDestinations = currentPosition
-      ? this.getDragonDestinations(currentPosition)
-      : []
-    if (!validDestinations.length) {
-      this.finishDragonMove()
-      return
-    }
-    this.currentPlayerIndex = move.nextPlayerIndex
-    this.currentPlayer = this.players[this.currentPlayerIndex] ?? null
-    if (this.currentPlayer && !this.currentPlayer.socketId) {
-      const destination = validDestinations[0]
-      if (destination)
-        this.moveDragon(destination.rowIndex, destination.tileIndex)
-    }
-  }
-
-  private getDragonDestinations(position: DragonPosition): DragonPosition[] {
-    const offsets = [
-      { rowIndex: -1, tileIndex: 0 },
-      { rowIndex: 0, tileIndex: 1 },
-      { rowIndex: 1, tileIndex: 0 },
-      { rowIndex: 0, tileIndex: -1 },
-    ]
-    const move = this.dragonMove
-    if (!move) return []
-    return offsets
-      .map((offset) => ({
-        rowIndex: position.rowIndex + offset.rowIndex,
-        tileIndex: position.tileIndex + offset.tileIndex,
-      }))
-      .filter((destination) => {
-        const tile =
-          this.tilePlacesStats[destination.rowIndex]?.[destination.tileIndex]
-        return (
-          Boolean(tile) &&
-          !move.visited.some(
-            (visited) =>
-              visited.rowIndex === destination.rowIndex &&
-              visited.tileIndex === destination.tileIndex
-          )
-        )
-      })
-  }
-
-  private finishDragonMove() {
-    const move = this.dragonMove
-    this.dragonMove = undefined
-    this.isPlacingFollower = false
-    this.availableFollowersPlaces = []
-    if (move && this.players.length) {
-      this.currentPlayerIndex = move.resumePlayerIndex
-      this.currentPlayer = this.players[move.resumePlayerIndex] ?? null
-    }
-    this.getRandomTileFromList()
-  }
-
-  /**
-   * Снимает подданного с поля и возвращает его в пул владельца.
-   * Возвращает описание фишки для истории или `undefined`, если её не было.
-   * Запись о возврате вызывающий код делает сам — так, чтобы она шла в
-   * истории сразу после записи о действии, которое сняло фишку.
-   */
-  private removeFollowerFromBoard(
-    follower: PlacedFollower | undefined
-  ): ReturnedFollower | undefined {
-    if (!follower) return undefined
-    const collections: ReadonlyArray<readonly [BaseObject[], ObjectTypes]> = [
-      [this.temporaryObjects.cities, ObjectTypes.CITY],
-      [this.temporaryObjects.roads, ObjectTypes.ROAD],
-      [this.temporaryObjects.monasteries, ObjectTypes.MONASTERY],
-      [this.temporaryObjects.gardens, ObjectTypes.GARDEN],
-      [this.completedObjects.cities, ObjectTypes.CITY],
-      [this.completedObjects.roads, ObjectTypes.ROAD],
-      [this.completedObjects.monasteries, ObjectTypes.MONASTERY],
-      [this.completedObjects.gardens, ObjectTypes.GARDEN],
-    ]
-    let objectType: ObjectTypes | undefined
-    for (const [collection, type] of collections) {
-      const object = collection.find(({ id }) => id === follower.objectId)
-      if (!object) continue
-      objectType ??= type
-      object.followers = object.followers.filter(
-        (placed) =>
-          !(
-            placed.playerId === follower.playerId &&
-            placed.point.x === follower.point.x &&
-            placed.point.y === follower.point.y &&
-            placed.point.direction === follower.point.direction
-          )
-      )
-    }
-    const pool = this.playersFollowers[follower.playerId]
-    if (pool) {
-      if (follower.isAbbot) pool.monks += 1
-      else if (follower.isBigFollower)
-        pool.bigFollowers = (pool.bigFollowers ?? 0) + 1
-      else pool.ordinaryFollowers += 1
-    }
-    this.placedFollowers = this.placedFollowers.filter(
-      (placed) => placed !== follower
-    )
-    const eaten: ReturnedFollower = {
-      playerId: follower.playerId,
-      objectId: follower.objectId,
-      point: follower.point,
-      isAbbot: follower.isAbbot,
-      isBigFollower: follower.isBigFollower,
-      objectType,
-    }
-    return eaten
-  }
-
-  /** Запись истории о возврате подданных владельцам. */
-  private recordBackFollowers(followers: ReturnedFollower[]) {
-    if (!followers.length) return
-    this.recordAction({
-      actionType: ActionTypes.BACK_FOLLOWER,
-      actionData: { followers },
-    })
+    const chosen = this.dragonManager.choosePrincessFollower(cityId, point)
+    // Принцесса забрала подданного: свободных мест могло остаться больше,
+    // поэтому предлагаем текущему игроку продолжить ход.
+    if (chosen && this.currentTile) this.checkAvailableFollowers()
+    return chosen
   }
 
   /**
@@ -1076,14 +695,16 @@ export class GameManager implements IGameBoard {
     })
   }
 
+  /**
+   * Ход компьютерного игрока: если сейчас ходит дракон, делается его шаг,
+   * иначе подбирается лучший ход симулятора и выполняется целиком — тайл,
+   * фишка (или пропуск фишки). Если подходящих ходов нет, берётся другой тайл.
+   */
   async autoPlaceTile(): Promise<void> {
     if (this.gameIsEnded) return
 
     if (this.dragonMove) {
-      const currentPosition = this.dragonMove.visited.at(-1)
-      const destination = currentPosition
-        ? this.getDragonDestinations(currentPosition)[0]
-        : undefined
+      const destination = this.dragonManager.getAutomaticDragonDestination()
       if (destination)
         this.moveDragon(destination.rowIndex, destination.tileIndex)
       return
@@ -1113,11 +734,9 @@ export class GameManager implements IGameBoard {
       )
       if (!tilePlaced) return
 
+      // Принцесса забирает подданного до выставления своей фишки.
       if (this.princessChoice) {
-        const follower = this.princessChoice.followers[0]
-        if (follower) {
-          this.choosePrincessFollower(follower.cityId, follower.point)
-        }
+        this.dragonManager.choosePrincessFollowerForComputer()
         return
       }
 
@@ -1146,6 +765,7 @@ export class GameManager implements IGameBoard {
     this.tileManager.drawNextTile()
   }
 
+  /** Партия окончена: сбрасываем ход и, если включено, считаем очки. */
   private finishGame() {
     this.gameIsEnded = true
     this.currentTile = null
@@ -1154,113 +774,17 @@ export class GameManager implements IGameBoard {
     this.availablePlacesTiles = []
     this.currentPlayer = null
     this.tilesList = []
-    if (this.finalScoringEnabled) this.finalizeScoring()
+    if (this.finalScoringEnabled) finalizeScoring(this)
   }
 
-  private finalizeScoring() {
-    const completedMonasteries = [...this.completedObjects.monasteries]
-    const completedGardens = [...this.completedObjects.gardens]
-    const unfinishedRoads = this.temporaryObjects.roads
-    const unfinishedCities = this.temporaryObjects.cities
-    const unfinishedMonasteries = this.temporaryObjects.monasteries
-    const unfinishedGardens = this.temporaryObjects.gardens
-
-    this.temporaryObjects.roads = []
-    this.temporaryObjects.cities = []
-    this.temporaryObjects.monasteries = []
-    this.temporaryObjects.gardens = []
-
-    for (const road of unfinishedRoads) {
-      const score = this.calcScoreForRoad(road, false)
-      this.recordFinalObjectScore(
-        road,
-        score,
-        ObjectTypes.ROAD,
-        this.describeScoreForRoad(road, false)
-      )
-      this.completedObjects.roads.push({ ...deepClone(road), score })
-    }
-
-    for (const city of unfinishedCities) {
-      const score = this.calcScoreForCity(city, false)
-      this.recordFinalObjectScore(
-        city,
-        score,
-        ObjectTypes.CITY,
-        this.describeScoreForCity(city, false)
-      )
-      this.completedObjects.cities.push({ ...deepClone(city), score })
-    }
-
-    for (const monastery of unfinishedMonasteries) {
-      const points = calcMonasteryPoints(this.tilePlacesStats, monastery)
-      const score = distributeScore(points, monastery.followers, this.scores)
-      this.recordFinalObjectScore(
-        monastery,
-        score,
-        ObjectTypes.MONASTERY,
-        describeCentralObjectPoints(points, 'монастыря')
-      )
-      this.completedObjects.monasteries.push({
-        ...deepClone(monastery),
-        score,
-      })
-    }
-
-    for (const garden of unfinishedGardens) {
-      const points = calcGardenPoints(this.tilePlacesStats, garden)
-      const score = distributeScore(points, garden.followers, this.scores)
-      this.recordFinalObjectScore(
-        garden,
-        score,
-        ObjectTypes.GARDEN,
-        describeCentralObjectPoints(points, 'сада')
-      )
-      this.completedObjects.gardens.push({ ...deepClone(garden), score })
-    }
-
-    this.scoreRemainingAbbots(completedMonasteries, false)
-    this.scoreRemainingAbbots(completedGardens, true)
-  }
-
-  private scoreRemainingAbbots(objects: BaseObject[], isGarden: boolean) {
-    for (const object of objects) {
-      const abbots = object.followers.filter((follower) => follower.isAbbot)
-      if (!abbots.length) continue
-
-      const points = isGarden
-        ? calcGardenPoints(this.tilePlacesStats, object)
-        : calcMonasteryPoints(this.tilePlacesStats, object)
-      const score = distributeScore(points, abbots, this.scores)
-      object.score = score
-      this.recordFinalObjectScore(
-        { ...object, followers: abbots },
-        score,
-        isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY,
-        describeCentralObjectPoints(points, isGarden ? 'сада' : 'монастыря')
-      )
-    }
-  }
-
-  private recordFinalObjectScore(
-    object: BaseObject,
-    score: ScoreForObject,
-    objectType: ObjectTypes,
-    { details, modifiers }: ScoreDetails
-  ) {
-    if (!object.followers.length) return
-    this.recordAction({
-      actionType: ActionTypes.ADDING_SCORES,
-      actionData: {
-        objectType,
-        objectData: deepClone(object),
-        score,
-        details,
-        modifiers,
-        isFinalScoring: true,
-      },
-    })
-  }
+  // ---------------------------------------------------------------------------
+  // Доступ к объектам доски.
+  //
+  // Методы ниже не содержат правил: это тонкие делегаты в
+  // `GameObjectManager` и чистые функции подсчёта из `scoring.ts`. Они нужны
+  // помощникам (которые получают ссылку на доску как на состояние) и
+  // тестам, которые проверяют объекты и их подсчёт в изоляции от ходов.
+  // ---------------------------------------------------------------------------
 
   checkAvailablePlacesForTile(tile: Tile): boolean {
     return this.tileManager.checkAvailablePlacesForTile(tile)
@@ -1310,16 +834,6 @@ export class GameManager implements IGameBoard {
     this.objectManager.checkCompleteRoad(road)
   }
 
-  calcScoreForRoad(road: BaseObject, isCompleted = true): ScoreForObject {
-    return calcRoadScore(
-      this.tilePlacesStats,
-      road,
-      this.scores,
-      isCompleted,
-      this.rules.expansions.innsAndCathedrals
-    )
-  }
-
   checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
     this.objectManager.checkCities(citiesPoints, connectedGroups)
   }
@@ -1330,6 +844,19 @@ export class GameManager implements IGameBoard {
 
   checkCompleteCity(city: BaseObject) {
     this.objectManager.checkCompleteCity(city)
+  }
+
+  // Подсчёт очков и его детализация для истории. Расчёты чистые и не меняют
+  // правила: меняется только то, какие бонусы расширения действуют.
+
+  calcScoreForRoad(road: BaseObject, isCompleted = true): ScoreForObject {
+    return calcRoadScore(
+      this.tilePlacesStats,
+      road,
+      this.scores,
+      isCompleted,
+      this.rules.expansions.innsAndCathedrals
+    )
   }
 
   calcScoreForCity(city: BaseObject, isCompleted = true): ScoreForObject {
@@ -1382,56 +909,11 @@ export class GameManager implements IGameBoard {
     tile: Tile,
     feature: typeof TileSideType.City | typeof TileSideType.Road
   ): SideName[][] {
-    const featureSides = SIDE_NAMES.filter(
-      (side) => tile.sides[side] === feature
+    return resolveTileFeatureGroups(
+      tile,
+      this.tileManager.findTileDefinition(tile.id),
+      feature
     )
-
-    const definition = this.tileManager.findTileDefinition(tile.id)
-    const tileGroups =
-      feature === TileSideType.City ? tile.cityGroups : tile.roadGroups
-    const definitionGroups =
-      feature === TileSideType.City
-        ? definition?.cityGroups
-        : definition?.roadGroups
-    const groups =
-      tileGroups ??
-      this.rotateTileGroups(definitionGroups, Math.round(tile.rotation / 90)) ??
-      []
-
-    // Т-образные перекрёстки и четырёхсторонние перекрёстки делят дорожные
-    // ответвления независимо друг от друга. Но если каталог описывает на
-    // четырёхстороннем тайле несколько собственных соединений (например,
-    // IAC-E), эти явно заданные группы определяют топологию тайла.
-    const connectedRoadGroups = groups.filter((group) => group.length > 1)
-    if (
-      feature === TileSideType.Road &&
-      featureSides.length >= 3 &&
-      connectedRoadGroups.length < 2
-    ) {
-      return featureSides.map((side) => [side])
-    }
-
-    // Каталожные группы описывают соединения, а стороны без группы остаются
-    // отдельными сегментами. Нормализация не допускает дублирования стороны
-    // или включения в группу стороны другого типа.
-    const assigned = new Set<SideName>()
-    const normalizedGroups = groups
-      .map((group) =>
-        group.filter((side) => {
-          if (!featureSides.includes(side) || assigned.has(side)) {
-            return false
-          }
-          assigned.add(side)
-          return true
-        })
-      )
-      .filter((group) => group.length > 0)
-
-    for (const side of featureSides) {
-      if (!assigned.has(side)) normalizedGroups.push([side])
-    }
-
-    return normalizedGroups
   }
 
   isOppositePoint(point: Point, oppositePoint: Point): boolean {
@@ -1442,46 +924,30 @@ export class GameManager implements IGameBoard {
     return getPrecisionCoordinates(point)
   }
 
+  /**
+   * Поворачивает тайл на четверть оборота по или против часовой стрелки.
+   * Полный оборот обозначается углом 360, а не 0, чтобы угол, присланный
+   * игроком, отображался в интерфейсе буквально таким, каким он пришёл.
+   */
   rotateTile(
     tile: Tile,
     direction: RotationDirection = RotationDirections.Clockwise
   ): Tile {
-    const processedTile = { ...tile }
-    const quarterTurns =
-      direction === RotationDirections.Clockwise
-        ? RotationTurns.Quarter
-        : RotationTurns.ThreeQuarter
-    if (direction === RotationDirections.Clockwise) {
-      if (processedTile.rotation + 90 > 360) {
-        processedTile.rotation = 0
-      }
-      processedTile.rotation += 90
-    } else {
-      if (processedTile.rotation - 90 < 0) {
-        processedTile.rotation = 360
-      }
-      processedTile.rotation -= 90
+    const isClockwise = direction === RotationDirections.Clockwise
+    const quarterTurns = isClockwise
+      ? RotationTurns.Quarter
+      : RotationTurns.ThreeQuarter
+    const rotation = isClockwise ? tile.rotation + 90 : tile.rotation - 90
+
+    return {
+      ...applyQuarterTurns(tile, quarterTurns),
+      rotation:
+        rotation > 360
+          ? rotation - 360
+          : rotation < 0
+            ? rotation + 360
+            : rotation,
     }
-
-    processedTile.sides = rotateTileSides(processedTile.sides, quarterTurns)
-    processedTile.roadGroups = rotateTileGroups(
-      processedTile.roadGroups,
-      quarterTurns
-    )
-    processedTile.cityGroups = rotateTileGroups(
-      processedTile.cityGroups,
-      quarterTurns
-    )
-    processedTile.cityShieldGroups = rotateTileGroups(
-      processedTile.cityShieldGroups,
-      quarterTurns
-    )
-    processedTile.riverGroups = rotateTileGroups(
-      processedTile.riverGroups,
-      quarterTurns
-    )
-
-    return processedTile
   }
 
   rotateTileGroups(
@@ -1527,67 +993,52 @@ export class GameManager implements IGameBoard {
     Object.assign(this, deepClone(source))
   }
 
+  /**
+   * Пробный ход для симуляции ИИ. Отличия от реального `placeTile` намеренные:
+   * принимаются только каталожные тайлы (или тестовые `test*`), правило
+   * «сначала река» не проверяется, а запись в историю и переход хода не
+   * выполняются — состояние используется только для оценки хода.
+   */
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
     const tileDefinition = this.tileManager.findTileDefinition(tile.id)
-    const authoritativeTile: Tile | undefined = tileDefinition
-      ? { ...tileDefinition, rotation: 0 }
-      : tile.id.startsWith('test')
-        ? { ...tile }
-        : undefined
-    if (!authoritativeTile) return false
     if (!tileDefinition && !tile.id.startsWith('test')) return false
+
+    const authoritativeTile: Tile = tileDefinition
+      ? { ...tileDefinition, rotation: 0 }
+      : { ...tile }
+    if (!this.isExpansionTileAllowed(authoritativeTile)) return false
     if (
       this.rules.expansions.river &&
       !authoritativeTile.riverGroups?.length &&
-      !Object.values(this.tilePlacesStats).some((row) =>
-        Object.values(row).some(
-          (placedTile) => placedTile.id === TileId.RIVER_L
-        )
-      )
+      !this.tileManager.hasRiverEnd()
     ) {
       return false
     }
-    if (
-      authoritativeTile.expansion === ExpansionName.InnsAndCathedrals &&
-      !this.rules.expansions.innsAndCathedrals
-    ) {
-      return false
-    }
-    let resolvedTile: Tile
-    if (this.tileManager.findTileDefinition(tile.id)) {
-      resolvedTile = { ...authoritativeTile, rotation: 0 }
-      const turnCount = 360 / 90
-      const normalizedTurns =
-        ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
-      for (let turn = 0; turn < normalizedTurns; turn++) {
-        resolvedTile = this.rotateTile(resolvedTile)
-      }
-    } else {
-      resolvedTile = { ...authoritativeTile }
-    }
-    resolvedTile.hasGarden = tile.hasGarden ?? resolvedTile.hasGarden
-    tile = resolvedTile
-    const isCorrectPosition = this.tileManager.isValidTilePlacement(
+
+    const resolvedTile = this.applyRequestedRotation(
       tile,
-      rowIndex,
-      tileIndex
+      authoritativeTile,
+      Boolean(tileDefinition)
     )
-
-    if (!isCorrectPosition) {
+    if (
+      !this.tileManager.isValidTilePlacement(resolvedTile, rowIndex, tileIndex)
+    ) {
       return false
     }
-
-    const placedTile: GridTile = { ...tile, x: tileIndex, y: rowIndex }
 
     if (!this.tilePlacesStats[rowIndex]) {
       this.tilePlacesStats[rowIndex] = {}
     }
-    this.tilePlacesStats[rowIndex][tileIndex] = placedTile
+    this.tilePlacesStats[rowIndex][tileIndex] = {
+      ...resolvedTile,
+      x: tileIndex,
+      y: rowIndex,
+    }
 
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
-    const placedGridTile = this.tilePlacesStats[rowIndex][tileIndex]
-    this.availableFollowersPlaces =
-      this.findAvailableFollowersPlaces(placedGridTile)
+    this.availableFollowersPlaces = this.findAvailableFollowersPlaces(
+      this.tilePlacesStats[rowIndex][tileIndex]
+    )
     return true
   }
 

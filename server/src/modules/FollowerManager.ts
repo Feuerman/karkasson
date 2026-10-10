@@ -16,17 +16,25 @@ import {
   type FollowerCount,
   type FollowerType,
   type GridTile,
+  type ObjectFollower,
   type Player,
   type PlayerId,
   type PlacedFollower,
   type Point,
   type PointDirection,
+  type SideName,
   type Scores,
   type TemporaryObjects,
   type TilePlacesStats,
 } from './types'
 
 type LinearFeatureKind = typeof TileSideType.City | typeof TileSideType.Road
+
+/** Кандидат на место подданного до проверки допустимости. */
+interface FollowerPlaceCandidate {
+  point: Point
+  temporaryObject: BaseObject | undefined
+}
 
 interface FollowerState {
   gameIsEnded: boolean
@@ -90,15 +98,13 @@ export class FollowerManager {
     if (!currentPlayer) return []
     const followerPool = this.state.playersFollowers[currentPlayer.id]
 
+    // Монастырь и сад занимают центр тайла, остальные объекты — стороны.
     const sides: PointDirection[] = [...SIDE_NAMES]
     if (tile.isMonastery || tile.hasGarden) {
       sides.push(PointDirections.Center)
     }
 
-    const candidates: {
-      point: Point
-      temporaryObject: BaseObject | undefined
-    }[] = sides.map((side) => ({
+    const candidates: FollowerPlaceCandidate[] = sides.map((side) => ({
       point: {
         x: tile.x,
         y: tile.y,
@@ -114,48 +120,63 @@ export class FollowerManager {
       ),
     }))
 
-    return candidates.filter((place): place is AvailableFollowerPlace => {
-      const object = place.temporaryObject
-      if (object === undefined || object.followers.length !== 0) {
-        return false
-      }
-      const side = place.point.direction
-      if (side && side !== PointDirections.Center) {
-        const tileSideType = tile.sides[side]
-        const featureGroups = this.state.getTileFeatureGroups(
-          tile,
-          tileSideType === TileSideType.City
-            ? TileSideType.City
-            : TileSideType.Road
-        )
-        const group = featureGroups.find((directions) =>
-          directions.includes(side)
-        ) ?? [side]
-        const connectedObjects = group
-          .map((direction) =>
-            this.state.findObjectByPoint(
-              this.state.temporaryObjects,
-              tile.x,
-              tile.y,
-              direction
-            )
-          )
-          .filter((candidate): candidate is BaseObject => Boolean(candidate))
-        if (
-          connectedObjects.some((candidate) => candidate.followers.length > 0)
-        ) {
-          return false
-        }
-      }
-      // Сад занимает только аббат. В монастырь можно поставить любого
-      // подданного — он станет монахом, — а вот на стороне тайла аббата быть
-      // не может.
-      if (side === PointDirections.Center) {
-        return object.isGarden
-          ? this.hasAbbot(followerPool)
-          : this.hasAnyFollowers(followerPool)
-      }
-      return this.hasCommonFollowers(followerPool)
+    return candidates.filter((place): place is AvailableFollowerPlace =>
+      this.isPlaceAvailable(place, tile, followerPool)
+    )
+  }
+
+  /**
+   * Место доступно, если объект есть, ещё свободен и в запасе активного
+   * игрока есть фишка, которой этот объект можно занять.
+   */
+  private isPlaceAvailable(
+    place: FollowerPlaceCandidate,
+    tile: GridTile,
+    followerPool: FollowerCount | undefined
+  ): boolean {
+    const object = place.temporaryObject
+    if (object === undefined || object.followers.length !== 0) return false
+
+    const side = place.point.direction
+    if (!side) return this.hasCommonFollowers(followerPool)
+
+    // Сад занимает только аббат. В монастырь можно поставить любого
+    // подданного — он станет монахом, — а вот на стороне тайла аббата быть
+    // не может.
+    if (side === PointDirections.Center) {
+      return object.isGarden
+        ? this.hasAbbot(followerPool)
+        : this.hasAnyFollowers(followerPool)
+    }
+
+    return (
+      this.hasCommonFollowers(followerPool) &&
+      this.isConnectedGroupFree(tile, side)
+    )
+  }
+
+  /**
+   * Подданный ставится на всю группу соединённых сторон тайла: если хотя бы
+   * у одного сегмента группы уже есть подданный, группа занята.
+   */
+  private isConnectedGroupFree(tile: GridTile, side: SideName): boolean {
+    const tileSideType = tile.sides[side]
+    const featureGroups = this.state.getTileFeatureGroups(
+      tile,
+      tileSideType === TileSideType.City ? TileSideType.City : TileSideType.Road
+    )
+    const group = featureGroups.find((directions) =>
+      directions.includes(side)
+    ) ?? [side]
+
+    return group.every((direction) => {
+      const connectedObject = this.state.findObjectByPoint(
+        this.state.temporaryObjects,
+        tile.x,
+        tile.y,
+        direction
+      )
+      return (connectedObject?.followers.length ?? 0) === 0
     })
   }
 
@@ -191,79 +212,31 @@ export class FollowerManager {
     return this.hasCommonFollowers(pool) || this.hasAbbot(pool)
   }
 
+  /**
+   * Выставляет подданного активного игрока. Все проверки заново выполняются по
+   * состоянию партии: присланное клиентом место могло устареть.
+   */
   placeFollower(
     availablePlace: AvailableFollowerPlace,
     followerType: FollowerType = FollowerTypes.Follower
   ) {
     if (this.state.gameIsEnded) return
-    const activePlayer = this.state.currentPlayer
-    if (!activePlayer) return
 
-    const followerPool = this.state.playersFollowers[activePlayer.id]
-    if (!followerPool) {
-      this.skipFollower()
-      return
-    }
-
-    const temporaryObject = this.state.findObjectByPoint(
-      this.state.temporaryObjects,
-      availablePlace.point.x,
-      availablePlace.point.y,
-      availablePlace.point.direction
+    const placedFollowerType = this.applyFollowerPlacement(
+      availablePlace,
+      followerType
     )
-
-    if (
-      !temporaryObject ||
-      temporaryObject.id !== availablePlace.temporaryObject.id ||
-      temporaryObject.followers.length > 0
-    ) {
+    if (!placedFollowerType) {
       this.skipFollower()
       return
     }
-    if (!this.isFollowerPlacementAvailable(availablePlace, temporaryObject)) {
-      this.skipFollower()
-      return
-    }
-
-    const follower = this.resolveFollowerType(
-      followerType,
-      temporaryObject,
-      followerPool
-    )
-    if (!follower) {
-      this.skipFollower()
-      return
-    }
-
-    this.consumeFollower(activePlayer.id, follower.type)
-    temporaryObject.followers.push({
-      playerId: activePlayer.id,
-      objectId: temporaryObject.id,
-      point: availablePlace.point,
-      isAbbot: follower.isAbbot || undefined,
-      isBigFollower: follower.isBigFollower || undefined,
-    })
-
-    this.state.placedFollowers.push({
-      playerId: activePlayer.id,
-      objectId: temporaryObject.id,
-      point: availablePlace.point,
-      isMonastery: temporaryObject.isMonastery,
-      isGarden: temporaryObject.isGarden,
-      isAbbot: follower.isAbbot || undefined,
-      isBigFollower: follower.isBigFollower || undefined,
-    })
 
     this.state.availableFollowersPlaces = []
     this.state.recordAction({
       actionType: ActionTypes.PLACE_FOLLOWER,
-      actionData: {
-        ...availablePlace,
-        followerType: follower.type,
-      },
-      initiator: activePlayer,
+      actionData: { ...availablePlace, followerType: placedFollowerType },
+      initiator: this.state.currentPlayer,
     })
-
     this.state.endTurn()
   }
 
@@ -272,6 +245,12 @@ export class FollowerManager {
     this.state.endTurn()
   }
 
+  /**
+   * Отзыв аббата в ход владельца: аббат снимается с монастыря или сада
+   * (завершённого или нет) и начисляются очки за «незавершённый» объект —
+   * 1 очко за сам тайл и по 1 очку за каждую занятую клетку в окрестности 3×3.
+   * Ход не расходуется: игрок после отзыва продолжает свой ход.
+   */
   recallAbbot(): boolean {
     if (this.state.gameIsEnded) return false
     const currentPlayer = this.state.currentPlayer
@@ -284,19 +263,19 @@ export class FollowerManager {
       ...this.state.temporaryObjects.gardens,
       ...this.state.completedObjects.gardens,
     ]
+    const isOwnAbbot = (follower: ObjectFollower) =>
+      Boolean(follower.isAbbot) && String(follower.playerId) === playerKey
+
     const target = centerObjects.find((object) =>
-      object.followers.some(
-        (follower) =>
-          follower.isAbbot && String(follower.playerId) === playerKey
-      )
+      object.followers.some(isOwnAbbot)
     )
     if (!target) return false
-
-    const abbot = target.followers.find(
-      (follower) => follower.isAbbot && String(follower.playerId) === playerKey
-    )
+    const abbot = target.followers.find(isOwnAbbot)
     if (!abbot) return false
 
+    const objectType = target.isGarden
+      ? ObjectTypes.GARDEN
+      : ObjectTypes.MONASTERY
     const points = this.countCenterObjectPoints(target)
     this.state.scores[currentPlayer.id] =
       (this.state.scores[currentPlayer.id] ?? 0) + points
@@ -304,9 +283,7 @@ export class FollowerManager {
     this.state.recordAction({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
-        objectType: target.isGarden
-          ? ObjectTypes.GARDEN
-          : ObjectTypes.MONASTERY,
+        objectType,
         objectData: target,
         score: {
           objectId: target.id,
@@ -336,9 +313,7 @@ export class FollowerManager {
         followers: [
           {
             ...abbot,
-            objectType: target.isGarden
-              ? ObjectTypes.GARDEN
-              : ObjectTypes.MONASTERY,
+            objectType,
           },
         ],
       },
@@ -346,6 +321,10 @@ export class FollowerManager {
     return true
   }
 
+  /**
+   * Повторная проверка места перед постановкой фишки: весь участок должен быть
+   * свободен. Центр тайла занимается, только если объект пуст.
+   */
   isFollowerPlacementAvailable(
     place: AvailableFollowerPlace,
     object: BaseObject
@@ -356,37 +335,39 @@ export class FollowerManager {
 
     const tile = this.state.tilePlacesStats[place.point.y]?.[place.point.x]
     if (!tile) return false
-    const type = tile.sides[side]
-    const groups = this.state.getTileFeatureGroups(
-      tile,
-      type === TileSideType.City ? TileSideType.City : TileSideType.Road
-    )
-    const group = groups.find((directions) => directions.includes(side)) ?? [
-      side,
-    ]
-
-    return group.every((direction) => {
-      const connectedObject = this.state.findObjectByPoint(
-        this.state.temporaryObjects,
-        place.point.x,
-        place.point.y,
-        direction
-      )
-      if (connectedObject) return connectedObject.followers.length === 0
-      return object.followers.length === 0
-    })
+    return this.isConnectedGroupFree(tile, side)
   }
 
+  /**
+   * Пробная постановка подданного для оценки хода ИИ: те же проверки и
+   * изменения состояния, что и в реальном ходу, но без записи в историю и без
+   * перехода хода.
+   */
   simulatePlaceFollower(
     availablePlace: AvailableFollowerPlace,
     followerType: FollowerType = FollowerTypes.Follower
   ): boolean {
-    const currentPlayer = this.state.currentPlayer
-    const followerPool = currentPlayer
-      ? this.state.playersFollowers[currentPlayer.id]
-      : null
-    if (!currentPlayer || !followerPool) return false
+    return (
+      this.applyFollowerPlacement(availablePlace, followerType) !== undefined
+    )
+  }
 
+  /**
+   * Общая часть реального и пробного хода: проверки допустимости, списание
+   * фишки из запаса и постановка на объект. Возвращает тип выставленной фишки
+   * или `undefined`, если ход невозможен.
+   */
+  private applyFollowerPlacement(
+    availablePlace: AvailableFollowerPlace,
+    followerType: FollowerType
+  ): FollowerType | undefined {
+    const activePlayer = this.state.currentPlayer
+    if (!activePlayer) return undefined
+    const followerPool = this.state.playersFollowers[activePlayer.id]
+    if (!followerPool) return undefined
+
+    // Объект искать заново: клиент прислал место, а не фишку, и объект мог
+    // с тех пор объединиться с соседним или быть уже занят.
     const targetObject = this.state.findObjectByPoint(
       this.state.temporaryObjects,
       availablePlace.point.x,
@@ -398,10 +379,10 @@ export class FollowerManager {
       targetObject.id !== availablePlace.temporaryObject.id ||
       targetObject.followers.length > 0
     ) {
-      return false
+      return undefined
     }
     if (!this.isFollowerPlacementAvailable(availablePlace, targetObject)) {
-      return false
+      return undefined
     }
 
     const follower = this.resolveFollowerType(
@@ -409,26 +390,23 @@ export class FollowerManager {
       targetObject,
       followerPool
     )
-    if (!follower) return false
+    if (!follower) return undefined
 
-    this.consumeFollower(currentPlayer.id, follower.type)
-    targetObject.followers.push({
-      playerId: currentPlayer.id,
+    this.consumeFollower(activePlayer.id, follower.type)
+    const placement = {
+      playerId: activePlayer.id,
       objectId: targetObject.id,
       point: availablePlace.point,
       isAbbot: follower.isAbbot || undefined,
       isBigFollower: follower.isBigFollower || undefined,
-    })
+    }
+    targetObject.followers.push(placement)
     this.state.placedFollowers.push({
-      playerId: currentPlayer.id,
-      objectId: targetObject.id,
-      point: availablePlace.point,
+      ...placement,
       isMonastery: targetObject.isMonastery,
       isGarden: targetObject.isGarden,
-      isAbbot: follower.isAbbot || undefined,
-      isBigFollower: follower.isBigFollower || undefined,
     })
-    return true
+    return follower.type
   }
 
   private resolveFollowerType(
