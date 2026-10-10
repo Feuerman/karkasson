@@ -1,162 +1,63 @@
 <template>
-  <Draggable
+  <GamePanel
     v-if="gameBoard.isPlacingFollower"
     draggable-id="placing-followers"
     :initial-x="700"
     :initial-y="400"
     :drag-enabled="dragEnabled"
+    icon="i-lucide-person-standing"
+    title="Поставить подданного"
+    surface-class="min-w-[220px] max-w-[300px] p-4"
   >
-    <div
-      class="panel-parchment min-w-[220px] max-w-[300px] p-4 text-text shadow-card"
-    >
-      <div class="mb-2.5 flex items-center gap-2">
-        <UIcon name="i-lucide-person-standing" class="h-5 w-5 text-gold-dark" />
-        <span class="title-medieval text-[1rem] leading-none">
-          Поставить подданного
-        </span>
-      </div>
-      <div v-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
-        Нет доступных вариантов
-      </div>
-      <div v-else class="flex flex-col gap-1.5">
-        <template
-          v-for="({ place, sameTypeCount }, index) in groupedPlaces"
-          :key="`${place.temporaryObject.id}-${index}`"
-        >
-          <div
-            v-if="
-              place.temporaryObject?.isMonastery ||
-              place.temporaryObject?.isGarden
-            "
-            :data-testid="TEST_IDS.followerPlacementOptions"
-            class="flex flex-col gap-1.5"
-          >
-            <UButton
-              v-if="place.temporaryObject?.isMonastery"
-              block
-              variant="ghost"
-              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-              :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
-              @click.stop="
-                gameBoard.isMyTurn &&
-                placeFollower(place, FollowerType.Follower)
-              "
-            >
-              <template #leading>
-                <UIcon
-                  name="i-lucide-person-standing"
-                  class="h-4 w-4 text-gold-dark"
-                />
-              </template>
-              Монастырь — монах
-            </UButton>
-            <UButton
-              block
-              variant="ghost"
-              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-              :disabled="!gameBoard.isMyTurn || abbotAvailable === 0"
-              @click.stop="
-                gameBoard.isMyTurn && placeFollower(place, FollowerType.Abbot)
-              "
-            >
-              <template #leading>
-                <UIcon
-                  :name="
-                    place.temporaryObject?.isGarden
-                      ? 'i-lucide-flower-2'
-                      : 'i-lucide-church'
-                  "
-                  class="h-4 w-4 text-gold-dark"
-                />
-              </template>
-              {{ centerFeatureTitle(place) }} — аббат
-            </UButton>
-            <UButton
-              v-if="
-                gameBoard.rules?.expansions.innsAndCathedrals &&
-                !place.temporaryObject.isGarden
-              "
-              block
-              variant="ghost"
-              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-              :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
-              @click.stop="
-                gameBoard.isMyTurn &&
-                placeFollower(place, FollowerType.BigFollower)
-              "
-            >
-              <template #leading>
-                <UIcon
-                  name="i-lucide-users-round"
-                  class="h-4 w-4 text-gold-dark"
-                />
-              </template>
-              {{ centerFeatureTitle(place) }} — большой подданный
-            </UButton>
-          </div>
-          <template v-else>
-            <UButton
-              block
-              variant="ghost"
-              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-              :disabled="!gameBoard.isMyTurn || ordinaryAvailable === 0"
-              @click.stop="
-                gameBoard.isMyTurn &&
-                placeFollower(place, FollowerType.Follower)
-              "
-            >
-              <template #leading>
-                <UIcon
-                  :name="placeIcon(place)"
-                  class="h-4 w-4 text-gold-dark"
-                />
-              </template>
-              {{ followerPlaceTitle(place, sameTypeCount) }}
-            </UButton>
-            <UButton
-              v-if="
-                gameBoard.rules?.expansions.innsAndCathedrals &&
-                !place.temporaryObject.isGarden
-              "
-              block
-              variant="ghost"
-              class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-              :disabled="!gameBoard.isMyTurn || bigAvailable === 0"
-              @click.stop="
-                gameBoard.isMyTurn &&
-                placeFollower(place, FollowerType.BigFollower)
-              "
-            >
-              <template #leading>
-                <UIcon
-                  name="i-lucide-users-round"
-                  class="h-4 w-4 text-gold-dark"
-                />
-              </template>
-              {{ followerPlaceTitle(place, sameTypeCount) }} — большой подданный
-            </UButton>
-          </template>
-        </template>
-      </div>
-      <UButton
-        block
-        variant="soft"
-        color="neutral"
-        class="btn-secondary mt-2 min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
-        :disabled="!gameBoard.isMyTurn"
-        @click="gameBoard.isMyTurn && GameService.skipFollower()"
-      >
-        Пропустить выставление
-      </UButton>
+    <div v-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
+      Нет доступных вариантов
     </div>
-  </Draggable>
+    <div v-else class="flex flex-col gap-1.5">
+      <div
+        v-for="group in choiceGroups"
+        :key="group.key"
+        class="flex flex-col gap-1.5"
+        :data-testid="
+          group.isCenterFeature ? TEST_IDS.followerPlacementOptions : undefined
+        "
+      >
+        <UButton
+          v-for="choice in group.choices"
+          :key="choice.key"
+          block
+          variant="ghost"
+          class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+          :disabled="choice.disabled"
+          @click.stop="
+            gameBoard.isMyTurn &&
+            placeFollower(group.place, choice.followerType)
+          "
+        >
+          <template #leading>
+            <UIcon :name="choice.icon" class="h-4 w-4 text-gold-dark" />
+          </template>
+          {{ choice.label }}
+        </UButton>
+      </div>
+    </div>
+    <UButton
+      block
+      variant="soft"
+      color="neutral"
+      class="btn-secondary mt-2 min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
+      :disabled="!gameBoard.isMyTurn"
+      @click="gameBoard.isMyTurn && GameService.skipFollower()"
+    >
+      Пропустить выставление
+    </UButton>
+  </GamePanel>
 </template>
 
 <script setup lang="ts">
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import { FollowerType } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
-import Draggable from '@/components/Draggable.vue'
+import GamePanel from '@/components/GamePanel.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
@@ -210,6 +111,90 @@ const followerPlaceTitle = (
   if (sameTypeCount === 1) return title
   return `${title} — ${pointDirectionTitle(place.point.direction)}`
 }
+
+interface FollowerChoice {
+  key: FollowerType
+  label: string
+  icon: string
+  followerType: FollowerType
+  disabled: boolean
+}
+
+interface ChoiceGroup {
+  key: string
+  place: AvailableFollowerPlace
+  /** Монастырь и сад показываются отдельной группой с подсказкой для тестов. */
+  isCenterFeature: boolean
+  choices: FollowerChoice[]
+}
+
+/**
+ * Кнопки выбора фишки для каждого доступного места. На монастыре и саду
+ * предлагаются монах, аббат и большой подданный, на дороге и городе —
+ * подданный и большой подданный. Большой подданный доступен только с
+ * дополнением «Таверны и соборы» и не ставится в сад.
+ */
+const choiceGroups = computed<ChoiceGroup[]>(() =>
+  groupedPlaces.value.map(({ place, sameTypeCount }, index) => {
+    const isMyTurn = Boolean(props.gameBoard.isMyTurn)
+    const bigFollower =
+      place.temporaryObject.isMonastery || place.temporaryObject.isGarden
+        ? `${centerFeatureTitle(place)} — большой подданный`
+        : `${followerPlaceTitle(place, sameTypeCount)} — большой подданный`
+    const choices: FollowerChoice[] = []
+
+    if (place.temporaryObject.isMonastery || place.temporaryObject.isGarden) {
+      if (place.temporaryObject.isMonastery) {
+        choices.push({
+          key: FollowerType.Follower,
+          label: 'Монастырь — монах',
+          icon: 'i-lucide-person-standing',
+          followerType: FollowerType.Follower,
+          disabled: !isMyTurn || ordinaryAvailable.value === 0,
+        })
+      }
+      choices.push({
+        key: FollowerType.Abbot,
+        label: `${centerFeatureTitle(place)} — аббат`,
+        icon: place.temporaryObject.isGarden
+          ? 'i-lucide-flower-2'
+          : 'i-lucide-church',
+        followerType: FollowerType.Abbot,
+        disabled: !isMyTurn || abbotAvailable.value === 0,
+      })
+    } else {
+      choices.push({
+        key: FollowerType.Follower,
+        label: followerPlaceTitle(place, sameTypeCount),
+        icon: placeIcon(place),
+        followerType: FollowerType.Follower,
+        disabled: !isMyTurn || ordinaryAvailable.value === 0,
+      })
+    }
+
+    if (
+      props.gameBoard.rules?.expansions.innsAndCathedrals &&
+      !place.temporaryObject.isGarden
+    ) {
+      choices.push({
+        key: FollowerType.BigFollower,
+        label: bigFollower,
+        icon: 'i-lucide-users-round',
+        followerType: FollowerType.BigFollower,
+        disabled: !isMyTurn || bigAvailable.value === 0,
+      })
+    }
+
+    return {
+      key: `${place.temporaryObject.id}-${index}`,
+      place,
+      isCenterFeature: Boolean(
+        place.temporaryObject.isMonastery || place.temporaryObject.isGarden
+      ),
+      choices,
+    }
+  })
+)
 
 const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
   GameService.placeFollower(place, type)

@@ -21,12 +21,13 @@
     <template v-if="hasEatenFollowers">
       <span class="text-text"> Съедены подданные: </span>
       <span v-for="group in eatenByPlayer" :key="group.playerId">
-        <PlayerName
-          :color="playerColor(group.playerId)"
+        <PlayerNameById
+          :players="players"
+          :player-id="group.playerId"
           :title="bigFollowerHint"
         >
-          {{ playerName(group.playerId) }} — {{ group.names.join(', ') }}&nbsp;
-        </PlayerName>
+          — {{ group.names.join(', ') }}&nbsp;
+        </PlayerNameById>
       </span>
     </template>
   </ActionRow>
@@ -39,8 +40,7 @@ import type { Player } from '@server/modules/types'
 import { computed } from 'vue'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
-import PlayerName from '../PlayerName.vue'
-import { playerById } from '../players'
+import PlayerNameById from '../PlayerNameById.vue'
 import {
   BIG_FOLLOWER_HINT,
   groupFollowerNamesByPlayer,
@@ -67,12 +67,6 @@ const bigFollowerHint = computed(() =>
     ? BIG_FOLLOWER_HINT
     : undefined
 )
-
-const playerColor = (playerId: string | number) =>
-  playerById(players, playerId)?.color
-
-const playerName = (playerId: string | number) =>
-  playerById(players, playerId)?.name
 
 const forwardZoom = (row: number, col: number) => {
   emit('zoom', row, col)

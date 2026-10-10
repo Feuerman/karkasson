@@ -25,9 +25,7 @@
           v-for="(score, playerId) in action.actionData.score.players"
           :key="playerId"
         >
-          <PlayerName :color="playerColor(playerId)">
-            {{ playerName(playerId) }}
-          </PlayerName>
+          <PlayerNameById :players="players" :player-id="playerId" />
           <strong class="font-bold text-text">
             — {{ score ?? 0 }}
             {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
@@ -85,8 +83,7 @@ import { cellsOfPoints } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import { pluralForm } from '@/utils/common'
 import ActionRow from '../ActionRow.vue'
-import PlayerName from '../PlayerName.vue'
-import { playerById } from '../players'
+import PlayerNameById from '../PlayerNameById.vue'
 
 const { action, players } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.ADDING_SCORES }>
@@ -121,10 +118,4 @@ const hasDetails = computed(
     Boolean(action.actionData.details?.length) ||
     Boolean(action.actionData.modifiers?.length)
 )
-
-const playerColor = (playerId: string | number) =>
-  playerById(players, playerId)?.color
-
-const playerName = (playerId: string | number) =>
-  playerById(players, playerId)?.name
 </script>

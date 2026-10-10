@@ -11,12 +11,7 @@
     </p>
 
     <div v-else-if="block.type === 'list'" class="mb-4">
-      <div
-        v-if="block.title"
-        class="mb-1.5 text-[17px] font-semibold text-text"
-      >
-        {{ block.title }}
-      </div>
+      <RulesBlockTitle :title="block.title" />
       <ul
         v-if="block.ordered !== true"
         class="list-disc space-y-1.5 pl-5 text-[17px] leading-relaxed text-text"
@@ -43,9 +38,7 @@
     />
 
     <div v-else-if="block.type === 'table'" class="mb-4">
-      <div v-if="block.title" class="mb-2 text-[17px] font-semibold text-text">
-        {{ block.title }}
-      </div>
+      <RulesBlockTitle :title="block.title" spaced="mb-2" />
       <div class="overflow-x-auto rounded-xl border border-gold-dark/50">
         <table class="w-full border-collapse text-left">
           <thead>
@@ -86,12 +79,7 @@
     />
 
     <div v-else-if="block.type === 'tiles-row'" class="mb-4">
-      <div
-        v-if="block.title"
-        class="mb-1.5 text-[17px] font-semibold text-text"
-      >
-        {{ block.title }}
-      </div>
+      <RulesBlockTitle :title="block.title" />
       <div class="flex flex-wrap items-start gap-3">
         <div
           v-for="(tile, index) in block.tiles"
@@ -114,6 +102,7 @@
 <script setup lang="ts">
 import TileView from '@/components/TileView.vue'
 import RulesExampleGrid from './RulesExampleGrid.vue'
+import RulesBlockTitle from './RulesBlockTitle.vue'
 import UAlert from '@nuxt/ui/components/Alert.vue'
 import type { RulesBlock, RulesCalloutTone } from '@/rules/types'
 

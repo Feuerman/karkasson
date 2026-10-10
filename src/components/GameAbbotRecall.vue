@@ -1,42 +1,35 @@
 <template>
-  <Draggable
+  <GamePanel
     v-if="showRecall"
     draggable-id="abbot-recall"
     :initial-x="initialX"
     :initial-y="16"
     :drag-enabled="dragEnabled"
+    icon="i-lucide-church"
+    title="Отзыв аббата"
+    surface-class="min-w-[220px] max-w-[300px] p-3"
   >
-    <div
-      class="panel-parchment min-w-[220px] max-w-[300px] p-3 text-text shadow-card"
+    <p class="mb-2 text-[.9rem] leading-relaxed text-text-muted">
+      Снять аббата с {{ abbotLocation }} и получить {{ potentialPoints }} очк{{
+        pluralSuffix
+      }}.
+    </p>
+    <UButton
+      block
+      color="primary"
+      variant="soft"
+      class="btn-primary-action min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
+      @click="recall"
     >
-      <div class="mb-2 flex items-center gap-2">
-        <UIcon name="i-lucide-church" class="h-5 w-5 text-gold-dark" />
-        <span class="title-medieval text-[.95rem] leading-none">
-          Отзыв аббата
-        </span>
-      </div>
-      <p class="mb-2 text-[.9rem] leading-relaxed text-text-muted">
-        Снять аббата с {{ abbotLocation }} и получить
-        {{ potentialPoints }} очк{{ pluralSuffix }}.
-      </p>
-      <UButton
-        block
-        color="primary"
-        variant="soft"
-        class="btn-primary-action min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
-        @click="recall"
-      >
-        Забрать аббата
-      </UButton>
-    </div>
-  </Draggable>
+      Забрать аббата
+    </UButton>
+  </GamePanel>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { IGameBoard } from '@/types/game'
-import Draggable from '@/components/Draggable.vue'
-import UIcon from '@nuxt/ui/components/Icon.vue'
+import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 import { pluralForm } from '@/utils/common'
