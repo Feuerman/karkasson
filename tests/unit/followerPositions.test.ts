@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { tiles } from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
+import { riverTiles } from '@server/data/riverTiles'
+import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import {
   PointDirection,
   SideName,
@@ -9,8 +11,14 @@ import {
 } from '@server/modules/types'
 import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
 
-const allTiles = [...tiles, ...innsAndCathedralsTiles]
-const tileIds = allTiles.map((tile) => tile.id)
+// Наборы тайлов всех расширений: позиции фишек заданы и для речных тайлов,
+// и для тайлов «Принцесса и дракон», поэтому проверяем их наравне с базовыми.
+const tileSets = [
+  ...tiles,
+  ...innsAndCathedralsTiles,
+  ...riverTiles,
+  ...princessAndDragonTiles,
+]
 const directions = [
   SideName.North,
   SideName.East,
@@ -57,11 +65,11 @@ describe('follower positions', () => {
   it('has a position mapping for each base tile image', () => {
     expect(tiles).toHaveLength(24)
     expect(innsAndCathedralsTiles).toHaveLength(18)
-    tileIds.forEach((tileId) => expect(isTileId(tileId)).toBe(true))
+    tileSets.forEach((tile) => expect(isTileId(tile.id)).toBe(true))
   })
 
   it('maps every road and city entry to a matching side on the source tile', () => {
-    for (const tile of allTiles) {
+    for (const tile of tileSets) {
       const tileId = tile.id as TileId
       for (const [direction, featureType] of Object.entries(tile.sides)) {
         if (
@@ -90,7 +98,7 @@ describe('follower positions', () => {
   })
 
   it('rotates every road and city marker with its tile', () => {
-    for (const tile of allTiles) {
+    for (const tile of tileSets) {
       const tileId = tile.id as TileId
       for (const direction of directions) {
         const featureType = tile.sides[direction]
@@ -190,5 +198,62 @@ describe('follower positions', () => {
       getFollowerPosition(TileId.R, PointDirection.Center, 90, undefined, true)
     ).toEqual([0.22, 0.5])
     expect(isTileId('unknown')).toBe(false)
+  })
+
+  // Точная позиция задана не для каждой стороны: без неё маркер ставится на
+  // середину стороны в системе координат исходного тайла, а затем поворачивается
+  // вместе с ним, поэтому остаётся на той же границе.
+  it('falls back to the middle of the side without an explicit position', () => {
+    // У тайла IAC_J город задан только для северной стороны.
+    expect(
+      getFollowerPosition(TileId.IAC_J, SideName.North, 0, TileSideType.City)
+    ).toEqual([0.5, 0.24])
+
+    expect(
+      getFollowerPosition(TileId.IAC_J, SideName.North, 90, TileSideType.City)
+    ).toEqual([0.5, 0.24])
+    expect(
+      getFollowerPosition(TileId.IAC_J, SideName.North, 180, TileSideType.City)
+    ).toEqual([0.5, 0.24])
+
+    // Дорога этого же тайла задана явно и поворот виден.
+    expect(
+      getFollowerPosition(TileId.IAC_J, SideName.South, 0, TileSideType.Road)
+    ).toEqual([0.5, 0.82])
+    expect(
+      getFollowerPosition(TileId.IAC_J, SideName.South, 90, TileSideType.Road)
+    ).toEqual([0.5, 0.76])
+  })
+
+  // Свой смещённый центр есть не у всех тайлов с садом; остальные рисуются
+  // в общем центре, как и монастырь.
+  it('keeps gardens without a tuned offset in the tile center', () => {
+    expect(
+      getFollowerPosition(
+        TileId.IAC_H,
+        PointDirection.Center,
+        0,
+        undefined,
+        true
+      )
+    ).toEqual([0.5, 0.5])
+    expect(
+      getFollowerPosition(TileId.R, PointDirection.Center, 0, undefined, true)
+    ).not.toEqual([0.5, 0.5])
+  })
+
+  // Точки без стороны или со стороной вне тайла не должны ронять отрисовку.
+  it('falls back to the center for a missing or unknown direction', () => {
+    expect(
+      getFollowerPosition(TileId.X, undefined, 0, TileSideType.City)
+    ).toEqual([0.5, 0.5])
+    expect(
+      getFollowerPosition(
+        TileId.X,
+        'nowhere' as unknown as typeof SideName.North,
+        0,
+        TileSideType.City
+      )
+    ).toEqual([0.5, 0.5])
   })
 })
