@@ -116,7 +116,3 @@ export async function latestGame(
     predicate as (payload: unknown) => boolean
   )) as TestGameData
 }
-
-export function playerIndexByName(game: TestGameData, name: string): number {
-  return game.players.findIndex((p) => p.name === name)
-}

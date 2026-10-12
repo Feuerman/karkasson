@@ -147,8 +147,15 @@ describe('Финальный подсчёт очков', () => {
 
     game.getRandomTileFromList()
 
+    const scoresById = new Map(
+      game.completedObjects.monasteries.map((monastery) => [
+        monastery.id,
+        monastery.score?.total,
+      ])
+    )
     expect(game.scores[1]).toBe(2)
-    expect(game.completedObjects.monasteries[0]?.score?.total).toBe(1)
-    expect(game.completedObjects.monasteries[1]?.score?.total).toBe(1)
+    expect(scoresById.get('completed-monastery')).toBe(1)
+    expect(scoresById.get('unfinished-monastery')).toBe(1)
+    expect(game.temporaryObjects.monasteries).toHaveLength(0)
   })
 })

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   describePlacementConflicts,
   describePlacementFailure,
+  describeRiverConflict,
   findTileSideConflicts,
   isCorrectTilePosition,
   PLACEMENT_FAILURE_MESSAGE,
@@ -181,28 +182,47 @@ describe('Описание причины отказа в размещении',
 })
 
 describe('Описание причины отказа по реке', () => {
-  it('возвращает общее сообщение без конфликтов и сообщение сторон для сторон', () => {
+  it('без конфликтов возвращает общее сообщение', () => {
     expect(describePlacementFailure([])).toBe(PLACEMENT_FAILURE_MESSAGE)
-    expect(
-      describePlacementFailure([
-        {
-          side: SideName.North,
-          rowIndex: 14,
-          tileIndex: 15,
-          own: TileSideType.Field,
-          adjacent: TileSideType.City,
-        },
-      ])
-    ).toBe(
-      describePlacementConflicts([
-        {
-          side: SideName.North,
-          rowIndex: 14,
-          tileIndex: 15,
-          own: TileSideType.Field,
-          adjacent: TileSideType.City,
-        },
-      ])
+  })
+
+  it('для несовпавшей стороны повторяет сообщение о размещении', () => {
+    const conflicts = [
+      {
+        side: SideName.North,
+        rowIndex: 14,
+        tileIndex: 15,
+        own: TileSideType.Field,
+        adjacent: TileSideType.City,
+      },
+    ]
+
+    const message = describePlacementFailure(conflicts)
+
+    expect(message).toBe(describePlacementConflicts(conflicts))
+    expect(message).toContain('север — поле, а у соседа с юга — город')
+  })
+
+  it('отдаёт приоритет причине по реке перед конфликтами сторон', () => {
+    const sideConflict = {
+      side: SideName.North,
+      rowIndex: 14,
+      tileIndex: 15,
+      own: TileSideType.Field,
+      adjacent: TileSideType.City,
+    }
+    const riverConflict = {
+      reason: 'openEnd' as const,
+      side: SideName.South,
+      rowIndex: 15,
+      tileIndex: 15,
+    }
+
+    expect(describePlacementFailure([sideConflict, riverConflict])).toBe(
+      describeRiverConflict(riverConflict)
+    )
+    expect(describePlacementFailure([riverConflict, sideConflict])).toBe(
+      describeRiverConflict(riverConflict)
     )
   })
 
