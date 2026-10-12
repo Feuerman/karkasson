@@ -65,6 +65,45 @@ describe('примеры правил', () => {
     })
   })
 
+  it('для каждого ключевого правила есть наглядный пример', () => {
+    const ids = collectExamples([baseGameRules]).map(({ id }) => id)
+
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        // Размещение тайла и соединение объектов.
+        'road-connection',
+        'wrong-placement',
+        'city-corners',
+        // Когда объект считается завершённым.
+        'road-crossroads',
+        'road-loop',
+        'completed-road-ring',
+        'completed-city-ring',
+        'completed-monastery',
+        // Аббат, сады и отзыв.
+        'partial-garden',
+        'abbot-recall',
+        'completed-garden',
+        // Борьба за большинство.
+        'shared-road',
+        'shared-city-majority',
+        'big-follower-majority',
+        // Финальный подсчёт.
+        'final-scoring',
+        // Дополнения.
+        'inn-road',
+        'inn-twice',
+        'cathedral-city',
+      ])
+    )
+  })
+
+  it('примеры поясняют подсчёт очков в подписи', () => {
+    for (const example of collectExamples([baseGameRules])) {
+      expect(example.caption?.trim(), example.id).toBeTruthy()
+    }
+  })
+
   it('маршрут дракона в примерах пронумерован подряд и без повторов', () => {
     const dragonExamples = collectExamples([baseGameRules]).filter(({ id }) =>
       id.startsWith('dragon-move-')
