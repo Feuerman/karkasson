@@ -41,6 +41,12 @@ jobs:
       - name: Check types
         run: pnpm run type-check
 
+      - name: Build server
+        run: pnpm --filter server run build
+
+      - name: Check formatting
+        run: pnpm run format:check
+
       - name: Run tests
         run: pnpm test
 

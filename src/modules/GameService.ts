@@ -66,6 +66,7 @@ export class GameService implements IGameService {
   gamesList: GameSummary[] = []
   isConnected = ref(false)
   private serverUrl: string
+  private readonly pendingAcks = new Set<(error: Error) => void>()
 
   constructor(options: GameServiceOptions = {}) {
     this.socket = null
@@ -94,12 +95,22 @@ export class GameService implements IGameService {
         return
       }
 
+      // Ответ может прийти и после разрыва. Без явной отмены промис висел бы
+      // до таймаута, и игрок увидел бы ошибку уже после применённого хода.
+      const cancel = (error: Error) => {
+        clearTimeout(timeout)
+        this.pendingAcks.delete(cancel)
+        reject(error)
+      }
+      this.pendingAcks.add(cancel)
+
       const timeout = setTimeout(() => {
-        reject(new Error(`Таймаут ожидания ответа сервера: ${event}`))
+        cancel(new Error(`Таймаут ожидания ответа сервера: ${event}`))
       }, SOCKET_ACK_TIMEOUT_MS)
 
       const callback = (response: SocketAck) => {
         clearTimeout(timeout)
+        this.pendingAcks.delete(cancel)
         if (response.error) {
           reject(new SocketAckError(response.error, response.conflicts ?? []))
         } else {
@@ -113,6 +124,12 @@ export class GameService implements IGameService {
         this.socket.emit(event, payload, callback)
       }
     })
+  }
+
+  private rejectPendingAcks(error: Error): void {
+    const pending = [...this.pendingAcks]
+    this.pendingAcks.clear()
+    pending.forEach((cancel) => cancel(error))
   }
 
   connect() {
@@ -148,6 +165,9 @@ export class GameService implements IGameService {
     this.socket.on('disconnect', (reason: string) => {
       console.log('Disconnected from server:', reason)
       this.isConnected.value = false
+      this.rejectPendingAcks(
+        new Error('Соединение с сервером прервано, команда не доставлена')
+      )
       if (
         reason === 'io server disconnect' ||
         reason === 'io client disconnect'

@@ -66,18 +66,18 @@ pnpm workspace. Обзор архитектуры и запуск описаны
 
 ## Команды и проверки
 
-| Команда | Назначение |
-| --- | --- |
-| `pnpm run dev` | Vite dev-сервер клиента |
-| `pnpm --filter server run dev` | сервер с nodemon |
-| `pnpm run type-check` | `vue-tsc --noEmit` |
-| `pnpm test` | полный набор Vitest: unit и integration |
-| `pnpm run test:gameplay` | две полные партии: 4 ИИ и человек против ИИ |
-| `pnpm run test:browser` | браузерный smoke: лобби, слоты, запуск игры |
-| `pnpm run lint` | ESLint, только проверка |
-| `pnpm run lint:fix` | ESLint с автоисправлением файлов |
-| `pnpm run build` | проверка типов клиента, затем production-сборка клиента |
-| `pnpm --filter server run build` | компиляция сервера (`tsc`) |
+| Команда                          | Назначение                                              |
+| -------------------------------- | ------------------------------------------------------- |
+| `pnpm run dev`                   | Vite dev-сервер клиента                                 |
+| `pnpm --filter server run dev`   | сервер с nodemon                                        |
+| `pnpm run type-check`            | `vue-tsc --noEmit`                                      |
+| `pnpm test`                      | полный набор Vitest: unit и integration                 |
+| `pnpm run test:gameplay`         | две полные партии: 4 ИИ и человек против ИИ             |
+| `pnpm run test:browser`          | браузерный smoke: лобби, слоты, запуск игры             |
+| `pnpm run lint`                  | ESLint, только проверка                                 |
+| `pnpm run lint:fix`              | ESLint с автоисправлением файлов                        |
+| `pnpm run build`                 | проверка типов клиента, затем production-сборка клиента |
+| `pnpm --filter server run build` | компиляция сервера (`tsc`)                              |
 
 `pnpm run format` изменяет форматирование файлов Prettier. Не запускай его на
 всём репозитории ради несвязанной правки.

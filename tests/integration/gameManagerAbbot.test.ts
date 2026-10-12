@@ -180,8 +180,8 @@ describe('Аббат (оба игрока-человека, фиксирован
 
     // История действий содержит PLACE_FOLLOWER с типом «аббат»
     const action = game.actionsHistory[game.actionsHistory.length - 1]
-    expect(action!.actionType).toBe(ActionTypes.PLACE_FOLLOWER)
-    expect((action!.actionData as { followerType: string }).followerType).toBe(
+    expect(action.actionType).toBe(ActionTypes.PLACE_FOLLOWER)
+    expect((action.actionData as { followerType: string }).followerType).toBe(
       FollowerType.Abbot
     )
 

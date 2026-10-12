@@ -50,24 +50,20 @@
       class="flex flex-wrap gap-x-4 gap-y-0.5 text-[1.05rem] text-[#e8d9b0]"
     >
       <span
-        v-for="(value, key, index) in game.scores"
-        :key="key"
+        v-for="row in scoreRows"
+        :key="row.player.id"
         class="flex items-center gap-1.5 whitespace-nowrap"
       >
         <span
           class="h-2.5 w-2.5 rounded-full ring-1 ring-black/30"
-          :class="playerBackgroundColorClass(game.players[index]?.color)"
+          :class="playerBackgroundColorClass(row.player.color)"
         ></span>
         <template
-          v-if="
-            !game.players[index].socketId &&
-            !game.players[index].deviceId &&
-            game.players[index].name
-          "
+          v-if="!row.player.socketId && !row.player.deviceId && row.player.name"
         >
           AI
         </template>
-        {{ game.players[index]?.name }} — {{ value }}
+        {{ row.player.name }} — {{ row.score }}
       </span>
     </div>
 
@@ -100,6 +96,21 @@ const props = defineProps<{
 
 const lobbyName = computed(
   () => props.game.players.find((player) => player.name)?.name ?? 'Каркассон'
+)
+
+/**
+ * Счёт — запись по id игрока, а не по позиции в массиве, поэтому игрока ищем
+ * по id: при нулевом счёте у кого-то из участников порядок ключей расходился с
+ * порядком `players` и карточка показывала чужое имя. Ключ объекта всегда
+ * строка, поэтому сравниваем по строковой форме id.
+ */
+const scoreRows = computed(() =>
+  Object.entries(props.game.scores ?? {}).flatMap(([playerId, score]) => {
+    const player = props.game.players.find(
+      (candidate) => String(candidate.id) === playerId
+    )
+    return player ? [{ player, score }] : []
+  })
 )
 
 const emit = defineEmits<{

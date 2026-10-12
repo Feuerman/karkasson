@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
-import {
-  createLobbyWithPlayers,
-  latestGame,
-  type TestGameData,
-} from './helpers/lobby'
+import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
 import {
   startTestServer,
   stopTestServer,
@@ -31,10 +27,10 @@ describe('Запуск игры', () => {
     clients.push(lobby.creator, lobby.joiner)
 
     lobby.creator.emit(SocketEvents.StartGame, { gameId: lobby.gameId })
-    const started = (await latestGame(
+    const started = await latestGame(
       lobby.creator,
       (g) => g.gameIsStarted === true
-    )) as TestGameData
+    )
 
     expect(started.id).toBe(lobby.gameId)
     expect(started.gameIsStarted).toBe(true)

@@ -314,13 +314,15 @@ describe('Клиентское приложение (GameService)', () => {
     await alice.addPlayer({ name: null, index: 2 })
     await alice.addPlayer({ name: null, index: 3 })
 
-    // Старт игры
-    alice.startGame()
-    const started = await waitGameUpdated(
+    // Старт игры: ожидание регистрируется до команды, иначе gameUpdated
+    // успевает прийти до установки слушателя
+    const startedPromise = waitGameUpdated(
       alice,
       (game) =>
         game.gameIsStarted === true && game.currentPlayer?.name === 'Alice'
     )
+    await alice.startGame()
+    const started = await startedPromise
     expect(started.currentPlayer?.id).toBe(started.players[0].id)
 
     // Ход Алисы через клиентские методы
@@ -413,5 +415,31 @@ describe('Клиентское приложение (GameService)', () => {
     expect(failure.conflicts).toEqual([
       { reason: 'openEnd', rowIndex: 15, tileIndex: 15, side: SideName.South },
     ])
+  })
+
+  it('отклоняет висящую команду при разрыве соединения', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-disconnect',
+    })
+    services.push(client)
+    client.connect()
+    await waitUntilConnected(client)
+    await waitForServerDevice(server, client)
+
+    // Сервер не знает этого события и не ответит на него: без явной отмены
+    // промис висел бы до пятнадцатисекундного таймаута.
+    const unacknowledged = (
+      client as unknown as {
+        emitAck: (event: string) => Promise<unknown>
+      }
+    ).emitAck('unknown:command')
+
+    client.socket?.disconnect()
+
+    await expect(unacknowledged).rejects.toThrow(
+      'Соединение с сервером прервано'
+    )
   })
 })

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { SocketEvents } from '@server/modules/types'
+import { ActionTypes, SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
   assertFollowerInvariants,
@@ -79,6 +79,20 @@ describe('Полностью автоматическая партия (4 ком
       )
       const ended = endedPayload as GameStateSnapshot
       expect(ended.gameIsEnded).toBe(true)
+
+      // Победителя присылает сервер, и он совпадает с максимумом в таблице очков
+      const winnerIds = ended.winnerPlayerIds ?? []
+      expect(winnerIds.length).toBeGreaterThan(0)
+      const scores = Object.entries(ended.scores ?? {})
+      const best = scores.reduce(
+        (max, [, score]) => Math.max(max, score),
+        -Infinity
+      )
+      expect(winnerIds.length).toBe(scores.filter(([, s]) => s === best).length)
+      winnerIds.forEach((id) => {
+        expect(scores.find(([key]) => key === String(id))?.[1]).toBe(best)
+      })
+
       expect(countPlacedTiles(ended.tilePlacesStats)).toBeGreaterThan(72)
       expect(countPlacedTiles(ended.tilePlacesStats)).toBeLessThanOrEqual(101)
       const placedTiles = Object.values(ended.tilePlacesStats).flatMap((row) =>
@@ -93,7 +107,7 @@ describe('Полностью автоматическая партия (4 ком
       expect(
         ended.actionsHistory?.filter(
           (action) =>
-            action.actionType === 'PLACE_FOLLOWER' &&
+            action.actionType === ActionTypes.PLACE_FOLLOWER &&
             !action.initiator?.socketId &&
             !action.initiator?.deviceId
         ).length

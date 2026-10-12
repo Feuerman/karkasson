@@ -20,6 +20,7 @@ import {
   calcRoadScore,
   describeCityScore,
   describeRoadScore,
+  leaderPlayerIds,
 } from './scoring'
 import {
   ActionTypes,
@@ -103,6 +104,8 @@ export interface IGameBoard {
   temporaryObjects: TemporaryObjects
   completedObjects: CompletedObjects
   scores: Scores
+  /** Игроки с максимальным счётом; непусто только при gameIsEnded. */
+  winnerPlayerIds: PlayerId[]
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
   availablePlacesTiles: AvailablePlace[]
@@ -173,6 +176,7 @@ export class GameManager implements IGameBoard {
   temporaryObjects: TemporaryObjects
   completedObjects: CompletedObjects
   scores: Scores
+  winnerPlayerIds: PlayerId[] = []
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
   placedFollowers: PlacedFollower[]
@@ -233,6 +237,7 @@ export class GameManager implements IGameBoard {
       gardens: [],
     }
     this.scores = {}
+    this.winnerPlayerIds = []
     this.playersFollowers = {}
     this.placedFollowers = []
     this.moveCounter = 1
@@ -775,6 +780,9 @@ export class GameManager implements IGameBoard {
     this.currentPlayer = null
     this.tilesList = []
     if (this.finalScoringEnabled) finalizeScoring(this)
+    // Победителя считаем здесь, после финального подсчёта: клиент только
+    // отображает готовый список лидеров и не пересчитывает очки.
+    this.winnerPlayerIds = leaderPlayerIds(this.scores)
   }
 
   // ---------------------------------------------------------------------------

@@ -23,6 +23,21 @@ export const CENTRAL_OBJECT_NAMES: Record<
 }
 
 /**
+ * Игроки с максимальным счётом. Возвращает всех лидеров, потому что ничья
+ * разрешена: при равных очках победителя нет, и клиент должен это показать.
+ */
+export function leaderPlayerIds(scores: Scores): PlayerId[] {
+  const entries = Object.entries(scores) as [PlayerId, number][]
+  if (entries.length === 0) return []
+
+  const best = entries.reduce(
+    (max, [, score]) => (score > max ? score : max),
+    Number.NEGATIVE_INFINITY
+  )
+  return entries.filter(([, score]) => score === best).map(([id]) => id)
+}
+
+/**
  * Распределяет очки объекта между игроками-лидерами
  * (у кого больше всего подданных в объекте — тот и получает очки).
  * Возвращает разбивку и попутно начисляет очки в общий счёт.

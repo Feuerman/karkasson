@@ -34,17 +34,17 @@
 
 ## Стек технологий
 
-| Область        | Инструменты                                                       |
-| -------------- | ----------------------------------------------------------------- |
-| Клиент         | Vue 3, Vite, TypeScript                                           |
-| UI             | Nuxt UI v4, Tailwind CSS 4                                        |
-| Транспорт      | Socket.IO 4 (только WebSocket, авто-reconnect)                    |
-| Сервер         | Node.js, Express 5, Socket.IO 4, TypeScript                       |
-| Хранение       | Firebase Realtime Database (в тестах — in-memory реализация)      |
-| Монорепо       | pnpm workspaces (`server/` — отдельный пакет workspace)           |
-| Тесты          | Vitest 5 (unit + интеграционные, реальный сервер и фронтенд)      |
-| Линт/формат    | ESLint 8 (vue3-recommended + typescript-eslint), Prettier 3       |
-| CI/CD          | GitHub Actions → GitHub Pages (клиент)                            |
+| Область     | Инструменты                                                  |
+| ----------- | ------------------------------------------------------------ |
+| Клиент      | Vue 3, Vite, TypeScript                                      |
+| UI          | Nuxt UI v4, Tailwind CSS 4                                   |
+| Транспорт   | Socket.IO 4 (только WebSocket, авто-reconnect)               |
+| Сервер      | Node.js, Express 5, Socket.IO 4, TypeScript                  |
+| Хранение    | Firebase Realtime Database (в тестах — in-memory реализация) |
+| Монорепо    | pnpm workspaces (`server/` — отдельный пакет workspace)      |
+| Тесты       | Vitest 5 (unit + интеграционные, реальный сервер и фронтенд) |
+| Линт/формат | ESLint 8 (vue3-recommended + typescript-eslint), Prettier 3  |
+| CI/CD       | GitHub Actions → GitHub Pages (клиент)                       |
 
 ## Архитектура
 
@@ -226,21 +226,21 @@ in-memory хранилище: игры доступны, пока сервер �
 
 ### Скрипты
 
-| Команда                          | Назначение                                      |
-| -------------------------------- | ----------------------------------------------- |
-| `pnpm run dev`                   | dev-сервер клиента (Vite, HMR)                  |
+| Команда                          | Назначение                                                     |
+| -------------------------------- | -------------------------------------------------------------- |
+| `pnpm run dev`                   | dev-сервер клиента (Vite, HMR)                                 |
 | `pnpm run build`                 | проверка типов и сборка клиента в `dist/` (base `/karkasson/`) |
-| `pnpm run preview`               | предпросмотр собранного клиента                 |
-| `pnpm test`                      | все тесты (unit + интеграционные)               |
-| `pnpm run test:gameplay`          | полные партии: 4 ИИ и человек против ИИ         |
-| `pnpm run test:browser`           | браузерный smoke: создание лобби и старт игры   |
-| `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)             |
-| `pnpm run lint`                  | ESLint, только проверка                         |
-| `pnpm run lint:fix`              | ESLint с автоисправлением                       |
-| `pnpm run format`                | Prettier по всему репозиторию                   |
-| `pnpm --filter server run dev`   | сервер с nodemon (hot-reload)                   |
-| `pnpm --filter server run build` | компиляция сервера в `server/dist`              |
-| `pnpm --filter server run start` | запуск собранного сервера                       |
+| `pnpm run preview`               | предпросмотр собранного клиента                                |
+| `pnpm test`                      | все тесты (unit + интеграционные)                              |
+| `pnpm run test:gameplay`         | полные партии: 4 ИИ и человек против ИИ                        |
+| `pnpm run test:browser`          | браузерный smoke: создание лобби и старт игры                  |
+| `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)                            |
+| `pnpm run lint`                  | ESLint, только проверка                                        |
+| `pnpm run lint:fix`              | ESLint с автоисправлением                                      |
+| `pnpm run format`                | Prettier по всему репозиторию                                  |
+| `pnpm --filter server run dev`   | сервер с nodemon (hot-reload)                                  |
+| `pnpm --filter server run build` | компиляция сервера в `server/dist`                             |
+| `pnpm --filter server run start` | запуск собранного сервера                                      |
 
 ## Тесты
 
@@ -269,22 +269,22 @@ pnpm test
 
 ## Переменные окружения
 
-| Переменная               | Где      | По умолчанию                        |
-| ------------------------ | -------- | ----------------------------------- |
-| `VITE_SERVER_URL`        | клиент   | `https://karkasson.onrender.com`    |
-| `PORT`                   | сервер   | `3001`                              |
-| `COMPUTER_MOVE_DELAY_MS` | сервер   | `1000`                              |
-| `SOCKET_ADMIN_UI_USERNAME` | сервер | не задано — Admin UI выключена      |
-| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена |
-| `SOCKET_ADMIN_UI_READONLY` | сервер | `true`                              |
-| `FIREBASE_API_KEY`       | сервер   | обязательно для production          |
-| `FIREBASE_DATABASE_URL`  | сервер   | обязательно для production          |
-| `FIREBASE_AUTH_DOMAIN`   | сервер   | не задано                           |
-| `FIREBASE_PROJECT_ID`    | сервер   | не задано                           |
-| `FIREBASE_STORAGE_BUCKET` | сервер  | не задано                           |
-| `FIREBASE_MESSAGING_SENDER_ID` | сервер | не задано                        |
-| `FIREBASE_APP_ID`        | сервер   | не задано                           |
-| `FIREBASE_MEASUREMENT_ID` | сервер  | не задано                           |
+| Переменная                      | Где    | По умолчанию                     |
+| ------------------------------- | ------ | -------------------------------- |
+| `VITE_SERVER_URL`               | клиент | `https://karkasson.onrender.com` |
+| `PORT`                          | сервер | `3001`                           |
+| `COMPUTER_MOVE_DELAY_MS`        | сервер | `1000`                           |
+| `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена   |
+| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена   |
+| `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                           |
+| `FIREBASE_API_KEY`              | сервер | обязательно для production       |
+| `FIREBASE_DATABASE_URL`         | сервер | обязательно для production       |
+| `FIREBASE_AUTH_DOMAIN`          | сервер | не задано                        |
+| `FIREBASE_PROJECT_ID`           | сервер | не задано                        |
+| `FIREBASE_STORAGE_BUCKET`       | сервер | не задано                        |
+| `FIREBASE_MESSAGING_SENDER_ID`  | сервер | не задано                        |
+| `FIREBASE_APP_ID`               | сервер | не задано                        |
+| `FIREBASE_MEASUREMENT_ID`       | сервер | не задано                        |
 
 Для подключения к [Socket.IO Admin UI](https://admin.socket.io/) задайте обе
 переменные `SOCKET_ADMIN_UI_USERNAME` и `SOCKET_ADMIN_UI_PASSWORD_HASH`.

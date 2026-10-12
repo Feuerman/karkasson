@@ -7,7 +7,7 @@ export const deepClone = <T>(obj: T): T => {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map((item) => deepClone(item)) as T
+    return obj.map((item: unknown) => deepClone(item)) as T
   }
 
   if (obj instanceof Date) {

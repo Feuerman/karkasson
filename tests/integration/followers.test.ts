@@ -72,7 +72,7 @@ describe('Размещение фишек', () => {
     expect(preState).not.toBeNull()
 
     const beforeOrdinary =
-      preState!.playersFollowers![playerId(aliceId)]!.ordinaryFollowers
+      preState!.playersFollowers![playerId(aliceId)].ordinaryFollowers
     const offeredPlaces = offerGame!.availableFollowersPlaces!
     const place = chooseFollowerPlace(offeredPlaces)
 
@@ -91,7 +91,7 @@ describe('Размещение фишек', () => {
     const afterKey = playerId(aliceId)
 
     // Фишка списана из запаса
-    expect(afterGame.playersFollowers![afterKey]!.ordinaryFollowers).toBe(
+    expect(afterGame.playersFollowers![afterKey].ordinaryFollowers).toBe(
       beforeOrdinary - 1
     )
 
@@ -147,7 +147,7 @@ describe('Размещение фишек', () => {
     }
 
     const before =
-      offerGame.playersFollowers![playerId(aliceId)]!.ordinaryFollowers
+      offerGame.playersFollowers![playerId(aliceId)].ordinaryFollowers
 
     const skipped = await creator.emitAck<{
       success: boolean
@@ -158,7 +158,7 @@ describe('Размещение фишек', () => {
     expect(afterGame.isPlacingFollower).toBe(false)
     // Ход ушёл, фишка из запаса не списана
     expect(
-      afterGame.playersFollowers![playerId(aliceId)]!.ordinaryFollowers
+      afterGame.playersFollowers![playerId(aliceId)].ordinaryFollowers
     ).toBe(before)
 
     assertFollowerInvariants(afterGame)

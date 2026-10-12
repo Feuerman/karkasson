@@ -14,7 +14,6 @@ import {
   makeHumanMove,
   rotateSides,
   startGame,
-  type GameStateSnapshot,
   type TileSnapshot,
 } from './helpers/gameplay'
 import {
@@ -51,7 +50,7 @@ describe('Действия в игре: валидация ходов', () => {
     const state = await startGame(lobby.creator, gameId)
     expect(state.currentPlayer?.name).toBe('Alice')
 
-    const move = findValidPlacement(state as GameStateSnapshot)
+    const move = findValidPlacement(state)
     expect(move).not.toBeNull()
 
     // Боб пытается действовать на ходу Алисы
@@ -106,7 +105,7 @@ describe('Действия в игре: валидация ходов', () => {
       tileIndex: place.tileIndex,
     })
 
-    const move = findValidPlacement(state as GameStateSnapshot)
+    const move = findValidPlacement(state)
     expect(move).not.toBeNull()
     const updated = await lobby.creator.emitAck<{
       success: boolean
@@ -183,7 +182,7 @@ describe('Действия в игре: валидация ходов', () => {
     const lobby = await lobbyWithTwoHumans()
     const { gameId } = lobby
     const state = await startGame(lobby.creator, gameId)
-    const move = findValidPlacement(state as GameStateSnapshot)
+    const move = findValidPlacement(state)
     expect(move).not.toBeNull()
 
     const before = server.handle.gameService.getGame(gameId)?.currentTile
@@ -229,7 +228,7 @@ describe('Действия в игре: валидация ходов', () => {
     const lobby = await lobbyWithTwoHumans()
     const { gameId } = lobby
     const state = await startGame(lobby.creator, gameId)
-    const move = findValidPlacement(state as GameStateSnapshot)
+    const move = findValidPlacement(state)
     expect(move).not.toBeNull()
     const beforeTiles = Object.values(state.tilePlacesStats).reduce(
       (count, row) => count + Object.keys(row ?? {}).length,
@@ -333,5 +332,109 @@ describe('Действия в игре: валидация ходов', () => {
         g.gameIsStarted === true && g.players[1]?.socketId === lobby.joiner.id
     )
     expect(rejoined.players[1].socketId).toBe(lobby.joiner.id)
+  })
+
+  it('skipFollower отклоняется вне фазы выставления фишек и не передаёт очередь', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+
+    const state = await startGame(lobby.creator, gameId)
+    expect(state.isPlacingFollower).toBe(false)
+
+    await expect(
+      lobby.creator.emitAck(SocketEvents.SkipFollower, { gameId })
+    ).rejects.toThrow(GameErrors.NotPlacingFollower)
+
+    // Очередь осталась у Алисы, ход не потрачен
+    const after = await latestGame(
+      lobby.creator,
+      (g: TestGameData) => g.currentPlayer?.name === 'Alice'
+    )
+    expect(after.currentPlayerIndex).toBe(state.currentPlayerIndex)
+    expect(after.tilesList.length).toBe(state.tilesList.length)
+  })
+
+  it('неудачное размещение тайла не оставляет поворот клиента в состоянии', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+
+    const state = await startGame(lobby.creator, gameId)
+    const move = findValidPlacement(state)
+    expect(move).not.toBeNull()
+
+    const game = server.handle.gameService.getGame(gameId)
+    const rotationBefore = game?.currentTile?.rotation
+
+    // Позиция занята стартовым тайлом, поэтому размещение обязано быть отклонено
+    await expect(
+      lobby.creator.emitAck(SocketEvents.PlaceTile, {
+        gameId,
+        rotation: 180,
+        position: { rowIndex: 15, tileIndex: 15 },
+      })
+    ).rejects.toThrow()
+
+    const live = server.handle.gameService.getGame(gameId)
+    expect(live?.currentTile?.rotation).toBe(rotationBefore)
+    expect(live?.currentPlayerIndex).toBe(state.currentPlayerIndex)
+
+    const saved = await server.db.getGame(gameId)
+    expect(saved?.currentTile?.rotation).toBe(rotationBefore)
+  })
+
+  it('выбор клетки и поворот тайла фиксируются в хранилище', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+    const state = await startGame(lobby.creator, gameId)
+
+    await lobby.creator.emitAck(SocketEvents.SelectPlacingPoint, {
+      gameId,
+      point: { rowIndex: 15, tileIndex: 16 },
+    })
+    const afterPoint = await server.db.getGame(gameId)
+    expect(afterPoint?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
+
+    await lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
+      gameId,
+      rotation: 180,
+    })
+    const afterRotation = await server.db.getGame(gameId)
+    expect(afterRotation?.currentTile?.rotation).toBe(180)
+
+    expect(state.gameIsStarted).toBe(true)
+  })
+
+  it('ошибка записи откатывает выбор клетки и поворот тайла', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+    const { gameId } = lobby
+    await startGame(lobby.creator, gameId)
+
+    const game = server.handle.gameService.getGame(gameId)
+    const rotationBefore = game?.currentTile?.rotation
+    const pointBefore = game?.placingPoint
+
+    server.db.saveError = new Error('storage unavailable')
+
+    await expect(
+      lobby.creator.emitAck(SocketEvents.SelectPlacingPoint, {
+        gameId,
+        point: { rowIndex: 15, tileIndex: 16 },
+      })
+    ).rejects.toThrow('storage unavailable')
+
+    await expect(
+      lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
+        gameId,
+        rotation: 180,
+      })
+    ).rejects.toThrow('storage unavailable')
+
+    const after = server.handle.gameService.getGame(gameId)
+    expect(after?.currentTile?.rotation).toBe(rotationBefore)
+    expect(after?.placingPoint).toEqual(pointBefore)
   })
 })
