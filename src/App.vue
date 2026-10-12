@@ -338,8 +338,10 @@ watch(
 )
 
 const updateSelectedPlacingPoint = throttle(
-  async (value: { rowIndex: number; tileIndex: number }) => {
-    await GameService.selectPlacingPoint(value)
+  (value: { rowIndex: number; tileIndex: number }) => {
+    void GameService.selectPlacingPoint(value).catch((error: unknown) => {
+      notifyError(error, 'Не удалось выбрать клетку')
+    })
   },
   300
 )

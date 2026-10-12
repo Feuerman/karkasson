@@ -397,17 +397,17 @@ async function removePlayer(index: number, name: string | null = null) {
 
 function toggleCheckbox(player: Player, index: number) {
   if (player.socketId || player.name) {
-    removePlayer(index)
+    void removePlayer(index)
   } else {
-    addPlayer(player, index)
+    void addPlayer(player, index)
   }
 }
 
 function toggleButton(player: Player, index: number) {
   if (player.socketId) {
-    removePlayer(index, player.name)
+    void removePlayer(index, player.name)
   } else {
-    addPlayer({ name: currentPlayerName.value || player.name }, index)
+    void addPlayer({ name: currentPlayerName.value || player.name }, index)
   }
 }
 

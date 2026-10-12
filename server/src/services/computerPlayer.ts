@@ -81,6 +81,25 @@ function deleteComputerGame(
     })
 }
 
+/** Ошибка записи партии в хранилище, отличная от сбоя самой логики хода. */
+class GameSaveError extends Error {
+  constructor(gameId: string, cause: unknown) {
+    super(`Failed to save game ${gameId}`, { cause })
+    this.name = 'GameSaveError'
+  }
+}
+
+async function saveGameOrThrow(
+  service: GameService,
+  gameId: string
+): Promise<void> {
+  try {
+    await service.saveGame(gameId)
+  } catch (error) {
+    throw new GameSaveError(gameId, error)
+  }
+}
+
 /**
  * Таймеры уже запланированных цепочек компьютерных ходов по играм.
  * Нужно, чтобы `maybeContinueWithComputerMove`, вызываемый после каждого
@@ -165,8 +184,17 @@ export async function runComputerMoves(
     await processComputerMoves(io, service, gameId)
   } catch (error) {
     failed = true
-    console.error('Failed to continue computer game:', error)
-    deleteComputerGame(io, service, gameId, 'move failed')
+    if (error instanceof GameSaveError) {
+      // Хранилище недоступно: ход уже откатан в processComputerMoves, но
+      // партию игроков удалять нельзя — она переживёт восстановление связи.
+      console.error('Failed to save computer move:', error)
+      io.to(gameId).emit(SocketEvents.GameError, {
+        message: 'Не удалось сохранить ход компьютера',
+      })
+    } else {
+      console.error('Failed to continue computer game:', error)
+      deleteComputerGame(io, service, gameId, 'move failed')
+    }
   } finally {
     runningMoveChains.delete(gameId)
     const currentGame = service.getGame(gameId)
@@ -217,7 +245,7 @@ async function processComputerMoves(
     }
 
     if (updatedGame.gameIsEnded) {
-      await service.saveGame(gameId)
+      await saveGameOrThrow(service, gameId)
       io.to(gameId).emit(
         SocketEvents.GameUpdated,
         service.formatGameData(updatedGame)
@@ -226,7 +254,7 @@ async function processComputerMoves(
       return
     }
 
-    await service.saveGame(gameId)
+    await saveGameOrThrow(service, gameId)
     io.to(gameId).emit(
       SocketEvents.GameUpdated,
       service.formatGameData(updatedGame)

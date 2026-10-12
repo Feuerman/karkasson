@@ -32,7 +32,11 @@ function startStaleGamesCleanup() {
   return timer
 }
 
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
+  void startServer()
+})
+
+async function startServer() {
   console.log(`Server running on port ${PORT}`)
 
   try {
@@ -51,16 +55,19 @@ server.listen(PORT, async () => {
     if (isShuttingDown) return
     isShuttingDown = true
     clearInterval(cleanupTimer)
-    void gameService
-      .flushGames()
-      .catch((error: unknown) => {
-        console.error('Failed to flush games during shutdown:', error)
-      })
-      .finally(() => {
-        io.close()
-      })
+    void shutdownServer()
   }
 
   process.once('SIGINT', shutdown)
   process.once('SIGTERM', shutdown)
-})
+}
+
+async function shutdownServer() {
+  try {
+    await gameService.flushGames()
+  } catch (error: unknown) {
+    console.error('Failed to flush games during shutdown:', error)
+  } finally {
+    await io.close()
+  }
+}

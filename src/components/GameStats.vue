@@ -9,11 +9,11 @@
         class="h-5 w-5 text-black/70"
       />
       <span
-        :title="gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel"
+        :title="gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel"
         :data-testid="TEST_IDS.gameStatsCurrentPlayer"
         class="title-medieval min-w-0 truncate text-lg leading-none font-bold text-black"
       >
-        {{ gameBoard.gameIsEnded ? winnerPlayer.name : currentPlayerLabel }}
+        {{ gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel }}
       </span>
     </div>
 
@@ -101,6 +101,7 @@
 import { computed } from 'vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { IGameBoard } from '@/types/game'
+import type { Player } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import { playerBackgroundColorClass } from '@/utils/colors'
 
@@ -108,19 +109,36 @@ const props = defineProps<{
   gameBoard: IGameBoard
 }>()
 
-const winnerPlayer = computed(() => {
-  let winner = { name: '', color: null as string | null, score: 0 }
-  Object.values(props.gameBoard.scores).forEach((score, index) => {
-    if (score > winner.score) {
-      const player = props.gameBoard.players[index]
-      winner = {
-        name: player?.name ?? '',
-        color: player?.color ?? null,
-        score,
-      }
-    }
-  })
-  return winner
+/**
+ * Победителя считает сервер и присылает списком лидеров. Клиент только
+ * показывает их: пересчёт по индексу массива показывал чужое имя, если у
+ * игрока не было записи в счёте.
+ *
+ * id приходит ключом объекта, поэтому он всегда строка, а у игрока число —
+ * сравниваем по строковой форме.
+ */
+const leaderPlayerIds = computed(() => props.gameBoard.winnerPlayerIds ?? [])
+
+const leaderPlayers = computed(() =>
+  leaderPlayerIds.value
+    .map((id) =>
+      props.gameBoard.players.find((p) => String(p.id) === String(id))
+    )
+    .filter((player): player is Player => Boolean(player))
+)
+
+const leaderLabel = computed(() => {
+  const names = leaderPlayers.value
+    .map((player) => player.name ?? '')
+    .filter((name) => name.length > 0)
+  if (names.length === 0) return ''
+  if (names.length > 1) return 'Ничья'
+  return names[0]
+})
+
+const leaderColor = computed(() => {
+  if (leaderPlayers.value.length !== 1) return null
+  return leaderPlayers.value[0].color ?? null
 })
 
 const currentPlayerLabel = computed(() =>
@@ -131,7 +149,7 @@ const currentPlayerLabel = computed(() =>
 
 const headerColor = computed(() => {
   return props.gameBoard.gameIsEnded
-    ? winnerPlayer.value.color
+    ? leaderColor.value
     : props.gameBoard.currentPlayer?.color
 })
 </script>

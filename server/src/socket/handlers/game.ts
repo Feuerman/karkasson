@@ -65,6 +65,15 @@ async function saveGameOrRollback(
   }
 }
 
+/**
+ * Откатывает партию к снимку. Вызывается в catch всех изменяющих хендлеров:
+ * к снимку откатываются как ошибки сохранения, так и отказы правил, случившиеся
+ * уже после частичной мутации (поворот тайла, потраченный очередной ход).
+ */
+function rollback(game: IGameBoard, previousState: IGameBoard): void {
+  game.copyStateFrom(previousState)
+}
+
 function isValidPosition(position: { rowIndex: number; tileIndex: number }) {
   return (
     Number.isInteger(position.rowIndex) && Number.isInteger(position.tileIndex)
@@ -122,7 +131,7 @@ export function registerGameHandlers({
 }: SocketHandlerContext) {
   socket.on(
     SocketEvents.SelectPlacingPoint,
-    (
+    async (
       {
         gameId,
         point,
@@ -135,18 +144,29 @@ export function registerGameHandlers({
         return
       }
       const { game } = lookup
+      if (!point || !isValidPosition(point)) {
+        callback?.({ error: GameErrors.InvalidTilePosition })
+        return
+      }
 
+      const previousState = game.clone()
       game.placingPoint = {
         rowIndex: point.rowIndex,
         tileIndex: point.tileIndex,
       }
-      ackGameUpdated(io, service, gameId, game, callback)
+      try {
+        await saveGameOrRollback(game, gameId, service, previousState)
+        ackGameUpdated(io, service, gameId, game, callback)
+      } catch (error) {
+        rollback(game, previousState)
+        callback?.({ error: getErrorMessage(error) })
+      }
     }
   )
 
   socket.on(
     SocketEvents.UpdateCurrentTile,
-    (
+    async (
       {
         gameId,
         rotation,
@@ -161,6 +181,9 @@ export function registerGameHandlers({
       }
       const { game } = lookup
 
+      // Снимок берём до поворота: setCurrentTileRotation меняет currentTile,
+      // и откат должен вернуть состояние до запроса.
+      const previousState = game.clone()
       const requestedRotation = rotation ?? tile?.rotation
       if (
         game.isPlacingFollower ||
@@ -172,7 +195,14 @@ export function registerGameHandlers({
         callback?.({ error: GameErrors.InvalidTileRotation })
         return
       }
-      ackGameUpdated(io, service, gameId, game, callback)
+
+      try {
+        await saveGameOrRollback(game, gameId, service, previousState)
+        ackGameUpdated(io, service, gameId, game, callback)
+      } catch (error) {
+        rollback(game, previousState)
+        callback?.({ error: getErrorMessage(error) })
+      }
     }
   )
 
@@ -202,11 +232,11 @@ export function registerGameHandlers({
         game.dragonMove ||
         !game.currentTile
       ) {
-        callback?.({ error: 'No tile is waiting to be placed' })
+        callback?.({ error: GameErrors.NoTileWaiting })
         return
       }
       if (!isValidPosition(position)) {
-        callback?.({ error: 'Invalid tile position' })
+        callback?.({ error: GameErrors.InvalidTilePosition })
         return
       }
 
@@ -240,6 +270,7 @@ export function registerGameHandlers({
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
+        rollback(game, previousState)
         console.error('Error placing tile:', error)
         if (error instanceof TilePlacementError) {
           callback?.({
@@ -294,7 +325,7 @@ export function registerGameHandlers({
           !availablePlace ||
           !Object.values(FollowerTypes).includes(followerType)
         ) {
-          throw new Error('Invalid follower placement')
+          throw new Error(GameErrors.InvalidFollowerPlacement)
         }
         if (
           followerType === FollowerTypes.Abbot &&
@@ -303,27 +334,25 @@ export function registerGameHandlers({
             availablePlace.temporaryObject.isGarden
           )
         ) {
-          throw new Error(
-            'An abbot can only be placed on a monastery or garden'
-          )
+          throw new Error(GameErrors.AbbotRequiresMonasteryOrGarden)
         }
         if (
           followerType === FollowerTypes.BigFollower &&
           !game.rules.expansions.innsAndCathedrals
         ) {
-          throw new Error('The big follower expansion is not enabled')
+          throw new Error(GameErrors.BigFollowerExpansionDisabled)
         }
         if (
           followerType === FollowerTypes.Follower &&
           availablePlace.temporaryObject.isGarden
         ) {
-          throw new Error('A follower cannot be placed on a garden')
+          throw new Error(GameErrors.FollowerNotAllowedOnGarden)
         }
 
         const followersBefore = game.placedFollowers.length
         game.placeFollower(availablePlace, followerType)
         if (game.placedFollowers.length !== followersBefore + 1) {
-          throw new Error('Follower placement is no longer available')
+          throw new Error(GameErrors.FollowerPlacementUnavailable)
         }
         await saveGameOrRollback(game, gameId, service, previousState)
 
@@ -331,6 +360,7 @@ export function registerGameHandlers({
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
+        rollback(game, previousState)
         console.error('Error placing follower:', error)
         callback?.({
           error: getErrorMessage(error),
@@ -352,7 +382,7 @@ export function registerGameHandlers({
       const previousState = game.clone()
       try {
         if (!game.recallAbbot()) {
-          throw new Error('У игрока нет аббата на доске')
+          throw new Error(GameErrors.NoAbbotOnBoard)
         }
         await saveGameOrRollback(game, gameId, service, previousState)
 
@@ -361,6 +391,7 @@ export function registerGameHandlers({
         // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
+        rollback(game, previousState)
         console.error('Error recalling abbot:', error)
         callback?.({
           error: getErrorMessage(error),
@@ -387,7 +418,7 @@ export function registerGameHandlers({
         !game.dragonMove ||
         game.players[game.currentPlayerIndex]?.socketId !== socket.id
       ) {
-        callback?.({ error: 'Invalid dragon move turn' })
+        callback?.({ error: GameErrors.InvalidDragonTurn })
         return
       }
       const previousState = game.clone()
@@ -396,13 +427,13 @@ export function registerGameHandlers({
           !position ||
           !game.moveDragon(position.rowIndex, position.tileIndex)
         ) {
-          throw new Error('Invalid dragon destination')
+          throw new Error(GameErrors.InvalidDragonDestination)
         }
         await saveGameOrRollback(game, gameId, service, previousState)
         ackGameUpdated(io, service, gameId, game, callback)
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
-        game.copyStateFrom(previousState)
+        rollback(game, previousState)
         callback?.({
           error: getErrorMessage(error),
         })
@@ -427,7 +458,7 @@ export function registerGameHandlers({
       }
       const { game } = lookup
       if (!game.princessChoice) {
-        callback?.({ error: 'Princess choice is not pending' })
+        callback?.({ error: GameErrors.PrincessChoiceNotPending })
         return
       }
       const previousState = game.clone()
@@ -437,13 +468,13 @@ export function registerGameHandlers({
           !point ||
           !game.choosePrincessFollower(cityId, point)
         ) {
-          throw new Error('Invalid princess city')
+          throw new Error(GameErrors.InvalidPrincessCity)
         }
         await saveGameOrRollback(game, gameId, service, previousState)
         ackGameUpdated(io, service, gameId, game, callback)
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
-        game.copyStateFrom(previousState)
+        rollback(game, previousState)
         callback?.({
           error: getErrorMessage(error),
         })
@@ -464,6 +495,12 @@ export function registerGameHandlers({
         callback?.({ error: GameErrors.ResolveExpansionActionFirst })
         return
       }
+      // Пропуск фишек допустим только на фазе выставления: иначе игрок смог бы
+      // пропустить ход с уже выложенным тайлом и передать очередь сопернику.
+      if (!game.isPlacingFollower) {
+        callback?.({ error: GameErrors.NotPlacingFollower })
+        return
+      }
 
       const previousState = game.clone()
       try {
@@ -474,6 +511,7 @@ export function registerGameHandlers({
 
         maybeContinueWithComputerMove(io, service, game, gameId)
       } catch (error) {
+        rollback(game, previousState)
         console.error('Error skipping follower:', error)
         callback?.({
           error: getErrorMessage(error),

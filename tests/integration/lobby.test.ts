@@ -160,7 +160,7 @@ describe('Лобби', () => {
     extra.registerDevice()
     extra.emit(SocketEvents.JoinGame, { gameId })
 
-    const error = (await extra.waitForEvent(SocketEvents.Error)) as unknown
+    const error = await extra.waitForEvent(SocketEvents.Error)
     expect(error).toBe(LobbyErrors.AllSlotsTaken)
   })
 

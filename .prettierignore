@@ -1,2 +1,11 @@
 node_modules/
 dist/
+server/dist/
+test-results/
+playwright-report/
+coverage/
+.idea/
+.serena/
+.opencode/
+pnpm-lock.yaml
+CHANGELOG.md

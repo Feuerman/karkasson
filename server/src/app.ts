@@ -56,19 +56,17 @@ export function createGameServer(
 
   registerSocketHandlers(io, gameService)
 
-  const close = () =>
-    new Promise<void>((resolve) => {
-      io.close(() => {
-        void gameService
-          .flushGames()
-          .catch((error: unknown) => {
-            console.error('Failed to flush games on shutdown:', error)
-          })
-          .finally(() => {
-            server.close(() => resolve())
-          })
-      })
+  const close = async () => {
+    await io.close()
+    try {
+      await gameService.flushGames()
+    } catch (error: unknown) {
+      console.error('Failed to flush games on shutdown:', error)
+    }
+    await new Promise<void>((resolve) => {
+      server.close(() => resolve())
     })
+  }
 
   return { app, server, io, gameService, db, close }
 }

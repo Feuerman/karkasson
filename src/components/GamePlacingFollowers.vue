@@ -46,7 +46,7 @@
       color="neutral"
       class="btn-secondary mt-2 min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
       :disabled="!gameBoard.isMyTurn"
-      @click="gameBoard.isMyTurn && GameService.skipFollower()"
+      @click="gameBoard.isMyTurn && skipFollower()"
     >
       Пропустить выставление
     </UButton>
@@ -67,6 +67,7 @@ import {
   pointDirectionTitle,
   pointTypeTitle,
 } from '@/utils/labels'
+import { notifyError } from '@/utils/common'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { computed } from 'vue'
 
@@ -197,6 +198,14 @@ const choiceGroups = computed<ChoiceGroup[]>(() =>
 )
 
 const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
-  GameService.placeFollower(place, type)
+  void GameService.placeFollower(place, type).catch((error: unknown) => {
+    notifyError(error, 'Не удалось выставить подданного')
+  })
+}
+
+const skipFollower = () => {
+  void GameService.skipFollower().catch((error: unknown) => {
+    notifyError(error, 'Не удалось пропустить выставление')
+  })
 }
 </script>

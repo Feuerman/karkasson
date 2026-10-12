@@ -32,7 +32,7 @@ import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
-import { pluralForm } from '@/utils/common'
+import { notifyError, pluralForm } from '@/utils/common'
 
 const props = defineProps({
   gameBoard: {
@@ -88,6 +88,8 @@ const pluralSuffix = computed(() =>
 )
 
 const recall = () => {
-  GameService.recallAbbot()
+  void GameService.recallAbbot().catch((error: unknown) => {
+    notifyError(error, 'Не удалось отозвать аббата')
+  })
 }
 </script>

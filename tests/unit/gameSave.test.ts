@@ -7,6 +7,7 @@ import {
   serializeGameState,
 } from '@server/modules/gameSave'
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
+import { leaderPlayerIds } from '@server/modules/scoring'
 
 describe('Схема сохранения игры', () => {
   it('сериализует игру с явной версией схемы', () => {
@@ -83,6 +84,56 @@ describe('Схема сохранения игры', () => {
     })
 
     expect(restored.rules.expansions.princessAndDragon).toBe(false)
+  })
+
+  it('восстанавливает список лидеров в сохранении схемы 5', () => {
+    const game = new GameManager({ players: [] })
+    game.id = 'schema-five-game'
+    game.gameIsEnded = true
+    game.scores = { 1: 12, 2: 30, 3: 7 }
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.winnerPlayerIds
+
+    const restored = deserializeGameState({
+      schemaVersion: 5,
+      state: legacyState,
+    })
+
+    expect(restored.winnerPlayerIds).toEqual(['2'])
+  })
+
+  it('оставляет список лидеров пустым для незавершённой партии схемы 5', () => {
+    const game = new GameManager({ players: [] })
+    game.id = 'schema-five-running'
+    game.gameIsEnded = false
+    game.scores = { 1: 12, 2: 30 }
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.winnerPlayerIds
+
+    const restored = deserializeGameState({
+      schemaVersion: 5,
+      state: legacyState,
+    })
+
+    expect(restored.winnerPlayerIds).toEqual([])
+  })
+
+  it('сохраняет ничью в списке лидеров', () => {
+    const game = new GameManager({ players: [] })
+    game.id = 'tie-game'
+    game.gameIsEnded = true
+    game.scores = { 1: 21, 2: 21, 3: 4 }
+    game.winnerPlayerIds = leaderPlayerIds(game.scores)
+
+    expect(game.winnerPlayerIds).toEqual(['1', '2'])
+    const restored = deserializeGameState(serializeGameState(game))
+    expect(restored.winnerPlayerIds).toEqual(['1', '2'])
   })
 
   it('читает legacy-сохранение без envelope версии и добавляет gardens', () => {

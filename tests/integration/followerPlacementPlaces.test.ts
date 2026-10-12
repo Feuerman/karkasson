@@ -592,7 +592,7 @@ describe('Снятие фишки при завершении объекта', (
           },
         ],
       }
-      game.playersFollowers[1]!.ordinaryFollowers = 6
+      game.playersFollowers[1].ordinaryFollowers = 6
       game.temporaryObjects[collectionOf(feature)].push(object)
       game.placedFollowers.push({
         playerId: 1,

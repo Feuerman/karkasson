@@ -1,11 +1,13 @@
 import { expect } from 'vitest'
 import { TestClient } from './client'
 import {
+  ActionTypes,
   FollowerType,
   SideName,
   SocketEvents,
   TileSideType,
   type ExpansionName,
+  type PlayerId,
   type SideName as SideNameType,
   type TileSideType as TileSideTypeType,
 } from '@server/modules/types'
@@ -119,6 +121,7 @@ export interface GameStateSnapshot {
   gameIsEnded: boolean
   moveCounter: number
   scores: Record<string, number>
+  winnerPlayerIds?: Array<PlayerId>
   finalScoringEnabled?: boolean
   tilesList: unknown[]
   currentTile?: TileSnapshot | null
@@ -137,7 +140,7 @@ export interface GameStateSnapshot {
   completedObjects?: CompletedObjectsSnapshot
   placingPoint?: { rowIndex: number; tileIndex: number }
   actionsHistory?: Array<{
-    actionType: string
+    actionType: ActionTypes
     initiator?: { socketId?: string | null; deviceId?: string | null } | null
     moveNumber?: number
     actionData?: {

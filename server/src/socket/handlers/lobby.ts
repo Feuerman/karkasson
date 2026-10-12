@@ -32,10 +32,7 @@ export function registerLobbyHandlers({
 
   socket.on(
     SocketEvents.CreateGame,
-    async (
-      callbackOrPayload?: SocketCallback | unknown,
-      maybeCallback?: SocketCallback
-    ) => {
+    async (callbackOrPayload?: unknown, maybeCallback?: SocketCallback) => {
       const callback =
         typeof callbackOrPayload === 'function'
           ? callbackOrPayload
@@ -53,28 +50,28 @@ export function registerLobbyHandlers({
         payload?.finalScoringEnabled !== undefined &&
         typeof payload.finalScoringEnabled !== 'boolean'
       ) {
-        callback?.({ error: 'Invalid final scoring option' })
+        callback?.({ error: LobbyErrors.InvalidFinalScoringOption })
         return
       }
       if (
         payload?.innsAndCathedralsEnabled !== undefined &&
         typeof payload.innsAndCathedralsEnabled !== 'boolean'
       ) {
-        callback?.({ error: 'Invalid Inns and Cathedrals option' })
+        callback?.({ error: LobbyErrors.InvalidInnsAndCathedralsOption })
         return
       }
       if (
         payload?.riverEnabled !== undefined &&
         typeof payload.riverEnabled !== 'boolean'
       ) {
-        callback?.({ error: 'Invalid River option' })
+        callback?.({ error: LobbyErrors.InvalidRiverOption })
         return
       }
       if (
         payload?.princessAndDragonEnabled !== undefined &&
         typeof payload.princessAndDragonEnabled !== 'boolean'
       ) {
-        callback?.({ error: 'Invalid Princess and Dragon option' })
+        callback?.({ error: LobbyErrors.InvalidPrincessAndDragonOption })
         return
       }
       const game = service.createLobby(socket.id, {
@@ -92,7 +89,7 @@ export function registerLobbyHandlers({
         })
         return
       }
-      socket.join(game.id)
+      await socket.join(game.id)
       socket.emit(SocketEvents.GameCreated, {
         gameId: game.id,
         game: service.formatGameData(game),
@@ -121,7 +118,7 @@ export function registerLobbyHandlers({
         existingGame?.gameIsEnded ||
         (existingGame?.gameIsStarted && isComputerOnlyGame(existingGame))
       ) {
-        socket.join(resolvedGameId)
+        await socket.join(resolvedGameId)
         const game = service.formatGameData(existingGame)
         socket.emit(SocketEvents.GameUpdated, game)
         callback?.({ success: true, game })
@@ -141,12 +138,12 @@ export function registerLobbyHandlers({
         return
       }
 
-      socket.join(resolvedGameId)
+      await socket.join(resolvedGameId)
       try {
         await service.saveGame(resolvedGameId)
       } catch (error) {
         service.releasePlayerSlot(resolvedGameId, socket.id)
-        socket.leave(resolvedGameId)
+        await socket.leave(resolvedGameId)
         callback?.({
           error: getErrorMessage(error),
         })
@@ -249,7 +246,7 @@ export function registerLobbyHandlers({
       const previousGame = game
       const newGame = service.startGame(gameId)
       if (!newGame) {
-        callback?.({ error: 'Не удалось начать игру' })
+        callback?.({ error: LobbyErrors.StartFailed })
         return
       }
 
@@ -300,7 +297,7 @@ export function registerLobbyHandlers({
         continueComputerGame(io, service, gameId)
       }
 
-      socket.leave(gameId)
+      await socket.leave(gameId)
       ackGameUpdated(io, service, gameId, game, callback)
     }
   )

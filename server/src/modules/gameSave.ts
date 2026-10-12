@@ -17,10 +17,10 @@ import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
 import { SaveErrors } from './errors'
 
-export const GAME_SAVE_SCHEMA_VERSION = 5
+export const GAME_SAVE_SCHEMA_VERSION = 6
 
 /** Версии envelope, которые ещё можно прочитать. */
-const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3, 4, GAME_SAVE_SCHEMA_VERSION]
+const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, GAME_SAVE_SCHEMA_VERSION]
 
 const DEFAULT_RULES: GameRules = {
   finalScoringEnabled: false,
@@ -359,6 +359,39 @@ function restoreBigFollowerPools(
   }
 }
 
+/**
+ * Список победителей появился в схеме 6. У старых сохранений его нет, поэтому
+ * он восстанавливается заново из счёта: список лидеров — это чистая функция
+ * таблицы очков, а не отдельные данные.
+ */
+function restoreWinnerPlayerIds(value: Record<string, unknown>): void {
+  if (value.winnerPlayerIds !== undefined) return
+
+  const scores = value.scores
+  if (!isRecord(scores)) {
+    value.winnerPlayerIds = []
+    return
+  }
+
+  const entries = Object.entries(scores).filter(
+    (entry): entry is [string, number] => typeof entry[1] === 'number'
+  )
+  if (entries.length === 0 || value.gameIsEnded !== true) {
+    value.winnerPlayerIds = []
+    return
+  }
+
+  const best = entries.reduce(
+    (max, [, score]) => Math.max(max, score),
+    -Infinity
+  )
+  // Ключи объектов всегда строки, даже если PlayerId — число, поэтому id
+  // возвращается в том же виде, что и в остальном состоянии.
+  value.winnerPlayerIds = entries
+    .filter(([, score]) => score === best)
+    .map(([id]) => id)
+}
+
 function migrateLegacyGameState(value: unknown): IGameBoard {
   if (!isRecord(value)) throw new Error(SaveErrors.SaveMustBeObject)
   if (typeof value.id !== 'string' || value.id.length === 0) {
@@ -386,6 +419,7 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   validateDragonMove(value)
   validatePrincessChoice(value)
   restoreBigFollowerPools(value, rules)
+  restoreWinnerPlayerIds(value)
   return value as unknown as IGameBoard
 }
 

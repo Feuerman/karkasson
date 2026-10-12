@@ -63,6 +63,7 @@ export interface GameData {
   actionsHistory: IGameBoard['actionsHistory']
   currentPlayer: Player | null
   placedFollowers: IGameBoard['placedFollowers']
+  winnerPlayerIds: IGameBoard['winnerPlayerIds']
   lastUpdate: number
 }
 
@@ -133,16 +134,34 @@ export class GameService {
   }
 
   async deleteGame(gameId: string): Promise<void> {
-    const pendingSave = this.pendingSaves.get(gameId)
-    if (pendingSave) await pendingSave
-    await this.db.deleteGame(gameId)
+    // Убираем партию из реестра сразу: пока она там лежит, новый saveGame
+    // встаёт в очередь после удаления и воскрешает запись в хранилище.
     delete this.games[gameId]
     delete this.lobbyOwners[gameId]
+
+    // Удаление встаёт в ту же очередь, что и сохранения, поэтому выполняется
+    // после всех них. Ошибка прошлого сохранения удалению не мешает.
+    const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
+    const deletion: Promise<void> = previousSave
+      .catch(() => undefined)
+      .then(() => this.db.deleteGame(gameId))
+      .finally(() => {
+        if (this.pendingSaves.get(gameId) === deletion) {
+          this.pendingSaves.delete(gameId)
+        }
+      })
+    this.pendingSaves.set(gameId, deletion)
+
+    await deletion
   }
 
   saveGame(gameId: string): Promise<void> {
     const game = this.games[gameId]
     if (!game) return Promise.resolve()
+    // Метку обновляем на живом объекте, а не только на снимке: по ней
+    // deleteStaleGames отсеивает активные партии, а она не должна замерзать
+    // после первого сохранения.
+    game.lastUpdate = Date.now()
     const snapshot =
       typeof game.clone === 'function'
         ? game.clone()
@@ -494,6 +513,7 @@ export class GameService {
       actionsHistory: game.actionsHistory,
       currentPlayer: game.currentPlayer,
       placedFollowers: game.placedFollowers,
+      winnerPlayerIds: game.winnerPlayerIds,
       lastUpdate: game.lastUpdate,
     }
   }
