@@ -1,3 +1,5 @@
+import { clamp } from '@/utils/common'
+
 // draggableRegistry.ts
 type DraggableElement = {
   x: number
@@ -7,9 +9,6 @@ type DraggableElement = {
 }
 
 const registry = new Map<string, DraggableElement>()
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(Math.max(value, min), max)
 
 export const DraggableRegistry = {
   register(id: string, element: DraggableElement) {

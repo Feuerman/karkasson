@@ -31,37 +31,6 @@ export const pluralForm = (
       : five
 }
 
-export const countBy = <T>(
-  items: T[],
-  getKey: (item: T) => string
-): Record<string, number> =>
-  items.reduce<Record<string, number>>((acc, item) => {
-    const key = getKey(item)
-    acc[key] = (acc[key] ?? 0) + 1
-    return acc
-  }, {})
-
-export const deepClone = <T>(obj: T): T => {
-  if (typeof obj !== 'object' || obj === null) {
-    return obj
-  } else if (Array.isArray(obj)) {
-    return obj.map((item) => deepClone(item)) as T
-  } else if (obj instanceof Date) {
-    return new Date(obj.getTime()) as T
-  } else {
-    return Object.entries(obj).reduce(
-      (acc, [key, value]) => {
-        acc[key] = deepClone(value)
-        return acc
-      },
-      {} as Record<string, unknown>
-    ) as T
-  }
-}
-
-export const sleep = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms))
-
 export const throttle = <T extends (...args: never[]) => void>(
   fn: T,
   delay: number
