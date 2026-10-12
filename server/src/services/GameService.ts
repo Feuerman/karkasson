@@ -71,6 +71,8 @@ export interface JoinResult {
   error: string
 }
 
+function ignoreResult(): void {}
+
 /**
  * Хранит игры в памяти и содержит всю логику лобби/жизненного цикла игры.
  * Не знает про socket.io — рассылку событий делают обработчики сокетов.
@@ -80,11 +82,43 @@ export class GameService {
   private deviceToSocketMap: Record<string, string> = {}
   private lobbyOwners: Record<string, string> = {}
   private readonly pendingSaves = new Map<string, Promise<void>>()
+  private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
 
   constructor(private readonly db: IGameDatabase) {}
 
   restoreGame(gameId: string, game: IGameBoard): void {
     this.games[gameId] = game
+  }
+
+  /**
+   * Выполняет команду под мьютексом партии: команды одной игры идут строго
+   * по очереди, разные игры не блокируют друг друга.
+   *
+   * Команда меняет состояние и ждёт сохранения, поэтому между мутацией и
+   * `await` управление уходит циклу событий. Без очереди вторая команда
+   * успевала бы войти в свой хендлер, снять снимок поверх ещё не
+   * сохранённого состояния и затереть изменение первой через `copyStateFrom`.
+   */
+  runGameCommand<T>(gameId: string, command: () => Promise<T>): Promise<T> {
+    const previous = this.gameCommands.get(gameId)?.tail ?? Promise.resolve()
+    const result = previous.then(command, command)
+
+    // Ошибка команды не должна оставлять партию заблокированной, поэтому
+    // очередь ждёт завершения независимо от исхода.
+    const entry = { tail: result.then(ignoreResult, ignoreResult) }
+    this.gameCommands.set(gameId, entry)
+    void entry.tail.then(() => {
+      if (this.gameCommands.get(gameId) === entry) {
+        this.gameCommands.delete(gameId)
+      }
+    })
+
+    return result
+  }
+
+  /** Число партий, у которых команда стоит в очереди или выполняется. */
+  pendingGameCommandCount(): number {
+    return this.gameCommands.size
   }
 
   async flushGames(): Promise<void> {
