@@ -221,6 +221,38 @@ async function processComputerMoves(
     continueComputerGame(io, service, gameId)
     return
   }
+
+  // Ход ИИ идёт через ту же очередь, что и команды человека: снимок для
+  // отката берётся уже под мьютексом, поэтому параллельный ход игрока не
+  // может быть затёрт откатом. Пауза между ходами очередь не держит.
+  for (;;) {
+    const nextIsComputer = await service.runGameCommand(gameId, () =>
+      playComputerMove(io, service, gameId)
+    )
+    if (!nextIsComputer) return
+    await sleep(COMPUTER_MOVE_DELAY_MS)
+  }
+}
+
+/**
+ * Один ход компьютера: разыгрывание, проверка результата и сохранение.
+ * Возвращает `true`, если очередь перешла к следующему компьютеру.
+ * Вызывается из `runGameCommand`, поэтому внутри нельзя ждать другие команды.
+ */
+async function playComputerMove(
+  io: Server,
+  service: GameService,
+  gameId: string
+): Promise<boolean> {
+  const game = service.getGame(gameId)
+  if (!game || game.gameIsEnded || !game.currentPlayer) return false
+  if (hasDisconnectedHuman(game)) {
+    continueComputerGame(io, service, gameId)
+    return false
+  }
+
+  // Игрок, чей ход разыгрывается, определяется на каждом ходе заново: после
+  // предыдущего хода очередь уже сдвинулась.
   const activePlayerId: PlayerId = game.currentPlayer.id
   const previousState = game.clone()
   const previousTileCount = countPlacedTiles(game)
@@ -229,12 +261,13 @@ async function processComputerMoves(
   try {
     await game.autoPlaceTile()
 
+    // autoPlaceTile ждёт, а партию за это время могли заменить или удалить.
     const updatedGame = service.getGame(gameId)
-    if (!updatedGame) return
+    if (!updatedGame) return false
     if (hasDisconnectedHuman(updatedGame)) {
       updatedGame.copyStateFrom(previousState)
       continueComputerGame(io, service, gameId)
-      return
+      return false
     }
     if (
       !isDragonMove &&
@@ -244,27 +277,19 @@ async function processComputerMoves(
       throw new Error('Computer move did not place a tile or end the game')
     }
 
-    if (updatedGame.gameIsEnded) {
-      await saveGameOrThrow(service, gameId)
-      io.to(gameId).emit(
-        SocketEvents.GameUpdated,
-        service.formatGameData(updatedGame)
-      )
-      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
-      return
-    }
-
     await saveGameOrThrow(service, gameId)
     io.to(gameId).emit(
       SocketEvents.GameUpdated,
       service.formatGameData(updatedGame)
     )
 
-    const nextPlayer = updatedGame.getNextPlayer(activePlayerId)
-    if (nextPlayer && isComputerPlayer(nextPlayer)) {
-      await sleep(COMPUTER_MOVE_DELAY_MS)
-      await processComputerMoves(io, service, gameId)
+    if (updatedGame.gameIsEnded) {
+      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
+      return false
     }
+
+    const nextPlayer = updatedGame.getNextPlayer(activePlayerId)
+    return Boolean(nextPlayer && isComputerPlayer(nextPlayer))
   } catch (error) {
     game.copyStateFrom(previousState)
     io.to(gameId).emit(SocketEvents.GameError, {

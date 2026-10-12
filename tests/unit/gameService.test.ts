@@ -89,6 +89,75 @@ describe('Сборка забытых партий', () => {
   })
 })
 
+describe('Очередь команд партии', () => {
+  it('выполняет команды одной партии строго по порядку', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+    const order: string[] = []
+
+    const first = service.runGameCommand(game.id, async () => {
+      order.push('first:start')
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      order.push('first:end')
+      return 1
+    })
+    const second = service.runGameCommand(game.id, async () => {
+      order.push('second:start')
+      return 2
+    })
+
+    expect(await first).toBe(1)
+    expect(await second).toBe(2)
+    expect(order).toEqual(['first:start', 'first:end', 'second:start'])
+  })
+
+  it('не ждёт команды другой партии', async () => {
+    const { service } = serviceWithGame()
+    const first = startedGame(service)
+    const second = startedGame(service)
+    const order: string[] = []
+
+    const slow = service.runGameCommand(first.id, async () => {
+      order.push('slow:start')
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      order.push('slow:end')
+    })
+    const fast = service.runGameCommand(second.id, async () => {
+      order.push('fast')
+    })
+
+    await Promise.all([slow, fast])
+    expect(order).toEqual(['slow:start', 'fast', 'slow:end'])
+  })
+
+  it('продолжает очередь после ошибки команды', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+
+    const failed = service.runGameCommand(game.id, async () => {
+      throw new Error('storage unavailable')
+    })
+    const next = service.runGameCommand(game.id, async () => 'ok')
+
+    await expect(failed).rejects.toThrow('storage unavailable')
+    await expect(next).resolves.toBe('ok')
+  })
+
+  it('очищает очередь, когда в ней ничего не осталось', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+
+    await service.runGameCommand(game.id, async () => undefined)
+    await service
+      .runGameCommand(game.id, async () => {
+        throw new Error('boom')
+      })
+      .catch(() => undefined)
+
+    expect(service.pendingGameCommandCount()).toBe(0)
+  })
+})
+
 describe('Удаление партии', () => {
   it('удаляет партию из реестра и хранилища', async () => {
     const { db, service } = serviceWithGame()
