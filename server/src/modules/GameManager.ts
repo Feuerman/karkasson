@@ -855,6 +855,7 @@ export class GameManager implements IGameBoard {
       road,
       this.scores,
       isCompleted,
+      this.rules.expansions.innsAndCathedrals,
       this.rules.expansions.innsAndCathedrals
     )
   }

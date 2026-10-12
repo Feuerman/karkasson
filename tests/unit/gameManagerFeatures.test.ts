@@ -55,8 +55,34 @@ describe('Слияние и завершение дорог и городов', 
     game.playersFollowers[1].bigFollowers = 0
     const result = game.calcScoreForRoad(road)
 
-    expect(result.players).toEqual({ 1: 1, 2: 1 })
+    // Большой подданный считается за двух, поэтому побеждает первый игрок.
+    expect(result.players).toEqual({ 1: 1 })
     expect(game.scores[1]).toBe(1)
+    expect(game.scores[2]).toBe(0)
+  })
+
+  it('без дополнения большой подданный на дороге считается как обычный', () => {
+    const game = new GameManager({ players })
+    const road: BaseObject = {
+      id: 'shared-road',
+      points: [{ x: 15, y: 15, direction: SideName.East }],
+      followers: [
+        {
+          playerId: 1,
+          objectId: 'shared-road',
+          point: { x: 15, y: 15 },
+          isBigFollower: true,
+        },
+        {
+          playerId: 2,
+          objectId: 'shared-road',
+          point: { x: 16, y: 15 },
+        },
+      ],
+    }
+    game.tilePlacesStats = { 15: { 15: cellTile(15) } }
+
+    expect(game.calcScoreForRoad(road).players).toEqual({ 1: 1, 2: 1 })
   })
 
   it('объединяет несколько сегментов города, связанных на одном тайле', () => {
