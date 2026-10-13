@@ -79,7 +79,7 @@ const requirePlayersTurn: GameCommandGuard = (game, socketId) =>
  * возвращается к снимку, а вызывающий получает ack с `error`.
  */
 export async function runGameCommand(
-  { io, service, socket }: SocketHandlerContext,
+  { events, service, socket }: SocketHandlerContext,
   {
     gameId,
     command,
@@ -105,7 +105,7 @@ export async function runGameCommand(
     const context: GameCommandContext = {
       game,
       save: () => saveGameOrRollback(game, gameId, service, previousState),
-      ack: () => ackGameUpdated(io, service, gameId, game, callback),
+      ack: () => ackGameUpdated(events, service, gameId, game, callback),
     }
 
     try {

@@ -1,28 +1,28 @@
-import type { Server } from 'socket.io'
 import { COMPUTER_MOVE_DELAY_MS, PLAYER_RECONNECT_TIMEOUT_MS } from '../config'
 import type { IGameBoard } from '../modules/GameManager'
-import { SocketEvents, type Player, type PlayerId } from '../modules/types'
+import { type Player, type PlayerId } from '../modules/types'
 import { sleep } from '../utils/common'
 import type { GameService } from './GameService'
+import type { GameEventsPublisher } from './gameEvents'
 
 export function isComputerPlayer(player: Player): boolean {
   return !player.socketId && !player.deviceId
 }
 
 export function resumeComputerGames(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   reconnectTimeoutMs?: number
 ): void {
   service.allGames().forEach((game) => {
     if (!game.id) return
     if (!game.gameIsStarted || game.gameIsEnded) return
-    continueComputerGame(io, service, game.id, reconnectTimeoutMs)
+    continueComputerGame(events, service, game.id, reconnectTimeoutMs)
   })
 }
 
 export function continueComputerGame(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string,
   reconnectTimeoutMs?: number
@@ -39,7 +39,7 @@ export function continueComputerGame(
       reconnectTimers.delete(gameId)
       const currentGame = service.getGame(gameId)
       if (!currentGame || !hasDisconnectedHuman(currentGame)) return
-      deleteComputerGame(io, service, gameId, 'players did not reconnect')
+      deleteComputerGame(events, service, gameId, 'players did not reconnect')
     }, reconnectTimeoutMs ?? PLAYER_RECONNECT_TIMEOUT_MS)
     reconnectTimers.set(gameId, timer)
     return
@@ -50,17 +50,17 @@ export function continueComputerGame(
   reconnectTimers.delete(gameId)
 
   if (!game.currentPlayer) {
-    deleteComputerGame(io, service, gameId, 'missing current player')
+    deleteComputerGame(events, service, gameId, 'missing current player')
     return
   }
 
   if (isComputerPlayer(game.currentPlayer)) {
-    scheduleComputerMove(io, service, gameId)
+    scheduleComputerMove(events, service, gameId)
   }
 }
 
 function deleteComputerGame(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string,
   reason: string
@@ -73,8 +73,8 @@ function deleteComputerGame(
   void service
     .deleteGame(gameId)
     .then(() => {
-      io.to(gameId).emit(SocketEvents.GameDeleted)
-      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
+      events.publishGameDeleted(gameId)
+      events.publishGamesList(service.formatGamesList())
     })
     .catch((error: unknown) => {
       console.error(`Failed to delete computer game (${reason}):`, error)
@@ -129,7 +129,7 @@ export function cancelAllComputerMoves(gameIds: string[]): void {
 
 /** Запускает ход компьютера с небольшой задержкой */
 export function scheduleComputerMove(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string,
   delay = COMPUTER_MOVE_DELAY_MS
@@ -138,7 +138,7 @@ export function scheduleComputerMove(
 
   const timer = setTimeout(() => {
     pendingMoveTimers.delete(gameId)
-    void runComputerMoves(io, service, gameId)
+    void runComputerMoves(events, service, gameId)
   }, delay)
 
   pendingMoveTimers.set(gameId, timer)
@@ -149,7 +149,7 @@ export function scheduleComputerMove(
  * планируем автоматический ход.
  */
 export function maybeContinueWithComputerMove(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   game: IGameBoard,
   gameId: string
@@ -159,13 +159,13 @@ export function maybeContinueWithComputerMove(
 
   const nextPlayer = game.getNextPlayer(currentPlayer.id)
   if (isComputerPlayer(nextPlayer) || isComputerPlayer(currentPlayer)) {
-    continueComputerGame(io, service, gameId)
+    continueComputerGame(events, service, gameId)
   }
 }
 
 /** Проигрывает ходы компьютера подряд, пока очередь не перейдёт человеку */
 export async function runComputerMoves(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string
 ): Promise<void> {
@@ -174,26 +174,24 @@ export async function runComputerMoves(
   if (!game || game.gameIsEnded || !game.currentPlayer) return
   if (!isComputerPlayer(game.currentPlayer)) return
   if (hasDisconnectedHuman(game)) {
-    continueComputerGame(io, service, gameId)
+    continueComputerGame(events, service, gameId)
     return
   }
 
   runningMoveChains.add(gameId)
   let failed = false
   try {
-    await processComputerMoves(io, service, gameId)
+    await processComputerMoves(events, service, gameId)
   } catch (error) {
     failed = true
     if (error instanceof GameSaveError) {
-      // Хранилище недоступно: ход уже откатан в processComputerMoves, но
+      // Хранилище недоступно: ход уже откатан в playComputerMove, но
       // партию игроков удалять нельзя — она переживёт восстановление связи.
       console.error('Failed to save computer move:', error)
-      io.to(gameId).emit(SocketEvents.GameError, {
-        message: 'Не удалось сохранить ход компьютера',
-      })
+      events.publishGameError(gameId, 'Не удалось сохранить ход компьютера')
     } else {
       console.error('Failed to continue computer game:', error)
-      deleteComputerGame(io, service, gameId, 'move failed')
+      deleteComputerGame(events, service, gameId, 'move failed')
     }
   } finally {
     runningMoveChains.delete(gameId)
@@ -205,20 +203,20 @@ export async function runComputerMoves(
       !currentGame.gameIsEnded &&
       !pendingMoveTimers.has(gameId)
     ) {
-      continueComputerGame(io, service, gameId)
+      continueComputerGame(events, service, gameId)
     }
   }
 }
 
 async function processComputerMoves(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string
 ): Promise<void> {
   const game = service.getGame(gameId)
   if (!game || game.gameIsEnded || !game.currentPlayer) return
   if (hasDisconnectedHuman(game)) {
-    continueComputerGame(io, service, gameId)
+    continueComputerGame(events, service, gameId)
     return
   }
 
@@ -227,7 +225,7 @@ async function processComputerMoves(
   // может быть затёрт откатом. Пауза между ходами очередь не держит.
   for (;;) {
     const nextIsComputer = await service.runGameCommand(gameId, () =>
-      playComputerMove(io, service, gameId)
+      playComputerMove(events, service, gameId)
     )
     if (!nextIsComputer) return
     await sleep(COMPUTER_MOVE_DELAY_MS)
@@ -240,14 +238,14 @@ async function processComputerMoves(
  * Вызывается из `runGameCommand`, поэтому внутри нельзя ждать другие команды.
  */
 async function playComputerMove(
-  io: Server,
+  events: GameEventsPublisher,
   service: GameService,
   gameId: string
 ): Promise<boolean> {
   const game = service.getGame(gameId)
   if (!game || game.gameIsEnded || !game.currentPlayer) return false
   if (hasDisconnectedHuman(game)) {
-    continueComputerGame(io, service, gameId)
+    continueComputerGame(events, service, gameId)
     return false
   }
 
@@ -266,7 +264,7 @@ async function playComputerMove(
     if (!updatedGame) return false
     if (hasDisconnectedHuman(updatedGame)) {
       updatedGame.copyStateFrom(previousState)
-      continueComputerGame(io, service, gameId)
+      continueComputerGame(events, service, gameId)
       return false
     }
     if (
@@ -278,23 +276,23 @@ async function playComputerMove(
     }
 
     await saveGameOrThrow(service, gameId)
-    io.to(gameId).emit(
-      SocketEvents.GameUpdated,
-      service.formatGameData(updatedGame)
-    )
 
-    if (updatedGame.gameIsEnded) {
-      io.emit(SocketEvents.UpdateGamesList, service.formatGamesList())
+    // Сохранение тоже ждёт: за это время очередь могла перейти к человеку,
+    // который успел сделать ход. Публикуем ровно то, что лежит в хранилище.
+    const savedGame = service.getGame(gameId)
+    if (!savedGame) return false
+    events.publishGameUpdated(gameId, service.formatGameData(savedGame))
+
+    if (savedGame.gameIsEnded) {
+      events.publishGamesList(service.formatGamesList())
       return false
     }
 
-    const nextPlayer = updatedGame.getNextPlayer(activePlayerId)
+    const nextPlayer = savedGame.getNextPlayer(activePlayerId)
     return Boolean(nextPlayer && isComputerPlayer(nextPlayer))
   } catch (error) {
     game.copyStateFrom(previousState)
-    io.to(gameId).emit(SocketEvents.GameError, {
-      message: 'Error processing computer move',
-    })
+    events.publishGameError(gameId, 'Error processing computer move')
     throw error
   }
 }

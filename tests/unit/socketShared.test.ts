@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ackGameUpdated } from '@server/socket/handlers/shared'
-import { SocketEvents } from '@server/modules/types'
 import type { IGameBoard } from '@server/modules/GameManager'
 import type { GameService } from '@server/services/GameService'
+import type { GameEventsPublisher } from '@server/services/gameEvents'
 
 function createHarness() {
-  const emit = vi.fn()
-  const io = { to: vi.fn(() => ({ emit })) }
+  const publishGameUpdated = vi.fn()
+  const events = { publishGameUpdated } as unknown as GameEventsPublisher
   const gameData = { id: 'game-1' }
   const service = {
     formatGameData: vi.fn(() => gameData),
   }
   const callback = vi.fn()
   return {
-    emit,
-    io,
+    publishGameUpdated,
+    events,
     service,
     callback,
     gameData,
@@ -24,33 +24,28 @@ function createHarness() {
 
 describe('ackGameUpdated', () => {
   it('публикует gameUpdated и подтверждает ack', () => {
-    const { emit, io, service, callback, gameData, game } = createHarness()
+    const { publishGameUpdated, events, service, callback, gameData, game } =
+      createHarness()
 
     ackGameUpdated(
-      io as never,
+      events,
       service as unknown as GameService,
       'game-1',
       game,
       callback
     )
 
-    expect(io.to).toHaveBeenCalledWith('game-1')
+    expect(publishGameUpdated).toHaveBeenCalledWith('game-1', gameData)
     expect(service.formatGameData).toHaveBeenCalledWith(game)
-    expect(emit).toHaveBeenCalledWith(SocketEvents.GameUpdated, gameData)
     expect(callback).toHaveBeenCalledWith({ success: true, game: gameData })
   })
 
   it('работает без callback', () => {
-    const { emit, io, service, game } = createHarness()
+    const { publishGameUpdated, events, service, game } = createHarness()
 
-    ackGameUpdated(
-      io as never,
-      service as unknown as GameService,
-      'game-1',
-      game
-    )
+    ackGameUpdated(events, service as unknown as GameService, 'game-1', game)
 
-    expect(emit).toHaveBeenCalledWith(SocketEvents.GameUpdated, {
+    expect(publishGameUpdated).toHaveBeenCalledWith('game-1', {
       id: 'game-1',
     })
   })

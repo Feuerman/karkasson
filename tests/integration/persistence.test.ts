@@ -221,7 +221,7 @@ describe('Сохранение данных лобби', () => {
     await stopTestServer(server)
     server = await startTestServer(snapshot)
     await server.handle.gameService.loadSavedGames()
-    resumeComputerGames(server.handle.io, server.handle.gameService, 5_000)
+    resumeComputerGames(server.handle.events, server.handle.gameService, 5_000)
 
     const restored = server.handle.gameService.getGame('mixed-game')
     if (!restored) throw new Error('Смешанная партия не восстановлена')
@@ -269,7 +269,7 @@ describe('Сохранение данных лобби', () => {
     expect(restored?.gameIsStarted).toBe(true)
     expect(restored?.gameIsEnded).toBe(false)
 
-    resumeComputerGames(server.handle.io, server.handle.gameService)
+    resumeComputerGames(server.handle.events, server.handle.gameService)
 
     await waitForCondition(
       () => server?.store.games['computer-game']?.gameIsEnded === true,
@@ -288,7 +288,7 @@ describe('Сохранение данных лобби', () => {
       throw new Error('simulated computer move failure')
     }
 
-    resumeComputerGames(server.handle.io, server.handle.gameService)
+    resumeComputerGames(server.handle.events, server.handle.gameService)
 
     await waitForCondition(
       () => server?.handle.gameService.getGame('computer-game') === undefined,
