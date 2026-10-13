@@ -34,6 +34,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     withShield: true,
+    hasPrincess: true,
     hasGarden: true,
     imgUrl: image('B'),
     expansion: ExpansionName.PrincessAndDragon,
