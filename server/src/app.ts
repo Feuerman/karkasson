@@ -6,11 +6,15 @@ import { ADMIN_UI_ORIGIN, getSocketAdminUIOptions } from './config'
 import type { IGameDatabase } from './modules/Database'
 import { GameService } from './services/GameService'
 import { registerSocketHandlers } from './socket/router'
+import { createGameEventsPublisher } from './socket/publisher'
+import type { GameEventsPublisher } from './services/gameEvents'
 
 export interface GameServerHandle {
   app: express.Express
   server: http.Server
   io: Server
+  /** Публикация игровых событий для кода вне слоя Socket.IO. */
+  events: GameEventsPublisher
   gameService: GameService
   db: IGameDatabase
   close: () => Promise<void>
@@ -68,5 +72,13 @@ export function createGameServer(
     })
   }
 
-  return { app, server, io, gameService, db, close }
+  return {
+    app,
+    server,
+    io,
+    events: createGameEventsPublisher(io),
+    gameService,
+    db,
+    close,
+  }
 }

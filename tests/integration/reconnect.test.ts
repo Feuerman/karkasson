@@ -199,7 +199,7 @@ describe('Отключение и переподключение игроков'
     ).toBe(lobby.joiner.deviceId)
 
     continueComputerGame(
-      server.handle.io,
+      server.handle.events,
       server.handle.gameService,
       lobby.gameId
     )
@@ -249,7 +249,7 @@ describe('Отключение и переподключение игроков'
     )
 
     continueComputerGame(
-      server.handle.io,
+      server.handle.events,
       server.handle.gameService,
       lobby.gameId,
       100
@@ -259,5 +259,45 @@ describe('Отключение и переподключение игроков'
       'удаление партии после окончания срока переподключения'
     )
     expect(await server.db.getGame(lobby.gameId)).toBeNull()
+  })
+
+  it('освобождает слот игрока во всех партиях, где он состоял', async () => {
+    server = await startTestServer()
+    const alice = new TestClient(server.url, 'device-alice')
+    const bob = new TestClient(server.url, 'device-bob')
+    clients.push(alice, bob)
+    await Promise.all([alice.connect(), bob.connect()])
+    alice.registerDevice()
+    bob.registerDevice()
+
+    alice.emit(SocketEvents.CreateGame)
+    const ownLobby = (await alice.waitForEvent(SocketEvents.GameCreated)) as {
+      gameId: string
+    }
+    bob.emit(SocketEvents.CreateGame)
+    const foreignLobby = (await bob.waitForEvent(SocketEvents.GameCreated)) as {
+      gameId: string
+    }
+
+    // Алиса состоит сразу в двух лобби: в своём (слот 0) и в чужом (слот 1).
+    alice.emit(SocketEvents.JoinGame, { gameId: foreignLobby.gameId })
+    await alice.waitForEvent(SocketEvents.GameUpdated)
+
+    alice.closeTransport()
+
+    const slot = (gameId: string, index: number) =>
+      server?.handle.gameService.getGame(gameId)?.players[index]
+
+    await waitForCondition(() => {
+      const own = slot(ownLobby.gameId, 0)
+      const foreign = slot(foreignLobby.gameId, 1)
+      // Обрабатывается только первая партия, если сокет ищут по одной игре.
+      return (
+        own?.socketId === null &&
+        own.deviceId === null &&
+        foreign?.socketId === null &&
+        foreign.deviceId === null
+      )
+    }, 'освобождение слота во всех партиях отключившегося игрока')
   })
 })

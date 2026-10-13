@@ -5,10 +5,9 @@ import {
 } from './config'
 import { createGameServer } from './app'
 import { gameDatabase } from './modules/Database'
-import { SocketEvents } from './modules/types'
 import { resumeComputerGames } from './services/computerPlayer'
 
-const { server, io, gameService } = createGameServer(gameDatabase, {
+const { server, io, events, gameService } = createGameServer(gameDatabase, {
   adminUI: true,
 })
 
@@ -18,11 +17,11 @@ function startStaleGamesCleanup() {
       .deleteStaleGames(GAME_INACTIVITY_TIMEOUT_MS)
       .then((deletedGameIds) => {
         deletedGameIds.forEach((gameId) => {
-          io.to(gameId).emit(SocketEvents.GameDeleted)
+          events.publishGameDeleted(gameId)
         })
 
         if (deletedGameIds.length) {
-          io.emit(SocketEvents.UpdateGamesList, gameService.formatGamesList())
+          events.publishGamesList(gameService.formatGamesList())
         }
       })
       .catch((error: unknown) => {
@@ -42,7 +41,7 @@ async function startServer() {
   try {
     await gameService.loadSavedGames()
     console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
-    resumeComputerGames(io, gameService)
+    resumeComputerGames(events, gameService)
   } catch (error: unknown) {
     console.error('Failed to load saved games:', error)
     server.close(() => process.exit(1))

@@ -3,7 +3,7 @@ import { GameErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { createLobbyWithPlayers, type TestGameData } from './helpers/lobby'
-import { findValidPlacement, startGame } from './helpers/gameplay'
+import { startGame } from './helpers/gameplay'
 import {
   startTestServer,
   stopTestServer,
@@ -46,38 +46,33 @@ describe('Конкурентные команды одной партии', () =
     const lobby = await lobbyWithTwoHumans()
     const { gameId } = lobby
     const state = await startGame(lobby.creator, gameId)
-    const move = findValidPlacement(state)
-    expect(move).not.toBeNull()
+
+    const rotation = state.currentTile!.rotation === 180 ? 90 : 180
 
     const gate = gateNextSave()
 
-    // Алиса ставит тайл; запись ещё в полёте, когда приходит команда Боба
-    const placing = lobby.creator.emitAck(SocketEvents.PlaceTile, {
+    // Алиса поворачивает тайл; запись ещё в полёте, когда приходит команда Боба.
+    // Поворот выбран намеренно: он не двигает очередь, поэтому проверка не
+    // зависит от того, остались ли у выложенного тайла места для фишек.
+    const rotating = lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
       gameId,
-      rotation: move!.tile.rotation,
-      position: { rowIndex: move!.rowIndex, tileIndex: move!.tileIndex },
+      rotation,
     })
     await new Promise((resolve) => setTimeout(resolve, 20))
-    const intruder = lobby.joiner.emitAck(SocketEvents.SkipFollower, { gameId })
+    const intruder = lobby.joiner.emitAck(SocketEvents.SelectPlacingPoint, {
+      gameId,
+      point: { rowIndex: 15, tileIndex: 16 },
+    })
 
     await gate
-    await placing
+    await rotating
     await expect(intruder).rejects.toThrow(GameErrors.NotPlayersTurn)
 
     const live = server!.handle.gameService.getGame(gameId)
-    const placed = Object.values(live?.tilePlacesStats ?? {}).reduce(
-      (count, row) => count + Object.keys(row ?? {}).length,
-      0
-    )
-    expect(placed).toBe(
-      Object.values(state.tilePlacesStats).reduce(
-        (count, row) => count + Object.keys(row ?? {}).length,
-        0
-      ) + 1
-    )
-    // Фаза выставления фишек осталась у Алисы: чужая команда её не закрыла
+    expect(live?.currentTile?.rotation).toBe(rotation)
+    // Чужая команда не применилась: выбранная точка осталась прежней
+    expect(live?.placingPoint).toEqual(state.placingPoint)
     expect(live?.currentPlayerIndex).toBe(state.currentPlayerIndex)
-    expect(live?.isPlacingFollower).toBe(true)
   })
 
   it('откат неудачной команды не затирает следующую команду', async () => {
