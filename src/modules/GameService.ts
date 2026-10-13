@@ -16,6 +16,7 @@ import type {
   CreateGameResponse,
   PrincessChoicePayload,
   DragonMovePayload,
+  RemovePlayerPayload,
 } from '@/types/socket'
 
 export interface IGameService {
@@ -237,12 +238,13 @@ export class GameService implements IGameService {
     })
   }
 
-  removePlayer(index: number, name: string | null = null) {
-    return this.emitAck<SocketAck>(SocketEvents.RemovePlayer, {
+  removePlayer(index: number, keepAsComputer: boolean) {
+    const payload: SocketPayload & RemovePlayerPayload = {
       gameId: this.gameId,
       index,
-      name,
-    })
+      keepAsComputer,
+    }
+    return this.emitAck<SocketAck>(SocketEvents.RemovePlayer, payload)
   }
 
   startGame() {

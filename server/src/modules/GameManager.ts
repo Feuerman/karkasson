@@ -8,7 +8,7 @@ import {
   neighborCoordinates,
   NEIGHBOR_SIDES,
 } from './gameGeometry'
-import { applyQuarterTurns, rotateTileGroups } from './tileRotation'
+import { applyQuarterTurns } from './tileRotation'
 import { resolveTileFeatureGroups } from './tileFeatureGroups'
 import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager } from './FollowerManager'
@@ -60,24 +60,10 @@ import {
 
 export type { AvailableFollowerPlace, RotationDirection } from './types'
 
-// Формы записей истории описаны в gameActions; здесь они переэкспортируются,
-// чтобы клиент и остальной сервер могли импортировать их из одного места.
-export type {
-  AddingScoresActionData,
-  BackFollowerActionData,
-  DragonMoveActionData,
-  GameAction,
-  GameActionBase,
-  NewGameAction,
-  PlaceFollowerActionData,
-  PlaceTileActionData,
-  PrincessTakeFollowerActionData,
-} from './gameActions'
-
 import type { GameAction, NewGameAction } from './gameActions'
 
 /**
- * Контракт игровой доски: сохранённое состояние (`IGameState`) плюс команды,
+ * Контракты игровой доски: сохранённое состояние (`IGameState`) плюс команды,
  * которыми пользуются транспорт, лобби и симулятор ИИ.
  *
  * Сами правила живут в классе `GameManager` и его помощниках
@@ -88,7 +74,9 @@ import type { GameAction, NewGameAction } from './gameActions'
  * клиент через Socket.IO: восстановленная из сохранения партия должна вести
  * себя так же, как живая.
  */
-export interface IGameBoard extends IGameState {
+
+/** Команды транспортного слоя: изменяют состояние партии. */
+export interface IGameCommands {
   moveDragon(rowIndex: number, tileIndex: number): boolean
   choosePrincessFollower(cityId: string, point: Point): boolean
   startGame(): void
@@ -99,20 +87,12 @@ export interface IGameBoard extends IGameState {
   skipFollower(): void
   recallAbbot(): boolean
   placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
-  getPlacementFailure(
-    tile: Tile,
-    rowIndex: number,
-    tileIndex: number
-  ): PlacementConflict[]
+}
+
+/** API симулятора ИИ: пробные ходы и копии состояния. */
+export interface IGameSimulationApi {
   autoPlaceTile(): Promise<void>
-  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
-  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
-  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
-  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
-  getNextPlayer(currentPlayerId: PlayerId | undefined): Player
-  clone(): IGameBoard
   cloneForSimulation(): IGameBoard
-  copyStateFrom(source: IGameState): void
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   simulatePlaceFollower(
     place: AvailableFollowerPlace,
@@ -122,10 +102,30 @@ export interface IGameBoard extends IGameState {
     tile: Tile,
     feature: typeof TileSideType.City | typeof TileSideType.Road
   ): SideName[][]
-  rotateTileGroups(
-    groups: SideName[][] | undefined,
-    turns: number
-  ): SideName[][] | undefined
+}
+
+/** Структурированные причины отказа размещения, без пользовательских текстов. */
+export interface IGamePlacementDiagnostics {
+  getPlacementConflicts(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): PlacementConflict[]
+}
+
+export interface IGameBoard
+  extends
+    IGameState,
+    IGameCommands,
+    IGameSimulationApi,
+    IGamePlacementDiagnostics {
+  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
+  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
+  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
+  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
+  getNextPlayer(currentPlayerId: PlayerId | undefined): Player
+  clone(): IGameBoard
+  copyStateFrom(source: IGameState): void
 }
 
 export class GameManager implements IGameBoard {
@@ -384,9 +384,15 @@ export class GameManager implements IGameBoard {
    * сада для тестовых тайлов). Возвращает `undefined`, если тайл нельзя играть
    * при действующих расширениях.
    */
-  private resolvePlacementTile(tile: Tile): Tile | undefined {
+  private resolvePlacementTile(
+    tile: Tile,
+    options: { simulation?: boolean } = {}
+  ): Tile | undefined {
     if (this.gameIsEnded) return undefined
     const tileDefinition = this.tileManager.findTileDefinition(tile.id)
+    if (options.simulation && !tileDefinition && !tile.id.startsWith('test')) {
+      return undefined
+    }
     const authoritativeTile: Tile = tileDefinition
       ? { ...tileDefinition, rotation: 0 }
       : { ...tile }
@@ -453,7 +459,7 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  getPlacementFailure(
+  getPlacementConflicts(
     tile: Tile,
     rowIndex: number,
     tileIndex: number
@@ -609,10 +615,6 @@ export class GameManager implements IGameBoard {
     this.availablePlacesTiles = this.availablePlacesTiles.filter(
       (place) => place.rowIndex !== rowIndex || place.tileIndex !== tileIndex
     )
-  }
-
-  goPlaceFollower() {
-    this.followerManager.goPlaceFollower()
   }
 
   placeFollower(
@@ -784,54 +786,6 @@ export class GameManager implements IGameBoard {
     this.objectManager.checkGridAfterPlacingTile(rowIndex, tileIndex)
   }
 
-  checkMonasteries(tile: GridTile) {
-    this.objectManager.checkMonasteries(tile)
-  }
-
-  checkCompletedMonasteries() {
-    this.objectManager.checkCompletedMonasteries()
-  }
-
-  calcScoreForMonasteries(monasteries: BaseObject[]) {
-    this.objectManager.calcScoreForMonasteries(monasteries)
-  }
-
-  checkGardens(tile: GridTile) {
-    this.objectManager.checkGardens(tile)
-  }
-
-  checkCompletedGardens() {
-    this.objectManager.checkCompletedGardens()
-  }
-
-  calcScoreForGardens(gardens: BaseObject[]) {
-    this.objectManager.calcScoreForGardens(gardens)
-  }
-
-  checkRoads(roadsPoints: Point[], connectedGroups?: Point[][]) {
-    this.objectManager.checkRoads(roadsPoints, connectedGroups)
-  }
-
-  mergeRoads(roadsIds: string[], roadsPoints: Point[]) {
-    this.objectManager.mergeRoads(roadsIds, roadsPoints)
-  }
-
-  checkCompleteRoad(road: BaseObject) {
-    this.objectManager.checkCompleteRoad(road)
-  }
-
-  checkCities(citiesPoints: Point[], connectedGroups?: Point[][]) {
-    this.objectManager.checkCities(citiesPoints, connectedGroups)
-  }
-
-  mergeCities(citiesIds: string[], citiesPoints: Point[]) {
-    this.objectManager.mergeCities(citiesIds, citiesPoints)
-  }
-
-  checkCompleteCity(city: BaseObject) {
-    this.objectManager.checkCompleteCity(city)
-  }
-
   // Подсчёт очков и его детализация для истории. Расчёты чистые и не меняют
   // правила: меняется только то, какие бонусы расширения действуют.
 
@@ -875,13 +829,6 @@ export class GameManager implements IGameBoard {
       isCompleted,
       this.rules.expansions.innsAndCathedrals
     )
-  }
-
-  private isFollowerPlacementAvailable(
-    place: AvailableFollowerPlace,
-    object: BaseObject
-  ): boolean {
-    return this.followerManager.isFollowerPlacementAvailable(place, object)
   }
 
   isCorrectTilePosition(
@@ -937,13 +884,6 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  rotateTileGroups(
-    groups: SideName[][] | undefined,
-    turns: number
-  ): SideName[][] | undefined {
-    return rotateTileGroups(groups, turns)
-  }
-
   isEmptyGrid(): boolean {
     return this.lastPlacement.rowIndex === undefined
   }
@@ -988,31 +928,15 @@ export class GameManager implements IGameBoard {
 
   /**
    * Пробный ход для симуляции ИИ. Отличия от реального `placeTile` намеренные:
-   * принимаются только каталожные тайлы (или тестовые `test*`), правило
-   * «сначала река» не проверяется, а запись в историю и переход хода не
-   * выполняются — состояние используется только для оценки хода.
+   * принимаются каталожные тайлы и тестовые `test*`, запись в историю и
+   * переход хода не выполняются — состояние используется только для оценки хода.
    */
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean {
-    const tileDefinition = this.tileManager.findTileDefinition(tile.id)
-    if (!tileDefinition && !tile.id.startsWith('test')) return false
+    const resolvedTile = this.resolvePlacementTile(tile, {
+      simulation: true,
+    })
+    if (!resolvedTile) return false
 
-    const authoritativeTile: Tile = tileDefinition
-      ? { ...tileDefinition, rotation: 0 }
-      : { ...tile }
-    if (!this.isExpansionTileAllowed(authoritativeTile)) return false
-    if (
-      this.rules.expansions.river &&
-      !authoritativeTile.riverGroups?.length &&
-      !this.tileManager.hasRiverEnd()
-    ) {
-      return false
-    }
-
-    const resolvedTile = this.applyRequestedRotation(
-      tile,
-      authoritativeTile,
-      Boolean(tileDefinition)
-    )
     if (
       !this.tileManager.isValidTilePlacement(resolvedTile, rowIndex, tileIndex)
     ) {

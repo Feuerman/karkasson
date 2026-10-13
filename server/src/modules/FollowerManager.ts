@@ -1,9 +1,5 @@
-import type { GameAction, NewGameAction } from './GameManager'
-import {
-  calcGardenPoints,
-  calcMonasteryPoints,
-  describeCentralObjectPoints,
-} from './scoring'
+import type { GameAction, NewGameAction } from './gameActions'
+import { countCenterObjectPoints, describeCentralObjectPoints } from './scoring'
 import {
   ActionTypes,
   FollowerType as FollowerTypes,
@@ -463,8 +459,10 @@ export class FollowerManager {
   }
 
   private countCenterObjectPoints(object: BaseObject): number {
-    return object.isGarden
-      ? calcGardenPoints(this.state.tilePlacesStats, object)
-      : calcMonasteryPoints(this.state.tilePlacesStats, object)
+    return countCenterObjectPoints(
+      this.state.tilePlacesStats,
+      object,
+      object.isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY
+    )
   }
 }

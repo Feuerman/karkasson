@@ -1,5 +1,5 @@
 import { ActionTypes } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 
 /** Фильтр истории по типу действия. */
 export const HistoryFilters = {

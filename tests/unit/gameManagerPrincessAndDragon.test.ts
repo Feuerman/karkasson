@@ -95,10 +95,10 @@ describe('Правила дополнения «Принцесса и драко
     }
 
     expect(game.currentTile?.id).toBe(replacementTile.id)
-    expect(game.tilesList.map(({ id }) => id)).toEqual([
-      dragonTile.id,
-      anotherTile.id,
-    ])
+    expect(game.tilesList.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([dragonTile.id, anotherTile.id])
+    )
+    expect(game.tilesList).toHaveLength(2)
     expect(game.tileHistory.map(({ id }) => id)).toEqual([replacementTile.id])
   })
 

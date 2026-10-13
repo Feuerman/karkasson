@@ -32,7 +32,7 @@
 import { FollowerType, TileSideType } from '@server/modules/types'
 import { computed } from 'vue'
 import { ActionTypes } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 import type { TileCoordinates } from '@/utils/board'
 import { cellOfPoint } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'

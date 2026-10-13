@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
+import { GameObjectManager } from '@server/modules/GameObjectManager'
 import {
   ActionTypes,
   ObjectTypes,
@@ -26,6 +27,10 @@ function segment(id: string, point: Point, playerId: number): BaseObject {
     point,
   }
   return { id, points: [point], followers: [follower] }
+}
+
+function objectManager(game: GameManager): GameObjectManager {
+  return new GameObjectManager(game)
 }
 
 describe('Слияние и завершение дорог и городов', () => {
@@ -209,7 +214,8 @@ describe('Слияние и завершение дорог и городов', 
       point: rightPoint,
     })
 
-    game.mergeCities(
+    objectManager(game).mergeLinearFeature(
+      TileSideType.City,
       [leftCity.id, rightCity.id],
       [
         {
@@ -299,11 +305,11 @@ describe('Слияние и завершение дорог и городов', 
         { x: 15, y: 15, direction: SideName.West, pointType: sideType },
         { x: 15, y: 15, direction: SideName.East, pointType: sideType },
       ]
-      if (feature === TileSideType.Road) {
-        game.mergeRoads([firstSegment.id, secondSegment.id], connectionPoints)
-      } else {
-        game.mergeCities([firstSegment.id, secondSegment.id], connectionPoints)
-      }
+      objectManager(game).mergeLinearFeature(
+        feature,
+        [firstSegment.id, secondSegment.id],
+        connectionPoints
+      )
 
       expect(game.temporaryObjects[collection]).toHaveLength(1)
       const mergedTemporaryObject = game.temporaryObjects[collection][0]
@@ -325,11 +331,11 @@ describe('Слияние и завершение дорог и городов', 
         direction: SideName.South,
         pointType: sideType,
       }
-      if (feature === TileSideType.Road) {
-        game.mergeRoads([mergedTemporaryObject.id], [closingPoint])
-      } else {
-        game.mergeCities([mergedTemporaryObject.id], [closingPoint])
-      }
+      objectManager(game).mergeLinearFeature(
+        feature,
+        [mergedTemporaryObject.id],
+        [closingPoint]
+      )
 
       const completedObjects = game.completedObjects[collection]
       expect(game.temporaryObjects[collection]).toHaveLength(0)

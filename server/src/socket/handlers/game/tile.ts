@@ -1,5 +1,5 @@
 import type { PlacementConflict, Tile } from '../../../modules/types'
-import { describePlacementFailure } from '../../../modules/gameGeometry'
+import { describePlacementFailure } from '../placementErrors'
 import {
   rotateTileGroups,
   rotateTileSides,
@@ -172,7 +172,7 @@ export function registerTileHandlers(context: SocketHandlerContext) {
             const failedTile = game.currentTile
             throw new TilePlacementError(
               failedTile
-                ? game.getPlacementFailure(
+                ? game.getPlacementConflicts(
                     failedTile,
                     position.rowIndex,
                     position.tileIndex

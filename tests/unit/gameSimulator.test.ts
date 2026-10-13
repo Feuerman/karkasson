@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { IGameBoard } from '@server/modules/GameManager'
 import { GameManager } from '@server/modules/GameManager'
 import {
@@ -144,5 +144,21 @@ describe('GameSimulatorModule', () => {
           }
         : undefined,
     })
+  })
+
+  it('не клонирует доску для каждой позиции и оставляет исходную партию без изменений', () => {
+    const game = new GameManager({
+      players: [currentPlayer],
+    })
+    const tile = game.currentTile
+    if (!tile) throw new Error('Expected a current tile')
+    const cloneForSimulation = vi.spyOn(game, 'cloneForSimulation')
+
+    const result = new GameSimulatorModule(game).findBestMove(tile)
+
+    expect(result.moves.length).toBeGreaterThan(0)
+    expect(cloneForSimulation).toHaveBeenCalledTimes(1)
+    expect(game.tilePlacesStats[15]?.[16]).toBeUndefined()
+    expect(game.placedFollowers).toHaveLength(0)
   })
 })

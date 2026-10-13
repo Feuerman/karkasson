@@ -387,9 +387,9 @@ async function addPlayer(player: { name?: string | null }, index: number) {
   }
 }
 
-async function removePlayer(index: number, name: string | null = null) {
+async function removePlayer(index: number, keepAsComputer: boolean) {
   try {
-    await GameService.removePlayer(index, name)
+    await GameService.removePlayer(index, keepAsComputer)
   } catch (error) {
     notifyError(error)
   }
@@ -397,7 +397,7 @@ async function removePlayer(index: number, name: string | null = null) {
 
 function toggleCheckbox(player: Player, index: number) {
   if (player.socketId || player.name) {
-    void removePlayer(index)
+    void removePlayer(index, false)
   } else {
     void addPlayer(player, index)
   }
@@ -405,7 +405,7 @@ function toggleCheckbox(player: Player, index: number) {
 
 function toggleButton(player: Player, index: number) {
   if (player.socketId) {
-    void removePlayer(index, player.name)
+    void removePlayer(index, true)
   } else {
     void addPlayer({ name: currentPlayerName.value || player.name }, index)
   }

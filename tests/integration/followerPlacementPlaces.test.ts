@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import tiles from '@server/data/tiles'
 import { GameManager } from '@server/modules/GameManager'
+import { GameObjectManager } from '@server/modules/GameObjectManager'
 import {
   PointDirection,
   SideName,
@@ -600,8 +601,7 @@ describe('Снятие фишки при завершении объекта', (
         point: followerPoint,
       })
 
-      if (feature === TileSideType.City) game.checkCompleteCity(object)
-      else game.checkCompleteRoad(object)
+      new GameObjectManager(game).checkCompleteLinearFeature(feature, object)
 
       expect(game.placedFollowers).toHaveLength(0)
       expect(game.playersFollowers[1]?.ordinaryFollowers).toBe(7)

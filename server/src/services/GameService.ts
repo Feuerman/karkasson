@@ -383,11 +383,11 @@ export class GameService {
     )
   }
 
-  removePlayer(gameId: string, index: number, name: string | null) {
+  removePlayer(gameId: string, index: number, keepAsComputer: boolean) {
     const player = this.games[gameId]?.players[index]
     if (!player) return
 
-    if (name) {
+    if (keepAsComputer) {
       player.name = playerNameForIndex(index)
       player.socketId = null
       player.deviceId = null

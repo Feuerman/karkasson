@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { ActionTypes } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerName from '../PlayerName.vue'

@@ -179,6 +179,32 @@ describe('Схема сохранения игры', () => {
     expect(restored.princessFollowerPenalty).toBe(true)
   })
 
+  it('восстанавливает позицию дракона в старом сохранении незавершённого хода', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'legacy-dragon-position'
+    game.dragonMove = {
+      remainingSteps: 2,
+      nextPlayerIndex: 0,
+      resumePlayerIndex: 0,
+      visited: [
+        { rowIndex: 15, tileIndex: 15 },
+        { rowIndex: 15, tileIndex: 16 },
+      ],
+    }
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.dragonPosition
+
+    const restored = deserializeGameState({
+      schemaVersion: GAME_SAVE_SCHEMA_VERSION,
+      state: legacyState,
+    })
+
+    expect(restored.dragonPosition).toEqual({ rowIndex: 15, tileIndex: 16 })
+  })
+
   it('снимает штраф принцессы в старом сохранении', () => {
     const game = new GameManager({ players: [], startImmediately: false })
     game.id = 'legacy-princess-penalty'

@@ -8,7 +8,7 @@ import {
   LobbyErrors,
   SaveErrors,
 } from '@server/modules/errors'
-import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
+import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 
 const MESSAGES = [
   ...Object.values(CommonErrors),
@@ -22,7 +22,7 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const SOURCE_DIRECTORIES = ['server/src', 'src', 'tests']
 const DEFINITION_FILES = [
   resolve(PROJECT_ROOT, 'server/src/modules/errors.ts'),
-  resolve(PROJECT_ROOT, 'server/src/modules/gameGeometry.ts'),
+  resolve(PROJECT_ROOT, 'server/src/socket/handlers/placementErrors.ts'),
 ]
 
 function collectSourceFiles(directory: string): string[] {

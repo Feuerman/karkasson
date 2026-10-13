@@ -61,7 +61,7 @@ describe('Диагностика неудачного размещения та�
     // Стартовый D на (15,15): восток — дорога. Городской тайл C в клетке
     // (15,16) не совпадает с ней по западной стороне.
     expect(
-      game.getPlacementFailure({ ...cityTile, rotation: 0 }, 15, 16)
+      game.getPlacementConflicts({ ...cityTile, rotation: 0 }, 15, 16)
     ).toEqual([
       {
         side: SideName.West,
@@ -80,10 +80,10 @@ describe('Диагностика неудачного размещения та�
 
     // Запад L — дорога, как и восток стартового D.
     expect(
-      game.getPlacementFailure({ ...roadTile, rotation: 0 }, 15, 16)
+      game.getPlacementConflicts({ ...roadTile, rotation: 0 }, 15, 16)
     ).toEqual([])
     expect(
-      game.getPlacementFailure({ ...roadTile, rotation: 0 }, 15, 15)
+      game.getPlacementConflicts({ ...roadTile, rotation: 0 }, 15, 15)
     ).toEqual([])
   })
 
@@ -93,7 +93,7 @@ describe('Диагностика неудачного размещения та�
     if (!roadTile) throw new Error('Tile L is missing')
     const tile = { ...roadTile, rotation: 0 }
 
-    expect(game.getPlacementFailure(tile, 15, 16)).toEqual([])
+    expect(game.getPlacementConflicts(tile, 15, 16)).toEqual([])
     expect(game.placeTile(tile, 15, 16)).toBe(true)
     expect(game.tilePlacesStats[15]?.[16]).toBeDefined()
   })

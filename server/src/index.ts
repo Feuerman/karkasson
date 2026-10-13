@@ -4,10 +4,17 @@ import {
   STALE_GAMES_CHECK_MS,
 } from './config'
 import { createGameServer } from './app'
-import { gameDatabase } from './modules/Database'
+import {
+  createProductionGameDatabase,
+  InMemoryGameDatabase,
+} from './modules/Database'
 import { resumeComputerGames } from './services/computerPlayer'
 
-const handle = createGameServer(gameDatabase, { adminUI: true })
+const database =
+  process.env.NODE_ENV === 'production'
+    ? createProductionGameDatabase()
+    : new InMemoryGameDatabase()
+const handle = createGameServer(database, { adminUI: true })
 const { server, events, gameService } = handle
 
 function startStaleGamesCleanup() {

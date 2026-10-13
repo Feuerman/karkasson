@@ -6,7 +6,7 @@ import PlayerNameById from '@/components/GameActionsHistory/internal/PlayerNameB
 import BackFollowerAction from '@/components/GameActionsHistory/internal/actions/BackFollowerAction.vue'
 import DragonMoveAction from '@/components/GameActionsHistory/internal/actions/DragonMoveAction.vue'
 import { ActionTypes, ObjectTypes, TileSideType } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 import type { Player, ReturnedFollower } from '@server/modules/types'
 
 // Иконка из Nuxt UI тянет рантайм-пакеты, недоступные в node-окружении тестов.

@@ -1,5 +1,5 @@
 import { ActionTypes } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 
 /**
  * Группа записей истории с общим заголовком: записи одного хода либо
