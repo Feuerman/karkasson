@@ -6,6 +6,7 @@ import {
 } from '@server/modules/Database'
 import { getFirebaseConfig } from '@server/config'
 import { GameManager } from '@server/modules/GameManager'
+import { serializeGameState } from '@server/modules/gameSave'
 
 describe('База данных сервера', () => {
   it('использует память в режиме разработки и тестов', () => {
@@ -43,15 +44,16 @@ describe('База данных сервера', () => {
     const game = new GameManager({ players: [], startImmediately: false })
     game.id = 'local-game'
 
-    await database.saveGame(game.id, game)
+    await database.saveGame(game.id, serializeGameState(game))
 
-    const savedGames = await database.getAllGames()
+    const savedGames = await database.getAllGameSaves()
     expect(savedGames).toHaveLength(1)
-    expect(savedGames[0]?.id).toBe(game.id)
     expect(await database.getGame(game.id)).toMatchObject({ id: game.id })
+    expect(await database.getGameSummaries()).toMatchObject([{ id: game.id }])
 
     await database.deleteGame(game.id)
-    expect(await database.getAllGames()).toEqual([])
+    expect(await database.getAllGameSaves()).toEqual([])
+    expect(await database.getGameSummaries()).toEqual([])
   })
 })
 

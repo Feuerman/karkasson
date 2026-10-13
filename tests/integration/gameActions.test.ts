@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
 import { GameErrors, LobbyErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
+import { deserializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
 import {
   createLobbyWithPlayers,
@@ -41,6 +42,18 @@ describe('Действия в игре: валидация ходов', () => {
     clients.push(lobby.creator, lobby.joiner)
     return lobby
   }
+
+  it('не отправляет клиенту историю тайлов, растущую с каждым ходом', async () => {
+    server = await startTestServer()
+    const lobby = await lobbyWithTwoHumans()
+
+    const state = await startGame(lobby.creator, lobby.gameId)
+
+    // Клиент историю тайлов не читает, а список растёт всю партию.
+    expect(state).not.toHaveProperty('tileHistory')
+    // История действий нужна интерфейсу и остаётся в состоянии.
+    expect(Array.isArray(state.actionsHistory)).toBe(true)
+  })
 
   it('сервер отклоняет чужие ходы: selectPlacingPoint, updateCurrentTile, placeFollower, skipFollower', async () => {
     server = await startTestServer()
@@ -263,8 +276,8 @@ describe('Действия в игре: валидация ходов', () => {
     expect(game).toBeTruthy()
 
     const savedStates: number[] = []
-    server.db.saveGame = async (_gameId, state) => {
-      const value = state.moveCounter
+    server.db.saveGame = async (_gameId, serializedState) => {
+      const value = deserializeGameState(serializedState).moveCounter
       if (value === 1) await new Promise((resolve) => setTimeout(resolve, 40))
       savedStates.push(value)
     }

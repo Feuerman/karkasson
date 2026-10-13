@@ -243,6 +243,9 @@ export interface DragonPosition {
   tileIndex: number
 }
 
+/** Сколько шагов делает дракон за одно пробуждение. */
+export const DRAGON_TOTAL_STEPS = 6
+
 export interface DragonMoveState {
   remainingSteps: number
   nextPlayerIndex: number
@@ -355,6 +358,12 @@ export interface Tile {
   hasInn?: boolean
   hasCathedral?: boolean
   hasPrincess?: boolean
+  /**
+   * Сторона города с принцессой. Нужна тайлам дополнения, где городов два:
+   * принцесса действует только на тот, в котором находится, и не трогает
+   * соседний город того же тайла.
+   */
+  princessSide?: SideName
   hasDragon?: boolean
   hasVolcano?: boolean
   expansion?: ExpansionName

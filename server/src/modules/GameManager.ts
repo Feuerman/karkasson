@@ -1,6 +1,6 @@
 import { riverTiles } from '../data/riverTiles'
-import { deepClone } from '../utils/common'
 import { GameSimulatorModule } from './GameSimulatorModule'
+import { cloneGameState, pickGameState } from './gameState'
 import {
   findTileSideConflicts,
   getPrecisionCoordinates,
@@ -15,6 +15,7 @@ import { FollowerManager } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
 import { DragonPrincessManager } from './DragonPrincessManager'
 import { finalizeScoring } from './finalScoring'
+import type { IGameState } from './gameState'
 import {
   calcCityScore,
   calcRoadScore,
@@ -76,52 +77,20 @@ export type {
 import type { GameAction, NewGameAction } from './gameActions'
 
 /**
- * Контракт игровой доски.
+ * Контракт игровой доски: сохранённое состояние (`IGameState`) плюс команды,
+ * которыми пользуются транспорт, лобби и симулятор ИИ.
  *
- * Содержит только данные состояния и команды, которыми пользуются транспорт,
- * лобби и симулятор ИИ. Сами правила живут в классе `GameManager` и его
- * помощниках (`GameObjectManager`, `FollowerManager`, `GameTileManager`,
+ * Сами правила живут в классе `GameManager` и его помощниках
+ * (`GameObjectManager`, `FollowerManager`, `GameTileManager`,
  * `DragonPrincessManager`), а чистые расчёты — в `scoring.ts`.
  *
- * Передаётся в сохранения и в клиент через Socket.IO, поэтому все методы
- * определены здесь же: восстановленная из сохранения партия должна вести себя
- * так же, как живая.
+ * Методы определены в интерфейсе, потому что состояние уходит в сохранения и в
+ * клиент через Socket.IO: восстановленная из сохранения партия должна вести
+ * себя так же, как живая.
  */
-export interface IGameBoard {
-  id?: string
-  roomCode?: string
-  gridSize: number[]
-  gameIsStarted: boolean
-  gameIsEnded: boolean
-  finalScoringEnabled: boolean
-  rules: GameRules
-  tilesList: Tile[]
-  currentTile: GridTile | null
-  players: Player[]
-  currentPlayer: Player | null
-  currentPlayerIndex: number
-  playersFollowers: Record<PlayerId, FollowerCount>
-  temporaryObjects: TemporaryObjects
-  completedObjects: CompletedObjects
-  scores: Scores
-  /** Игроки с максимальным счётом; непусто только при gameIsEnded. */
-  winnerPlayerIds: PlayerId[]
-  availableFollowersPlaces: AvailableFollowerPlace[]
-  isPlacingFollower: boolean
-  availablePlacesTiles: AvailablePlace[]
-  lastPlacement: { rowIndex?: number; tileIndex?: number }
-  tileHistory: Tile[]
-  actionsHistory: GameAction[]
-  moveCounter: number
-  lastUpdate: number
-  placedFollowers: PlacedFollower[]
-  placingPoint?: { rowIndex: number; tileIndex: number }
-  dragonMove?: DragonMoveState
-  princessChoice?: PrincessChoiceState
-  dragonPosition?: DragonPosition
+export interface IGameBoard extends IGameState {
   moveDragon(rowIndex: number, tileIndex: number): boolean
   choosePrincessFollower(cityId: string, point: Point): boolean
-  tilePlacesStats: TilePlacesStats
   startGame(): void
   placeFollower(
     availablePlace: AvailableFollowerPlace,
@@ -143,7 +112,7 @@ export interface IGameBoard {
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player
   clone(): IGameBoard
   cloneForSimulation(): IGameBoard
-  copyStateFrom(source: IGameBoard): void
+  copyStateFrom(source: IGameState): void
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   simulatePlaceFollower(
     place: AvailableFollowerPlace,
@@ -190,6 +159,7 @@ export class GameManager implements IGameBoard {
   placingPoint?: { rowIndex: number; tileIndex: number }
   dragonMove?: DragonMoveState
   princessChoice?: PrincessChoiceState
+  princessFollowerPenalty = false
   dragonPosition?: DragonPosition
   pendingDragonMovement = false
   private isPlacingStartTile = false
@@ -331,7 +301,7 @@ export class GameManager implements IGameBoard {
     )
     if (startTileIndex >= 0) this.tilesList.splice(startTileIndex, 1)
 
-    this.tileHistory.push(deepClone(startTile))
+    this.tileHistory.push(structuredClone(startTile))
     const wasPlacingStartTile = this.isPlacingStartTile
     this.isPlacingStartTile = this.rules.expansions.river
     const isPlaced = this.placeTile(
@@ -367,6 +337,7 @@ export class GameManager implements IGameBoard {
     }
     this.isPlacingFollower = false
     this.princessChoice = undefined
+    this.princessFollowerPenalty = false
 
     const nextPlayer = this.getNextPlayer(currentPlayer?.id)
 
@@ -745,6 +716,13 @@ export class GameManager implements IGameBoard {
         return
       }
 
+      // Штраф принцессы: способность сработала, свою фишку на этот тайл бот
+      // поставить не может.
+      if (this.princessFollowerPenalty) {
+        this.skipFollower()
+        return
+      }
+
       if (move.followerPlace && move.followerType) {
         const actualPlace = this.availableFollowersPlaces.find(
           (place) =>
@@ -799,7 +777,7 @@ export class GameManager implements IGameBoard {
   }
 
   updateTileHistory(tile: Tile) {
-    this.tileHistory.push(deepClone(tile))
+    this.tileHistory.push(structuredClone(tile))
   }
 
   checkGridAfterPlacingTile(rowIndex: number, tileIndex: number) {
@@ -974,32 +952,38 @@ export class GameManager implements IGameBoard {
     return GameManager.restore(this)
   }
 
+  /**
+   * Копия для пробного хода симулятора. Колода и история в ней пустые: они не
+   * влияют на оценку хода, но заметно удорожали бы копирование доски.
+   */
   cloneForSimulation(): IGameBoard {
-    const simulationState = {
-      ...this,
-      tilesList: [],
-      tileHistory: [],
-      actionsHistory: [],
-      completedObjects: {
-        cities: [],
-        roads: [],
-        monasteries: [],
-        gardens: [],
-      },
+    const simulationState = cloneGameState(pickGameState(this))
+    simulationState.tilesList = []
+    simulationState.tileHistory = []
+    simulationState.actionsHistory = []
+    simulationState.completedObjects = {
+      cities: [],
+      roads: [],
+      monasteries: [],
+      gardens: [],
     }
     const game = new GameManager({ startImmediately: false })
-    Object.assign(game, deepClone(simulationState))
+    Object.assign(game, simulationState)
     return game
   }
 
-  static restore(savedGame: IGameBoard): GameManager {
+  static restore(savedGame: IGameState): GameManager {
     const game = new GameManager({ startImmediately: false })
-    Object.assign(game, deepClone(savedGame))
+    Object.assign(game, cloneGameState(pickGameState(savedGame)))
     return game
   }
 
-  copyStateFrom(source: IGameBoard): void {
-    Object.assign(this, deepClone(source))
+  /**
+   * Откат к состоянию, снятому до хода. Приватные runtime-флаги класса сюда не
+   * попадают: между снятием снимка и откатом они не меняются.
+   */
+  copyStateFrom(source: IGameState): void {
+    Object.assign(this, cloneGameState(pickGameState(source)))
   }
 
   /**

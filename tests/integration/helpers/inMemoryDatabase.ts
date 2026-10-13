@@ -1,18 +1,38 @@
-import type { IGameBoard } from '@server/modules/GameManager'
-import type { IGameDatabase } from '@server/modules/Database'
-import { SaveErrors } from '@server/modules/errors'
+import type {
+  GameSavePayload,
+  GameSummaryRecord,
+  IGameDatabase,
+  RawGameSave,
+} from '@server/modules/Database'
+import type { IGameState } from '@server/modules/gameState'
+import {
+  deserializeGameState,
+  readGameSummary,
+  serializeGameState,
+} from '@server/modules/gameSave'
 
 /**
  * Хранилище игр в памяти вместо Firebase.
- * Клонирует состояние как это делает Firebase (сериализация в строку),
- * поэтому сохранённые игры возвращаются как plain-объекты без методов.
+ *
+ * Держит сохранения в том же виде, что и Firebase — строкой, — поэтому
+ * поведение тестового сервера совпадает с продакшн: разбор и сборка формата
+ * происходят в одном месте, а не в каждой реализации базы.
  */
 export interface InMemoryStore {
-  games: Record<string, IGameBoard>
+  games: Record<string, GameSavePayload>
 }
 
 export function createInMemoryStore(): InMemoryStore {
   return { games: {} }
+}
+
+/** Разбор сохранения из тестового хранилища. */
+export function readStoredGame(
+  store: InMemoryStore,
+  gameId: string
+): IGameState | null {
+  const payload = store.games[gameId]
+  return payload ? deserializeGameState(payload) : null
 }
 
 export class InMemoryDatabase implements IGameDatabase {
@@ -21,36 +41,41 @@ export class InMemoryDatabase implements IGameDatabase {
 
   constructor(private readonly store: InMemoryStore = { games: {} }) {}
 
-  async saveGame(gameId: string, gameState: IGameBoard): Promise<void> {
+  async saveGame(
+    gameId: string,
+    serializedState: GameSavePayload
+  ): Promise<void> {
     if (this.saveError) throw this.saveError
-    if (gameState.id !== gameId) {
-      throw new Error(SaveErrors.StorageKeyMismatch)
-    }
-    const state = JSON.parse(JSON.stringify(gameState)) as IGameBoard
-    state.lastUpdate = Date.now()
-    this.store.games[gameId] = state
+    this.store.games[gameId] = serializedState
   }
 
-  async getGame(gameId: string): Promise<IGameBoard | null> {
+  async getGame(gameId: string): Promise<IGameState | null> {
     if (this.readError) throw this.readError
-    return this.store.games[gameId] ?? null
+    return readStoredGame(this.store, gameId)
   }
 
-  async getAllGames(): Promise<IGameBoard[]> {
+  async getAllGameSaves(): Promise<RawGameSave[]> {
     if (this.readError) throw this.readError
-    return Object.keys(this.store.games)
-      .map((id) => this.store.games[id])
-      .filter(Boolean)
+    return Object.values(this.store.games)
   }
 
-  async saveAllGames(games: IGameBoard[]): Promise<void> {
-    for (const game of games) {
-      if (!game.id) continue
-      await this.saveGame(game.id, game)
+  async getGameSummaries(): Promise<GameSummaryRecord[]> {
+    if (this.readError) throw this.readError
+    const summaries: GameSummaryRecord[] = []
+    for (const payload of Object.values(this.store.games)) {
+      const summary = readGameSummary(payload)
+      if (summary) summaries.push(summary)
     }
+    return summaries
   }
 
   async deleteGame(gameId: string): Promise<void> {
     delete this.store.games[gameId]
   }
+}
+
+/** Кладёт партию в тестовое хранилище тем же путём, что и сервер. */
+export function storeGame(store: InMemoryStore, game: IGameState): void {
+  if (!game.id) return
+  store.games[game.id] = serializeGameState(game)
 }

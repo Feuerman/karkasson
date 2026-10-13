@@ -180,11 +180,15 @@
 ### Персистентность
 
 `server/src/modules/Database.ts` описывает интерфейс `IGameDatabase`
-(`saveGame` / `getGame` / `getAllGames` / `deleteGame`). Прод-реализация —
-Firebase Realtime Database (состояние сериализуется в JSON), в тестах
-подменяется на `tests/integration/helpers/inMemoryDatabase.ts`. При старте
-сервер поднимает сохранённые лобби, зависшие партии удаляются после
-30 минут неактивности (проверка каждые 10 секунд).
+(`saveGame` / `getGame` / `getAllGameSaves` / `getGameSummaries` / `deleteGame`).
+База работает со строками: сборку и разбор формата делает `gameSave.ts`, а
+`getGameSummaries` читает из сохранения только заголовок партии — этого
+достаточно для списка лобби, который запрашивается при каждом входе.
+Прод-реализация — Firebase Realtime Database, в тестах подменяется на
+`tests/integration/helpers/inMemoryDatabase.ts`. При старте сервер поднимает
+сохранённые лобби, зависшие партии удаляются после 30 минут неактивности
+(проверка каждые 10 секунд). Состояние хранилища доступно снаружи по
+`GET /health`.
 
 ### Интерфейс доски
 

@@ -4,6 +4,7 @@ import { SaveErrors } from '@server/modules/errors'
 import {
   deserializeGameState,
   GAME_SAVE_SCHEMA_VERSION,
+  readGameSummary,
   serializeGameState,
 } from '@server/modules/gameSave'
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
@@ -21,6 +22,116 @@ describe('Схема сохранения игры', () => {
 
     expect(saved.schemaVersion).toBe(GAME_SAVE_SCHEMA_VERSION)
     expect(saved.state.id).toBe('game-1')
+  })
+
+  it('не сохраняет приватные runtime-флаги класса', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'private-flags'
+
+    const saved = JSON.parse(serializeGameState(game)) as {
+      state: Record<string, unknown>
+    }
+
+    expect(saved.state).not.toHaveProperty('isPlacingStartTile')
+    expect(saved.state).not.toHaveProperty('objectManager')
+    expect(saved.state).not.toHaveProperty('followersManager')
+  })
+
+  it('сохраняет флаг ожидающего пробуждения дракона', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'pending-dragon'
+    game.pendingDragonMovement = true
+
+    const restored = deserializeGameState(serializeGameState(game))
+
+    // Без этого флага дракон не проснётся после перезапуска сервера.
+    expect(restored.pendingDragonMovement).toBe(true)
+  })
+
+  it('считает ожидающее пробуждение выключенным для старых сохранений', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'legacy-without-dragon-flag'
+    const state = JSON.parse(serializeGameState(game)) as {
+      state: Record<string, unknown>
+    }
+    delete state.state.pendingDragonMovement
+
+    const restored = deserializeGameState({
+      schemaVersion: GAME_SAVE_SCHEMA_VERSION,
+      state: state.state,
+    })
+
+    expect(restored.pendingDragonMovement).toBe(false)
+  })
+
+  it('возвращает в пул большого подданного при расширении «Таверны и соборы»', () => {
+    const game = new GameManager({
+      players: [
+        {
+          id: 1,
+          name: 'Alice',
+          color: 'coral',
+          score: 0,
+          socketId: null,
+          deviceId: null,
+        },
+      ],
+      innsAndCathedralsEnabled: true,
+    })
+    game.id = 'big-follower-migration'
+    const state = JSON.parse(serializeGameState(game)) as {
+      state: Record<string, unknown>
+    }
+    const pools = state.state.playersFollowers as Record<
+      string,
+      Record<string, unknown>
+    >
+    delete pools['1'].bigFollowers
+
+    const restored = deserializeGameState({
+      schemaVersion: GAME_SAVE_SCHEMA_VERSION,
+      state: state.state,
+    })
+
+    expect(restored.playersFollowers[1]?.bigFollowers).toBe(1)
+  })
+
+  it('читает сводку партии без разбора состояния', () => {
+    const game = new GameManager({
+      players: [
+        {
+          id: 1,
+          name: 'Alice',
+          color: 'coral',
+          score: 0,
+          socketId: 'socket-alice',
+          deviceId: null,
+        },
+      ],
+    })
+    game.id = 'summary-game'
+    game.roomCode = '424242'
+    game.scores = { 1: 7 }
+    const payload = serializeGameState(game)
+
+    const summary = readGameSummary(payload)
+
+    expect(summary).toMatchObject({
+      id: 'summary-game',
+      roomCode: '424242',
+      gameIsStarted: true,
+      scores: { 1: 7 },
+    })
+    expect(summary?.players?.[0]).toMatchObject({ id: 1, name: 'Alice' })
+    // Сводка не тянет за собой доску: она нужна для списка лобби.
+    expect(summary).not.toHaveProperty('tilePlacesStats')
+  })
+
+  it.each([
+    ['нечитаемый JSON', '{broken'],
+    ['объект без идентификатора', { state: { players: [] } }],
+  ])('пропускает повреждённую запись в сводке: %s', (_name, value) => {
+    expect(readGameSummary(value)).toBeUndefined()
   })
 
   it('сохраняет набор тайлов и фишек выбранного дополнения', () => {
@@ -58,12 +169,31 @@ describe('Схема сохранения игры', () => {
         },
       ],
     }
+    game.princessFollowerPenalty = true
 
     const restored = deserializeGameState(serializeGameState(game))
 
     expect(restored.dragonPosition).toEqual({ rowIndex: 15, tileIndex: 15 })
     expect(restored.dragonMove).toEqual(game.dragonMove)
     expect(restored.princessChoice).toEqual(game.princessChoice)
+    expect(restored.princessFollowerPenalty).toBe(true)
+  })
+
+  it('снимает штраф принцессы в старом сохранении', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'legacy-princess-penalty'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.princessFollowerPenalty
+
+    const restored = deserializeGameState({
+      schemaVersion: GAME_SAVE_SCHEMA_VERSION,
+      state: legacyState,
+    })
+
+    expect(restored.princessFollowerPenalty).toBe(false)
   })
 
   it('восстанавливает старое значение правил без флага принцессы и дракона', () => {

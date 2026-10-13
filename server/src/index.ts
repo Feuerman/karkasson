@@ -7,9 +7,8 @@ import { createGameServer } from './app'
 import { gameDatabase } from './modules/Database'
 import { resumeComputerGames } from './services/computerPlayer'
 
-const { server, io, events, gameService } = createGameServer(gameDatabase, {
-  adminUI: true,
-})
+const handle = createGameServer(gameDatabase, { adminUI: true })
+const { server, events, gameService } = handle
 
 function startStaleGamesCleanup() {
   const timer = setInterval(() => {
@@ -31,6 +30,26 @@ function startStaleGamesCleanup() {
   return timer
 }
 
+let isShuttingDown = false
+
+/**
+ * Остановка сервера: сначала перестаём принимать команды и досылаем ходы
+ * компьютера, затем сбрасываем партии на диск и закрываем порт.
+ *
+ * Реализация одна и живёт в `createGameServer().close`: продукт и тесты
+ * останавливают сервер одинаково, поэтому расхождение порядка действий
+ * невозможно.
+ */
+async function shutdown(exitCode: number): Promise<void> {
+  if (isShuttingDown) return
+  isShuttingDown = true
+  clearInterval(cleanupTimer)
+  await handle.close()
+  process.exit(exitCode)
+}
+
+let cleanupTimer: NodeJS.Timeout | undefined
+
 server.listen(PORT, () => {
   void startServer()
 })
@@ -44,29 +63,11 @@ async function startServer() {
     resumeComputerGames(events, gameService)
   } catch (error: unknown) {
     console.error('Failed to load saved games:', error)
-    server.close(() => process.exit(1))
+    await shutdown(1)
     return
   }
 
-  const cleanupTimer = startStaleGamesCleanup()
-  let isShuttingDown = false
-  const shutdown = () => {
-    if (isShuttingDown) return
-    isShuttingDown = true
-    clearInterval(cleanupTimer)
-    void shutdownServer()
-  }
-
-  process.once('SIGINT', shutdown)
-  process.once('SIGTERM', shutdown)
-}
-
-async function shutdownServer() {
-  try {
-    await gameService.flushGames()
-  } catch (error: unknown) {
-    console.error('Failed to flush games during shutdown:', error)
-  } finally {
-    await io.close()
-  }
+  cleanupTimer = startStaleGamesCleanup()
+  process.once('SIGINT', () => void shutdown(0))
+  process.once('SIGTERM', () => void shutdown(0))
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { IGameBoard } from '@server/modules/GameManager'
+import type { IGameState } from '@server/modules/gameState'
 import { ActionTypes } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import {
@@ -55,9 +55,9 @@ describe('Подсчёт очков и полная партия', () => {
   /** Ожидает, пока сохранённая в БД игра не пройдёт проверку */
   async function waitForDbGame(
     gameId: string,
-    predicate: (game: IGameBoard) => boolean,
+    predicate: (game: IGameState) => boolean,
     timeoutMs = 15_000
-  ): Promise<IGameBoard | null> {
+  ): Promise<IGameState | null> {
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
       const game = await server!.db.getGame(gameId)

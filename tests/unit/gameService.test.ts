@@ -212,3 +212,116 @@ describe('Удаление партии', () => {
     expect(await db.getGame(game.id)).toBeNull()
   })
 })
+
+describe('Сброс партий на диск', () => {
+  it('дожидается сохранения, начатого во время сброса', async () => {
+    const { db, service } = serviceWithGame()
+    const game = startedGame(service)
+
+    let savedDuringFlush: number | null = null
+    db.saveGame = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      savedDuringFlush = 2
+    }
+
+    const flushing = service.flushGames()
+    // Ход компьютера или игрока успевает начать сохранение после старта сброса.
+    const duringFlush = service.saveGame(game.id)
+    await Promise.all([flushing, duringFlush])
+
+    // Без повторного ожидания очереди запись осталась бы только в памяти.
+    expect(savedDuringFlush).toBe(2)
+  })
+
+  it('останавливается, если очередь сохранений не опустошается', async () => {
+    const { db, service } = serviceWithGame()
+    const game = startedGame(service)
+
+    db.saveGame = async () => {
+      // Каждое сохранение ставит следующее: очередь не кончается никогда.
+      void service.saveGame(game.id)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+
+    await expect(service.flushGames()).rejects.toThrow(
+      'Pending game saves did not settle'
+    )
+  })
+})
+
+describe('Список партий', () => {
+  it('берёт сохранённые партии из сводки и не разбирает их целиком', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+    game.roomCode = '111222'
+    await service.saveGame(game.id)
+
+    const summaries = await service.getGameSummaries()
+
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0]).toMatchObject({
+      id: game.id,
+      roomCode: '111222',
+      gameIsStarted: true,
+    })
+  })
+
+  it('показывает партию, чьё состояние читается не полностью', async () => {
+    const db = new InMemoryGameDatabase()
+    const service = new GameService(db)
+    const game = startedGame(service)
+    game.roomCode = '333444'
+    const originalSave = db.saveGame.bind(db)
+
+    // Повреждённая колода: заголовок партии цел, состояние — нет. Полный
+    // разбор сохранения отверг бы запись и убрал партию из списка лобби.
+    db.saveGame = async (gameId, serializedState) => {
+      const parsed = JSON.parse(serializedState) as {
+        state: Record<string, unknown>
+      }
+      parsed.state.tilesList = [{ id: 'broken' }]
+      await originalSave(gameId, JSON.stringify(parsed))
+    }
+    await service.saveGame(game.id)
+
+    const summaries = await service.getGameSummaries()
+
+    expect(summaries[0]).toMatchObject({ id: game.id, roomCode: '333444' })
+  })
+
+  it('не дублирует партию, которая уже в памяти', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+    await service.saveGame(game.id)
+
+    const summaries = await service.getGameSummaries()
+
+    expect(summaries.filter(({ id }) => id === game.id)).toHaveLength(1)
+  })
+})
+
+describe('Состояние хранилища', () => {
+  it('считает партии, очередь и команды', async () => {
+    const { service } = serviceWithGame()
+    const game = startedGame(service)
+
+    await service.saveGame(game.id)
+
+    expect(service.storageStatus()).toMatchObject({
+      games: 1,
+      pendingSaves: 0,
+      pendingCommands: 0,
+      unreadableSaves: 0,
+    })
+  })
+
+  it('считает непрочитанные сохранения вместо молчаливой потери', async () => {
+    const db = new InMemoryGameDatabase()
+    const service = new GameService(db)
+    await db.saveGame('broken', '{invalid-json')
+
+    await service.loadSavedGames()
+
+    expect(service.storageStatus().unreadableSaves).toBe(1)
+  })
+})

@@ -1,8 +1,10 @@
 import { GameManager, type IGameBoard } from '../modules/GameManager'
-import { deserializeGameState } from '../modules/gameSave'
-import type { IGameDatabase } from '../modules/Database'
-import { CommonErrors, LobbyErrors } from '../modules/errors'
+import type { IGameState } from '../modules/gameState'
+import { deserializeGameState, serializeGameState } from '../modules/gameSave'
+import type { GameSavePayload, IGameDatabase } from '../modules/Database'
+import { CommonErrors, LobbyErrors, SaveErrors } from '../modules/errors'
 import { randomInt } from 'node:crypto'
+import { getErrorMessage } from '../utils/common'
 import {
   playerColorForIndex,
   playerNameForIndex,
@@ -39,6 +41,7 @@ export interface GameData {
   tilesList: IGameBoard['tilesList']
   dragonMove?: IGameBoard['dragonMove']
   princessChoice?: IGameBoard['princessChoice']
+  princessFollowerPenalty?: IGameBoard['princessFollowerPenalty']
   dragonPosition?: IGameBoard['dragonPosition']
   currentTile: IGameBoard['currentTile']
   players: Player[]
@@ -58,7 +61,6 @@ export interface GameData {
   temporaryObjects: IGameBoard['temporaryObjects']
   lastPlacement: IGameBoard['lastPlacement']
   availablePlacesTiles: IGameBoard['availablePlacesTiles']
-  tileHistory: IGameBoard['tileHistory']
   playersFollowers: IGameBoard['playersFollowers']
   actionsHistory: IGameBoard['actionsHistory']
   currentPlayer: Player | null
@@ -71,7 +73,80 @@ export interface JoinResult {
   error: string
 }
 
+/**
+ * Наблюдаемое состояние хранилища: сколько партий в памяти, что ещё не
+ * записано и сколько сохранений не удалось прочитать. Позволяет отличить
+ * «сервер жив» от «сервер не может работать с хранилищем».
+ */
+export interface StorageStatus {
+  games: number
+  pendingSaves: number
+  pendingCommands: number
+  unreadableSaves: number
+}
+
+/** Сколько раз сброс может повторить ожидание очереди сохранений. */
+const FLUSH_MAX_ROUNDS = 8
+
 function ignoreResult(): void {}
+
+/**
+ * Источник сведений о партии для списка лобби: живая партия либо сводка,
+ * прочитанная из хранилища без полного разбора.
+ */
+type GameSummarySource = Partial<
+  Pick<
+    IGameState,
+    | 'roomCode'
+    | 'players'
+    | 'currentPlayer'
+    | 'gameIsEnded'
+    | 'moveCounter'
+    | 'scores'
+    | 'gameIsStarted'
+    | 'lastUpdate'
+    | 'rules'
+  >
+> & { id?: string }
+
+function toGameSummary(game: GameSummarySource): GameSummary {
+  return {
+    id: game.id,
+    roomCode: game.roomCode ?? '',
+    players: (game.players ?? []).map((player) => ({
+      id: player.id,
+      name: player.name,
+      color: player.color,
+      socketId: player.socketId,
+      deviceId: player.deviceId,
+    })),
+    currentPlayer: game.currentPlayer?.id ?? null,
+    gameIsEnded: game.gameIsEnded ?? false,
+    moveCounter: game.moveCounter ?? 0,
+    scores: game.scores ?? {},
+    gameIsStarted: game.gameIsStarted ?? false,
+    lastUpdate: game.lastUpdate ?? 0,
+    rules: game.rules ?? {
+      finalScoringEnabled: false,
+      expansions: {
+        innsAndCathedrals: false,
+        river: false,
+        princessAndDragon: false,
+      },
+    },
+  }
+}
+
+/** Завершённые партии вперёд, среди них — самые свежие. */
+function sortGameSummaries(games: GameSummary[]): GameSummary[] {
+  return [...games].sort((left, right) => {
+    if (left.gameIsEnded !== right.gameIsEnded) {
+      return left.gameIsEnded ? -1 : 1
+    }
+    if (left.gameIsEnded) return right.lastUpdate - left.lastUpdate
+    return 0
+  })
+}
 
 /**
  * Хранит игры в памяти и содержит всю логику лобби/жизненного цикла игры.
@@ -83,6 +158,8 @@ export class GameService {
   private lobbyOwners: Record<string, string> = {}
   private readonly pendingSaves = new Map<string, Promise<void>>()
   private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
+  /** Сколько сохранений не удалось прочитать при последней загрузке. */
+  private unreadableSaves = 0
 
   constructor(private readonly db: IGameDatabase) {}
 
@@ -121,12 +198,26 @@ export class GameService {
     return this.gameCommands.size
   }
 
+  /**
+   * Сбрасывает на диск всё, что ещё не записано.
+   *
+   * Новые сохранения могут начаться, пока идёт сброс: ход компьютера или
+   * команда игроки. Поэтому очередь опустошается циклом, а не одним
+   * ожиданием — иначе последняя запись осталась бы только в памяти.
+   */
   async flushGames(): Promise<void> {
     const gameIds = this.allGames()
       .map((game) => game.id)
       .filter((gameId): gameId is string => Boolean(gameId))
     await Promise.all(gameIds.map((gameId) => this.saveGame(gameId)))
-    await Promise.all(this.pendingSaves.values())
+    // Пока идёт сброс, очередь может пополниться (ход компьютера, команда
+    // игрока) — тогда цикл повторяется. Число кругов ограничено, чтобы
+    // неисправность хранилища не превратила остановку сервера в вечное ожидание.
+    for (let round = 0; round < FLUSH_MAX_ROUNDS; round += 1) {
+      if (this.pendingSaves.size === 0) return
+      await Promise.all([...this.pendingSaves.values()])
+    }
+    throw new Error('Pending game saves did not settle while flushing')
   }
 
   // ------------------------------------------------------------------ devices
@@ -192,16 +283,20 @@ export class GameService {
   saveGame(gameId: string): Promise<void> {
     const game = this.games[gameId]
     if (!game) return Promise.resolve()
+    if (game.id !== gameId) {
+      return Promise.reject(new Error(SaveErrors.StorageKeyMismatch))
+    }
     // Метку обновляем на живом объекте, а не только на снимке: по ней
     // deleteStaleGames отсеивает активные партии, а она не должна замерзать
     // после первого сохранения.
     game.lastUpdate = Date.now()
-    const snapshot =
-      typeof game.clone === 'function'
-        ? game.clone()
-        : (JSON.parse(JSON.stringify(game)) as IGameBoard)
+    // Сериализация сразу, а не глубокая копия: снимок для записи должен быть
+    // неизменяемым к моменту, когда очередь сохранений дойдёт до хранилища.
+    const serializedState: GameSavePayload = serializeGameState(game)
     const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
-    const save = previousSave.then(() => this.db.saveGame(gameId, snapshot))
+    const save = previousSave.then(() =>
+      this.db.saveGame(gameId, serializedState)
+    )
     const trackedSave = save.finally(() => {
       if (this.pendingSaves.get(gameId) === trackedSave) {
         this.pendingSaves.delete(gameId)
@@ -422,13 +517,25 @@ export class GameService {
 
   // ------------------------------------------------------------------ persistence
 
+  /**
+   * Восстанавливает партии из хранилища.
+   *
+   * Нормализацию состояния целиком делает `deserializeGameState`: правила,
+   * сады, пулы подданных и список лидеров нормализуются там же, где проверяются.
+   * Дублировать эти значения здесь нельзя — расхождение двух дефолтов уже
+   * стоило игроку одного большого подданного при включённом расширении.
+   *
+   * Нечитаемые сохранения не роняют загрузку, но и не теряются молча: их
+   * количество попадает в счётчик и в журнал.
+   */
   async loadSavedGames(): Promise<void> {
-    const savedGames = await this.db.getAllGames()
+    const rawSaves = await this.db.getAllGameSaves()
     const updatedGameIds: string[] = []
+    const failures: Array<{ reason: string }> = []
 
-    savedGames.forEach((rawSavedGame) => {
+    rawSaves.forEach((rawSave) => {
       try {
-        const savedGame = deserializeGameState(rawSavedGame)
+        const savedGame = deserializeGameState(rawSave)
         const gameId = savedGame.id
         if (!gameId) return
 
@@ -451,32 +558,19 @@ export class GameService {
           player.socketId = null
         })
         if (game.currentPlayer) game.currentPlayer.socketId = null
-        game.temporaryObjects.gardens ??= []
-        game.completedObjects.gardens ??= []
-        game.rules ??= {
-          finalScoringEnabled: game.finalScoringEnabled ?? false,
-          expansions: {
-            innsAndCathedrals: false,
-            river: false,
-            princessAndDragon: false,
-          },
-        }
-        game.rules.expansions ??= {
-          innsAndCathedrals: false,
-          river: false,
-          princessAndDragon: false,
-        }
-        game.rules.expansions.innsAndCathedrals ??= false
-        game.rules.expansions.river ??= false
-        game.rules.expansions.princessAndDragon ??= false
-        for (const pool of Object.values(game.playersFollowers)) {
-          pool.bigFollowers ??= 0
-        }
         this.games[gameId] = game
       } catch (error) {
-        console.error('Ignoring invalid saved game:', error)
+        failures.push({ reason: getErrorMessage(error) })
       }
     })
+
+    this.unreadableSaves = failures.length
+    if (failures.length) {
+      console.error(
+        `Ignoring ${failures.length} invalid saved game(s):`,
+        failures
+      )
+    }
 
     await Promise.all(updatedGameIds.map((gameId) => this.saveGame(gameId)))
   }
@@ -516,6 +610,13 @@ export class GameService {
 
   // ------------------------------------------------------------------ formatting
 
+  /**
+   * Состояние для клиента.
+   *
+   * `tileHistory` сюда не входит: клиент его нигде не читает, а список растёт
+   * с каждым ходом и раздувал бы каждое широковещательное сообщение. История
+   * тайлов остаётся в сохранении, где она и нужна.
+   */
   formatGameData(game: IGameBoard): GameData {
     return {
       placingPoint: game.placingPoint,
@@ -523,6 +624,7 @@ export class GameService {
       tilesList: game.tilesList,
       dragonMove: game.dragonMove,
       princessChoice: game.princessChoice,
+      princessFollowerPenalty: game.princessFollowerPenalty,
       dragonPosition: game.dragonPosition,
       currentTile: game.currentTile,
       players: game.players,
@@ -542,7 +644,6 @@ export class GameService {
       temporaryObjects: game.temporaryObjects,
       lastPlacement: game.lastPlacement,
       availablePlacesTiles: game.availablePlacesTiles,
-      tileHistory: game.tileHistory,
       playersFollowers: game.playersFollowers,
       actionsHistory: game.actionsHistory,
       currentPlayer: game.currentPlayer,
@@ -553,46 +654,39 @@ export class GameService {
   }
 
   formatGamesList(games: IGameBoard[] = this.allGames()): GameSummary[] {
-    return games
-      .map((game) => ({
-        id: game.id,
-        roomCode: game.roomCode ?? '',
-        players: game.players.map((player) => ({
-          id: player.id,
-          name: player.name,
-          color: player.color,
-          socketId: player.socketId,
-          deviceId: player.deviceId,
-        })),
-        currentPlayer: game.currentPlayer?.id ?? null,
-        gameIsEnded: game.gameIsEnded,
-        moveCounter: game.moveCounter,
-        scores: game.scores,
-        gameIsStarted: game.gameIsStarted,
-        lastUpdate: game.lastUpdate,
-        rules: game.rules,
-      }))
-      .sort((left, right) => {
-        if (left.gameIsEnded !== right.gameIsEnded) {
-          return left.gameIsEnded ? -1 : 1
-        }
-        if (left.gameIsEnded) return right.lastUpdate - left.lastUpdate
-        return 0
-      })
+    return sortGameSummaries(games.map((game) => toGameSummary(game)))
   }
 
-  /** Список игр: сохранённые из базы, дополненные играми из памяти */
+  /** Сведения о состоянии хранилища для health-endpoint. */
+  storageStatus(): StorageStatus {
+    return {
+      games: Object.keys(this.games).length,
+      pendingSaves: this.pendingSaves.size,
+      pendingCommands: this.gameCommands.size,
+      unreadableSaves: this.unreadableSaves,
+    }
+  }
+
+  /**
+   * Список игр: сохранённые из базы, дополненные играми из памяти.
+   *
+   * Из хранилища берутся сводки, а не состояния целиком: список запрашивается
+   * при каждом входе клиента, а полный разбор сохранения запускает проверки и
+   * миграцию всех тайлов и объектов доски заново.
+   */
   async getGameSummaries(): Promise<GameSummary[]> {
     const memoryGames = this.allGames()
-    const savedGames = await this.db.getAllGames()
-    const mergedGames = [...memoryGames]
+    const savedSummaries = await this.db.getGameSummaries()
+    const memoryIds = new Set(memoryGames.map((game) => game.id))
+    const mergedGames: GameSummary[] = memoryGames.map((game) =>
+      toGameSummary(game)
+    )
 
-    savedGames.forEach((savedGame) => {
-      if (!memoryGames.find((game) => game.id === savedGame.id)) {
-        mergedGames.push(savedGame)
-      }
+    savedSummaries.forEach((savedSummary) => {
+      if (memoryIds.has(savedSummary.id)) return
+      mergedGames.push(toGameSummary(savedSummary))
     })
 
-    return this.formatGamesList(mergedGames)
+    return sortGameSummaries(mergedGames)
   }
 }

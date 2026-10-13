@@ -95,6 +95,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North], [SideName.East, SideName.South]],
     hasPrincess: true,
+    princessSide: SideName.North,
     imgUrl: image('F'),
     expansion: ExpansionName.PrincessAndDragon,
   },

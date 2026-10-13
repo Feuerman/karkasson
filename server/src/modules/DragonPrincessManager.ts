@@ -16,7 +16,10 @@ import { neighborCoordinates, NEIGHBOR_SIDES } from './gameGeometry'
 import type { NewGameAction } from './gameActions'
 import {
   ActionTypes,
+  DRAGON_TOTAL_STEPS,
   ObjectTypes,
+  PointDirection as PointDirections,
+  TileSideType,
   type AvailableFollowerPlace,
   type BaseObject,
   type DragonMoveState,
@@ -27,15 +30,14 @@ import {
   type PlayerId,
   type PlacedFollower,
   type Point,
+  type PointDirection,
   type PrincessChoiceState,
   type ReturnedFollower,
+  type SideName,
   type TemporaryObjects,
   type Tile,
   type TilePlacesStats,
 } from './types'
-
-/** Сколько шагов делает дракон за одно пробуждение. */
-const DRAGON_TOTAL_STEPS = 6
 
 interface DragonState {
   players: Player[]
@@ -52,11 +54,21 @@ interface DragonState {
   dragonMove?: DragonMoveState
   dragonPosition?: DragonPosition
   princessChoice?: PrincessChoiceState
+  /**
+   * Штраф принцессы: способность сработала, поэтому на тайл, где она стоит,
+   * подданного выставлять нельзя. Живёт до конца хода, значит переживает
+   * сохранение вместе с остальным состоянием.
+   */
+  princessFollowerPenalty?: boolean
   /** Флаг перехода: вулкан поставлен, дракон начнёт ход в конце хода игрока. */
   pendingDragonMovement: boolean
   recordAction(action: NewGameAction): void
   checkAvailableFollowers(): void
   getRandomTileFromList(): void
+  getTileFeatureGroups(
+    tile: Tile,
+    feature: typeof TileSideType.City | typeof TileSideType.Road
+  ): SideName[][]
 }
 
 /** Пары «коллекция объектов — тип объекта» для снятия подданного с поля. */
@@ -98,10 +110,10 @@ export class DragonPrincessManager {
    */
   applyTileEffects(tile: Tile, rowIndex: number, tileIndex: number) {
     if (tile.hasPrincess) {
-      const adjacentCities = this.findCitiesOnPrincessTile(rowIndex, tileIndex)
-      if (adjacentCities.length) {
+      const princessCities = this.findPrincessCities(tile, rowIndex, tileIndex)
+      if (princessCities.length) {
         this.state.princessChoice = {
-          followers: adjacentCities.flatMap((city) =>
+          followers: princessCities.flatMap((city) =>
             city.followers.map((follower) => ({
               cityId: city.id,
               point: follower.point,
@@ -181,7 +193,52 @@ export class DragonPrincessManager {
     })
     this.recordBackFollowers([takenFollower])
     this.state.princessChoice = undefined
+    // Применённая способность принцессы лишает игрока права поставить своего
+    // подданного на этот же тайл.
+    this.state.princessFollowerPenalty = true
     return true
+  }
+
+  /**
+   * Города, к которым пристраилась принцесса: только те, чьи участки на этом
+   * тайле входят в группу города с принцессой. Второй город того же тайла
+   * (такие есть в дополнении) принцессу не касается, даже если примыкает к
+   * уже стоящему городу.
+   */
+  private findPrincessCities(tile: Tile, rowIndex: number, tileIndex: number) {
+    const princessSides = this.findPrincessSides(tile)
+    if (!princessSides.length) return []
+    const isPrincessSide = (
+      direction: PointDirection | undefined
+    ): direction is SideName =>
+      direction !== undefined && direction !== PointDirections.Center
+
+    return this.state.temporaryObjects.cities.filter(
+      (city) =>
+        city.followers.length > 0 &&
+        city.points.some(
+          (point) =>
+            point.x === tileIndex &&
+            point.y === rowIndex &&
+            isPrincessSide(point.direction) &&
+            princessSides.includes(point.direction)
+        )
+    )
+  }
+
+  /**
+   * Стороны города, в котором стоит принцесса. Если тайл содержит один город,
+   * берётся он весь; сторона из каталога нужна тайлам с двумя городами.
+   */
+  private findPrincessSides(tile: Tile): SideName[] {
+    const cityGroups = this.state.getTileFeatureGroups(tile, TileSideType.City)
+    const princessSide = tile.princessSide
+    if (!princessSide) return cityGroups.flat()
+
+    const princessGroup = cityGroups.find((group) =>
+      group.includes(princessSide)
+    )
+    return princessGroup ?? [princessSide]
   }
 
   /**

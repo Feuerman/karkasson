@@ -18,6 +18,7 @@ export interface TileDefinition {
   hasInn?: boolean
   hasCathedral?: boolean
   hasPrincess?: boolean
+  princessSide?: SideName
   hasDragon?: boolean
   hasVolcano?: boolean
   roadGroups?: SideName[][]
