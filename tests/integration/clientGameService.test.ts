@@ -244,6 +244,14 @@ describe('Клиентское приложение (GameService)', () => {
     }
     await client.choosePrincessFollower(city.id, point)
     expect(serverGame.temporaryObjects.cities[0]?.followers).toHaveLength(0)
+    // Способность применена: штраф запрещает фишку на этом тайле и переживает
+    // откат хода, пока игрок не завершит ход.
+    expect(serverGame.princessFollowerPenalty).toBe(true)
+    expect(serverGame.availableFollowersPlaces).toHaveLength(0)
+    serverGame.currentPlayerIndex = 0
+    serverGame.currentPlayer = serverGame.players[0] ?? null
+    serverGame.skipFollower()
+    expect(serverGame.princessFollowerPenalty).toBe(false)
 
     serverGame.currentPlayerIndex = 0
     serverGame.currentPlayer = serverGame.players[0] ?? null

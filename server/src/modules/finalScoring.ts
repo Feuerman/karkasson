@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Финальный подсчёт очков по незавершённым объектам.
  *
  * Вызывается один раз в конце партии, если включено правило финального
@@ -9,7 +9,6 @@
  * отметкой `isFinalScoring`.
  */
 
-import { deepClone } from '../utils/common'
 import type { NewGameAction } from './gameActions'
 import {
   calcGardenPoints,
@@ -83,7 +82,7 @@ export function finalizeScoring(state: FinalScoringState): void {
       ObjectTypes.ROAD,
       state.describeScoreForRoad(road, false)
     )
-    state.completedObjects.roads.push({ ...deepClone(road), score })
+    state.completedObjects.roads.push({ ...structuredClone(road), score })
   }
 
   for (const city of unfinishedCities) {
@@ -95,7 +94,7 @@ export function finalizeScoring(state: FinalScoringState): void {
       ObjectTypes.CITY,
       state.describeScoreForCity(city, false)
     )
-    state.completedObjects.cities.push({ ...deepClone(city), score })
+    state.completedObjects.cities.push({ ...structuredClone(city), score })
   }
 
   scoreCentralObjects(state, unfinishedMonasteries, ObjectTypes.MONASTERY)
@@ -122,7 +121,10 @@ function scoreCentralObjects(
       kind,
       describeCentralObjectPoints(points, CENTRAL_OBJECT_NAMES[kind])
     )
-    state.completedObjects[collection].push({ ...deepClone(object), score })
+    state.completedObjects[collection].push({
+      ...structuredClone(object),
+      score,
+    })
   }
 }
 
@@ -162,7 +164,7 @@ function recordFinalObjectScore(
     actionType: ActionTypes.ADDING_SCORES,
     actionData: {
       objectType,
-      objectData: deepClone(object),
+      objectData: structuredClone(object),
       score,
       details,
       modifiers,

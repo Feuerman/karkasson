@@ -9,7 +9,11 @@
     title="Поставить подданного"
     surface-class="min-w-[220px] max-w-[300px] p-4"
   >
-    <div v-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
+    <div v-if="gameBoard.princessFollowerPenalty" class="mb-2 text-text-muted">
+      Принцесса забрала подданного — на этот тайл свою фишку поставить нельзя.
+      Завершите ход.
+    </div>
+    <div v-else-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
       Нет доступных вариантов
     </div>
     <div v-else class="flex flex-col gap-1.5">
@@ -48,7 +52,11 @@
       :disabled="!gameBoard.isMyTurn"
       @click="gameBoard.isMyTurn && skipFollower()"
     >
-      Пропустить выставление
+      {{
+        gameBoard.princessFollowerPenalty
+          ? 'Завершить ход'
+          : 'Пропустить выставление'
+      }}
     </UButton>
   </GamePanel>
 </template>

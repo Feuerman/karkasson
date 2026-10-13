@@ -9,12 +9,19 @@
  * неизвестная или неверная структура отвергается ошибкой.
  */
 
-import { GameManager, type IGameBoard } from './GameManager'
+import { GameManager } from './GameManager'
+import { pickGameState, type IGameState } from './gameState'
+import type { GameSummaryRecord } from './Database'
 import tiles from '../data/tiles'
 import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
 import { riverTiles } from '../data/riverTiles'
 import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
-import { SIDE_NAMES, isTileSideType, type GameRules } from './types'
+import {
+  DRAGON_TOTAL_STEPS,
+  SIDE_NAMES,
+  isTileSideType,
+  type GameRules,
+} from './types'
 import { SaveErrors } from './errors'
 
 export const GAME_SAVE_SCHEMA_VERSION = 6
@@ -96,13 +103,13 @@ function isLegacyLobby(value: Record<string, unknown>): boolean {
   )
 }
 
-function restoreLegacyLobby(value: Record<string, unknown>): IGameBoard {
+function restoreLegacyLobby(value: Record<string, unknown>): IGameState {
   const finalScoringEnabled =
     typeof value.finalScoringEnabled === 'boolean'
       ? value.finalScoringEnabled
       : false
   const lobby = new GameManager({
-    players: value.players as IGameBoard['players'],
+    players: value.players as IGameState['players'],
     startImmediately: false,
     finalScoringEnabled,
   })
@@ -309,7 +316,7 @@ function validateDragonMove(value: Record<string, unknown>) {
     !isRecord(move) ||
     !Number.isInteger(move.remainingSteps) ||
     Number(move.remainingSteps) < 0 ||
-    Number(move.remainingSteps) > 6 ||
+    Number(move.remainingSteps) > DRAGON_TOTAL_STEPS ||
     !Number.isInteger(move.nextPlayerIndex) ||
     !Number.isInteger(move.resumePlayerIndex) ||
     !Array.isArray(move.visited) ||
@@ -392,7 +399,18 @@ function restoreWinnerPlayerIds(value: Record<string, unknown>): void {
     .map(([id]) => id)
 }
 
-function migrateLegacyGameState(value: unknown): IGameBoard {
+/**
+ * Запись, прошедшая проверки выше, в типизированное состояние партии.
+ *
+ * Приведение единственное и локальное: проверки уже доказали форму каждого
+ * поля, а `pickGameState` оставляет только известные поля — лишние ключи из
+ * старых сохранений в состояние не попадают.
+ */
+function readMigratedState(value: Record<string, unknown>): IGameState {
+  return pickGameState(value)
+}
+
+function migrateLegacyGameState(value: unknown): IGameState {
   if (!isRecord(value)) throw new Error(SaveErrors.SaveMustBeObject)
   if (typeof value.id !== 'string' || value.id.length === 0) {
     throw new Error('Game save has no valid id')
@@ -420,15 +438,21 @@ function migrateLegacyGameState(value: unknown): IGameBoard {
   validatePrincessChoice(value)
   restoreBigFollowerPools(value, rules)
   restoreWinnerPlayerIds(value)
-  return value as unknown as IGameBoard
+  // Флаг перехода к движению дракона появился вместе с расширением; в старых
+  // сохранениях его нет, и партия продолжается без ожидающего пробуждения.
+  value.pendingDragonMovement ??= false
+  // Штраф принцессы живёт внутри хода: в старых сохранениях его нет, и партия
+  // продолжается без запрета на выставление фишки.
+  value.princessFollowerPenalty ??= false
+  return readMigratedState(value)
 }
 
-export function serializeGameState(game: IGameBoard): string {
+export function serializeGameState(game: IGameState): string {
   // Migration normalizes these containers in place. Copy only those mutable
   // containers so serialization can validate without cloning the whole game
   // through an intermediate JSON string.
   const state = {
-    ...game,
+    ...pickGameState(game),
     rules: {
       ...game.rules,
       expansions: { ...game.rules.expansions },
@@ -456,7 +480,20 @@ export function serializeGameState(game: IGameBoard): string {
   return JSON.stringify(save)
 }
 
-export function deserializeGameState(raw: unknown): IGameBoard {
+/** Поля сводки: ровно те, что нужны списку лобби. */
+const SUMMARY_FIELDS = [
+  'roomCode',
+  'players',
+  'currentPlayer',
+  'gameIsEnded',
+  'moveCounter',
+  'scores',
+  'gameIsStarted',
+  'lastUpdate',
+  'rules',
+] as const satisfies readonly (keyof GameSummaryRecord)[]
+
+export function deserializeGameState(raw: unknown): IGameState {
   const parsed = parseJsonValue(raw)
   if (!isRecord(parsed)) throw new Error(SaveErrors.SaveMustBeObject)
 
@@ -471,4 +508,38 @@ export function deserializeGameState(raw: unknown): IGameBoard {
 
   // Saves produced before schema envelopes were introduced are version 0.
   return migrateLegacyGameState(parsed)
+}
+
+/**
+ * Краткие сведения о партии из сохранения, без полной десериализации.
+ *
+ * Список лобби запрашивается при каждом входе клиента и при каждом
+ * обновлении, а полный разбор сохранения запускает проверки и миграцию всех
+ * тайлов и объектов доски. Здесь нужен только заголовок партии, поэтому берутся
+ * перечисленные поля напрямую, без валидации остального состояния.
+ *
+ * Возвращает `undefined`, если запись нечитаема: партия без `id` в списке
+ * лобби показать нельзя, и молча пропустить её лучше, чем уронить весь список.
+ */
+export function readGameSummary(raw: unknown): GameSummaryRecord | undefined {
+  let parsed: unknown
+  try {
+    parsed = parseJsonValue(raw)
+  } catch {
+    return undefined
+  }
+  if (!isRecord(parsed)) return undefined
+
+  const state = 'schemaVersion' in parsed ? parsed.state : parsed
+  if (!isRecord(state) || typeof state.id !== 'string' || !state.id) {
+    return undefined
+  }
+
+  const summary: GameSummaryRecord = { id: state.id }
+  for (const field of SUMMARY_FIELDS) {
+    if (state[field] !== undefined) {
+      Object.assign(summary, { [field]: state[field] })
+    }
+  }
+  return summary
 }

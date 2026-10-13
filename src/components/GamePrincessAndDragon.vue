@@ -19,7 +19,8 @@
     <div v-if="gameBoard.princessChoice" class="space-y-1.5">
       <h2 class="title-medieval text-base">Принцесса</h2>
       <p class="text-sm text-text-muted">
-        Выберите город, из которого нужно снять подданного.
+        Выберите рыцаря, которого принцесса отгонит из города. Если в городе
+        несколько рыцарей, выбираете вы — в том числе своего.
       </p>
       <UButton
         v-for="(follower, index) in gameBoard.princessChoice.followers"
@@ -30,7 +31,7 @@
         :disabled="!gameBoard.isMyTurn"
         @click="choosePrincessFollower(follower.cityId, follower.point)"
       >
-        {{ princessChoiceLabel(follower.cityId, follower.point, index) }}
+        {{ princessChoiceLabel(follower.cityId, follower.point) }}
       </UButton>
     </div>
   </GamePanel>
@@ -49,7 +50,7 @@ const props = defineProps<{
   dragEnabled?: boolean
 }>()
 
-function princessChoiceLabel(cityId: string, point: Point, index: number) {
+function princessChoiceLabel(cityId: string, point: Point) {
   const follower = props.gameBoard.placedFollowers.find(
     (placed) =>
       placed.objectId === cityId &&
@@ -60,7 +61,8 @@ function princessChoiceLabel(cityId: string, point: Point, index: number) {
   const player = props.gameBoard.players.find(
     ({ id }) => id === follower?.playerId
   )
-  return `Город ${index + 1} — ${player?.name ?? 'подданный'}`
+  const kind = follower?.isBigFollower ? 'Большой рыцарь' : 'Рыцарь'
+  return `${kind} — ${player?.name ?? 'подданный'}`
 }
 
 function choosePrincessFollower(cityId: string, point: Point) {

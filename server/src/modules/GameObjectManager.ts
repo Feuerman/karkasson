@@ -1,5 +1,4 @@
 import type { GameAction, NewGameAction } from './GameManager'
-import { deepClone } from '../utils/common'
 import { CENTRAL_OBJECT_NAMES, describeCompletedCentralObject } from './scoring'
 import {
   ActionTypes,
@@ -479,7 +478,7 @@ export class GameObjectManager {
       collection
     ].filter(({ id }) => id !== feature.id)
     this.state.completedObjects[collection].push({
-      ...deepClone(feature),
+      ...structuredClone(feature),
       score,
     })
 

@@ -51,6 +51,7 @@ interface FollowerState {
   tilePlacesStats: TilePlacesStats
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
+  princessFollowerPenalty?: boolean
   placedFollowers: PlacedFollower[]
   scores: Scores
   actionsHistory: GameAction[]
@@ -76,6 +77,15 @@ export class FollowerManager {
     if (!this.state.currentTile) return
     const currentPlayer = this.state.currentPlayer
     if (!currentPlayer) return
+
+    // Штраф принцессы: способность сработала, на этот тайл фишку ставить
+    // нельзя. Ход всё равно нужно завершить, поэтому панель остаётся — с ней
+    // игрок может ещё отозвать аббата и пропустить выставление.
+    if (this.state.princessFollowerPenalty) {
+      this.state.availableFollowersPlaces = []
+      this.goPlaceFollower()
+      return
+    }
 
     if (!this.hasAnyFollowers(this.state.playersFollowers[currentPlayer.id])) {
       this.state.endTurn()

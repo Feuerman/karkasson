@@ -8,7 +8,7 @@ import {
   TileSideType,
   type Player,
 } from '@server/modules/types'
-import { makePlayers } from '../helpers/fixtures'
+import { makePlayers, gridTile } from '../helpers/fixtures'
 
 const players = makePlayers()
 
@@ -540,6 +540,33 @@ describe('Правила дополнения «Принцесса и драко
     expect(game.placedFollowers).toHaveLength(0)
   })
 
+  it('позволяет выбрать любого рыцаря города, в том числе своего', () => {
+    const { game, point } = princessTurn({ withFollower: true })
+    const ownPoint = { ...point, x: 13 }
+    game.temporaryObjects.cities[0]?.followers.push({
+      playerId: 1,
+      objectId: 'city-a',
+      point: ownPoint,
+    })
+    game.placedFollowers.push({
+      playerId: 1,
+      objectId: 'city-a',
+      point: ownPoint,
+    })
+    game.princessChoice = {
+      followers: [
+        { cityId: 'city-a', point },
+        { cityId: 'city-a', point: ownPoint },
+      ],
+    }
+
+    expect(game.choosePrincessFollower('city-a', ownPoint)).toBe(true)
+    expect(
+      game.temporaryObjects.cities[0]?.followers.map(({ playerId }) => playerId)
+    ).toEqual([2])
+    expect(game.playersFollowers[1].ordinaryFollowers).toBe(8)
+  })
+
   it('записывает в историю действие принцессы и возврат фишки её владельцу', () => {
     const { game, point } = princessTurn()
 
@@ -583,5 +610,139 @@ describe('Правила дополнения «Принцесса и драко
     expect(game.choosePrincessFollower('city-a', point)).toBe(false)
     expect(game.actionsHistory).toHaveLength(0)
     expect(game.princessChoice).toBeDefined()
+  })
+
+  it('не даёт выставить фишку на тайл, где сработала принцесса', () => {
+    const { game, point } = princessTurn({ withFollower: true })
+    game.currentTile = {
+      ...fieldTile('current', 15),
+      x: 15,
+      y: 15,
+      sides: {
+        [SideName.North]: TileSideType.City,
+        [SideName.East]: TileSideType.Field,
+        [SideName.South]: TileSideType.Field,
+        [SideName.West]: TileSideType.Field,
+      },
+    }
+    const continuationPoint = {
+      x: 15,
+      y: 15,
+      direction: SideName.North,
+      pointType: TileSideType.City,
+    }
+    game.temporaryObjects.cities.push({
+      id: 'city-b',
+      points: [continuationPoint],
+      followers: [],
+    })
+
+    expect(game.choosePrincessFollower('city-a', point)).toBe(true)
+    expect(game.princessFollowerPenalty).toBe(true)
+    expect(game.availableFollowersPlaces).toHaveLength(0)
+    // Ход не проходит сам: игрок вправе отозвать аббата и завершить ход.
+    expect(game.isPlacingFollower).toBe(true)
+    expect(game.currentPlayerIndex).toBe(0)
+
+    game.skipFollower()
+    expect(game.princessFollowerPenalty).toBe(false)
+    expect(game.currentPlayerIndex).toBe(1)
+  })
+
+  it('предлагает выбор только в городе с принцессой', () => {
+    const game = new GameManager({
+      players,
+      startImmediately: false,
+      princessAndDragonEnabled: true,
+    })
+    const princessTile = princessAndDragonTiles.find(({ id }) => id === 'PAD_F')
+    expect(princessTile).toBeDefined()
+    if (!princessTile) return
+
+    game.currentPlayer = players[0] ?? null
+    game.currentPlayerIndex = 0
+    game.tilesList = [{ ...princessTile, rotation: 0 }]
+    // Соседи нужны только для совпадения сторон: города на них остаются
+    // незавершёнными, поэтому принцесса видит подданных в них на месте.
+    game.tilePlacesStats = {
+      13: {
+        14: gridTile({
+          id: 'north-west-neighbour',
+          x: 14,
+          y: 13,
+          sides: {
+            [SideName.North]: TileSideType.Field,
+            [SideName.East]: TileSideType.City,
+            [SideName.South]: TileSideType.Field,
+            [SideName.West]: TileSideType.Field,
+          },
+        }),
+      },
+      14: {
+        14: gridTile({
+          id: 'north-neighbour',
+          x: 14,
+          y: 14,
+          sides: {
+            [SideName.North]: TileSideType.Field,
+            [SideName.East]: TileSideType.Field,
+            [SideName.South]: TileSideType.City,
+            [SideName.West]: TileSideType.Field,
+          },
+        }),
+      },
+      15: {
+        14: gridTile({ id: 'start', x: 14, y: 15 }),
+        15: gridTile({
+          id: 'east-neighbour',
+          x: 15,
+          y: 15,
+          sides: {
+            [SideName.North]: TileSideType.Field,
+            [SideName.East]: TileSideType.Field,
+            [SideName.South]: TileSideType.Field,
+            [SideName.West]: TileSideType.City,
+          },
+        }),
+      },
+    }
+
+    const northPoint = { x: 14, y: 14, direction: SideName.South }
+    const eastPoint = { x: 15, y: 15, direction: SideName.West }
+    game.temporaryObjects.cities.push({
+      id: 'north-city',
+      points: [
+        { ...northPoint, pointType: TileSideType.City },
+        {
+          x: 14,
+          y: 13,
+          direction: SideName.West,
+          pointType: TileSideType.City,
+        },
+      ],
+      followers: [{ playerId: 2, objectId: 'north-city', point: northPoint }],
+    })
+    game.temporaryObjects.cities.push({
+      id: 'east-city',
+      points: [
+        { ...eastPoint, pointType: TileSideType.City },
+        {
+          x: 15,
+          y: 15,
+          direction: SideName.South,
+          pointType: TileSideType.City,
+        },
+      ],
+      followers: [{ playerId: 1, objectId: 'east-city', point: eastPoint }],
+    })
+    game.placedFollowers.push(
+      { playerId: 2, objectId: 'north-city', point: northPoint },
+      { playerId: 1, objectId: 'east-city', point: eastPoint }
+    )
+
+    expect(game.placeTile({ ...princessTile, rotation: 0 }, 15, 14)).toBe(true)
+    expect(game.princessChoice?.followers).toEqual([
+      { cityId: 'north-city', point: northPoint },
+    ])
   })
 })

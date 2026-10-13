@@ -5,6 +5,7 @@ import { instrument } from '@socket.io/admin-ui'
 import { ADMIN_UI_ORIGIN, getSocketAdminUIOptions } from './config'
 import type { IGameDatabase } from './modules/Database'
 import { GameService } from './services/GameService'
+import { cancelAllComputerMoves } from './services/computerPlayer'
 import { registerSocketHandlers } from './socket/router'
 import { createGameEventsPublisher } from './socket/publisher'
 import type { GameEventsPublisher } from './services/gameEvents'
@@ -60,8 +61,32 @@ export function createGameServer(
 
   registerSocketHandlers(io, gameService)
 
+  /**
+   * Состояние сервера для внешнего наблюдения.
+   *
+   * Отвечает 200, пока сервер работает, даже если часть сохранений не читается:
+   * нечитаемое сохранение — потеря одной партии, а не отказ хранилища.
+   */
+  app.get('/health', (_request, response) => {
+    response.json({
+      status: 'ok',
+      storage: gameService.storageStatus(),
+    })
+  })
+
+  /**
+   * Полная остановка сервера.
+   *
+   * Порядок важен: сначала закрываются сокеты (новых команд больше не будет),
+   * затем останавливаются таймеры ходов компьютера, и только после этого
+   * сбрасываются партии на диск. Иначе очередь сохранений могла бы пополняться
+   * во время сброса, и последние записи остались бы в памяти.
+   */
   const close = async () => {
     await io.close()
+    cancelAllComputerMoves(
+      gameService.allGames().flatMap((game) => game.id ?? [])
+    )
     try {
       await gameService.flushGames()
     } catch (error: unknown) {

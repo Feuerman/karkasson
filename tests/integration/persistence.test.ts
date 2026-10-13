@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
 import { resumeComputerGames } from '@server/services/computerPlayer'
 import { SocketEvents, type Player } from '@server/modules/types'
+import { serializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
 import {
   countPlacedTiles,
@@ -15,6 +16,8 @@ import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
 import { waitForCondition } from './helpers/wait'
 import {
   createInMemoryStore,
+  readStoredGame,
+  storeGame,
   type InMemoryStore,
 } from './helpers/inMemoryDatabase'
 import {
@@ -272,11 +275,12 @@ describe('Сохранение данных лобби', () => {
     resumeComputerGames(server.handle.events, server.handle.gameService)
 
     await waitForCondition(
-      () => server?.store.games['computer-game']?.gameIsEnded === true,
+      () =>
+        readStoredGame(server!.store, 'computer-game')?.gameIsEnded === true,
       'завершение восстановленной компьютерной партии'
     )
     expect(
-      server.store.games['computer-game']?.tilePlacesStats[15]?.[15]
+      readStoredGame(server.store, 'computer-game')?.tilePlacesStats[15]?.[15]
     ).toBeTruthy()
   })
 
@@ -301,10 +305,8 @@ describe('Сохранение данных лобби', () => {
     const store = createInMemoryStore()
     const validGame = new GameManager({ players: [] })
     validGame.id = 'valid-game'
-    store.games['invalid-game'] = '{invalid-json' as unknown as GameManager
-    store.games['valid-game'] = JSON.parse(
-      JSON.stringify(validGame)
-    ) as GameManager
+    store.games['invalid-game'] = '{invalid-json'
+    storeGame(store, validGame)
 
     server = await startTestServer(store)
     await server.handle.gameService.loadSavedGames()
@@ -313,6 +315,42 @@ describe('Сохранение данных лобби', () => {
       'valid-game'
     )
     expect(server.handle.gameService.getGame('invalid-game')).toBeUndefined()
+    // Потерянное сохранение не молчит: его видно в состоянии хранилища.
+    expect(server.handle.gameService.storageStatus().unreadableSaves).toBe(1)
+  })
+
+  it('возвращает большого подданного при загрузке старого сохранения', async () => {
+    const store = createInMemoryStore()
+    const game = new GameManager({
+      players: [
+        {
+          id: 1,
+          name: 'Alice',
+          color: 'coral',
+          score: 0,
+          socketId: null,
+          deviceId: null,
+        },
+      ],
+      innsAndCathedralsEnabled: true,
+    })
+    game.id = 'legacy-big-follower'
+
+    // Старое сохранение: envelope есть, поля bigFollowers — нет.
+    const saved = JSON.parse(serializeGameState(game)) as {
+      schemaVersion: number
+      state: { playersFollowers: Record<string, Record<string, unknown>> }
+    }
+    delete saved.state.playersFollowers['1']?.bigFollowers
+    store.games[game.id] = JSON.stringify(saved)
+
+    server = await startTestServer(store)
+    await server.handle.gameService.loadSavedGames()
+
+    const restored = server.handle.gameService.getGame('legacy-big-follower')
+    // Нормализация больших подданных живёт только в одном месте; второй
+    // дефолт в загрузке отнимал бы у игрока его фишку.
+    expect(restored?.playersFollowers[1]?.bigFollowers).toBe(1)
   })
 
   it('отказывает в загрузке базы и не подменяет ошибку пустым списком', async () => {
