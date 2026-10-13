@@ -36,23 +36,24 @@
 - Новый TypeScript — без `any` и non-null assertion; зависимости не добавляй,
   пока не проверишь имеющиеся библиотеки. Неизвестные API сверяй с актуальной
   документацией.
+- После каждого изменения `AGENTS.md` запускай `pnpm exec prettier --write AGENTS.md`.
 - Отвечай по-русски и кратко: результат, затронутые области и фактически
   выполненные проверки. Отмечай, если проверки не запускались или поведение
   приложения не менялось.
 
 ## Команды и проверки
 
-| Команда                          | Назначение                                      |
-| -------------------------------- | ----------------------------------------------- |
-| `pnpm run dev`                   | Vite dev-сервер клиента                         |
-| `pnpm --filter server run dev`   | сервер с nodemon                                 |
-| `pnpm run type-check`            | проверка типов клиента (`vue-tsc --noEmit`)     |
-| `pnpm test`                      | полный набор Vitest: unit и integration          |
-| `pnpm run test:gameplay`         | две полные партии: 4 ИИ и человек против ИИ      |
-| `pnpm run test:browser`          | браузерный smoke: лобби, слоты, запуск игры      |
-| `pnpm run lint`                  | ESLint, только проверка                          |
-| `pnpm run build`                 | проверка типов и production-сборка клиента       |
-| `pnpm --filter server run build` | компиляция сервера (`tsc`)                       |
+| Команда                          | Назначение                                  |
+| -------------------------------- | ------------------------------------------- |
+| `pnpm run dev`                   | Vite dev-сервер клиента                     |
+| `pnpm --filter server run dev`   | сервер с nodemon                            |
+| `pnpm run type-check`            | проверка типов клиента (`vue-tsc --noEmit`) |
+| `pnpm test`                      | полный набор Vitest: unit и integration     |
+| `pnpm run test:gameplay`         | две полные партии: 4 ИИ и человек против ИИ |
+| `pnpm run test:browser`          | браузерный smoke: лобби, слоты, запуск игры |
+| `pnpm run lint`                  | ESLint, только проверка                     |
+| `pnpm run build`                 | проверка типов и production-сборка клиента  |
+| `pnpm --filter server run build` | компиляция сервера (`tsc`)                  |
 
 `pnpm run format` форматирует файлы; не запускай на всём репозитории ради
 несвязанной правки.
@@ -63,7 +64,7 @@
   `pnpm run test:gameplay` можно добавить как быструю регрессию, но не вместо
   полного набора.
 - Интеграционные тесты запускают настоящий сервер и Vite. `pnpm run
-  test:browser` проверяет реальный UI и требует Chromium
+test:browser` проверяет реальный UI и требует Chromium
   (`pnpm exec playwright install chromium`).
 
 ## Соглашения репозитория
