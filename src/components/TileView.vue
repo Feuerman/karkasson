@@ -399,20 +399,15 @@ const drawTile = () => {
   // Настройки стиля для точек
   ctx.lineWidth = 2
 
-  const followerPoints = props.followers
-    .map((follower) => {
-      return {
-        ...follower.point,
-        playerId: follower.playerId,
-        isAbbot: follower.isAbbot,
-        isBigFollower: follower.isBigFollower,
-        isGarden: follower.isGarden,
-      }
-    })
-    .filter(
-      (point) =>
-        point.x === props.tile?.tileIndex && point.y === props.tile?.rowIndex
-    )
+  const followerPoints = props.followers.map((follower) => {
+    return {
+      ...follower.point,
+      playerId: follower.playerId,
+      isAbbot: follower.isAbbot,
+      isBigFollower: follower.isBigFollower,
+      isGarden: follower.isGarden,
+    }
+  })
 
   // Рисуем каждую точку с учетом направления
   followerPoints.forEach((point) => {
@@ -492,8 +487,7 @@ watch(
     nextTick(() => {
       drawTile()
     })
-  },
-  { deep: true }
+  }
 )
 
 watch(
@@ -502,7 +496,6 @@ watch(
     nextTick(() => {
       drawTile()
     })
-  },
-  { deep: true }
+  }
 )
 </script>

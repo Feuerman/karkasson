@@ -154,7 +154,10 @@
               >
                 <TileView
                   :tile="gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]"
-                  :followers="gameState.placedFollowers"
+                  :followers="
+                    followersByCell[rowIndex]?.[tileIndex] ??
+                    EMPTY_CELL_FOLLOWERS
+                  "
                   :players="gameState.players"
                   :size="115"
                 />
@@ -234,6 +237,7 @@ import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
+import type { PlacedFollower } from '@server/modules/types'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import {
@@ -285,6 +289,46 @@ const defaultGrid = computed(() =>
   Array.from({ length: gridDimensions.value[1] ?? 30 }, () =>
     Array.from({ length: gridDimensions.value[0] ?? 30 }, () => null)
   )
+)
+
+const EMPTY_CELL_FOLLOWERS: PlacedFollower[] = []
+const followersByCell = ref<PlacedFollower[][][]>([])
+
+watch(
+  () => gameState.value.placedFollowers,
+  (placedFollowers) => {
+    // До первого `gameUpdated` состояние пустое: поле обязано собираться
+    // и в лобби, где партии ещё нет.
+    const all = placedFollowers ?? []
+    const prev = followersByCell.value
+    const next: PlacedFollower[][][] = []
+    let changed = false
+    for (let r = 0; r < (gridDimensions.value[0] ?? 30); r++) {
+      next[r] = []
+      for (let c = 0; c < (gridDimensions.value[1] ?? 30); c++) {
+        const cellFollowers = all.filter(
+          (f) => f.point.y === r && f.point.x === c
+        )
+        const prevCell = prev[r]?.[c]
+        if (
+          prevCell &&
+          prevCell.length === cellFollowers.length &&
+          prevCell.every((f, i) => f === cellFollowers[i])
+        ) {
+          next[r][c] = prevCell
+        } else if (cellFollowers.length === 0) {
+          next[r][c] = EMPTY_CELL_FOLLOWERS
+        } else {
+          next[r][c] = cellFollowers
+          changed = true
+        }
+      }
+    }
+    if (changed || prev.length === 0) {
+      followersByCell.value = next
+    }
+  },
+  { deep: true, immediate: true }
 )
 
 const currentStatePosition = ref({
