@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  createGameDatabase,
-  gameDatabase,
+  createProductionGameDatabase,
   InMemoryGameDatabase,
 } from '@server/modules/Database'
 import { getFirebaseConfig } from '@server/config'
@@ -9,29 +8,22 @@ import { GameManager } from '@server/modules/GameManager'
 import { serializeGameState } from '@server/modules/gameSave'
 
 describe('База данных сервера', () => {
-  it('использует память в режиме разработки и тестов', () => {
-    expect(gameDatabase).toBeInstanceOf(InMemoryGameDatabase)
-    expect(createGameDatabase({})).toBeInstanceOf(InMemoryGameDatabase)
-    expect(createGameDatabase({ NODE_ENV: 'development' })).toBeInstanceOf(
-      InMemoryGameDatabase
-    )
-    expect(createGameDatabase({ NODE_ENV: 'test' })).toBeInstanceOf(
-      InMemoryGameDatabase
-    )
+  it('создаёт in-memory хранилище без внешних ресурсов', () => {
+    expect(new InMemoryGameDatabase()).toBeInstanceOf(InMemoryGameDatabase)
   })
 
   it('не поднимает Firebase без обязательных переменных окружения', () => {
-    expect(() => createGameDatabase({ NODE_ENV: 'production' })).toThrow(
-      /FIREBASE_API_KEY/
-    )
     expect(() =>
-      createGameDatabase({
+      createProductionGameDatabase({ NODE_ENV: 'production' })
+    ).toThrow(/FIREBASE_API_KEY/)
+    expect(() =>
+      createProductionGameDatabase({
         NODE_ENV: 'production',
         FIREBASE_API_KEY: 'test-key',
       })
     ).toThrow(/FIREBASE_DATABASE_URL/)
     expect(() =>
-      createGameDatabase({
+      createProductionGameDatabase({
         NODE_ENV: 'production',
         FIREBASE_API_KEY: '   ',
         FIREBASE_DATABASE_URL: 'https://example.firebaseio.com/',

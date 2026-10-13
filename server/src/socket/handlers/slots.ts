@@ -65,21 +65,22 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
       {
         gameId,
         index,
-        name,
-      }: { gameId: string; index: number; name: string | null },
+        keepAsComputer,
+      }: { gameId: string; index: number; keepAsComputer: boolean },
       callback: SocketCallback
     ) => {
       await runLobbyCommand(callback, async () => {
         const currentGame = service.getGame(gameId)
         if (
           !currentGame ||
-          !service.canEditLobbySlot(gameId, socket.id, index)
+          !service.canEditLobbySlot(gameId, socket.id, index) ||
+          typeof keepAsComputer !== 'boolean'
         ) {
           callback?.({ error: LobbyErrors.SlotEditForbidden })
           return
         }
         const previousPlayers = snapshotPlayers(currentGame.players)
-        service.removePlayer(gameId, index, name)
+        service.removePlayer(gameId, index, keepAsComputer)
 
         try {
           await service.saveGame(gameId)

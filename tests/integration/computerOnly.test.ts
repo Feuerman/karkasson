@@ -48,7 +48,7 @@ describe('Полностью автоматическая партия (4 ком
       await creator.emitAck(SocketEvents.RemovePlayer, {
         gameId,
         index: 0,
-        name: null,
+        keepAsComputer: false,
       })
       for (let index = 0; index < 4; index++) {
         await creator.emitAck(SocketEvents.AddPlayer, {

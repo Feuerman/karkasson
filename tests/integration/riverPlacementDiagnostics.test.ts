@@ -60,7 +60,7 @@ describe('Диагностика отказа по правилам реки', (
 
     // Открытый конец стартового истока смотрит на юг в (16,15);
     // клетка (15,16) к нему не примыкает ни при каком повороте.
-    expect(game.getPlacementFailure({ ...currentTile }, 15, 16)).toEqual([
+    expect(game.getPlacementConflicts({ ...currentTile }, 15, 16)).toEqual([
       { reason: 'openEnd', rowIndex: 15, tileIndex: 15, side: SideName.South },
     ])
     expect(game.placeTile({ ...currentTile }, 15, 16)).toBe(false)
@@ -71,7 +71,7 @@ describe('Диагностика отказа по правилам реки', (
     const { game, currentTile } = startRiverGame()
     const rotated = rotationWithNorthRiver(game, currentTile, false)
 
-    expect(game.getPlacementFailure(rotated, 16, 15)).toEqual([
+    expect(game.getPlacementConflicts(rotated, 16, 15)).toEqual([
       {
         reason: 'wrongSide',
         rowIndex: 15,
@@ -92,7 +92,7 @@ describe('Диагностика отказа по правилам реки', (
     expect(game.placeTile({ ...bend, rotation: 270 }, 16, 15)).toBe(true)
 
     expect(
-      game.getPlacementFailure({ ...houseBend, rotation: 0 }, 16, 16)
+      game.getPlacementConflicts({ ...houseBend, rotation: 0 }, 16, 16)
     ).toEqual([
       { reason: 'wrongSide', rowIndex: 16, tileIndex: 15, side: SideName.East },
     ])
@@ -106,8 +106,8 @@ describe('Диагностика отказа по правилам реки', (
     const { game, currentTile } = startRiverGame()
     const rotated = rotationWithNorthRiver(game, currentTile, true)
 
-    expect(game.getPlacementFailure(rotated, 16, 15)).toEqual([])
-    expect(game.getPlacementFailure(rotated, 15, 15)).toEqual([])
+    expect(game.getPlacementConflicts(rotated, 16, 15)).toEqual([])
+    expect(game.getPlacementConflicts(rotated, 15, 15)).toEqual([])
     expect(game.placeTile(rotated, 16, 15)).toBe(true)
   })
 })

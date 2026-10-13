@@ -132,15 +132,10 @@ class GameDatabase implements IGameDatabase {
 
 let firebaseGameDatabase: GameDatabase | undefined
 
-export function createGameDatabase(
+export function createProductionGameDatabase(
   environment: NodeJS.ProcessEnv = process.env
 ): IGameDatabase {
-  if (environment.NODE_ENV !== 'production') {
-    return new InMemoryGameDatabase()
-  }
   return (firebaseGameDatabase ??= new GameDatabase(
     getFirebaseConfig(environment)
   ))
 }
-
-export const gameDatabase = createGameDatabase()

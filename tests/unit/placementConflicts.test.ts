@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  findTileSideConflicts,
+  isCorrectTilePosition,
+} from '@server/modules/gameGeometry'
+import {
   describePlacementConflicts,
   describePlacementFailure,
   describeRiverConflict,
-  findTileSideConflicts,
-  isCorrectTilePosition,
   PLACEMENT_FAILURE_MESSAGE,
-} from '@server/modules/gameGeometry'
+} from '@server/socket/handlers/placementErrors'
 import {
   SideName,
   TileSideType,

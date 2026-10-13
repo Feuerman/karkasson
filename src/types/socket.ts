@@ -44,6 +44,13 @@ export interface PrincessChoicePayload {
   point: import('@server/modules/types').Point
 }
 
+export interface RemovePlayerPayload {
+  gameId: string
+  index: number
+  /** Освободить сокет, сохранив слот как компьютерного игрока. */
+  keepAsComputer: boolean
+}
+
 export interface PlayerTemporaryDisconnectedPayload {
   deviceId?: string
   playerIds: Player[]

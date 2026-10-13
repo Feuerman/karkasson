@@ -11,11 +11,11 @@
 
 import type { NewGameAction } from './gameActions'
 import {
-  calcGardenPoints,
-  calcMonasteryPoints,
   CENTRAL_OBJECT_NAMES,
+  countCenterObjectPoints,
   describeCentralObjectPoints,
   distributeScore,
+  type CentralObjectKind,
 } from './scoring'
 import {
   ActionTypes,
@@ -29,9 +29,6 @@ import {
   type TilePlacesStats,
 } from './types'
 
-/** Виды объектов, у которых очки считаются по окружающим клеткам. */
-type CentralObjectKind = ObjectTypes.MONASTERY | ObjectTypes.GARDEN
-
 interface FinalScoringState {
   temporaryObjects: TemporaryObjects
   completedObjects: CompletedObjects
@@ -42,17 +39,6 @@ interface FinalScoringState {
   describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
   describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
-}
-
-/** Количество очков вокруг монастыря или сада: тайл и занятые клетки 3×3. */
-function countCenterObjectPoints(
-  tilePlacesStats: TilePlacesStats,
-  object: BaseObject,
-  kind: CentralObjectKind
-): number {
-  return kind === ObjectTypes.GARDEN
-    ? calcGardenPoints(tilePlacesStats, object)
-    : calcMonasteryPoints(tilePlacesStats, object)
 }
 
 /**

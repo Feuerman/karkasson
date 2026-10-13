@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
+import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 import { GameErrors, LobbyErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { deserializeGameState } from '@server/modules/gameSave'

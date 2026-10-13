@@ -367,6 +367,29 @@ function restoreBigFollowerPools(
 }
 
 /**
+ * Позиция дракона — единственный источник истины о том, где он стоит. В
+ * незавершённом движении она всегда записана, но в очень старых сохранениях
+ * могла отсутствовать: тогда она восстанавливается из последней посещённой
+ * клетки, иначе ход дракона продолжить нельзя.
+ */
+function restoreDragonPosition(value: Record<string, unknown>): void {
+  if (value.dragonPosition !== undefined) return
+
+  const visited = isRecord(value.dragonMove)
+    ? value.dragonMove.visited
+    : undefined
+  if (!Array.isArray(visited)) return
+
+  const lastVisited = visited[visited.length - 1] as unknown
+  if (!isRecord(lastVisited)) return
+
+  value.dragonPosition = {
+    rowIndex: lastVisited.rowIndex,
+    tileIndex: lastVisited.tileIndex,
+  }
+}
+
+/**
  * Список победителей появился в схеме 6. У старых сохранений его нет, поэтому
  * он восстанавливается заново из счёта: список лидеров — это чистая функция
  * таблицы очков, а не отдельные данные.
@@ -437,6 +460,7 @@ function migrateLegacyGameState(value: unknown): IGameState {
   validateDragonMove(value)
   validatePrincessChoice(value)
   restoreBigFollowerPools(value, rules)
+  restoreDragonPosition(value)
   restoreWinnerPlayerIds(value)
   // Флаг перехода к движению дракона появился вместе с расширением; в старых
   // сохранениях его нет, и партия продолжается без ожидающего пробуждения.

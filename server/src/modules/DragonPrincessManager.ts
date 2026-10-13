@@ -14,6 +14,7 @@
 
 import { neighborCoordinates, NEIGHBOR_SIDES } from './gameGeometry'
 import type { NewGameAction } from './gameActions'
+import { isSameFollowerPoint } from './followerMatching'
 import {
   ActionTypes,
   DRAGON_TOTAL_STEPS,
@@ -21,7 +22,6 @@ import {
   PointDirection as PointDirections,
   TileSideType,
   type AvailableFollowerPlace,
-  type BaseObject,
   type DragonMoveState,
   type DragonPosition,
   type FollowerCount,
@@ -80,25 +80,6 @@ const FOLLOWER_COLLECTIONS: ReadonlyArray<
   ['monasteries', ObjectTypes.MONASTERY],
   ['gardens', ObjectTypes.GARDEN],
 ]
-
-/**
- * Сравнение двух подданных одного игрока: совпадение игрока и клетки плюс
- * типа фишки. Идентификатор объекта не учитывается: при слиянии дорог и
- * городов объект меняется, а фишка остаётся той же.
- */
-function isSameFollowerPoint(
-  placed: PlacedFollower | BaseObject['followers'][number],
-  follower: PlacedFollower | BaseObject['followers'][number]
-): boolean {
-  return (
-    String(placed.playerId) === String(follower.playerId) &&
-    placed.point.x === follower.point.x &&
-    placed.point.y === follower.point.y &&
-    placed.point.direction === follower.point.direction &&
-    Boolean(placed.isAbbot) === Boolean(follower.isAbbot) &&
-    Boolean(placed.isBigFollower) === Boolean(follower.isBigFollower)
-  )
-}
 
 /** Owns dragon movement, princess choice and removal of followers they take. */
 export class DragonPrincessManager {
@@ -252,7 +233,7 @@ export class DragonPrincessManager {
     }
     if (this.state.currentPlayerIndex !== move.nextPlayerIndex) return false
 
-    const currentPosition = this.findDragonPosition()
+    const currentPosition = this.state.dragonPosition
     if (!currentPosition) return false
     if (!this.isAdjacentDragonStep(currentPosition, rowIndex, tileIndex)) {
       return false
@@ -309,11 +290,14 @@ export class DragonPrincessManager {
    * очередь вернётся к игроку, следующему за ним.
    */
   startPendingDragonMove() {
-    const position = this.findDragonPosition()
+    const position = this.resolveDragonPosition()
     if (!position) {
       this.state.getRandomTileFromList()
       return
     }
+    // Позиция восстанавливается один раз и дальше живёт в состоянии: ход
+    // дракона читает только её.
+    this.state.dragonPosition = position
 
     this.state.dragonMove = {
       remainingSteps: DRAGON_TOTAL_STEPS,
@@ -326,7 +310,7 @@ export class DragonPrincessManager {
 
   /** Первый доступный шаг дракона: им играет бот. */
   getAutomaticDragonDestination(): DragonPosition | undefined {
-    const currentPosition = this.state.dragonMove?.visited.at(-1)
+    const currentPosition = this.state.dragonPosition
     return currentPosition
       ? this.getDragonDestinations(currentPosition)[0]
       : undefined
@@ -370,7 +354,7 @@ export class DragonPrincessManager {
     const move = this.state.dragonMove
     if (!move) return
 
-    const currentPosition = move.visited[move.visited.length - 1]
+    const currentPosition = this.state.dragonPosition
     const validDestinations = currentPosition
       ? this.getDragonDestinations(currentPosition)
       : []
@@ -424,22 +408,32 @@ export class DragonPrincessManager {
     return distance === 1 && !wasVisited
   }
 
-  /** Положение дракона: явное или по вулкану на доске. */
-  private findDragonPosition(): DragonPosition | undefined {
-    if (this.state.dragonPosition) return this.state.dragonPosition
-
+  /**
+   * Клетка вулкана: единственный способ узнать начальную позицию дракона,
+   * если поле `dragonPosition` ещё не заполнено. Поиск ничего не меняет —
+   * записью занимается `startPendingDragonMove`.
+   */
+  private findVolcanoPosition(): DragonPosition | undefined {
     for (const [row, tiles] of Object.entries(this.state.tilePlacesStats)) {
       for (const [column, tile] of Object.entries(tiles)) {
         if (tile.hasVolcano) {
-          this.state.dragonPosition = {
-            rowIndex: Number(row),
-            tileIndex: Number(column),
-          }
-          return this.state.dragonPosition
+          return { rowIndex: Number(row), tileIndex: Number(column) }
         }
       }
     }
     return undefined
+  }
+
+  /**
+   * Позиция дракона для старта движения: сохранённая, иначе последняя
+   * посещённая клетка незавершённого хода, иначе вулкан на доске.
+   */
+  private resolveDragonPosition(): DragonPosition | undefined {
+    return (
+      this.state.dragonPosition ??
+      this.state.dragonMove?.visited.at(-1) ??
+      this.findVolcanoPosition()
+    )
   }
 
   private findCitiesOnPrincessTile(rowIndex: number, tileIndex: number) {

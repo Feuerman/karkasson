@@ -145,34 +145,38 @@ export class GameTileManager {
       Boolean(placedTile.hasVolcano)
     )
     const tilesToCheck = this.state.tilesList.length
-    const checkedTiles = new Set<Tile>()
+    const rejectedTiles: Tile[] = []
+    const rejectedDragonTiles: Tile[] = []
 
     for (let index = 0; index < tilesToCheck; index += 1) {
-      const tileIndex = this.state.tilesList.findIndex(
-        (tile) => !checkedTiles.has(tile)
-      )
-      if (tileIndex === -1) break
-      const [tile] = this.state.tilesList.splice(tileIndex, 1)
-      if (!tile) break
-
+      const tile = this.state.tilesList[index]
+      if (!tile) continue
       if (
         (dragonAwake || !tile.hasDragon) &&
         this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })
       ) {
+        const remainingTiles = [
+          tile,
+          ...this.state.tilesList.slice(index + 1, tilesToCheck),
+          ...rejectedTiles,
+        ]
+        for (const dragonTile of rejectedDragonTiles) {
+          const randomIndex = Math.floor(
+            Math.random() * (remainingTiles.length + 1)
+          )
+          remainingTiles.splice(randomIndex, 0, dragonTile)
+        }
+        const selectedTileIndex = remainingTiles.indexOf(tile)
+        if (selectedTileIndex !== -1) {
+          remainingTiles.splice(selectedTileIndex, 1)
+        }
+        this.state.tilesList = remainingTiles
         this.state.currentTile = { x: 0, y: 0, ...tile, rotation: 0 }
         this.state.updateTileHistory(tile)
         return
       }
-
-      checkedTiles.add(tile)
-      if (!dragonAwake && tile.hasDragon) {
-        const randomIndex = Math.floor(
-          Math.random() * (this.state.tilesList.length + 1)
-        )
-        this.state.tilesList.splice(randomIndex, 0, tile)
-      } else {
-        this.state.tilesList.push(tile)
-      }
+      if (!dragonAwake && tile.hasDragon) rejectedDragonTiles.push(tile)
+      else rejectedTiles.push(tile)
     }
 
     this.finishGame()

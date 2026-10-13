@@ -208,7 +208,7 @@ describe('Лобби', () => {
     await lobby.creator.emitAck(SocketEvents.RemovePlayer, {
       gameId: lobby.gameId,
       index: 2,
-      name: null,
+      keepAsComputer: false,
     })
 
     const game = await latestGame(lobby.creator)
@@ -326,5 +326,67 @@ describe('Лобби', () => {
 
     expect(ids.slice(0, 2)).toEqual([second.gameId, first.gameId])
     expect(ids[2]).toBe(active.id)
+  })
+
+  it('removePlayer с keepAsComputer оставляет слот компьютерным игроком', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.joiner.emitAck(SocketEvents.AddPlayer, {
+      gameId: lobby.gameId,
+      name: 'Robert',
+      index: 1,
+    })
+
+    const game = await latestGame(
+      lobby.creator,
+      (g: TestGameData) => g.players[1]?.name === 'Robert'
+    )
+    expect(game.players[1].name).toBe('Robert')
+
+    const response = await lobby.joiner.emitAck<{ game: TestGameData }>(
+      SocketEvents.RemovePlayer,
+      {
+        gameId: lobby.gameId,
+        index: 1,
+        keepAsComputer: true,
+      }
+    )
+
+    expect(response.game.players[1]?.name).toBeTruthy()
+    expect(response.game.players[1]?.name).not.toBe('Robert')
+    expect(response.game.players[1]?.socketId).toBeNull()
+  })
+
+  it('removePlayer без keepAsComputer полностью освобождает слот', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.joiner.emitAck(SocketEvents.AddPlayer, {
+      gameId: lobby.gameId,
+      name: 'Robert',
+      index: 1,
+    })
+
+    const game = await latestGame(
+      lobby.creator,
+      (g: TestGameData) => g.players[1]?.name === 'Robert'
+    )
+    expect(game.players[1].name).toBe('Robert')
+
+    await lobby.joiner.emitAck(SocketEvents.RemovePlayer, {
+      gameId: lobby.gameId,
+      index: 1,
+      keepAsComputer: false,
+    })
+
+    const updated = await latestGame(
+      lobby.creator,
+      (g: TestGameData) => g.players[1]?.name === ''
+    )
+    expect(updated.players[1].name).toBe('')
+    expect(updated.players[1].socketId).toBeNull()
   })
 })

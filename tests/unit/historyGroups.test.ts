@@ -7,7 +7,7 @@ import {
   TileId,
   TileSideType,
 } from '@server/modules/types'
-import type { GameAction } from '@server/modules/GameManager'
+import type { GameAction } from '@server/modules/gameActions'
 import type { BaseObject, Tile } from '@server/modules/types'
 
 /**

@@ -380,3 +380,21 @@ export function calcGardenPoints(
 ): number {
   return calcMonasteryPoints(tilePlacesStats, garden)
 }
+
+/** Виды центральных объектов, у которых очки считаются по окружающим клеткам. */
+export type CentralObjectKind = ObjectTypes.MONASTERY | ObjectTypes.GARDEN
+
+/**
+ * Очки вокруг центрального объекта: сам тайл и занятые клетки в окрестности
+ * 3×3. Считается и при отзыве аббата, и при финальном подсчёте, поэтому живёт
+ * здесь, а не дублируется в обоих местах.
+ */
+export function countCenterObjectPoints(
+  tilePlacesStats: TilePlacesStats,
+  object: BaseObject,
+  kind: CentralObjectKind
+): number {
+  return kind === ObjectTypes.GARDEN
+    ? calcGardenPoints(tilePlacesStats, object)
+    : calcMonasteryPoints(tilePlacesStats, object)
+}

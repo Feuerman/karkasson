@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { GameService, SocketAckError } from '@/modules/GameService'
 import { GameErrors } from '@server/modules/errors'
-import { PLACEMENT_FAILURE_MESSAGE } from '@server/modules/gameGeometry'
+import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 import { SideName, SocketEvents, TileSideType } from '@server/modules/types'
 import {
   findValidPlacement,
