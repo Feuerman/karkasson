@@ -243,6 +243,7 @@
 // src/components/GameStats.vue:113
 Object.values(props.gameBoard.scores).forEach((score, index) => {
   const player = props.gameBoard.players[index]
+})
 ```
 
 `scores` — `Record<PlayerId, number>`. Порядок ключей совпадает с массивом
