@@ -34,3 +34,4 @@ test-results/
 
 # Agents
 opencode.json
+!.opencode/opencode.json
