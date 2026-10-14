@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createSSRApp, h } from 'vue'
+import { computed, createSSRApp, h } from 'vue'
 import type { Component } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import PlayerNameById from '@/components/GameActionsHistory/internal/PlayerNameById.vue'
@@ -8,6 +8,7 @@ import DragonMoveAction from '@/components/GameActionsHistory/internal/actions/D
 import { ActionTypes, ObjectTypes, TileSideType } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import type { Player, ReturnedFollower } from '@server/modules/types'
+import { HISTORY_PLAYERS_KEY } from '@/components/GameActionsHistory/internal/players'
 
 // Иконка из Nuxt UI тянет рантайм-пакеты, недоступные в node-окружении тестов.
 vi.mock('@nuxt/ui/components/Icon.vue', () => ({
@@ -48,8 +49,14 @@ const follower = (
   ...overrides,
 })
 
-const render = (component: Component, props: Record<string, unknown>) =>
-  renderToString(createSSRApp({ render: () => h(component, props) }))
+const render = (component: Component, props: Record<string, unknown>) => {
+  const app = createSSRApp({ render: () => h(component, props) })
+  app.provide(
+    HISTORY_PLAYERS_KEY,
+    computed(() => players)
+  )
+  return renderToString(app)
+}
 
 // Текст без разметки: комментарии и теги рендера разбивают соседние узлы.
 const textOf = (html: string) =>
@@ -76,22 +83,21 @@ const dragonMoveAction: GameAction = {
 
 describe('имя игрока в истории', () => {
   it('выводится, если у компонента нет продолжения', async () => {
-    const html = await render(PlayerNameById, { players, playerId: 1 })
+    const html = await render(PlayerNameById, { playerId: 1 })
 
     expect(textOf(html)).toBe('Анна')
   })
 
   it('выводится перед продолжением, переданным слотом', async () => {
-    const html = await renderToString(
-      createSSRApp({
-        render: () =>
-          h(
-            PlayerNameById,
-            { players, playerId: 2 },
-            { default: () => ' — рыцарь' }
-          ),
-      })
+    const app = createSSRApp({
+      render: () =>
+        h(PlayerNameById, { playerId: 2 }, { default: () => ' — рыцарь' }),
+    })
+    app.provide(
+      HISTORY_PLAYERS_KEY,
+      computed(() => players)
     )
+    const html = await renderToString(app)
 
     expect(textOf(html)).toBe('Борис — рыцарь')
   })
@@ -99,7 +105,6 @@ describe('имя игрока в истории', () => {
   it('выводится в записи о возврате подданных', async () => {
     const html = await render(BackFollowerAction, {
       action: backFollowerAction,
-      players,
     })
 
     expect(textOf(html)).toMatch(/Возврат подданных\.\s*Анна — рыцарь/)
@@ -108,7 +113,6 @@ describe('имя игрока в истории', () => {
   it('выводится в записи о шаге дракона', async () => {
     const html = await render(DragonMoveAction, {
       action: dragonMoveAction,
-      players,
     })
 
     expect(textOf(html)).toMatch(/Съедены подданные:\s*Анна — рыцарь/)

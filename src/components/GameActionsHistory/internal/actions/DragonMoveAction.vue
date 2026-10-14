@@ -21,11 +21,7 @@
     <template v-if="hasEatenFollowers">
       <span class="text-text"> Съедены подданные: </span>
       <span v-for="group in eatenByPlayer" :key="group.playerId">
-        <PlayerNameById
-          :players="players"
-          :player-id="group.playerId"
-          :title="bigFollowerHint"
-        >
+        <PlayerNameById :player-id="group.playerId" :title="bigFollowerHint">
           — {{ group.names.join(', ') }}&nbsp;
         </PlayerNameById>
       </span>
@@ -36,7 +32,6 @@
 <script setup lang="ts">
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { Player } from '@server/modules/types'
 import { computed } from 'vue'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
@@ -47,9 +42,8 @@ import {
   hasBigFollower,
 } from '../followerNames'
 
-const { action, players } = defineProps<{
+const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.DRAGON_MOVE }>
-  players: Player[]
 }>()
 
 const emit = defineEmits<{
