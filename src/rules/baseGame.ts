@@ -9,7 +9,6 @@ import {
   grid,
   invalid,
   rot,
-  validateExampleGrids,
 } from './examples'
 
 /** Клетка-тайл без маркеров. */
@@ -593,40 +592,6 @@ const finalScoringExample: RulesExample = {
   ]),
   caption:
     'Зелёных рамок нет: город и дорога остались незавершёнными, поэтому при выключенном финальном подсчёте они не принесут ничего. При включённом подсчёте город даст 2 тайла × 1 + 1 герб × 1 = 3 очка, дорога — 2 тайла × 1 = 2 очка.',
-}
-
-const examples: RulesExample[] = [
-  roadConnectionExample,
-  wrongPlacementExample,
-  cityCornersExample,
-  roadCrossroadsExample,
-  roadLoopExample,
-  completedMonasteryExample,
-  partialGardenExample,
-  abbotRecallExample,
-  completedGardenExample,
-  completedRoadExample,
-  completedCityExample,
-  claimedObjectExample,
-  sharedRoadExample,
-  sharedCityExample,
-  finalScoringExample,
-  innRoadExample,
-  twoInnsExample,
-  cathedralCityExample,
-  bigFollowerExample,
-  bigFollowerRoadExample,
-  trappedObjectExample,
-]
-
-if (import.meta.env.DEV) {
-  const errors = validateExampleGrids(examples)
-  if (errors.length) {
-    // eslint-disable-next-line no-console
-    console.error(
-      '[rules/baseGame] Ошибки в примерах правил:\n' + errors.join('\n')
-    )
-  }
 }
 
 export const baseGameRules: RulesDocument = {

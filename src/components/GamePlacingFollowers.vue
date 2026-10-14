@@ -90,27 +90,9 @@ const props = defineProps({
   },
 })
 
-const meFollowers = computed(() => {
-  const currentPlayer = props.gameBoard.currentPlayer
-  if (!currentPlayer) return { ordinaryFollowers: 0, bigFollowers: 0, monks: 0 }
-  return (
-    props.gameBoard.playersFollowers[currentPlayer.id] ?? {
-      ordinaryFollowers: 0,
-      bigFollowers: 0,
-      monks: 0,
-    }
-  )
-})
-
-const ordinaryAvailable = computed(() => meFollowers.value.ordinaryFollowers)
-const bigAvailable = computed(() => meFollowers.value.bigFollowers)
-const abbotAvailable = computed(() => meFollowers.value.monks)
 const groupedPlaces = computed(() =>
   groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
 )
-
-const centerFeatureTitle = (place: AvailableFollowerPlace): string =>
-  place.temporaryObject?.isGarden ? 'Сад' : 'Монастырь'
 
 const followerPlaceTitle = (
   place: AvailableFollowerPlace,
@@ -119,6 +101,45 @@ const followerPlaceTitle = (
   const title = pointTypeTitle(place.point.pointType)
   if (sameTypeCount === 1) return title
   return `${title} — ${pointDirectionTitle(place.point.direction)}`
+}
+
+const placeTitle = (
+  place: AvailableFollowerPlace,
+  sameTypeCount: number
+): string => {
+  if (place.temporaryObject.isGarden) return 'Сад'
+  if (place.temporaryObject.isMonastery) return 'Монастырь'
+  return followerPlaceTitle(place, sameTypeCount)
+}
+
+/** Как называется фишка в кнопке выбора. */
+const FOLLOWER_TYPE_TITLES: Record<FollowerType, string> = {
+  [FollowerType.Follower]: '',
+  [FollowerType.Abbot]: 'аббат',
+  [FollowerType.BigFollower]: 'большой подданный',
+}
+
+const followerChoiceLabel = (
+  title: string,
+  place: AvailableFollowerPlace,
+  followerType: FollowerType
+): string => {
+  if (followerType === FollowerType.Follower) {
+    return place.temporaryObject.isMonastery ? `${title} — монах` : title
+  }
+  return `${title} — ${FOLLOWER_TYPE_TITLES[followerType]}`
+}
+
+const followerChoiceIcon = (
+  place: AvailableFollowerPlace,
+  followerType: FollowerType
+): string => {
+  const object = place.temporaryObject
+  if (followerType === FollowerType.BigFollower) return 'i-lucide-users-round'
+  if (followerType === FollowerType.Abbot) {
+    return object.isGarden ? 'i-lucide-flower-2' : 'i-lucide-church'
+  }
+  return object.isMonastery ? 'i-lucide-person-standing' : placeIcon(place)
 }
 
 interface FollowerChoice {
@@ -138,61 +159,27 @@ interface ChoiceGroup {
 }
 
 /**
- * Кнопки выбора фишки для каждого доступного места. На монастыре и саду
- * предлагаются монах, аббат и большой подданный, на дороге и городе —
- * подданный и большой подданный. Большой подданный доступен только с
- * дополнением «Таверны и соборы» и не ставится в сад.
+ * Кнопки выбора фишки для каждого доступного места. Набор допустимых типов
+ * приходит с сервером вместе с состоянием партии, поэтому интерфейс не решает,
+ * какая фишка куда разрешена; здесь остаются только подписи и значки.
  */
 const choiceGroups = computed<ChoiceGroup[]>(() =>
   groupedPlaces.value.map(({ place, sameTypeCount }, index) => {
     const isMyTurn = Boolean(props.gameBoard.isMyTurn)
-    const bigFollower =
-      place.temporaryObject.isMonastery || place.temporaryObject.isGarden
-        ? `${centerFeatureTitle(place)} — большой подданный`
-        : `${followerPlaceTitle(place, sameTypeCount)} — большой подданный`
-    const choices: FollowerChoice[] = []
+    const followerTypes =
+      props.gameBoard.availableFollowerTypes?.[place.temporaryObject.id] ?? []
 
-    if (place.temporaryObject.isMonastery || place.temporaryObject.isGarden) {
-      if (place.temporaryObject.isMonastery) {
-        choices.push({
-          key: FollowerType.Follower,
-          label: 'Монастырь — монах',
-          icon: 'i-lucide-person-standing',
-          followerType: FollowerType.Follower,
-          disabled: !isMyTurn || ordinaryAvailable.value === 0,
-        })
-      }
-      choices.push({
-        key: FollowerType.Abbot,
-        label: `${centerFeatureTitle(place)} — аббат`,
-        icon: place.temporaryObject.isGarden
-          ? 'i-lucide-flower-2'
-          : 'i-lucide-church',
-        followerType: FollowerType.Abbot,
-        disabled: !isMyTurn || abbotAvailable.value === 0,
-      })
-    } else {
-      choices.push({
-        key: FollowerType.Follower,
-        label: followerPlaceTitle(place, sameTypeCount),
-        icon: placeIcon(place),
-        followerType: FollowerType.Follower,
-        disabled: !isMyTurn || ordinaryAvailable.value === 0,
-      })
-    }
-
-    if (
-      props.gameBoard.rules?.expansions.innsAndCathedrals &&
-      !place.temporaryObject.isGarden
-    ) {
-      choices.push({
-        key: FollowerType.BigFollower,
-        label: bigFollower,
-        icon: 'i-lucide-users-round',
-        followerType: FollowerType.BigFollower,
-        disabled: !isMyTurn || bigAvailable.value === 0,
-      })
-    }
+    const choices: FollowerChoice[] = followerTypes.map((followerType) => ({
+      key: followerType,
+      label: followerChoiceLabel(
+        placeTitle(place, sameTypeCount),
+        place,
+        followerType
+      ),
+      icon: followerChoiceIcon(place, followerType),
+      followerType,
+      disabled: !isMyTurn,
+    }))
 
     return {
       key: `${place.temporaryObject.id}-${index}`,

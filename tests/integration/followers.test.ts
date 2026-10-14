@@ -18,6 +18,7 @@ import {
 } from './helpers/server'
 import {
   FollowerType,
+  PointDirection,
   SideName,
   SocketEvents,
   TileId,
@@ -162,6 +163,43 @@ describe('Размещение фишек', () => {
     ).toBe(before)
 
     assertFollowerInvariants(afterGame)
+  })
+
+  it('клиенту приходят допустимые фишки и сведения об отзыве аббата', async () => {
+    server = await startTestServer()
+    const { gameId, creator, aliceId } = await createLobbyWithSingleHuman(
+      server.url
+    )
+    clients.push(creator)
+
+    await startGame(creator, gameId)
+
+    const { offerGame } = await driveTurnsUntilFollowerOffer(
+      creator,
+      gameId,
+      aliceId
+    )
+    expect(offerGame).not.toBeNull()
+
+    const places = offerGame!.availableFollowersPlaces ?? []
+    expect(places.length).toBeGreaterThan(0)
+    places.forEach((place) => {
+      const objectId = place.temporaryObject.id
+      const types = offerGame!.availableFollowerTypes?.[objectId]
+      expect(types, `тип фишек для ${objectId}`).toBeDefined()
+      expect(types!.length, `тип фишек для ${objectId}`).toBeGreaterThan(0)
+
+      // Аббат не ставится на сторону тайла, в сад — только он.
+      const isCenter = place.point.direction === PointDirection.Center
+      expect(types!.includes(FollowerType.Abbot)).toBe(isCenter)
+      expect(
+        types!.includes(FollowerType.Follower),
+        'в сад подданный не ставится'
+      ).toBe(!place.temporaryObject.isGarden)
+    })
+
+    // Аббат Алисы ещё не на доске — отзывать нечего
+    expect(offerGame!.abbotRecall).toBeNull()
   })
 
   it('ход завершается, когда обычные подданные исчерпаны и доступен только центр', async () => {

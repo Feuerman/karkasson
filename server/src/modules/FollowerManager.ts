@@ -7,6 +7,7 @@ import {
   PointDirection as PointDirections,
   SIDE_NAMES,
   TileSideType,
+  type AbbotRecallInfo,
   type AvailableFollowerPlace,
   type BaseObject,
   type FollowerCount,
@@ -219,6 +220,48 @@ export class FollowerManager {
   }
 
   /**
+   * Типы фишек, которые активный игрок может поставить в это место прямо
+   * сейчас. Список отдаётся клиенту, чтобы интерфейс не решал правила сам, и
+   * используется симулятором при переборе ходов.
+   */
+  getAvailableFollowerTypes(place: AvailableFollowerPlace): FollowerType[] {
+    const currentPlayer = this.state.currentPlayer
+    const pool = currentPlayer
+      ? this.state.playersFollowers[currentPlayer.id]
+      : undefined
+    if (!pool) return []
+    return this.allowedFollowerTypes(place.temporaryObject, pool)
+  }
+
+  /**
+   * Правило допустимости типа фишки для объекта: в сад ставится только аббат,
+   * на монастырь — любой подданный, на стороне тайла аббата быть не может, а
+   * большой подданный существует только в дополнении «Таверны и соборы».
+   */
+  private allowedFollowerTypes(
+    object: BaseObject,
+    pool: FollowerCount
+  ): FollowerType[] {
+    const followerTypes: FollowerType[] = []
+    const isCenterFeature = Boolean(object.isMonastery || object.isGarden)
+
+    if (!object.isGarden && pool.ordinaryFollowers) {
+      followerTypes.push(FollowerTypes.Follower)
+    }
+    if (
+      !object.isGarden &&
+      this.state.rules.expansions.innsAndCathedrals &&
+      pool.bigFollowers
+    ) {
+      followerTypes.push(FollowerTypes.BigFollower)
+    }
+    if (isCenterFeature && pool.monks) {
+      followerTypes.push(FollowerTypes.Abbot)
+    }
+    return followerTypes
+  }
+
+  /**
    * Выставляет подданного активного игрока. Все проверки заново выполняются по
    * состоянию партии: присланное клиентом место могло устареть.
    */
@@ -252,6 +295,26 @@ export class FollowerManager {
   }
 
   /**
+   * Что даст отзыв аббата в ход владельца: объект, с которого он снимется, и
+   * очки за незавершённый объект. `null`, если отзывать нечего.
+   */
+  getAbbotRecallInfo(): AbbotRecallInfo | null {
+    if (this.state.gameIsEnded) return null
+    const currentPlayer = this.state.currentPlayer
+    if (!currentPlayer) return null
+
+    const found = this.findOwnAbbot(String(currentPlayer.id))
+    if (!found) return null
+
+    const { object } = found
+    return {
+      objectId: object.id,
+      objectType: object.isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY,
+      points: this.countCenterObjectPoints(object),
+    }
+  }
+
+  /**
    * Отзыв аббата в ход владельца: аббат снимается с монастыря или сада
    * (завершённого или нет) и начисляются очки за «незавершённый» объект —
    * 1 очко за сам тайл и по 1 очку за каждую занятую клетку в окрестности 3×3.
@@ -263,21 +326,9 @@ export class FollowerManager {
     if (!currentPlayer) return false
 
     const playerKey = String(currentPlayer.id)
-    const centerObjects = [
-      ...this.state.temporaryObjects.monasteries,
-      ...this.state.completedObjects.monasteries,
-      ...this.state.temporaryObjects.gardens,
-      ...this.state.completedObjects.gardens,
-    ]
-    const isOwnAbbot = (follower: ObjectFollower) =>
-      Boolean(follower.isAbbot) && String(follower.playerId) === playerKey
-
-    const target = centerObjects.find((object) =>
-      object.followers.some(isOwnAbbot)
-    )
-    if (!target) return false
-    const abbot = target.followers.find(isOwnAbbot)
-    if (!abbot) return false
+    const found = this.findOwnAbbot(playerKey)
+    if (!found) return false
+    const { object: target, abbot } = found
 
     const objectType = target.isGarden
       ? ObjectTypes.GARDEN
@@ -325,6 +376,32 @@ export class FollowerManager {
       },
     })
     return true
+  }
+
+  /**
+   * Аббат игрока на центральном объекте: сад или монастырь, в том числе уже
+   * завершённый.
+   */
+  private findOwnAbbot(
+    playerKey: string
+  ): { object: BaseObject; abbot: ObjectFollower } | undefined {
+    const centerObjects = [
+      ...this.state.temporaryObjects.monasteries,
+      ...this.state.completedObjects.monasteries,
+      ...this.state.temporaryObjects.gardens,
+      ...this.state.completedObjects.gardens,
+    ]
+    const isOwnAbbot = (follower: ObjectFollower) =>
+      Boolean(follower.isAbbot) && String(follower.playerId) === playerKey
+
+    const object = centerObjects.find((centerObject) =>
+      centerObject.followers.some(isOwnAbbot)
+    )
+    if (!object) return undefined
+
+    const abbot = object.followers.find(isOwnAbbot)
+    if (!abbot) return undefined
+    return { object, abbot }
   }
 
   /**
@@ -415,6 +492,10 @@ export class FollowerManager {
     return follower.type
   }
 
+  /**
+   * Проверка присланного клиентом типа по правилам допустимости: если типа
+   * среди разрешённых для объекта нет, ход невозможен.
+   */
   private resolveFollowerType(
     followerType: FollowerType,
     object: BaseObject,
@@ -422,28 +503,13 @@ export class FollowerManager {
   ):
     | { type: FollowerType; isAbbot: boolean; isBigFollower: boolean }
     | undefined {
-    const isAbbot = followerType === FollowerTypes.Abbot
-    const isBigFollower = followerType === FollowerTypes.BigFollower
-    const isCenterFeature = Boolean(object.isMonastery || object.isGarden)
-    if (isAbbot) {
-      if (!pool.monks || !isCenterFeature) return undefined
-    } else if (
-      (isBigFollower
-        ? !this.state.rules.expansions.innsAndCathedrals || !pool.bigFollowers
-        : !pool.ordinaryFollowers) ||
-      object.isGarden ||
-      (isBigFollower && !this.state.rules.expansions.innsAndCathedrals)
-    ) {
+    if (!this.allowedFollowerTypes(object, pool).includes(followerType)) {
       return undefined
     }
     return {
-      type: isAbbot
-        ? FollowerTypes.Abbot
-        : isBigFollower
-          ? FollowerTypes.BigFollower
-          : FollowerTypes.Follower,
-      isAbbot,
-      isBigFollower,
+      type: followerType,
+      isAbbot: followerType === FollowerTypes.Abbot,
+      isBigFollower: followerType === FollowerTypes.BigFollower,
     }
   }
 

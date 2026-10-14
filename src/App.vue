@@ -714,7 +714,6 @@ onMounted(async () => {
   GameService.connect()
 
   const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
-  const socket = GameService.socket
   const onGamesListUpdated = (gamesList: GameSummary[]) => {
     updateLocalGamesList(gamesList)
   }
@@ -722,13 +721,17 @@ onMounted(async () => {
     void getGamesList()
   }
 
-  socket?.on(SocketEvents.UpdateGamesList, onGamesListUpdated)
-  socket?.on('connect', onConnect)
+  // Подписки идут через сервис, чтобы пережить переподключение сокета.
+  const unsubscribeGamesList = GameService.onSocketEvent(
+    SocketEvents.UpdateGamesList,
+    onGamesListUpdated
+  )
+  const unsubscribeConnect = GameService.onSocketEvent('connect', onConnect)
 
   cleanupSocketListeners = () => {
     unsubscribeGameUpdated()
-    socket?.off(SocketEvents.UpdateGamesList, onGamesListUpdated)
-    socket?.off('connect', onConnect)
+    unsubscribeGamesList()
+    unsubscribeConnect()
   }
 })
 </script>
