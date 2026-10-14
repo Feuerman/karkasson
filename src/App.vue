@@ -9,17 +9,20 @@
       />
       <GameLobby
         v-if="showLobby"
-        :game="gameState"
         :games-list="games"
         :players="playersList"
         :current-game="currentGame"
-        @start-game="showLobby = false"
-        @game-started="onGameStart"
+        :is-connected="GameService.isConnected.value"
+        :is-creator="isLobbyCreator"
+        :is-games-list-loading="isGamesListLoading"
+        :device-id="GameService.deviceId"
+        @start-game="startGame"
         @rejoin-game="rejoinGame"
         @join-game="joinGame"
         @leave-game="leaveGame"
         @create-game="createGame"
-        @update-games-list="getGamesList"
+        @add-player="addPlayer"
+        @remove-player="removePlayer"
       />
       <GameControls :game-board="gameState" :drag-enabled="isLayoutEditMode" />
       <GameActionsHistory
@@ -593,11 +596,14 @@ const updateLocalGamesList = (gamesList: GameSummary[]) => {
 }
 
 const getGamesList = async () => {
+  isGamesListLoading.value = true
   try {
     const gamesList = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
     notifyError(error, 'Произошла ошибка при получении списка игр')
+  } finally {
+    isGamesListLoading.value = false
   }
 }
 
@@ -671,6 +677,40 @@ const createGame = async (options: CreateGameOptions) => {
   }
 }
 
+const addPlayer = async (name: string, index: number) => {
+  try {
+    await GameService.addPlayer({ name, index })
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+const removePlayer = async (index: number, keepAsComputer: boolean) => {
+  try {
+    await GameService.removePlayer(index, keepAsComputer)
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+const startGame = async () => {
+  try {
+    onGameStart(await GameService.startGame())
+  } catch (error) {
+    notifyError(error)
+  }
+}
+
+const isLobbyCreator = computed(() => {
+  const creator = currentGame.value?.players[0]
+  if (!creator) return false
+
+  return Boolean(
+    (creator.deviceId && creator.deviceId === GameService.deviceId) ||
+    (creator.socketId && creator.socketId === GameService.socketId.value)
+  )
+})
+
 const playersReconnectProcess = computed(() => {
   return !gameState.value.gameIsEnded && reconnectingPlayers.value?.length > 0
 })
@@ -682,6 +722,7 @@ const reconnectingPlayers = computed(() => {
 })
 
 const games = ref<LobbyGame[]>([])
+const isGamesListLoading = ref(true)
 const playersList = ref<Player[]>([])
 const currentGame = ref<IGame | null>(null)
 
