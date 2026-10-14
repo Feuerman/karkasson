@@ -1,17 +1,14 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { continueComputerGame } from '@server/services/computerPlayer'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
+import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   createLobbyWithPlayers,
   latestGame,
   type TestGameData,
 } from './helpers/lobby'
-import {
-  startTestServer,
-  stopTestServer,
-  type RunningServer,
-} from './helpers/server'
+import { startTestServer, type RunningServer } from './helpers/server'
 import { sleep, waitForCondition } from './helpers/wait'
 import { countPlacedTiles } from './helpers/gameplay'
 
@@ -19,13 +16,15 @@ describe('Отключение и переподключение игроков'
   let server: RunningServer | undefined
   const clients: TestClient[] = []
 
-  afterEach(async () => {
-    for (const client of clients) client.dispose()
-    clients.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const client of clients) client.dispose()
+      clients.length = 0
+    },
   })
 
   it('временное отключение в игре сохраняет device игрока, реджойн возвращает его', async () => {

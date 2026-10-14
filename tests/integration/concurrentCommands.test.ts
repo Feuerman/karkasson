@@ -1,26 +1,25 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { GameErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
+import { registerIntegrationCleanup } from './helpers/cleanup'
 import { createLobbyWithPlayers, type TestGameData } from './helpers/lobby'
 import { startGame } from './helpers/gameplay'
-import {
-  startTestServer,
-  stopTestServer,
-  type RunningServer,
-} from './helpers/server'
+import { startTestServer, type RunningServer } from './helpers/server'
 
 describe('Конкурентные команды одной партии', () => {
   let server: RunningServer | undefined
   const clients: TestClient[] = []
 
-  afterEach(async () => {
-    for (const client of clients) client.dispose()
-    clients.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const client of clients) client.dispose()
+      clients.length = 0
+    },
   })
 
   async function lobbyWithTwoHumans() {

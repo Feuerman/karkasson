@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 import { GameErrors, LobbyErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { deserializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
+import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   createLobbyWithPlayers,
   latestGame,
@@ -17,23 +18,21 @@ import {
   startGame,
   type TileSnapshot,
 } from './helpers/gameplay'
-import {
-  startTestServer,
-  stopTestServer,
-  type RunningServer,
-} from './helpers/server'
+import { startTestServer, type RunningServer } from './helpers/server'
 
 describe('Действия в игре: валидация ходов', () => {
   let server: RunningServer | undefined
   const clients: TestClient[] = []
 
-  afterEach(async () => {
-    for (const client of clients) client.dispose()
-    clients.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const client of clients) client.dispose()
+      clients.length = 0
+    },
   })
 
   /** Лобби: Алиса (слот 0), Боб (слот 1), два ИИ */
