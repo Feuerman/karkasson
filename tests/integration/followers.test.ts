@@ -13,31 +13,13 @@ import {
   type GameStateSnapshot,
 } from './helpers/gameplay'
 import { startTestServer, type RunningServer } from './helpers/server'
+import { monasteryTile } from '../helpers/tiles'
 import {
   FollowerType,
   PointDirection,
-  SideName,
   SocketEvents,
   TileId,
-  TileSideType,
-  type Tile,
 } from '@server/modules/types'
-
-/** Монастырь без сторон-объектов: у него доступна только клетка-центр. */
-function monasteryTile(): Tile {
-  return {
-    id: TileId.B,
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
-    isMonastery: true,
-  }
-}
 
 describe('Размещение фишек', () => {
   let server: RunningServer | undefined

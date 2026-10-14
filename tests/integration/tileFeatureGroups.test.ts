@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import tiles, { type TileDefinition } from '@server/data/tiles'
+import tiles from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type { Tile, TileSides } from '@server/modules/types'

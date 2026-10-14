@@ -11,43 +11,13 @@ import {
 } from '@server/modules/types'
 import type { Tile, TileSides } from '@server/modules/types'
 import { makePlayers } from '../helpers/fixtures'
+import { monasteryTile, monasteryWithRoadTile } from '../helpers/tiles'
 
 /**
  * Детерминированные тесты аббата на «живом» GameManager: колода и координаты
  * ходов фиксированы, поэтому здесь не работает случайность, а правила
  * (постановка, отзыв, завершение монастыря с аббатом) проверяются по факту.
  */
-
-function monasteryTile(): Tile {
-  return {
-    id: TileId.B,
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
-    isMonastery: true,
-  }
-}
-
-// «Монастырь с дорогой»: даёт и объект-монастырь, и дорогу
-function monasteryWithRoadTile(): Tile {
-  return {
-    id: TileId.A,
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_A.png',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Road,
-      [SideName.West]: TileSideType.Field,
-    },
-    isMonastery: true,
-  }
-}
 
 // Обеспечивает непустую колоду к моменту отрисовки следующего тайла в endTurn
 const stashDeck = (game: GameManager) => {

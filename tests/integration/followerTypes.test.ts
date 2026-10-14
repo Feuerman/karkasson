@@ -8,6 +8,7 @@ import {
 } from '@server/modules/types'
 import type { GridTile, Tile } from '@server/modules/types'
 import { makePlayers } from '../helpers/fixtures'
+import { monasteryTile, monasteryWithRoadTile } from '../helpers/tiles'
 import {
   CENTER_X,
   CENTER_Y,
@@ -20,36 +21,6 @@ import {
  * по этому списку, а сервер проверяет по нему же постановку. Поэтому проверки
  * идут на живом GameManager и сверяют оба применения одного правила.
  */
-
-function monasteryTile(): Tile {
-  return {
-    id: TileId.B,
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
-    isMonastery: true,
-  }
-}
-
-function monasteryWithRoadTile(): Tile {
-  return {
-    id: TileId.A,
-    imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_A.png',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Road,
-      [SideName.West]: TileSideType.Field,
-    },
-    isMonastery: true,
-  }
-}
 
 function gardenTile(): GridTile {
   return {

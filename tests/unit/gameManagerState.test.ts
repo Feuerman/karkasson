@@ -58,6 +58,17 @@ describe('Копирование состояния GameManager', () => {
     assertIndependentGameState(game, clone)
   })
 
+  it('copyStateFrom восстанавливает снимок без общих вложенных данных', () => {
+    const source = createGame()
+    const target = createGame()
+    target.scores[1] = 99
+
+    target.copyStateFrom(source)
+
+    expect(serializeGameState(target)).toBe(serializeGameState(source))
+    assertIndependentGameState(source, target)
+  })
+
   it('restore гидратирует экземпляр и отделяет его от состояния сохранения', () => {
     const game = createGame()
     const savedState = JSON.parse(serializeGameState(game)) as {

@@ -3,11 +3,11 @@ import { GameManager } from '@server/modules/GameManager'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type {
   GridTile,
-  Player,
   Tile,
   TileSideType as Side,
   TileSides,
 } from '@server/modules/types'
+import { makePlayers } from '../helpers/fixtures'
 
 /**
  * Условия окончания партии, связанные с колодой: сервер пропускает тайлы без
@@ -15,16 +15,7 @@ import type {
  * Те же формулировки используются в разделе «Базовая игра» правил.
  */
 
-const players: Player[] = [
-  {
-    id: 1,
-    name: 'Alice',
-    color: 'coral',
-    score: 0,
-    socketId: 's1',
-    deviceId: 'd1',
-  },
-]
+const players = makePlayers().slice(0, 1)
 
 function tileWith(sides: TileSides): Tile {
   return { id: 'test', rotation: 0, sides }
