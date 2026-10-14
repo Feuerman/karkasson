@@ -22,7 +22,7 @@ vi.mock('@nuxt/ui/components/Icon.vue', () => ({
 
 const players: Player[] = [
   {
-    id: 1,
+    id: 10,
     name: 'Анна',
     color: 'coral',
     score: 0,
@@ -30,7 +30,7 @@ const players: Player[] = [
     deviceId: null,
   },
   {
-    id: 2,
+    id: 42,
     name: 'Борис',
     color: 'skyblue',
     score: 0,
@@ -42,7 +42,7 @@ const players: Player[] = [
 const follower = (
   overrides: Partial<ReturnedFollower> = {}
 ): ReturnedFollower => ({
-  playerId: 1,
+  playerId: 10,
   objectId: 'city-1',
   point: { x: 15, y: 14, pointType: TileSideType.City },
   objectType: ObjectTypes.CITY,
@@ -83,15 +83,21 @@ const dragonMoveAction: GameAction = {
 
 describe('имя игрока в истории', () => {
   it('выводится, если у компонента нет продолжения', async () => {
-    const html = await render(PlayerNameById, { playerId: 1 })
+    const html = await render(PlayerNameById, { playerId: 10 })
 
     expect(textOf(html)).toBe('Анна')
+  })
+
+  it('находит игрока по строковому id, не совпадающему с индексом', async () => {
+    const html = await render(PlayerNameById, { playerId: '42' })
+
+    expect(textOf(html)).toBe('Борис')
   })
 
   it('выводится перед продолжением, переданным слотом', async () => {
     const app = createSSRApp({
       render: () =>
-        h(PlayerNameById, { playerId: 2 }, { default: () => ' — рыцарь' }),
+        h(PlayerNameById, { playerId: 42 }, { default: () => ' — рыцарь' }),
     })
     app.provide(
       HISTORY_PLAYERS_KEY,
