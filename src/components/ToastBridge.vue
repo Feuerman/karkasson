@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount } from 'vue'
 import { useToast } from '@nuxt/ui/composables'
 import { registerNotificationBridge } from '@/plugins/notification'
 import {
@@ -22,7 +23,7 @@ const iconMap: Record<NotificationType, string> = {
   [NotificationType.Info]: 'i-lucide-info',
 }
 
-registerNotificationBridge({
+const unregisterNotificationBridge = registerNotificationBridge({
   show(type, message, duration = 3000) {
     add({
       title: message,
@@ -32,6 +33,8 @@ registerNotificationBridge({
     })
   },
 })
+
+onBeforeUnmount(unregisterNotificationBridge)
 </script>
 
 <template>
