@@ -242,13 +242,12 @@ import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
 import { useGhostZoom } from './composables/useGhostZoom'
 import type { PlacedFollower } from '@server/modules/types'
-import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
+import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import {
   RotationDirection,
-  SideName,
   SocketEvents,
-  TileSideType,
+  type Tile,
   type PlacementConflict,
   type Player,
 } from '@server/modules/types'
@@ -364,22 +363,7 @@ const conflictCells = computed(
     )
 )
 
-const EMPTY_TILE: ITile = {
-  id: '',
-  rotation: 0,
-  sides: {
-    [SideName.North]: TileSideType.Field,
-    [SideName.West]: TileSideType.Field,
-    [SideName.South]: TileSideType.Field,
-    [SideName.East]: TileSideType.Field,
-  },
-  followers: [],
-  imgUrl: '',
-  name: '',
-  description: '',
-}
-
-const localCurrentTile = ref<ITile>({ ...EMPTY_TILE })
+const localCurrentTile = ref<Tile | null>(null)
 
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
@@ -450,16 +434,16 @@ const applyGameState = (game: IGame): boolean => {
   return isMyTurn
 }
 
-const syncLocalTile = (tile?: ITile | null) => {
+const syncLocalTile = (tile?: Tile | null) => {
   if (!tile) return
-  localCurrentTile.value = { ...tile } as ITile
+  localCurrentTile.value = { ...tile }
 }
 
 /** Превью догоняет сервер, только если сменился тайл или его поворот. */
-const syncLocalTileIfDiffers = (tile?: ITile | null) => {
+const syncLocalTileIfDiffers = (tile?: Tile | null) => {
   if (
-    localCurrentTile.value.id !== tile?.id ||
-    localCurrentTile.value.rotation !== tile?.rotation
+    localCurrentTile.value?.id !== tile?.id ||
+    localCurrentTile.value?.rotation !== tile?.rotation
   ) {
     syncLocalTile(tile)
   }
@@ -544,7 +528,7 @@ const onGameUpdated = (updatedGame: IGame) => {
 
   // Новый тайл на моём ходу: обновляем превью и показываем выбранную на
   // сервере клетку.
-  if (localCurrentTile.value.id !== updatedGame.currentTile?.id) {
+  if (localCurrentTile.value?.id !== updatedGame.currentTile?.id) {
     syncLocalTile(updatedGame.currentTile)
 
     if (hasPlacedPoint(updatedGame.placingPoint)) {
@@ -557,7 +541,8 @@ const handleGameCreated = (gameId: string) => {
   localStorage.setItem('lastGameId', gameId)
 }
 
-const rotateLocalTile = (tile: ITile, direction: RotationDirection) => {
+const rotateLocalTile = (tile: Tile | null, direction: RotationDirection) => {
+  if (!tile) return
   placementConflicts.value = []
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
@@ -567,9 +552,10 @@ const rotateLocalTile = (tile: ITile, direction: RotationDirection) => {
 }
 
 const placeTile = async (
-  tile: ITile,
+  tile: Tile | null,
   { rowIndex, tileIndex }: { rowIndex?: number; tileIndex?: number }
 ) => {
+  if (!tile) return
   if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
     notificationService.error('Выберите клетку для размещения')
     return
