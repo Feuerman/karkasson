@@ -2,7 +2,7 @@
   <div
     class="absolute inset-0 z-[3000] flex h-full w-full flex-col items-center overflow-y-auto bg-[#241c10]/75 p-6 text-text backdrop-blur-[2px]"
   >
-    <ConnectionBadge :is-connected="gameService.isConnected.value" />
+    <ConnectionBadge :is-connected="isConnected" />
 
     <!-- Лобби: выбор игры -->
     <div
@@ -16,12 +16,12 @@
       />
 
       <LoadingState
-        v-if="!gameService.isConnected.value"
+        v-if="!isConnected"
         message="Идёт соединение с сервером..."
       />
 
       <LoadingState
-        v-else-if="isLoadingGames"
+        v-else-if="isGamesListLoading"
         message="Загрузка списка игр..."
       />
 
@@ -83,7 +83,7 @@
               v-for="game in computedGamesList"
               :key="game.id"
               :game="game"
-              :device-id="gameService.deviceId"
+              :device-id="deviceId"
               @join="joinGame"
               @rejoin="rejoinGame"
             />
@@ -185,7 +185,7 @@
       </div>
 
       <LoadingState
-        v-if="!gameService.isConnected.value"
+        v-if="!isConnected"
         message="Идёт соединение с сервером..."
       />
 
@@ -196,7 +196,7 @@
             :key="player.id"
             :player="player"
             :index="index"
-            :device-id="gameService.deviceId"
+            :device-id="deviceId"
             @toggle-checkbox="toggleCheckbox"
             @name-input="currentPlayerName = $event"
             @toggle-button="toggleButton"
@@ -211,10 +211,10 @@
             Отключиться
           </UButton>
           <UButton
-            v-if="isLobbyCreator"
+            v-if="isCreator"
             :data-testid="TEST_IDS.lobbyStartGame"
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
-            @click="startGame"
+            @click="emit('startGame')"
           >
             Начать игру
           </UButton>
@@ -225,12 +225,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import GameService from '@/modules/GameService'
+import { computed, ref } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
-import { notifyError } from '@/utils/common'
 import { TEST_IDS } from '@/data/testIds'
-import type { IGame, IGameBoard, LobbyGame } from '@/types/game'
+import type { IGame, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
@@ -247,16 +245,23 @@ import RuleStatusLine from './internal/RuleStatusLine.vue'
 
 const props = withDefaults(
   defineProps<{
-    gameState?: IGameBoard
     gamesList?: LobbyGame[]
     players?: Player[]
     currentGame?: IGame | null
+    /** Подключение и идентификация приходят из слоя транспорта. */
+    isConnected?: boolean
+    isCreator?: boolean
+    isGamesListLoading?: boolean
+    deviceId?: string
   }>(),
   {
-    gameState: () => ({}) as IGameBoard,
     gamesList: () => [],
     players: () => [],
     currentGame: null,
+    isConnected: false,
+    isCreator: false,
+    isGamesListLoading: false,
+    deviceId: '',
   }
 )
 
@@ -265,24 +270,10 @@ const emit = defineEmits<{
   joinGame: [gameId: string]
   rejoinGame: [gameId: string]
   leaveGame: []
+  addPlayer: [name: string, index: number]
+  removePlayer: [index: number, keepAsComputer: boolean]
   startGame: []
-  gameStarted: [game: IGame]
-  updateGamesList: []
 }>()
-
-const gameService = GameService
-
-const isLobbyCreator = computed(() => {
-  const creator = props.currentGame?.players[0]
-  if (!creator) return false
-
-  return Boolean(
-    (creator.deviceId && creator.deviceId === gameService.deviceId) ||
-    (creator.socketId &&
-      gameService.socket?.id &&
-      creator.socketId === gameService.socket.id)
-  )
-})
 
 const activeGameRules = computed(() => {
   const game = props.currentGame
@@ -329,8 +320,6 @@ const riverEnabled = ref(false)
 const princessAndDragonEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
-const isLoadingGames = ref(true)
-let initialLoadingTimeout: ReturnType<typeof setTimeout> | undefined
 
 const computedGamesList = computed<LobbyGame[]>(() =>
   (showEndedGames.value
@@ -356,18 +345,6 @@ function createGame() {
   })
 }
 
-onMounted(() => {
-  // Simulate initial games loading
-  initialLoadingTimeout = setTimeout(() => {
-    initialLoadingTimeout = undefined
-    isLoadingGames.value = false
-  }, 1000)
-})
-
-onBeforeUnmount(() => {
-  clearTimeout(initialLoadingTimeout)
-})
-
 function joinGame(gameId: string | undefined) {
   if (gameId === undefined) return
   emit('joinGame', gameId)
@@ -378,45 +355,24 @@ function rejoinGame(gameId: string | undefined) {
   emit('rejoinGame', gameId)
 }
 
-async function addPlayer(player: { name?: string | null }, index: number) {
-  try {
-    await GameService.addPlayer({ name: player.name ?? '', index })
-    currentPlayerName.value = ''
-  } catch (error) {
-    notifyError(error)
-  }
-}
-
-async function removePlayer(index: number, keepAsComputer: boolean) {
-  try {
-    await GameService.removePlayer(index, keepAsComputer)
-  } catch (error) {
-    notifyError(error)
-  }
+function addPlayer(name: string | null | undefined, index: number) {
+  emit('addPlayer', name ?? '', index)
+  currentPlayerName.value = ''
 }
 
 function toggleCheckbox(player: Player, index: number) {
   if (player.socketId || player.name) {
-    void removePlayer(index, false)
+    emit('removePlayer', index, false)
   } else {
-    void addPlayer(player, index)
+    addPlayer(player.name, index)
   }
 }
 
 function toggleButton(player: Player, index: number) {
   if (player.socketId) {
-    void removePlayer(index, true)
+    emit('removePlayer', index, true)
   } else {
-    void addPlayer({ name: currentPlayerName.value || player.name }, index)
-  }
-}
-
-async function startGame() {
-  try {
-    await GameService.startGame()
-    emit('startGame')
-  } catch (error) {
-    notifyError(error)
+    addPlayer(currentPlayerName.value || player.name, index)
   }
 }
 </script>

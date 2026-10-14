@@ -79,6 +79,8 @@ export class GameService implements IGameService {
   deviceId: string
   gamesList: GameSummary[] = []
   isConnected = ref(false)
+  /** Идентификатор текущего сокета: меняется при каждом переподключении. */
+  socketId = ref<string | null>(null)
   private serverUrl: string
   private readonly pendingAcks = new Set<(error: Error) => void>()
   /**
@@ -214,6 +216,7 @@ export class GameService implements IGameService {
     socket.on('connect', () => {
       console.log('Connected to server')
       this.isConnected.value = true
+      this.socketId.value = socket.id ?? null
       this.socket?.emit(SocketEvents.RegisterDevice, {
         deviceId: this.deviceId,
       })
@@ -222,6 +225,7 @@ export class GameService implements IGameService {
     socket.on('disconnect', (reason: string) => {
       console.log('Disconnected from server:', reason)
       this.isConnected.value = false
+      this.socketId.value = null
       this.rejectPendingAcks(
         new Error('Соединение с сервером прервано, команда не доставлена')
       )
@@ -237,6 +241,7 @@ export class GameService implements IGameService {
     socket.on('connect_error', (error: Error) => {
       console.log('Connection error:', error)
       this.isConnected.value = false
+      this.socketId.value = null
     })
 
     socket.on('reconnect_attempt', (attemptNumber: number) => {
@@ -246,16 +251,19 @@ export class GameService implements IGameService {
     socket.on('reconnect', (attemptNumber: number) => {
       console.log('Successfully reconnected after', attemptNumber, 'attempts')
       this.isConnected.value = true
+      this.socketId.value = socket.id ?? null
     })
 
     socket.on('reconnect_error', (error: Error) => {
       console.log('Reconnection error:', error)
       this.isConnected.value = false
+      this.socketId.value = null
     })
 
     socket.on('reconnect_failed', () => {
       console.log('Failed to reconnect after all attempts')
       this.isConnected.value = false
+      this.socketId.value = null
     })
 
     socket.on(SocketEvents.Error, (error: Error) => {
