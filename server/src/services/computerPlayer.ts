@@ -155,10 +155,9 @@ export function maybeContinueWithComputerMove(
   gameId: string
 ): void {
   const currentPlayer = game.currentPlayer
-  if (!currentPlayer) return
-
-  const nextPlayer = game.getNextPlayer(currentPlayer.id)
-  if (isComputerPlayer(nextPlayer) || isComputerPlayer(currentPlayer)) {
+  // После размещения тайла ход всё ещё может принадлежать человеку, если он
+  // должен выставить фишку. Не запускаем компьютер до фактической передачи хода.
+  if (currentPlayer && isComputerPlayer(currentPlayer)) {
     continueComputerGame(events, service, gameId)
   }
 }
