@@ -32,6 +32,14 @@ test-results/
 
 *.tsbuildinfo
 
-# Agents
-opencode.json
-!.opencode/opencode.json
+# OpenCode: project settings and commands are tracked; local installs and secrets are not
+/opencode.json
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/pnpm-lock.yaml
+.opencode/bun.lock
+.opencode/yarn.lock
+.opencode/.gitignore
+.opencode/.secrets
+.opencode/agent-manager.json

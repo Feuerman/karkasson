@@ -3,7 +3,10 @@ import type { IGameBoard } from '../../modules/GameManager'
 import { continueComputerGame } from '../../services/computerPlayer'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
+import { createLogger } from '../../utils/logger'
 import { ackGameUpdated, runLobbyCommand } from './shared'
+
+const logger = createLogger('connection')
 
 function isTemporaryDisconnect(reason: string): boolean {
   return reason === 'transport close' || reason === 'ping timeout'
@@ -21,7 +24,7 @@ async function saveGameOnDisconnect(
   try {
     await service.saveGame(gameId)
   } catch (error: unknown) {
-    console.error('Failed to save game after disconnect:', error)
+    logger.error('Failed to save game after disconnect:', error)
   }
 }
 
@@ -75,7 +78,7 @@ async function releaseGameAfterDisconnect(
   try {
     await service.deleteGame(gameId)
   } catch (error: unknown) {
-    console.error('Failed to delete game:', error)
+    logger.error('Failed to delete game:', error)
     return
   }
   events.publishGameDeleted(gameId)
@@ -98,7 +101,7 @@ async function handleDisconnect(
       await releaseGameAfterDisconnect(context, game, deviceId, reason)
     } catch (error: unknown) {
       // Одна партия не должна мешать освобождению остальных.
-      console.error(`Failed to release game ${game.id ?? 'unknown'}:`, error)
+      logger.error(`Failed to release game ${game.id ?? 'unknown'}:`, error)
     }
   }
 }
@@ -119,7 +122,7 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
     // Фоновая задача с собственным обработчиком ошибок: хендлер disconnect
     // обязан вернуться сразу и не блокировать цикл событий.
     void handleDisconnect(context, deviceId, reason).catch((error: unknown) => {
-      console.error('Failed to handle disconnect:', error)
+      logger.error('Failed to handle disconnect:', error)
     })
   })
 

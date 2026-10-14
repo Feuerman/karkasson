@@ -1,8 +1,9 @@
 {
-  "name": "carcasson_ex",
+  "name": "karkasson",
   "description": "Онлайн-игра «Каркассон»: Vue 3 клиент и игровой сервер на Node.js/Socket.IO",
   "version": "2.10.1",
   "private": true,
+  "license": "ISC",
   "type": "module",
   "packageManager": "pnpm@10.29.2",
   "engines": {
@@ -43,7 +44,7 @@
     "happy-dom": "^21.0.1",
     "prettier": "^3.1.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "vite": "^8.3.0",
     "vite-plugin-vue-devtools": "^8.2.1",
     "vitest": "^5.0.1",

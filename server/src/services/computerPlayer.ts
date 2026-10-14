@@ -2,8 +2,11 @@ import { COMPUTER_MOVE_DELAY_MS, PLAYER_RECONNECT_TIMEOUT_MS } from '../config'
 import type { IGameBoard } from '../modules/GameManager'
 import { type Player, type PlayerId } from '../modules/types'
 import { sleep } from '../utils/common'
+import { createLogger } from '../utils/logger'
 import type { GameService } from './GameService'
 import type { GameEventsPublisher } from './gameEvents'
+
+const logger = createLogger('computerPlayer')
 
 export function isComputerPlayer(player: Player): boolean {
   return !player.socketId && !player.deviceId
@@ -77,7 +80,7 @@ function deleteComputerGame(
       events.publishGamesList(service.formatGamesList())
     })
     .catch((error: unknown) => {
-      console.error(`Failed to delete computer game (${reason}):`, error)
+      logger.error(`Failed to delete computer game (${reason}):`, error)
     })
 }
 
@@ -186,10 +189,10 @@ export async function runComputerMoves(
     if (error instanceof GameSaveError) {
       // Хранилище недоступно: ход уже откатан в playComputerMove, но
       // партию игроков удалять нельзя — она переживёт восстановление связи.
-      console.error('Failed to save computer move:', error)
+      logger.error('Failed to save computer move:', error)
       events.publishGameError(gameId, 'Не удалось сохранить ход компьютера')
     } else {
-      console.error('Failed to continue computer game:', error)
+      logger.error('Failed to continue computer game:', error)
       deleteComputerGame(events, service, gameId, 'move failed')
     }
   } finally {

@@ -9,6 +9,9 @@ import { cancelAllComputerMoves } from './services/computerPlayer'
 import { registerSocketHandlers } from './socket/router'
 import { createGameEventsPublisher } from './socket/publisher'
 import type { GameEventsPublisher } from './services/gameEvents'
+import { createLogger } from './utils/logger'
+
+const logger = createLogger('app')
 
 export interface GameServerHandle {
   app: express.Express
@@ -51,7 +54,7 @@ export function createGameServer(
     if (adminUIOptions) {
       instrument(io, adminUIOptions)
     } else {
-      console.warn(
+      logger.warn(
         'Socket.IO Admin UI is disabled: configure its username and password hash'
       )
     }
@@ -90,7 +93,7 @@ export function createGameServer(
     try {
       await gameService.flushGames()
     } catch (error: unknown) {
-      console.error('Failed to flush games on shutdown:', error)
+      logger.error('Failed to flush games on shutdown:', error)
     }
     await new Promise<void>((resolve) => {
       server.close(() => resolve())

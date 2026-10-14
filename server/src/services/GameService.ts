@@ -5,6 +5,7 @@ import type { GameSavePayload, IGameDatabase } from '../modules/Database'
 import { CommonErrors, LobbyErrors, SaveErrors } from '../modules/errors'
 import { randomInt } from 'node:crypto'
 import { getErrorMessage } from '../utils/common'
+import { createLogger } from '../utils/logger'
 import {
   playerColorForIndex,
   playerNameForIndex,
@@ -15,6 +16,8 @@ import {
   type GameRules,
   type Scores,
 } from '../modules/types'
+
+const logger = createLogger('GameService')
 
 export interface GameSummaryPlayer {
   id: PlayerId
@@ -572,7 +575,7 @@ export class GameService {
 
     this.unreadableSaves = failures.length
     if (failures.length) {
-      console.error(
+      logger.error(
         `Ignoring ${failures.length} invalid saved game(s):`,
         failures
       )
@@ -605,7 +608,7 @@ export class GameService {
         game.lastUpdate = Date.now()
       }
       if (Date.now() - game.lastUpdate > timeoutMs) {
-        console.log('Deleting stale game:', gameId)
+        logger.info('Deleting stale game:', gameId)
         await this.deleteGame(gameId)
         deletedGameIds.push(gameId)
       }

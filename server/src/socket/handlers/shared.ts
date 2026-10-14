@@ -2,7 +2,10 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type { GameService } from '../../services/GameService'
 import type { GameEventsPublisher } from '../../services/gameEvents'
 import { getErrorMessage } from '../../utils/common'
+import { createLogger } from '../../utils/logger'
 import type { SocketCallback } from '../types'
+
+const logger = createLogger('socket')
 
 /** Форматирует состояние один раз, публикует gameUpdated и подтверждает ack. */
 export function ackGameUpdated(
@@ -31,7 +34,7 @@ export function runLobbyCommand(
   execute: () => Promise<void>
 ): Promise<void> {
   return execute().catch((error: unknown) => {
-    console.error('Lobby command failed:', error)
+    logger.error('Lobby command failed:', error)
     callback?.({ error: getErrorMessage(error) })
   })
 }
