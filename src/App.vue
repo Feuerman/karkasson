@@ -230,13 +230,14 @@ import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError, throttle } from './utils/common'
 import { boardCellTestId } from './data/testIds'
-import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
+import { rotateTile as rotateTileUtil } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
 import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
 import notificationService from './plugins/notification'
 import { useBoardPan } from './composables/useBoardPan'
+import { useGhostZoom } from './composables/useGhostZoom'
 import type { PlacedFollower } from '@server/modules/types'
 import type { IGame, IGameBoard, ITile, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
@@ -254,19 +255,11 @@ const RulesPanel = defineAsyncComponent(
   () => import('./components/rules/RulesPanel.vue')
 )
 
-const ghostPreviewRef = ref<HTMLElement | null>(null)
-const ghostFrameRef = ref<HTMLElement | null>(null)
-
-function applyGhostZoom(zoom: number) {
-  if (ghostPreviewRef.value) {
-    ghostPreviewRef.value.style.transform = `scale(${zoom})`
-  }
-
-  if (ghostFrameRef.value) {
-    ghostFrameRef.value.style.width = `${TILE_SIZE * zoom}px`
-    ghostFrameRef.value.style.height = `${TILE_SIZE * zoom}px`
-  }
-}
+const {
+  previewRef: ghostPreviewRef,
+  frameRef: ghostFrameRef,
+  applyZoom: applyGhostZoom,
+} = useGhostZoom()
 
 const {
   boardRef,
@@ -331,10 +324,9 @@ watch(
   { deep: true, immediate: true }
 )
 
-const currentStatePosition = ref({
-  x: window.innerWidth / 2,
-  y: window.innerHeight / 2,
-})
+// Размеры окна известны только после монтирования: начальная позиция
+// превью выставляется в `onMounted`.
+const currentStatePosition = ref({ x: 0, y: 0 })
 
 /** Клетка доски: выбрана игроком или пришла с сервера. */
 type PlacedPoint = { rowIndex?: number; tileIndex?: number }
@@ -389,14 +381,11 @@ const localCurrentTile = ref<ITile>({ ...EMPTY_TILE })
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
 
-watch(
-  () => [gameState.value.isPlacingFollower, localCurrentTile.value.id],
-  () => {
-    nextTick(() => {
-      applyGhostZoom(getZoom())
-    })
-  }
-)
+// Превью монтируется и исчезает вместе с игровыми фазами, поэтому масштаб
+// доски переносится на него каждый раз, когда элементы появились.
+watch([ghostPreviewRef, ghostFrameRef], () => {
+  applyGhostZoom(getZoom())
+})
 
 const updateSelectedPlacingPoint = throttle(
   (value: { rowIndex: number; tileIndex: number }) => {
@@ -721,7 +710,12 @@ onBeforeUnmount(() => {
   clearGameUpdateTimeout()
 })
 
-onMounted(async () => {
+onMounted(() => {
+  currentStatePosition.value = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  }
+
   GameService.connect()
 
   const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
