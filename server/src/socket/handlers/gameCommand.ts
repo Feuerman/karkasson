@@ -3,8 +3,11 @@ import type { GameService } from '../../services/GameService'
 import { CommonErrors, GameErrors } from '../../modules/errors'
 import type { SocketEvent } from '../../modules/types'
 import { getErrorMessage } from '../../utils/common'
+import { createLogger } from '../../utils/logger'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { ackGameUpdated } from './shared'
+
+const logger = createLogger('gameCommand')
 
 type GameErrorMessage = (typeof GameErrors)[keyof typeof GameErrors]
 
@@ -112,7 +115,7 @@ export async function runGameCommand(
       await execute(context)
     } catch (error) {
       game.copyStateFrom(previousState)
-      console.error(`Ошибка команды ${command}:`, error)
+      logger.error(`Ошибка команды ${command}:`, error)
       callback?.({
         error: getErrorMessage(error),
         ...commandErrorDetails(error),

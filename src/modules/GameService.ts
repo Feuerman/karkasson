@@ -18,6 +18,9 @@ import type {
   DragonMovePayload,
   RemovePlayerPayload,
 } from '@/types/socket'
+import { createLogger } from '@/utils/logger'
+
+const logger = createLogger('GameService')
 
 export interface IGameService {
   socket: Socket | null
@@ -183,16 +186,16 @@ export class GameService implements IGameService {
   }
 
   connect() {
-    console.log('Attempting to connect to server...')
+    logger.debug('Attempting to connect to server...')
     if (this.socket?.connected) {
-      console.log('Socket already connected, skipping connection')
+      logger.debug('Socket already connected, skipping connection')
       return
     }
 
     // Сокет уже создан и переживает разрывы сам: у него сохранены и слушатели,
     // и подписки вызывающего кода. Новый сокет означал бы потерю подписок.
     if (this.socket) {
-      console.log('Reusing existing socket for reconnection')
+      logger.debug('Reusing existing socket for reconnection')
       this.socket.connect()
       return
     }
@@ -214,7 +217,7 @@ export class GameService implements IGameService {
     this.socket = socket
 
     socket.on('connect', () => {
-      console.log('Connected to server')
+      logger.info('Connected to server')
       this.isConnected.value = true
       this.socketId.value = socket.id ?? null
       this.socket?.emit(SocketEvents.RegisterDevice, {
@@ -223,7 +226,7 @@ export class GameService implements IGameService {
     })
 
     socket.on('disconnect', (reason: string) => {
-      console.log('Disconnected from server:', reason)
+      logger.info('Disconnected from server:', reason)
       this.isConnected.value = false
       this.socketId.value = null
       this.rejectPendingAcks(
@@ -233,41 +236,41 @@ export class GameService implements IGameService {
         reason === 'io server disconnect' ||
         reason === 'io client disconnect'
       ) {
-        console.log('Attempting to reconnect after disconnect...')
+        logger.debug('Attempting to reconnect after disconnect...')
         socket.connect()
       }
     })
 
     socket.on('connect_error', (error: Error) => {
-      console.log('Connection error:', error)
+      logger.warn('Connection error:', error)
       this.isConnected.value = false
       this.socketId.value = null
     })
 
     socket.on('reconnect_attempt', (attemptNumber: number) => {
-      console.log('Attempting to reconnect:', attemptNumber)
+      logger.debug('Attempting to reconnect:', attemptNumber)
     })
 
     socket.on('reconnect', (attemptNumber: number) => {
-      console.log('Successfully reconnected after', attemptNumber, 'attempts')
+      logger.info('Successfully reconnected after', attemptNumber, 'attempts')
       this.isConnected.value = true
       this.socketId.value = socket.id ?? null
     })
 
     socket.on('reconnect_error', (error: Error) => {
-      console.log('Reconnection error:', error)
+      logger.warn('Reconnection error:', error)
       this.isConnected.value = false
       this.socketId.value = null
     })
 
     socket.on('reconnect_failed', () => {
-      console.log('Failed to reconnect after all attempts')
+      logger.error('Failed to reconnect after all attempts')
       this.isConnected.value = false
       this.socketId.value = null
     })
 
     socket.on(SocketEvents.Error, (error: Error) => {
-      console.error('Server error:', error)
+      logger.error('Server error:', error)
     })
 
     this.attachSubscriptions(socket)
@@ -419,7 +422,7 @@ export class GameService implements IGameService {
   }
 
   disconnect() {
-    console.log('Manual disconnect called. Current gameId:', this.gameId)
+    logger.debug('Manual disconnect called. Current gameId:', this.gameId)
     if (this.socket) {
       const gameId = this.gameId
       this.socket.disconnect()

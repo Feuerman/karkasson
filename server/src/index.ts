@@ -9,6 +9,9 @@ import {
   InMemoryGameDatabase,
 } from './modules/Database'
 import { resumeComputerGames } from './services/computerPlayer'
+import { createLogger } from './utils/logger'
+
+const logger = createLogger('server')
 
 const database =
   process.env.NODE_ENV === 'production'
@@ -31,7 +34,7 @@ function startStaleGamesCleanup() {
         }
       })
       .catch((error: unknown) => {
-        console.error('Failed to clean stale games:', error)
+        logger.error('Failed to clean stale games:', error)
       })
   }, STALE_GAMES_CHECK_MS)
   return timer
@@ -62,14 +65,14 @@ server.listen(PORT, () => {
 })
 
 async function startServer() {
-  console.log(`Server running on port ${PORT}`)
+  logger.info(`Server running on port ${PORT}`)
 
   try {
     await gameService.loadSavedGames()
-    console.log(`Loaded ${gameService.allGames().length} saved game(s)`)
+    logger.info(`Loaded ${gameService.allGames().length} saved game(s)`)
     resumeComputerGames(events, gameService)
   } catch (error: unknown) {
-    console.error('Failed to load saved games:', error)
+    logger.error('Failed to load saved games:', error)
     await shutdown(1)
     return
   }

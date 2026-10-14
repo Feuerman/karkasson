@@ -256,6 +256,7 @@ Chromium для браузерного smoke описаны в [`AGENTS.md`](AGE
 | `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена   |
 | `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена   |
 | `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                           |
+| `LOG_LEVEL`                     | сервер | `info`                           |
 | `FIREBASE_API_KEY`              | сервер | обязательно для production       |
 | `FIREBASE_DATABASE_URL`         | сервер | обязательно для production       |
 | `FIREBASE_AUTH_DOMAIN`          | сервер | не задано                        |
@@ -264,6 +265,9 @@ Chromium для браузерного smoke описаны в [`AGENTS.md`](AGE
 | `FIREBASE_MESSAGING_SENDER_ID`  | сервер | не задано                        |
 | `FIREBASE_APP_ID`               | сервер | не задано                        |
 | `FIREBASE_MEASUREMENT_ID`       | сервер | не задано                        |
+
+`LOG_LEVEL` принимает `debug`, `info`, `warn`, `error` или `silent`; неизвестное
+значение заменяется на `info`.
 
 Для подключения к [Socket.IO Admin UI](https://admin.socket.io/) задайте обе
 переменные `SOCKET_ADMIN_UI_USERNAME` и `SOCKET_ADMIN_UI_PASSWORD_HASH`.
@@ -299,6 +303,10 @@ Database. В разработке и тестах `NODE_ENV` не равен `pr
 известен клиентам. Доступ к данным защищают правила Firebase Security Rules и
 ограничения API-ключа в Google Cloud Console, а не сокрытие конфигурации.
 
+Правила безопасности и индексы Realtime Database поддерживаются в Firebase
+Console для используемого проекта и не хранятся в этом репозитории. При
+изменении структуры запросов проверяйте необходимость индексов там же.
+
 ## Деплой
 
 - **Клиент** — GitHub Actions (`.github/workflows/deploy-gh-pages.yml`):
@@ -321,5 +329,4 @@ Database. В разработке и тестах `NODE_ENV` не равен `pr
 
 ## Лицензия
 
-См. `server/package.json` (по умолчанию ISC для серверного пакета);
-корневой пакет помечен как `private`.
+Проект распространяется на условиях лицензии [ISC](LICENSE).
