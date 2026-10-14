@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ObjectTypes } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
@@ -46,7 +46,18 @@ const props = defineProps({
   },
 })
 
-const initialX = Math.max(0, (window.innerWidth - 260) / 2)
+const ABBOT_RECALL_PANEL_WIDTH = 260
+
+// Ширина окна известна только после монтирования, поэтому панель центрируется
+// в `onMounted`, а не в момент создания компонента.
+const initialX = ref(0)
+
+onMounted(() => {
+  initialX.value = Math.max(
+    0,
+    (window.innerWidth - ABBOT_RECALL_PANEL_WIDTH) / 2
+  )
+})
 
 /** Возможность отзыва и выигрыш считает сервер: клиент только показывает их. */
 const recall = computed(() => props.gameBoard.abbotRecall ?? null)
