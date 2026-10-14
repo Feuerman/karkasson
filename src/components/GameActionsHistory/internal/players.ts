@@ -7,4 +7,5 @@ export const HISTORY_PLAYERS_KEY: InjectionKey<ComputedRef<Player[]>> =
 export const playerById = (
   players: Player[],
   playerId: string | number
-): Player | undefined => players[Number(playerId) - 1]
+): Player | undefined =>
+  players.find((player) => String(player.id) === String(playerId))
