@@ -242,6 +242,20 @@ describe('Правила дополнения «Принцесса и драко
     ).toEqual([])
   })
 
+  it('отклоняет движение дракона при отсутствующем ходе или позиции', () => {
+    const game = new GameManager({ players, startImmediately: false })
+    expect(game.moveDragon(15, 11)).toBe(false)
+
+    game.dragonMove = {
+      remainingSteps: 1,
+      nextPlayerIndex: 0,
+      resumePlayerIndex: 0,
+      visited: [],
+    }
+    expect(game.moveDragon(15, 11)).toBe(false)
+    expect(game.dragonPosition).toBeUndefined()
+  })
+
   it('съедает подданного на вулкане только при обычном шаге дракона', () => {
     const game = new GameManager({
       players,
