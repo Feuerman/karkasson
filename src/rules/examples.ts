@@ -5,6 +5,7 @@ import { riverTiles } from '@server/data/riverTiles'
 import {
   OPPOSITE_SIDE,
   PointDirection,
+  SIDE_NAMES,
   SideName,
   type TileId,
   TileSideType,
@@ -19,21 +20,7 @@ import type {
 } from './types'
 import { RulesMarkerKind } from './types'
 
-const SIDE_ORDER = [
-  SideName.North,
-  SideName.East,
-  SideName.South,
-  SideName.West,
-] as const
-
-type CompassDirection = (typeof SIDE_ORDER)[number]
-
-const SIDE_INDEX: Record<CompassDirection, number> = {
-  [SideName.North]: 0,
-  [SideName.East]: 1,
-  [SideName.South]: 2,
-  [SideName.West]: 3,
-}
+type CompassDirection = (typeof SIDE_NAMES)[number]
 
 const tileDataById = (id: string) => {
   return (
@@ -133,7 +120,11 @@ export const sideOf = (
   const data = tileDataById(tile.id)
   if (!data) return undefined
   const rotations = ((tile.rotation ?? 0) / 90) % 4
-  const baseDirection = SIDE_ORDER[(SIDE_INDEX[direction] - rotations + 4) % 4]
+  const directionIndex = SIDE_NAMES.indexOf(direction)
+  const baseDirection =
+    SIDE_NAMES[
+      (directionIndex - rotations + SIDE_NAMES.length) % SIDE_NAMES.length
+    ]
   return data.sides[baseDirection]
 }
 
@@ -157,7 +148,7 @@ export const validateExampleGrid = (
       if (!tile) return
 
       if (!intentionalMismatch) {
-        SIDE_ORDER.forEach((direction) => {
+        SIDE_NAMES.forEach((direction) => {
           const delta: Record<CompassDirection, [number, number]> = {
             [SideName.North]: [0, -1],
             [SideName.East]: [1, 0],

@@ -72,8 +72,7 @@ import GameService from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import {
   followerPlaceIcon as placeIcon,
-  pointDirectionTitle,
-  pointTypeTitle,
+  followerPlaceTitle,
 } from '@/utils/labels'
 import { notifyError } from '@/utils/common'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
@@ -93,24 +92,6 @@ const props = defineProps({
 const groupedPlaces = computed(() =>
   groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
 )
-
-const followerPlaceTitle = (
-  place: AvailableFollowerPlace,
-  sameTypeCount: number
-): string => {
-  const title = pointTypeTitle(place.point.pointType)
-  if (sameTypeCount === 1) return title
-  return `${title} — ${pointDirectionTitle(place.point.direction)}`
-}
-
-const placeTitle = (
-  place: AvailableFollowerPlace,
-  sameTypeCount: number
-): string => {
-  if (place.temporaryObject.isGarden) return 'Сад'
-  if (place.temporaryObject.isMonastery) return 'Монастырь'
-  return followerPlaceTitle(place, sameTypeCount)
-}
 
 /** Как называется фишка в кнопке выбора. */
 const FOLLOWER_TYPE_TITLES: Record<FollowerType, string> = {
@@ -172,7 +153,7 @@ const choiceGroups = computed<ChoiceGroup[]>(() =>
     const choices: FollowerChoice[] = followerTypes.map((followerType) => ({
       key: followerType,
       label: followerChoiceLabel(
-        placeTitle(place, sameTypeCount),
+        followerPlaceTitle(place, sameTypeCount),
         place,
         followerType
       ),

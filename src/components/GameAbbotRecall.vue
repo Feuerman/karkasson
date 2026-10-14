@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ObjectTypes } from '@server/modules/types'
+import { OBJECT_TYPE_GENITIVES } from '@/utils/labels'
 import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -64,9 +64,10 @@ const recall = computed(() => props.gameBoard.abbotRecall ?? null)
 
 const showRecall = computed(() => recall.value !== null)
 
-const abbotLocation = computed(() =>
-  recall.value?.objectType === ObjectTypes.GARDEN ? 'сада' : 'монастыря'
-)
+const abbotLocation = computed(() => {
+  const objectType = recall.value?.objectType
+  return objectType ? OBJECT_TYPE_GENITIVES[objectType] : ''
+})
 
 const potentialPoints = computed(() => recall.value?.points ?? 0)
 
