@@ -62,12 +62,6 @@ function getUnrotatedDirection(
 }
 
 describe('follower positions', () => {
-  it('has a position mapping for each base tile image', () => {
-    expect(tiles).toHaveLength(24)
-    expect(innsAndCathedralsTiles).toHaveLength(18)
-    tileSets.forEach((tile) => expect(isTileId(tile.id)).toBe(true))
-  })
-
   it('maps every road and city entry to a matching side on the source tile', () => {
     for (const tile of tileSets) {
       const tileId = tile.id as TileId

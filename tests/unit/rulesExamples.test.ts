@@ -104,6 +104,36 @@ describe('примеры правил', () => {
     }
   })
 
+  it('правила собора описывают ставку, совпадающую с подсчётом очков', () => {
+    const expansion = baseGameRules.sections.find(
+      ({ id }) => id === 'inns-and-cathedrals'
+    )
+    const cathedralRules = expansion?.blocks.find(
+      (block) => block.type === 'paragraph' && block.title === 'Соборы'
+    )
+    const cathedralExample = collectExamples([baseGameRules]).find(
+      ({ id }) => id === 'cathedral-city'
+    )
+    const scoringTable = expansion?.blocks.find(
+      (block) => block.type === 'table' && block.title === 'Очки с дополнением'
+    )
+
+    expect(cathedralRules?.type).toBe('paragraph')
+    if (cathedralRules?.type !== 'paragraph') return
+    expect(cathedralRules.text).toContain(
+      'каждый тайл города и каждый герб приносят по 3 очка'
+    )
+    expect(cathedralRules.text).toContain('(2 + 1) × 3 = 9 очков')
+    expect(cathedralExample?.caption).toContain('5 × 3 = 15')
+    expect(scoringTable?.type).toBe('table')
+    if (scoringTable?.type !== 'table') return
+    expect(scoringTable.rows).toContainEqual([
+      'Город с собором',
+      '3 очка за каждый тайл и герб',
+      '0 очков',
+    ])
+  })
+
   it('маршрут дракона в примерах пронумерован подряд и без повторов', () => {
     const dragonExamples = collectExamples([baseGameRules]).filter(({ id }) =>
       id.startsWith('dragon-move-')
