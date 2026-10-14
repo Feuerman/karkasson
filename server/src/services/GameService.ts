@@ -411,9 +411,9 @@ export class GameService {
   ): JoinResult | { game: IGameBoard; playerIndex: number } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
-    if (game.gameIsStarted) return { error: 'Игра уже началась' }
+    if (game.gameIsStarted) return { error: LobbyErrors.GameAlreadyStarted }
     if (game.players.some((player) => player.socketId === socketId)) {
-      return { error: 'Вы уже присоединились к игре' }
+      return { error: LobbyErrors.AlreadyJoinedGame }
     }
     if (game.players.every((p) => p.socketId)) {
       return { error: LobbyErrors.AllSlotsTaken }

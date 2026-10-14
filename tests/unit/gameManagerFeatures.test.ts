@@ -90,6 +90,59 @@ describe('Слияние и завершение дорог и городов', 
     expect(game.calcScoreForRoad(road).players).toEqual({ 1: 1, 2: 1 })
   })
 
+  it('возвращает пустой список при завершении пустого объекта', () => {
+    const game = new GameManager({ players })
+    game.temporaryObjects.monasteries.push({
+      id: 'empty-monastery',
+      points: [],
+      followers: [],
+      isMonastery: true,
+    })
+
+    new GameObjectManager(game).checkCompletedCentralObjects(
+      ObjectTypes.MONASTERY
+    )
+
+    expect(game.temporaryObjects.monasteries).toHaveLength(1)
+    expect(game.completedObjects.monasteries).toHaveLength(0)
+  })
+
+  it('добавляет новый объект, если у участка нет соседних сегментов', () => {
+    const game = new GameManager({ players })
+    const point: Point = {
+      x: 15,
+      y: 15,
+      direction: SideName.North,
+      pointType: TileSideType.Road,
+    }
+    game.tilePlacesStats = { 15: { 15: cellTile(15) } }
+    const roadCount = game.temporaryObjects.roads.length
+
+    objectManager(game).mergeLinearFeature(TileSideType.Road, [], [point])
+
+    expect(game.temporaryObjects.roads).toHaveLength(roadCount + 1)
+    expect(game.temporaryObjects.roads.at(-1)?.points).toEqual([point])
+  })
+
+  it('игнорирует связь с сегментом, которого уже нет', () => {
+    const game = new GameManager({ players })
+    const point: Point = {
+      x: 15,
+      y: 15,
+      direction: SideName.North,
+      pointType: TileSideType.Road,
+    }
+    const roadsBefore = structuredClone(game.temporaryObjects.roads)
+
+    objectManager(game).mergeLinearFeature(
+      TileSideType.Road,
+      ['removed-road'],
+      [point]
+    )
+
+    expect(game.temporaryObjects.roads).toEqual(roadsBefore)
+  })
+
   it('объединяет несколько сегментов города, связанных на одном тайле', () => {
     const game = new GameManager({ players })
     const segments = [

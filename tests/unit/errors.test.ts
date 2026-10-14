@@ -24,6 +24,12 @@ const DEFINITION_FILES = [
   resolve(PROJECT_ROOT, 'server/src/modules/errors.ts'),
   resolve(PROJECT_ROOT, 'server/src/socket/handlers/placementErrors.ts'),
 ]
+const ERROR_CATALOGS = [
+  { name: 'CommonErrors', values: CommonErrors },
+  { name: 'LobbyErrors', values: LobbyErrors },
+  { name: 'GameErrors', values: GameErrors },
+  { name: 'SaveErrors', values: SaveErrors },
+]
 
 function collectSourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -55,5 +61,46 @@ describe('Справочники сообщений об ошибках', () => 
     })
 
     expect(duplicates).toEqual([])
+  })
+
+  it('каждая строковая ошибка сервера объявлена в каталоге', () => {
+    const files = collectSourceFiles(join(PROJECT_ROOT, 'server/src/socket'))
+    const undocumented: string[] = []
+    const knownMessages = new Set(MESSAGES)
+    const errorLiteral =
+      /(?:throw\s+new\s+Error\s*\(|\berror\s*:|\.emit\(\s*SocketEvents\.Error\s*,)\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
+
+    for (const file of files) {
+      if (resolve(file) === DEFINITION_FILES[1]) continue
+      const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index] ?? ''
+        errorLiteral.lastIndex = 0
+        for (const match of line.matchAll(errorLiteral)) {
+          const message = match[2]
+          if (message && !knownMessages.has(message)) {
+            undocumented.push(`${file}:${index + 1}: ${message}`)
+          }
+        }
+      }
+    }
+
+    expect(undocumented).toEqual([])
+  })
+
+  it('каталог содержит только сообщения, используемые сервером', () => {
+    const files = collectSourceFiles(join(PROJECT_ROOT, 'server/src')).filter(
+      (file) => resolve(file) !== DEFINITION_FILES[0]
+    )
+    const source = files.map((file) => readFileSync(file, 'utf8')).join('\n')
+    const unused = ERROR_CATALOGS.flatMap(({ name, values }) =>
+      Object.keys(values)
+        .filter((key) => !source.includes(`${name}.${key}`))
+        .map((key) => `${name}.${key}`)
+    )
+    const placementReferences = source.match(/PLACEMENT_FAILURE_MESSAGE/g)
+
+    expect(unused).toEqual([])
+    expect(placementReferences?.length ?? 0).toBeGreaterThan(1)
   })
 })

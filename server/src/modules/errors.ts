@@ -12,6 +12,8 @@ export const LobbyErrors = {
   InvalidRiverOption: 'Invalid River option',
   InvalidPrincessAndDragonOption: 'Invalid Princess and Dragon option',
   StartFailed: 'Не удалось начать игру',
+  GameAlreadyStarted: 'Игра уже началась',
+  AlreadyJoinedGame: 'Вы уже присоединились к игре',
 } as const
 
 export const GameErrors = {
