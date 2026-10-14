@@ -31,21 +31,27 @@ import {
   TileId,
   type PlacedFollower,
   type Player,
+  type Tile,
 } from '@server/modules/types'
 import { rotationClass } from '@/utils/tiles'
 import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
 import { playerColorValue } from '@/utils/colors'
+import type { RulesTileRef } from '@/rules/types'
 
-const props = defineProps({
-  tile: Object,
-  rotation: Number,
-  size: {
-    type: Number,
-    default: 110,
-  },
-  followers: Array as () => PlacedFollower[],
-  players: Array as () => Player[],
-})
+const props = withDefaults(
+  defineProps<{
+    tile?: Tile | RulesTileRef | null
+    size?: number
+    followers?: PlacedFollower[]
+    players?: Player[]
+  }>(),
+  {
+    tile: null,
+    size: 110,
+    followers: () => [],
+    players: () => [],
+  }
+)
 
 const imagesMap = {
   [TileId.A]: new URL(
@@ -389,7 +395,7 @@ const rotateClass = computed(() => rotationClass(props.tile?.rotation ?? 0))
 const canvas = ref<HTMLCanvasElement | null>(null)
 
 const drawTile = () => {
-  if (!canvas.value || !props.followers) return
+  if (!canvas.value) return
 
   const ctx = canvas.value.getContext('2d')
   if (!ctx) return
@@ -415,7 +421,8 @@ const drawTile = () => {
       point.direction &&
       point.direction !== PointDirection.Center &&
       isSideName(point.direction) &&
-      props.tile?.sides
+      props.tile &&
+      'sides' in props.tile
         ? props.tile.sides[point.direction]
         : undefined
     const tileId = String(props.tile?.id ?? '')

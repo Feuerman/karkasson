@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeRotation, rotateTile, rotationClass } from '@/utils/tiles'
-import type { ITile } from '@/types/game'
 import { rotateTileSides } from '@server/modules/tileRotation'
 import {
   RotationDirection,
   SideName,
   TileSideType,
   TILE_ROTATIONS,
+  type Tile,
   type TileSides,
 } from '@server/modules/types'
 
@@ -34,7 +34,7 @@ const DEGREE_SHIFT: Record<RotationDirection, number> = {
   [RotationDirection.Counterclockwise]: -90,
 }
 
-function makeTile(rotation: number): ITile {
+function makeTile(rotation: number): Tile {
   return { id: 'client-rotation-tile', rotation, sides: { ...sides } }
 }
 

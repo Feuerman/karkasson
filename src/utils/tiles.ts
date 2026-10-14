@@ -1,8 +1,8 @@
-import type { ITile } from '@/types/game'
 import {
   RotationDirection as RotationDirections,
   SideName,
   type RotationDirection,
+  type Tile,
   type TileSides,
 } from '@server/modules/types'
 
@@ -44,10 +44,7 @@ const rotateSides = (
   }
 }
 
-export const rotateTile = (
-  tile: ITile,
-  direction: RotationDirection
-): ITile => ({
+export const rotateTile = (tile: Tile, direction: RotationDirection): Tile => ({
   ...tile,
   rotation: normalizeRotation(
     tile.rotation + (direction === RotationDirections.Clockwise ? 90 : -90)
