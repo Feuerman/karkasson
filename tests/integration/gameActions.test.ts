@@ -11,10 +11,9 @@ import {
   type TestGameData,
 } from './helpers/lobby'
 import {
+  findInvalidPlacement,
   findValidPlacement,
-  isValidPosition,
   makeHumanMove,
-  rotateSides,
   startGame,
   type TileSnapshot,
 } from './helpers/gameplay'
@@ -140,34 +139,8 @@ describe('Действия в игре: валидация ходов', () => {
     const { gameId } = lobby
 
     const state = await startGame(lobby.creator, gameId)
-    const tile = state.currentTile!
-    expect(tile.sides).toBeTruthy()
-
     // Подбираем позицию и поворот, при котором стороны НЕ сходятся
-    let invalid:
-      | {
-          tile: TileSnapshot
-          place: { rowIndex: number; tileIndex: number }
-        }
-      | undefined
-
-    for (const place of state.availablePlacesTiles ?? []) {
-      for (let rotation = 1; rotation < 4; rotation++) {
-        const sides = rotateSides(tile.sides, rotation)
-        if (!isValidPosition(state, sides, place.rowIndex, place.tileIndex)) {
-          invalid = {
-            tile: {
-              ...tile,
-              sides,
-              rotation: (tile.rotation + rotation * 90) % 360,
-            },
-            place,
-          }
-          break
-        }
-      }
-      if (invalid) break
-    }
+    const invalid = findInvalidPlacement(state)
 
     // В базовой колоде всегда есть неподходящий поворот
     expect(invalid).toBeTruthy()
@@ -177,8 +150,8 @@ describe('Действия в игре: валидация ходов', () => {
         gameId,
         rotation: invalid!.tile.rotation,
         position: {
-          rowIndex: invalid!.place.rowIndex,
-          tileIndex: invalid!.place.tileIndex,
+          rowIndex: invalid!.rowIndex,
+          tileIndex: invalid!.tileIndex,
         },
       })
       .catch((error: Error) => error)

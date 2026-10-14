@@ -4,6 +4,7 @@ import { GameManager } from '@server/modules/GameManager'
 import { SideName, TileId } from '@server/modules/types'
 import type { Tile } from '@server/modules/types'
 import { makePlayers } from '../helpers/fixtures'
+import { rotatedCopies } from '../helpers/board'
 
 /**
  * Правила реки проверяются на игре с включённым дополнением: стартовый исток
@@ -24,22 +25,13 @@ function startRiverGame(): { game: GameManager; currentTile: Tile } {
   return { game, currentTile }
 }
 
-function rotateTo(game: GameManager, tile: Tile, turns: number): Tile {
-  let rotated: Tile = { ...tile, rotation: 0 }
-  for (let index = 0; index < turns; index += 1) {
-    rotated = game.rotateTile(rotated)
-  }
-  return rotated
-}
-
 /** Первый поворот, при котором у тайла есть (или нет) русло на северной стороне */
 function rotationWithNorthRiver(
   game: GameManager,
   tile: Tile,
   hasNorthRiver: boolean
 ): Tile {
-  for (let turns = 0; turns < 4; turns += 1) {
-    const candidate = rotateTo(game, tile, turns)
+  for (const candidate of rotatedCopies(game, tile)) {
     const hasNorth = Boolean(
       candidate.riverGroups?.flat().includes(SideName.North)
     )

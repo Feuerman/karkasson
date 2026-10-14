@@ -3,7 +3,7 @@ import tiles, { type TileDefinition } from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type { Tile, TileSides } from '@server/modules/types'
-import { makeEmptyGame } from '../helpers/board'
+import { makeEmptyGame, rotatedCopies } from '../helpers/board'
 
 /**
  * Каталог тайлов — это данные, а не логика: ошибка в нём проявилась бы
@@ -14,21 +14,6 @@ import { makeEmptyGame } from '../helpers/board'
 const FEATURES = [TileSideType.Road, TileSideType.City] as const
 
 type Feature = (typeof FEATURES)[number]
-
-/** Четыре поворота каталожного тайла, начиная с нулевого */
-function rotatedCopies(
-  game: { rotateTile: (tile: Tile) => Tile },
-  definition: TileDefinition
-): Tile[] {
-  const zero: Tile = { ...definition, rotation: 0 }
-  return [zero, 1, 2, 3].map((turns) => {
-    let rotated: Tile = zero
-    for (let turn = 0; turn < Number(turns); turn += 1) {
-      rotated = game.rotateTile(rotated)
-    }
-    return rotated
-  })
-}
 
 function sidesWithFeature(tile: Tile, feature: Feature): string[] {
   return (Object.keys(tile.sides) as (keyof TileSides)[]).filter(
