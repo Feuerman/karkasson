@@ -15,6 +15,7 @@ import {
   directionsOf,
   makeEmptyGame,
   NEIGHBOR_BY_SIDE,
+  rotatedCopies,
   useFirstPlayerAsCurrent,
 } from '../helpers/board'
 
@@ -205,13 +206,14 @@ describe('Доступные места при соседях вокруг та�
   )
 
   it('предлагает все незанятые группы для всех типов каталожных тайлов и поворотов', () => {
+    const rotationGame = makeEmptyGame()
     for (const definition of tiles) {
-      for (let turns = 0; turns < 4; turns += 1) {
+      const initialTile: Tile = { ...definition, rotation: 0 }
+      for (const [turns, tile] of rotatedCopies(
+        rotationGame,
+        initialTile
+      ).entries()) {
         const game = makeEmptyGame()
-        let tile: Tile = { ...definition, rotation: 0 }
-        for (let turn = 0; turn < turns; turn += 1) {
-          tile = game.rotateTile(tile)
-        }
         const gridTile: GridTile = { ...tile, x: CENTER_X, y: CENTER_Y }
         useFirstPlayerAsCurrent(game)
         game.currentTile = gridTile

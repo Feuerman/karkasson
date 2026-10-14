@@ -5,14 +5,12 @@ import { registerIntegrationCleanup } from './helpers/cleanup'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 import { SideName, SocketEvents, TileSideType } from '@server/modules/types'
 import {
+  findInvalidPlacement,
   findValidPlacement,
-  isValidPosition,
-  rotateSides,
   type GameStateSnapshot,
-  type TileSnapshot,
 } from './helpers/gameplay'
 import { startTestServer, type RunningServer } from './helpers/server'
-import { sleep, waitForCondition } from './helpers/wait'
+import { waitForCondition } from './helpers/wait'
 
 /**
  * Тесты клиентского приложения: настоящий клиентский GameService
@@ -33,31 +31,29 @@ type AnyGame = Record<string, unknown> & {
 }
 
 async function waitUntilConnected(service: GameService): Promise<void> {
-  const deadline = Date.now() + 10_000
-  while (Date.now() < deadline) {
-    if (service.socket?.connected) return
-    await sleep(50)
-  }
-  throw new Error('Клиентский socket не подключился')
+  await waitForCondition(
+    () => Boolean(service.socket?.connected),
+    'клиентский socket не подключился',
+    10_000
+  )
 }
 
 async function waitForServerDevice(
   server: RunningServer,
   service: GameService
 ): Promise<void> {
-  const deadline = Date.now() + 10_000
-  while (Date.now() < deadline) {
-    const socketId = service.socket?.id
-    if (
-      socketId &&
-      server.handle.gameService.getDeviceBySocketId(socketId) ===
-        service.deviceId
-    ) {
-      return
-    }
-    await sleep(50)
-  }
-  throw new Error(`device ${service.deviceId} не зарегистрировался на сервере`)
+  await waitForCondition(
+    () => {
+      const socketId = service.socket?.id
+      return Boolean(
+        socketId &&
+        server.handle.gameService.getDeviceBySocketId(socketId) ===
+          service.deviceId
+      )
+    },
+    `device ${service.deviceId} не зарегистрировался на сервере`,
+    10_000
+  )
 }
 
 function waitGameUpdated(
@@ -79,32 +75,6 @@ function waitGameUpdated(
     }
     service.socket?.on(SocketEvents.GameUpdated, handler)
   })
-}
-
-/** Поворот и позиция, при которых стороны текущего тайла не сходятся */
-function findInvalidPlacement(state: GameStateSnapshot): {
-  tile: TileSnapshot
-  place: { rowIndex: number; tileIndex: number }
-} | null {
-  const tile = state.currentTile ?? null
-  if (!tile?.sides) return null
-
-  for (const place of state.availablePlacesTiles ?? []) {
-    for (let rotation = 1; rotation < 4; rotation++) {
-      const sides = rotateSides(tile.sides, rotation)
-      if (!isValidPosition(state, sides, place.rowIndex, place.tileIndex)) {
-        return {
-          tile: {
-            ...tile,
-            sides,
-            rotation: (tile.rotation + rotation * 90) % 360,
-          },
-          place: { rowIndex: place.rowIndex, tileIndex: place.tileIndex },
-        }
-      }
-    }
-  }
-  return null
 }
 
 describe('Клиентское приложение (GameService)', () => {
@@ -383,8 +353,8 @@ describe('Клиентское приложение (GameService)', () => {
 
     const failure = await alice
       .placeTile(invalid.tile, {
-        rowIndex: invalid.place.rowIndex,
-        tileIndex: invalid.place.tileIndex,
+        rowIndex: invalid.rowIndex,
+        tileIndex: invalid.tileIndex,
       })
       .catch((error: unknown) => error)
 

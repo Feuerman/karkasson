@@ -251,6 +251,32 @@ export function findValidPlacement(state: GameStateSnapshot): ValidMove | null {
   return null
 }
 
+/** Подбирает место и поворот, который нарушает совпадение сторон с соседями. */
+export function findInvalidPlacement(
+  state: GameStateSnapshot
+): ValidMove | null {
+  const tile = state.currentTile ?? null
+  if (!tile?.sides) return null
+
+  for (const place of state.availablePlacesTiles ?? []) {
+    for (let rotation = 1; rotation < 4; rotation += 1) {
+      const sides = rotateSides(tile.sides, rotation)
+      if (!isValidPosition(state, sides, place.rowIndex, place.tileIndex)) {
+        return {
+          tile: {
+            ...tile,
+            sides,
+            rotation: (tile.rotation + rotation * 90) % 360,
+          },
+          rowIndex: place.rowIndex,
+          tileIndex: place.tileIndex,
+        }
+      }
+    }
+  }
+  return null
+}
+
 export function countPlacedTiles(
   tilePlacesStats: GameStateSnapshot['tilePlacesStats']
 ): number {

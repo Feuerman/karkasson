@@ -1,6 +1,7 @@
 import { GameManager } from '@server/modules/GameManager'
 import { SideName } from '@server/modules/types'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
+import type { Tile } from '@server/modules/types'
 import { makePlayers } from './fixtures'
 
 /**
@@ -84,3 +85,19 @@ export const NEIGHBOR_BY_SIDE = {
 } as const
 
 export type NeighborSide = keyof typeof NEIGHBOR_BY_SIDE
+
+/** Все четыре поворота тайла в порядке от исходного до 270 градусов. */
+export function rotatedCopies(
+  game: Pick<GameManager, 'rotateTile'>,
+  tile: Omit<Tile, 'rotation'> & { rotation?: number }
+): Tile[] {
+  const copies: Tile[] = []
+  let rotated: Tile = { ...tile, rotation: 0 }
+
+  for (let turn = 0; turn < 4; turn += 1) {
+    copies.push(rotated)
+    rotated = game.rotateTile(rotated)
+  }
+
+  return copies
+}
