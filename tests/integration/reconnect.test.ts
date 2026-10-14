@@ -83,6 +83,54 @@ describe('Отключение и переподключение игроков'
     expect(rejoined.gameIsStarted).toBe(true)
   })
 
+  it('сохраняет состояние до рассылки обновления при отключении', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.creator.emitAck(SocketEvents.StartGame, {
+      gameId: lobby.gameId,
+    })
+
+    let resolveSaveStarted: (() => void) | undefined
+    const saveStarted = new Promise<void>((resolve) => {
+      resolveSaveStarted = resolve
+    })
+    let releaseSave: (() => void) | undefined
+    const saveGate = new Promise<void>((resolve) => {
+      releaseSave = resolve
+    })
+    const originalSave = server.db.saveGame.bind(server.db)
+    server.db.saveGame = async (gameId, serializedState) => {
+      resolveSaveStarted?.()
+      await saveGate
+      await originalSave(gameId, serializedState)
+    }
+
+    let updateReceived = false
+    lobby.creator.socket.on(SocketEvents.GameUpdated, () => {
+      updateReceived = true
+    })
+
+    lobby.joiner.closeTransport()
+    await saveStarted
+    await sleep(50)
+    expect(updateReceived).toBe(false)
+
+    releaseSave?.()
+    await latestGame(
+      lobby.creator,
+      (game) =>
+        game.players.find((player) => player.name === 'Bob')?.socketId === null
+    )
+    expect(updateReceived).toBe(true)
+
+    const saved = await server.db.getGame(lobby.gameId)
+    expect(
+      saved?.players.find((player) => player.name === 'Bob')?.socketId
+    ).toBeNull()
+  })
+
   it('в лобби отключение игрока освобождает слот, повторный вход возвращает его', async () => {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)
