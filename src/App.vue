@@ -336,10 +336,27 @@ const currentStatePosition = ref({
   y: window.innerHeight / 2,
 })
 
-const hoveredTile = ref({
-  rowIndex: undefined as number | undefined,
-  tileIndex: undefined as number | undefined,
-})
+/** Клетка доски: выбрана игроком или пришла с сервера. */
+type PlacedPoint = { rowIndex?: number; tileIndex?: number }
+
+const hoveredTile = ref<PlacedPoint>({})
+
+const setHoveredTile = (point?: PlacedPoint | null) => {
+  hoveredTile.value = {
+    rowIndex: point?.rowIndex,
+    tileIndex: point?.tileIndex,
+  }
+}
+
+const hasPlacedPoint = (
+  point?: PlacedPoint | null
+): point is { rowIndex: number; tileIndex: number } =>
+  typeof point?.rowIndex === 'number' && typeof point?.tileIndex === 'number'
+
+const isSamePlacedPoint = (
+  point: PlacedPoint | null | undefined,
+  other: PlacedPoint
+) => point?.rowIndex === other.rowIndex && point?.tileIndex === other.tileIndex
 
 const placementConflicts = ref<PlacementConflict[]>([])
 
@@ -400,8 +417,7 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
     }
 
     placementConflicts.value = []
-    hoveredTile.value.rowIndex = rowIndex
-    hoveredTile.value.tileIndex = tileIndex
+    setHoveredTile({ rowIndex, tileIndex })
 
     updateSelectedPlacingPoint({
       rowIndex,
@@ -425,23 +441,18 @@ watch(
   { immediate: true, deep: true }
 )
 
-const zoomToTile = ({
-  rowIndex,
-  tileIndex,
-}: { rowIndex?: number; tileIndex?: number } = {}) => {
+const zoomToTile = ({ rowIndex, tileIndex }: PlacedPoint = {}) => {
   if (rowIndex === undefined || tileIndex === undefined) {
     return
   }
   scrollToTile(rowIndex, tileIndex)
 }
 
+/** Доска получает серверный снимок; возвращает, чей сейчас ход. */
 const applyGameState = (game: IGame): boolean => {
   const isMyTurn = game.currentPlayer?.socketId === GameService.socket?.id
   if (game.dragonMove) {
-    hoveredTile.value = {
-      rowIndex: game.dragonPosition?.rowIndex,
-      tileIndex: game.dragonPosition?.tileIndex,
-    }
+    setHoveredTile(game.dragonPosition)
   }
   gameState.value = { ...game, isMyTurn } as IGameBoard
   return isMyTurn
@@ -452,6 +463,16 @@ const syncLocalTile = (tile?: ITile | null) => {
   localCurrentTile.value = { ...tile } as ITile
 }
 
+/** Превью догоняет сервер, только если сменился тайл или его поворот. */
+const syncLocalTileIfDiffers = (tile?: ITile | null) => {
+  if (
+    localCurrentTile.value.id !== tile?.id ||
+    localCurrentTile.value.rotation !== tile?.rotation
+  ) {
+    syncLocalTile(tile)
+  }
+}
+
 let activeGameId: string | undefined
 let gameUpdateTimeout: ReturnType<typeof setTimeout> | undefined
 let cleanupSocketListeners: (() => void) | undefined
@@ -459,6 +480,35 @@ let cleanupSocketListeners: (() => void) | undefined
 const clearGameUpdateTimeout = () => {
   clearTimeout(gameUpdateTimeout)
   gameUpdateTimeout = undefined
+}
+
+/**
+ * Во время чужого хода следуем за серверной точкой: подсвечиваем клетку,
+ * прокручиваем к ней, а когда отрисовка догнала доску — возвращаем превью
+ * тайла к этой клетке.
+ */
+const followServerPlacingPoint = (point?: PlacedPoint | null) => {
+  if (isSamePlacedPoint(point, hoveredTile.value)) {
+    return
+  }
+
+  setHoveredTile(point)
+  zoomToTile(hoveredTile.value)
+  clearGameUpdateTimeout()
+  gameUpdateTimeout = setTimeout(() => {
+    gameUpdateTimeout = undefined
+    const targetTileRect = findTileElement(
+      hoveredTile.value.rowIndex ?? -1,
+      hoveredTile.value.tileIndex ?? -1
+    )?.getBoundingClientRect()
+
+    if (targetTileRect) {
+      currentStatePosition.value = {
+        x: targetTileRect.left,
+        y: targetTileRect.top,
+      }
+    }
+  }, 1000)
 }
 
 const onGameStart = (gameData: IGame) => {
@@ -472,14 +522,8 @@ const onGameStart = (gameData: IGame) => {
 
   showLobby.value = false
 
-  if (
-    gameData.placingPoint?.rowIndex !== undefined &&
-    gameData.placingPoint?.tileIndex !== undefined
-  ) {
-    hoveredTile.value = gameData.placingPoint || {
-      rowIndex: undefined,
-      tileIndex: undefined,
-    }
+  if (hasPlacedPoint(gameData.placingPoint)) {
+    setHoveredTile(gameData.placingPoint)
   }
 
   syncLocalTile(gameData.currentTile)
@@ -500,53 +544,20 @@ const onGameUpdated = (updatedGame: IGame) => {
     return
   }
 
-  const isMyTurn = applyGameState(updatedGame)
-
-  if (
-    !isMyTurn &&
-    (updatedGame.placingPoint?.rowIndex !== hoveredTile.value.rowIndex ||
-      updatedGame.placingPoint?.tileIndex !== hoveredTile.value.tileIndex)
-  ) {
-    hoveredTile.value = updatedGame.placingPoint || {
-      rowIndex: undefined,
-      tileIndex: undefined,
-    }
-
-    zoomToTile(hoveredTile.value)
-    clearGameUpdateTimeout()
-    gameUpdateTimeout = setTimeout(() => {
-      gameUpdateTimeout = undefined
-      const targetTile = findTileElement(
-        hoveredTile.value.rowIndex ?? -1,
-        hoveredTile.value.tileIndex ?? -1
-      )
-      const targetTileRect = targetTile?.getBoundingClientRect()
-
-      if (targetTileRect) {
-        currentStatePosition.value = {
-          x: targetTileRect.left,
-          y: targetTileRect.top,
-        }
-      }
-    }, 1000)
+  if (!applyGameState(updatedGame)) {
+    followServerPlacingPoint(updatedGame.placingPoint)
+    syncLocalTileIfDiffers(updatedGame.currentTile)
+    return
   }
 
-  if (
-    !isMyTurn &&
-    (localCurrentTile.value.id !== updatedGame.currentTile?.id ||
-      localCurrentTile.value.rotation !== updatedGame.currentTile?.rotation)
-  ) {
-    syncLocalTile(updatedGame.currentTile)
-  }
-
+  // Новый тайл на моём ходу: обновляем превью и показываем выбранную на
+  // сервере клетку.
   if (localCurrentTile.value.id !== updatedGame.currentTile?.id) {
     syncLocalTile(updatedGame.currentTile)
 
-    hoveredTile.value =
-      updatedGame.placingPoint?.rowIndex !== undefined &&
-      updatedGame.placingPoint?.tileIndex !== undefined
-        ? updatedGame.placingPoint
-        : hoveredTile.value
+    if (hasPlacedPoint(updatedGame.placingPoint)) {
+      setHoveredTile(updatedGame.placingPoint)
+    }
   }
 }
 
