@@ -2,11 +2,7 @@
   <ActionRow icon="i-lucide-rotate-ccw">
     <strong class="mr-[3px] text-text">Возврат подданных.</strong>
     <span v-for="group in followersByPlayer" :key="group.playerId">
-      <PlayerNameById
-        :players="players"
-        :player-id="group.playerId"
-        :title="bigFollowerHint"
-      >
+      <PlayerNameById :player-id="group.playerId" :title="bigFollowerHint">
         — {{ group.names.join(', ') }},&nbsp;
       </PlayerNameById>
     </span>
@@ -16,7 +12,6 @@
 <script setup lang="ts">
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { Player } from '@server/modules/types'
 import ActionRow from '../ActionRow.vue'
 import PlayerNameById from '../PlayerNameById.vue'
 import {
@@ -26,9 +21,8 @@ import {
 } from '../followerNames'
 import { computed } from 'vue'
 
-const { action, players } = defineProps<{
+const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.BACK_FOLLOWER }>
-  players: Player[]
 }>()
 
 const followersByPlayer = computed(() =>

@@ -25,7 +25,7 @@
           v-for="(score, playerId) in action.actionData.score.players"
           :key="playerId"
         >
-          <PlayerNameById :players="players" :player-id="playerId" />
+          <PlayerNameById :player-id="playerId" />
           <strong class="font-bold text-text">
             — {{ score ?? 0 }}
             {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
@@ -76,7 +76,6 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import UTooltip from '@nuxt/ui/components/Tooltip.vue'
 import { computed } from 'vue'
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
-import type { Player } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import type { TileCoordinates } from '@/utils/board'
 import { cellsOfPoints } from '@/utils/board'
@@ -85,9 +84,8 @@ import { pluralForm } from '@/utils/common'
 import ActionRow from '../ActionRow.vue'
 import PlayerNameById from '../PlayerNameById.vue'
 
-const { action, players } = defineProps<{
+const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.ADDING_SCORES }>
-  players: Player[]
 }>()
 
 const emit = defineEmits<{

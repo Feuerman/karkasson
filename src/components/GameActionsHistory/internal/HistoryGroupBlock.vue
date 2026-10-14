@@ -42,24 +42,20 @@
       <AddingScoresAction
         v-else-if="action.actionType === ActionTypes.ADDING_SCORES"
         :action="action"
-        :players="players"
         @focus="forwardFocus"
       />
       <BackFollowerAction
         v-else-if="action.actionType === ActionTypes.BACK_FOLLOWER"
         :action="action"
-        :players="players"
       />
       <DragonMoveAction
         v-else-if="action.actionType === ActionTypes.DRAGON_MOVE"
         :action="action"
-        :players="players"
         @zoom="forwardZoom"
       />
       <PrincessTakeFollowerAction
         v-else-if="action.actionType === ActionTypes.PRINCESS_TAKE_FOLLOWER"
         :action="action"
-        :players="players"
         @zoom="forwardZoom"
       />
     </div>
@@ -69,7 +65,6 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { ActionTypes } from '@server/modules/types'
-import type { Player } from '@server/modules/types'
 import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import type { HistoryGroup } from './historyGroups'
@@ -82,7 +77,6 @@ import PrincessTakeFollowerAction from './actions/PrincessTakeFollowerAction.vue
 
 defineProps<{
   group: HistoryGroup
-  players: Player[]
 }>()
 
 const emit = defineEmits<{

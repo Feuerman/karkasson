@@ -11,7 +11,6 @@
     </span>
     <span class="text-text"> Подданный: </span>
     <PlayerNameById
-      :players="players"
       :player-id="takenFollower.playerId"
       :title="takenFollower.isBigFollower ? BIG_FOLLOWER_HINT : undefined"
     >
@@ -23,19 +22,17 @@
 <script setup lang="ts">
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { Player } from '@server/modules/types'
 import { computed } from 'vue'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerNameById from '../PlayerNameById.vue'
 import { BIG_FOLLOWER_HINT, followerName } from '../followerNames'
 
-const { action, players } = defineProps<{
+const { action } = defineProps<{
   action: Extract<
     GameAction,
     { actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER }
   >
-  players: Player[]
 }>()
 
 const emit = defineEmits<{

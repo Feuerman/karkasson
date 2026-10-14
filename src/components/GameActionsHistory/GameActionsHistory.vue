@@ -85,7 +85,6 @@
         v-for="(group, index) in visibleGroups"
         :key="index"
         :group="group"
-        :players="gameBoard.players"
         @focus="focusCells"
         @zoom="zoomToCoordinates"
       />
@@ -96,7 +95,7 @@
 <script setup lang="ts">
 import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from 'vue'
 import type { IGameBoard } from '@/types/game'
 import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
@@ -111,11 +110,17 @@ import {
   type HistoryFilter,
 } from './internal/historyFilter'
 import { groupActionsHistory } from './internal/historyGroups'
+import { HISTORY_PLAYERS_KEY } from './internal/players'
 
 const { gameBoard } = defineProps<{
   gameBoard: IGameBoard
   dragEnabled?: boolean
 }>()
+
+provide(
+  HISTORY_PLAYERS_KEY,
+  computed(() => gameBoard.players)
+)
 
 let cancelHighlight: (() => void) | undefined
 const isCollapsed = ref(false)
