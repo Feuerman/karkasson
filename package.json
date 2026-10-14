@@ -20,7 +20,8 @@
     "lint": "eslint . --ext .vue,.js,.ts",
     "lint:fix": "eslint . --ext .vue,.js,.ts --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:all": "pnpm run format && pnpm run type-check && pnpm test && pnpm run lint && pnpm run build"
   },
   "dependencies": {
     "@nuxt/ui": "^4.11.2",
