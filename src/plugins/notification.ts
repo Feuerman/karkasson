@@ -14,8 +14,15 @@ export interface NotificationBridge {
 
 let bridge: NotificationBridge | null = null
 
-export const registerNotificationBridge = (b: NotificationBridge): void => {
+export const registerNotificationBridge = (
+  b: NotificationBridge
+): (() => void) => {
   bridge = b
+  return () => {
+    if (bridge === b) {
+      bridge = null
+    }
+  }
 }
 
 const notify = (type: NotificationType, message: string, duration?: number) => {

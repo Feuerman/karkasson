@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import USlideover from '@nuxt/ui/components/Slideover.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -128,7 +128,7 @@ const onClose = () => {
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
-const sectionElements: Record<string, HTMLElement> = {}
+const sectionElements = ref<Record<string, HTMLElement>>({})
 const activeSection = ref(props.doc.sections[0]?.id ?? '')
 
 const setSectionRef = (
@@ -136,12 +136,26 @@ const setSectionRef = (
   el: Element | ComponentPublicInstance | null
 ) => {
   if (el instanceof Element) {
-    sectionElements[id] = el as HTMLElement
+    sectionElements.value[id] = el as HTMLElement
+  } else {
+    delete sectionElements.value[id]
   }
 }
 
+watch(
+  () => props.doc,
+  () => {
+    sectionElements.value = {}
+    activeSection.value = props.doc.sections[0]?.id ?? ''
+  }
+)
+
+onBeforeUnmount(() => {
+  sectionElements.value = {}
+})
+
 const scrollToSection = (id: string) => {
-  const target = sectionElements[id]
+  const target = sectionElements.value[id]
   const container = scrollRef.value
   if (!target || !container) return
 
@@ -162,7 +176,7 @@ const onScroll = () => {
 
   let current = props.doc.sections[0]?.id ?? ''
   props.doc.sections.forEach((section) => {
-    const el = sectionElements[section.id]
+    const el = sectionElements.value[section.id]
     if (el && el.getBoundingClientRect().top <= containerTop) {
       current = section.id
     }
