@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
 import { resumeComputerGames } from '@server/services/computerPlayer'
 import { SocketEvents, type Player } from '@server/modules/types'
 import { serializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
+import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   countPlacedTiles,
   createLobbyWithSingleHuman,
@@ -62,13 +63,15 @@ describe('Сохранение данных лобби', () => {
   let server: RunningServer | undefined
   const clients: TestClient[] = []
 
-  afterEach(async () => {
-    for (const client of clients) client.dispose()
-    clients.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const client of clients) client.dispose()
+      clients.length = 0
+    },
   })
 
   it('сохранённое лобби восстанавливается после перезапуска сервера', async () => {

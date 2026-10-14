@@ -1,11 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
-import {
-  startTestServer,
-  stopTestServer,
-  type RunningServer,
-} from './helpers/server'
+import { registerIntegrationCleanup } from './helpers/cleanup'
+import { startTestServer, type RunningServer } from './helpers/server'
 
 const STORAGE_FAILURE_SETTLE_MS = 900
 
@@ -13,13 +10,15 @@ describe('Сбои ходов компьютера', () => {
   let server: RunningServer | undefined
   const clients: TestClient[] = []
 
-  afterEach(async () => {
-    for (const client of clients) client.dispose()
-    clients.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const client of clients) client.dispose()
+      clients.length = 0
+    },
   })
 
   /** Лобби, в котором все игровые места занимают компьютеры. */

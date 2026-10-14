@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { GameService, SocketAckError } from '@/modules/GameService'
 import { GameErrors } from '@server/modules/errors'
+import { registerIntegrationCleanup } from './helpers/cleanup'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 import { SideName, SocketEvents, TileSideType } from '@server/modules/types'
 import {
@@ -10,11 +11,7 @@ import {
   type GameStateSnapshot,
   type TileSnapshot,
 } from './helpers/gameplay'
-import {
-  startTestServer,
-  stopTestServer,
-  type RunningServer,
-} from './helpers/server'
+import { startTestServer, type RunningServer } from './helpers/server'
 import { sleep, waitForCondition } from './helpers/wait'
 
 /**
@@ -114,13 +111,15 @@ describe('Клиентское приложение (GameService)', () => {
   let server: RunningServer | undefined
   const services: GameService[] = []
 
-  afterEach(async () => {
-    for (const service of services) service.disconnect()
-    services.length = 0
-    if (server) {
-      await stopTestServer(server)
+  registerIntegrationCleanup({
+    getServer: () => server,
+    clearServer: () => {
       server = undefined
-    }
+    },
+    disposeClients: () => {
+      for (const service of services) service.disconnect()
+      services.length = 0
+    },
   })
 
   it('создаёт лобби, добавляет игроков и видит игру в списке', async () => {
