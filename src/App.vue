@@ -104,11 +104,12 @@
           </div>
           <div
             ref="ghostPreviewRef"
-            class="h-[115px] w-[115px] origin-top-left bg-black/15 shadow-card ring-1 ring-gold/80"
+            class="origin-top-left bg-black/15 shadow-card ring-1 ring-gold/80"
+            :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
           >
             <TileView
               :tile="localCurrentTile"
-              :size="115"
+              :size="TILE_SIZE"
               class="h-full w-full"
             />
           </div>
@@ -126,7 +127,7 @@
             ref="planeRef"
             class="grid origin-top-left gap-2.5 p-2.5"
             :style="{
-              gridTemplateColumns: `repeat(${gridDimensions[0]}, 115px)`,
+              gridTemplateColumns: `repeat(${gridDimensions[0]}, ${TILE_SIZE}px)`,
             }"
           >
             <div
@@ -137,7 +138,8 @@
               <div
                 v-for="(tile, tileIndex) in row"
                 :key="tileIndex"
-                class="relative h-[115px] w-[115px] flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
+                class="relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
+                :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
                 :class="[
                   gameState.tilePlacesStats?.[rowIndex]?.[tileIndex]
                     ? 'border-black/15'
@@ -162,7 +164,7 @@
                     EMPTY_CELL_FOLLOWERS
                   "
                   :players="gameState.players"
-                  :size="115"
+                  :size="TILE_SIZE"
                 />
                 <div
                   v-if="
@@ -233,7 +235,7 @@ import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError, throttle } from './utils/common'
 import { boardCellTestId } from './data/testIds'
-import { rotateTile as rotateTileUtil } from './utils/tiles'
+import { rotateTile as rotateTileUtil, TILE_SIZE } from './utils/tiles'
 import { findTileElement, scrollToTile } from './utils/board'
 import GameLobby from './components/GameLobby'
 import GameService, { SocketAckError } from './modules/GameService'
@@ -245,6 +247,7 @@ import type { PlacedFollower } from '@server/modules/types'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import {
+  BOARD_GRID_SIZE,
   RotationDirection,
   SocketEvents,
   type Tile,
@@ -279,10 +282,12 @@ const {
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
 
-const gridDimensions = computed(() => gameState.value.gridSize ?? [30, 30])
+const gridDimensions = computed(
+  () => gameState.value.gridSize ?? BOARD_GRID_SIZE
+)
 const defaultGrid = computed(() =>
-  Array.from({ length: gridDimensions.value[1] ?? 30 }, () =>
-    Array.from({ length: gridDimensions.value[0] ?? 30 }, () => null)
+  Array.from({ length: gridDimensions.value[1] }, () =>
+    Array.from({ length: gridDimensions.value[0] }, () => null)
   )
 )
 
@@ -298,9 +303,9 @@ watch(
     const prev = followersByCell.value
     const next: PlacedFollower[][][] = []
     let changed = false
-    for (let r = 0; r < (gridDimensions.value[0] ?? 30); r++) {
+    for (let r = 0; r < gridDimensions.value[0]; r++) {
       next[r] = []
-      for (let c = 0; c < (gridDimensions.value[1] ?? 30); c++) {
+      for (let c = 0; c < gridDimensions.value[1]; c++) {
         const cellFollowers = all.filter(
           (f) => f.point.y === r && f.point.x === c
         )

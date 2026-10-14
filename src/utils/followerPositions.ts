@@ -1,5 +1,6 @@
 import {
   PointDirection,
+  SIDE_NAMES,
   SideName,
   TileSideType,
   TileId,
@@ -13,12 +14,7 @@ export type SideDirection = Exclude<
 type Position = readonly [number, number]
 type FeaturePositions = Partial<Record<SideDirection, Position>>
 
-const sideDirections: SideDirection[] = [
-  SideName.North,
-  SideName.East,
-  SideName.South,
-  SideName.West,
-]
+const sideDirections: SideDirection[] = [...SIDE_NAMES]
 
 // Позиции заданы на исходных изображениях тайлов; ниже они преобразуются
 // в координаты уже повернутого тайла для отрисовки маркера.

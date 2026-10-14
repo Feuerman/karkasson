@@ -109,6 +109,8 @@ export const SIDE_NAMES = [
   SideName.West,
 ] as const
 
+export const BOARD_GRID_SIZE = [30, 30] as const
+
 export const OPPOSITE_SIDE: Record<SideName, SideName> = {
   [SideName.North]: SideName.South,
   [SideName.East]: SideName.West,

@@ -10,10 +10,12 @@ export interface GroupedFollowerPlace {
   sameTypeCount: number
 }
 
-type FollowerPlaceType =
+export type FollowerPlaceType =
   TileSideType | ObjectTypes.GARDEN | ObjectTypes.MONASTERY | PointDirection
 
-function getPlaceType(place: AvailableFollowerPlace): FollowerPlaceType {
+export function getFollowerPlaceType(
+  place: AvailableFollowerPlace
+): FollowerPlaceType {
   if (place.temporaryObject.isGarden) return ObjectTypes.GARDEN
   if (place.temporaryObject.isMonastery) return ObjectTypes.MONASTERY
   return place.point.pointType ?? PointDirection.Center
@@ -25,7 +27,7 @@ export function groupFollowerPlaces(
   const groups = new Map<string, AvailableFollowerPlace>()
 
   for (const place of places) {
-    const key = `${getPlaceType(place)}:${place.temporaryObject.id}`
+    const key = `${getFollowerPlaceType(place)}:${place.temporaryObject.id}`
     if (!groups.has(key)) groups.set(key, place)
   }
 
@@ -33,12 +35,12 @@ export function groupFollowerPlaces(
   const countsByType = new Map<string, number>()
 
   for (const place of groupedPlaces) {
-    const type = getPlaceType(place)
+    const type = getFollowerPlaceType(place)
     countsByType.set(type, (countsByType.get(type) ?? 0) + 1)
   }
 
   return groupedPlaces.map((place) => ({
     place,
-    sameTypeCount: countsByType.get(getPlaceType(place)) ?? 1,
+    sameTypeCount: countsByType.get(getFollowerPlaceType(place)) ?? 1,
   }))
 }

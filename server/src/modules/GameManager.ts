@@ -25,6 +25,7 @@ import {
 } from './scoring'
 import {
   ActionTypes,
+  BOARD_GRID_SIZE,
   ExpansionName,
   FollowerType as FollowerTypes,
   RotationDirection as RotationDirections,
@@ -143,7 +144,7 @@ export interface IGameBoard
 export class GameManager implements IGameBoard {
   id?: string
   roomCode?: string
-  gridSize = [30, 30]
+  gridSize: number[] = [...BOARD_GRID_SIZE]
   gameIsStarted: boolean
   gameIsEnded: boolean
   finalScoringEnabled: boolean

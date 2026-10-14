@@ -75,12 +75,13 @@
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UTooltip from '@nuxt/ui/components/Tooltip.vue'
 import { computed } from 'vue'
-import { ActionTypes, ObjectTypes } from '@server/modules/types'
+import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import type { TileCoordinates } from '@/utils/board'
 import { cellsOfPoints } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import { pluralForm } from '@/utils/common'
+import { OBJECT_TYPE_NAMES } from '@/utils/labels'
 import ActionRow from '../ActionRow.vue'
 import PlayerNameById from '../PlayerNameById.vue'
 
@@ -96,15 +97,8 @@ const emit = defineEmits<{
 const TOOLTIP_CONTENT_CLASS =
   'block h-auto max-w-64 rounded-md border border-gold-dark/40 bg-surface px-2 py-1.5 text-text shadow-card'
 
-const OBJECT_LABELS: Record<ObjectTypes, string> = {
-  [ObjectTypes.ROAD]: 'дорога',
-  [ObjectTypes.CITY]: 'город',
-  [ObjectTypes.MONASTERY]: 'монастырь',
-  [ObjectTypes.GARDEN]: 'сад',
-}
-
 const objectLabel = computed(
-  () => OBJECT_LABELS[action.actionData.objectType] ?? 'объект'
+  () => OBJECT_TYPE_NAMES[action.actionData.objectType] ?? 'объект'
 )
 
 const objectCells = computed(() =>

@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { FollowerType, TileSideType } from '@server/modules/types'
+import { FollowerType, ObjectTypes } from '@server/modules/types'
 import { computed } from 'vue'
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
@@ -40,6 +40,7 @@ import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerName from '../PlayerName.vue'
 import { BIG_FOLLOWER_HINT, placedFollowerName } from '../followerNames'
+import { OBJECT_TYPE_GENITIVES, POINT_TYPE_OBJECT_CASE } from '@/utils/labels'
 
 const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.PLACE_FOLLOWER }>
@@ -54,19 +55,13 @@ const followerCell = computed(() => cellOfPoint(action.actionData.point))
 
 const objectName = computed(() =>
   action.actionData.temporaryObject?.isMonastery
-    ? 'монастырь'
+    ? OBJECT_TYPE_GENITIVES[ObjectTypes.MONASTERY]
     : action.actionData.temporaryObject?.isGarden
-      ? 'сад'
+      ? OBJECT_TYPE_GENITIVES[ObjectTypes.GARDEN]
       : action.actionData.point.pointType
         ? POINT_TYPE_OBJECT_CASE[action.actionData.point.pointType]
         : 'объект'
 )
-
-const POINT_TYPE_OBJECT_CASE: Record<TileSideType, string> = {
-  [TileSideType.Field]: 'поле',
-  [TileSideType.Road]: 'дорогу',
-  [TileSideType.City]: 'город',
-}
 
 const followerName = computed(() => placedFollowerName(action.actionData))
 
