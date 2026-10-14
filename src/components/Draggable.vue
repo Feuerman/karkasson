@@ -21,15 +21,25 @@
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { DraggableRegistry } from '@/modules/draggableRegistry'
 
-const props = defineProps({
-  initialX: { type: Number, default: 0 },
-  initialY: { type: Number, default: 0 },
-  draggableId: { type: String, default: '' },
-  isNoneStyle: { type: Boolean, default: false },
-  disabled: { type: Boolean, default: false },
-  dragEnabled: { type: Boolean, default: true },
-  rightOffset: { type: Number, default: null },
-})
+const props = withDefaults(
+  defineProps<{
+    initialX?: number
+    initialY?: number
+    draggableId?: string
+    isNoneStyle?: boolean
+    disabled?: boolean
+    dragEnabled?: boolean
+    rightOffset?: number
+  }>(),
+  {
+    initialX: 0,
+    initialY: 0,
+    draggableId: '',
+    isNoneStyle: false,
+    disabled: false,
+    dragEnabled: true,
+  }
+)
 
 const emit = defineEmits(['drag', 'drag-start', 'drag-end'])
 
@@ -50,7 +60,7 @@ onMounted(async () => {
       height: rect.height,
     }
 
-    if (props.rightOffset !== null) {
+    if (props.rightOffset !== undefined) {
       dragPosition.value.x = Math.max(
         16,
         window.innerWidth - rect.width - props.rightOffset
