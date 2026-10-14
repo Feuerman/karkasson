@@ -8,6 +8,8 @@ import { getErrorMessage } from '../utils/common'
 import {
   playerColorForIndex,
   playerNameForIndex,
+  type AbbotRecallInfo,
+  type FollowerType,
   type Player,
   type PlayerId,
   type GameRules,
@@ -47,6 +49,10 @@ export interface GameData {
   players: Player[]
   currentPlayerIndex: number
   availableFollowersPlaces: IGameBoard['availableFollowersPlaces']
+  /** Типы фишек, доступные в каждом месте, по id объекта. */
+  availableFollowerTypes: Record<string, FollowerType[]>
+  /** Что даст отзыв аббата текущему игроку, либо `null`. */
+  abbotRecall: AbbotRecallInfo | null
   gameIsEnded: boolean
   finalScoringEnabled: boolean
   rules: GameRules
@@ -630,6 +636,8 @@ export class GameService {
       players: game.players,
       currentPlayerIndex: game.currentPlayerIndex,
       availableFollowersPlaces: game.availableFollowersPlaces,
+      availableFollowerTypes: this.collectAvailableFollowerTypes(game),
+      abbotRecall: game.getAbbotRecallInfo(),
       gameIsEnded: game.gameIsEnded,
       finalScoringEnabled: game.finalScoringEnabled,
       rules: game.rules,
@@ -651,6 +659,22 @@ export class GameService {
       winnerPlayerIds: game.winnerPlayerIds,
       lastUpdate: game.lastUpdate,
     }
+  }
+
+  /**
+   * Допустимые типы фишек по каждому доступному месту. Ключ — id объекта:
+   * место и объект однозначно совпадают, а сами места уже передаются отдельным
+   * полем, поэтому клиенту достаточно посмотреть список по своему объекту.
+   */
+  private collectAvailableFollowerTypes(
+    game: IGameBoard
+  ): Record<string, FollowerType[]> {
+    return Object.fromEntries(
+      game.availableFollowersPlaces.map((place) => [
+        place.temporaryObject.id,
+        game.getAvailableFollowerTypes(place),
+      ])
+    )
   }
 
   formatGamesList(games: IGameBoard[] = this.allGames()): GameSummary[] {

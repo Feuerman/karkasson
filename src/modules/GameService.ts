@@ -31,6 +31,19 @@ export interface IGameService {
 
 export type SocketPayload = Record<string, unknown>
 
+/** Подписка на событие сокета, которая переживает переподключение. */
+interface SocketSubscription {
+  event: string
+  callback: SocketListener
+}
+
+/** Тип обработчика события в socket.io-client. */
+type SocketListener = Parameters<Socket['on']>[1]
+
+/** События приложения плюс зарезервированные события подключения. */
+type ClientSocketEvent =
+  (typeof SocketEvents)[keyof typeof SocketEvents] | 'connect' | 'disconnect'
+
 /** Ошибка ack-ответа сервера; conflicts описывает причину отказа размещения. */
 export class SocketAckError extends Error {
   readonly conflicts: PlacementConflict[]
@@ -68,6 +81,11 @@ export class GameService implements IGameService {
   isConnected = ref(false)
   private serverUrl: string
   private readonly pendingAcks = new Set<(error: Error) => void>()
+  /**
+   * Подписки вызывающего кода: сокет переподключается, а они должны остаться
+   * на месте, поэтому хранятся здесь и навешиваются на каждый новый сокет.
+   */
+  private readonly subscriptions = new Set<SocketSubscription>()
 
   constructor(options: GameServiceOptions = {}) {
     this.socket = null
@@ -133,6 +151,35 @@ export class GameService implements IGameService {
     pending.forEach((cancel) => cancel(error))
   }
 
+  /**
+   * Подписка на событие сокета. Обработчик переживает и переподключение, и
+   * повторный вызов `connect`, потому что хранится в сервисе, а не на сокете.
+   * Возвращает функцию отписки.
+   */
+  onSocketEvent<E extends ClientSocketEvent>(
+    event: E,
+    callback: (payload: never) => void
+  ): () => void {
+    const subscription: SocketSubscription = {
+      event,
+      callback: callback as SocketListener,
+    }
+    this.subscriptions.add(subscription)
+    this.socket?.on(event as string, subscription.callback)
+
+    return () => {
+      if (!this.subscriptions.delete(subscription)) return
+      this.socket?.off(event as string, subscription.callback)
+    }
+  }
+
+  /** Переносит подписки вызывающего кода на только что созданный сокет. */
+  private attachSubscriptions(socket: Socket): void {
+    this.subscriptions.forEach(({ event, callback }) => {
+      socket.on(event, callback)
+    })
+  }
+
   connect() {
     console.log('Attempting to connect to server...')
     if (this.socket?.connected) {
@@ -140,9 +187,17 @@ export class GameService implements IGameService {
       return
     }
 
+    // Сокет уже создан и переживает разрывы сам: у него сохранены и слушатели,
+    // и подписки вызывающего кода. Новый сокет означал бы потерю подписок.
+    if (this.socket) {
+      console.log('Reusing existing socket for reconnection')
+      this.socket.connect()
+      return
+    }
+
     const SERVER_URL = this.serverUrl
     const isSecure = SERVER_URL.startsWith('https')
-    this.socket = io(SERVER_URL, {
+    const socket = io(SERVER_URL, {
       secure: isSecure,
       rejectUnauthorized: isSecure,
       transports: ['websocket'],
@@ -154,8 +209,9 @@ export class GameService implements IGameService {
       autoConnect: true,
       forceNew: false,
     })
+    this.socket = socket
 
-    this.socket.on('connect', () => {
+    socket.on('connect', () => {
       console.log('Connected to server')
       this.isConnected.value = true
       this.socket?.emit(SocketEvents.RegisterDevice, {
@@ -163,7 +219,7 @@ export class GameService implements IGameService {
       })
     })
 
-    this.socket.on('disconnect', (reason: string) => {
+    socket.on('disconnect', (reason: string) => {
       console.log('Disconnected from server:', reason)
       this.isConnected.value = false
       this.rejectPendingAcks(
@@ -174,37 +230,39 @@ export class GameService implements IGameService {
         reason === 'io client disconnect'
       ) {
         console.log('Attempting to reconnect after disconnect...')
-        this.socket?.connect()
+        socket.connect()
       }
     })
 
-    this.socket.on('connect_error', (error: Error) => {
+    socket.on('connect_error', (error: Error) => {
       console.log('Connection error:', error)
       this.isConnected.value = false
     })
 
-    this.socket.on('reconnect_attempt', (attemptNumber: number) => {
+    socket.on('reconnect_attempt', (attemptNumber: number) => {
       console.log('Attempting to reconnect:', attemptNumber)
     })
 
-    this.socket.on('reconnect', (attemptNumber: number) => {
+    socket.on('reconnect', (attemptNumber: number) => {
       console.log('Successfully reconnected after', attemptNumber, 'attempts')
       this.isConnected.value = true
     })
 
-    this.socket.on('reconnect_error', (error: Error) => {
+    socket.on('reconnect_error', (error: Error) => {
       console.log('Reconnection error:', error)
       this.isConnected.value = false
     })
 
-    this.socket.on('reconnect_failed', () => {
+    socket.on('reconnect_failed', () => {
       console.log('Failed to reconnect after all attempts')
       this.isConnected.value = false
     })
 
-    this.socket.on(SocketEvents.Error, (error: Error) => {
+    socket.on(SocketEvents.Error, (error: Error) => {
       console.error('Server error:', error)
     })
+
+    this.attachSubscriptions(socket)
   }
 
   async getGamesList() {
@@ -272,9 +330,7 @@ export class GameService implements IGameService {
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
-    const socket = this.socket
-    socket?.on(SocketEvents.GameUpdated, callback)
-    return () => socket?.off(SocketEvents.GameUpdated, callback)
+    return this.onSocketEvent(SocketEvents.GameUpdated, callback)
   }
 
   async selectPlacingPoint({

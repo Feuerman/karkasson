@@ -15,7 +15,7 @@ import {
   stopTestServer,
   type RunningServer,
 } from './helpers/server'
-import { sleep } from './helpers/wait'
+import { sleep, waitForCondition } from './helpers/wait'
 
 /**
  * Тесты клиентского приложения: настоящий клиентский GameService
@@ -185,6 +185,44 @@ describe('Клиентское приложение (GameService)', () => {
 
     expect(client.socket?.listeners(SocketEvents.GameUpdated)).not.toContain(
       listener
+    )
+  })
+
+  it('подписки переживают переподключение: сокет не заменяется новым', async () => {
+    server = await startTestServer()
+    const client = new GameService({
+      serverUrl: server.url,
+      deviceId: 'client-reconnect',
+    })
+    services.push(client)
+
+    client.connect()
+    await waitUntilConnected(client)
+
+    const updates: Array<{ gameIsStarted?: boolean }> = []
+    client.onGameUpdated((game) => updates.push(game))
+    const socket = client.socket
+    expect(socket).toBeTruthy()
+
+    // Разрыв и повторный connect: сервис обязан вернуть тот же сокет, иначе
+    // подписка осталась бы на отключённом соединении.
+    client.disconnect()
+    await waitForCondition(
+      () => !client.socket?.connected,
+      'сокет не отключился'
+    )
+    client.connect()
+    await waitUntilConnected(client)
+    expect(client.socket).toBe(socket)
+    await waitForServerDevice(server, client)
+
+    await client.createGame()
+    await client.addPlayer({ name: 'Alice', index: 0 })
+    await client.startGame()
+
+    await waitForCondition(
+      () => updates.some((update) => update.gameIsStarted === true),
+      'обновление партии не пришло после переподключения'
     )
   })
 

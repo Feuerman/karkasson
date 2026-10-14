@@ -32,6 +32,7 @@ import {
   SideName,
   TileId,
   TileSideType,
+  type AbbotRecallInfo,
   type AvailableFollowerPlace,
   type AvailablePlace,
   type BaseObject,
@@ -113,12 +114,23 @@ export interface IGamePlacementDiagnostics {
   ): PlacementConflict[]
 }
 
+/**
+ * Сведения о вариантах действий текущего игрока: какие фишки можно поставить
+ * в доступное место и что даст отзыв аббата. Считаются из состояния партии,
+ * чтобы клиент и симулятор не решали правила повторно.
+ */
+export interface IGamePlayerChoices {
+  getAvailableFollowerTypes(place: AvailableFollowerPlace): FollowerType[]
+  getAbbotRecallInfo(): AbbotRecallInfo | null
+}
+
 export interface IGameBoard
   extends
     IGameState,
     IGameCommands,
     IGameSimulationApi,
-    IGamePlacementDiagnostics {
+    IGamePlacementDiagnostics,
+    IGamePlayerChoices {
   calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
   calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
   describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
@@ -651,26 +663,43 @@ export class GameManager implements IGameBoard {
     return this.followerManager.recallAbbot()
   }
 
+  /**
+   * Типы фишек, доступные активному игроку в конкретном месте.
+   */
+  getAvailableFollowerTypes(place: AvailableFollowerPlace): FollowerType[] {
+    return this.followerManager.getAvailableFollowerTypes(place)
+  }
+
+  /**
+   * Что даст отзыв аббата текущим игроком, либо `null`, если отзывать нечего.
+   */
+  getAbbotRecallInfo(): AbbotRecallInfo | null {
+    return this.followerManager.getAbbotRecallInfo()
+  }
+
   findObjectByPoint(
     objects: TemporaryObjects,
     x: number,
     y: number,
     direction?: PointDirection
   ): BaseObject | undefined {
-    return [
-      ...objects.cities,
-      ...objects.roads,
-      ...objects.monasteries,
-      ...objects.gardens,
-    ].find((object) => {
-      return object.points.some((point) => {
-        return (
-          point.x === x &&
-          point.y === y &&
-          (!direction || point.direction === direction)
+    for (const collection of [
+      objects.cities,
+      objects.roads,
+      objects.monasteries,
+      objects.gardens,
+    ]) {
+      for (const object of collection) {
+        const found = object.points.some(
+          (point) =>
+            point.x === x &&
+            point.y === y &&
+            (!direction || point.direction === direction)
         )
-      })
-    })
+        if (found) return object
+      }
+    }
+    return undefined
   }
 
   /**
@@ -897,7 +926,9 @@ export class GameManager implements IGameBoard {
    * влияют на оценку хода, но заметно удорожали бы копирование доски.
    */
   cloneForSimulation(): IGameBoard {
-    const simulationState = cloneGameState(pickGameState(this))
+    const simulationState = pickGameState(this)
+    // Колода и история в копии пустые: они не влияют на оценку хода, поэтому
+    // отбрасываются до копирования, а не после.
     simulationState.tilesList = []
     simulationState.tileHistory = []
     simulationState.actionsHistory = []
@@ -908,7 +939,7 @@ export class GameManager implements IGameBoard {
       gardens: [],
     }
     const game = new GameManager({ startImmediately: false })
-    Object.assign(game, simulationState)
+    Object.assign(game, cloneGameState(simulationState))
     return game
   }
 

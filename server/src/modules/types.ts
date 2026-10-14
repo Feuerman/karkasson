@@ -439,6 +439,16 @@ export type AvailableFollowerPlace = {
   temporaryObject: BaseObject
 }
 
+/** Что игрок получит, если сейчас отзовёт своего аббата. */
+export interface AbbotRecallInfo {
+  /** Объект, на котором стоит аббат игрока. */
+  objectId: string
+  /** Сад или монастырь, с которого снимается аббат. */
+  objectType: typeof ObjectTypes.GARDEN | typeof ObjectTypes.MONASTERY
+  /** Очки за незавершённый объект: сам тайл и занятые соседние клетки. */
+  points: number
+}
+
 /** Слот будущего тайла: координаты и примыкающие к ним объекты */
 export interface AvailablePlace {
   rowIndex: number

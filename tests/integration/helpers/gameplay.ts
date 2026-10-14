@@ -128,6 +128,14 @@ export interface GameStateSnapshot {
   tilePlacesStats: Record<number, Record<number, TileSnapshot>>
   availablePlacesTiles?: Array<{ rowIndex: number; tileIndex: number }>
   availableFollowersPlaces?: FollowerPlaceSnapshot[]
+  /** Допустимые типы фишек по id объекта: интерфейс рисует по ним кнопки. */
+  availableFollowerTypes?: Record<string, string[]>
+  /** Что даст отзыв аббата текущему игроку. */
+  abbotRecall?: {
+    objectId: string
+    objectType: string
+    points: number
+  } | null
   isPlacingFollower?: boolean
   playersFollowers?: Record<string, FollowerCountSnapshot>
   placedFollowers?: PlacedFollowerSnapshot[]

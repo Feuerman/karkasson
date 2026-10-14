@@ -19,7 +19,7 @@
       color="primary"
       variant="soft"
       class="btn-primary-action min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
-      @click="recall"
+      @click="recallAbbot"
     >
       Забрать аббата
     </UButton>
@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ObjectTypes } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -47,47 +48,22 @@ const props = defineProps({
 
 const initialX = Math.max(0, (window.innerWidth - 260) / 2)
 
-const myAbbot = computed(() => {
-  const board = props.gameBoard
-  if (!board.isMyTurn) return null
-  const me = board.currentPlayer
-  if (!me) return null
+/** Возможность отзыва и выигрыш считает сервер: клиент только показывает их. */
+const recall = computed(() => props.gameBoard.abbotRecall ?? null)
 
-  return (
-    (board.placedFollowers ?? []).find(
-      (follower) =>
-        follower.isAbbot && String(follower.playerId) === String(me.id)
-    ) ?? null
-  )
-})
-
-const showRecall = computed(() => myAbbot.value !== null)
+const showRecall = computed(() => recall.value !== null)
 
 const abbotLocation = computed(() =>
-  myAbbot.value?.isGarden ? 'сада' : 'монастыря'
+  recall.value?.objectType === ObjectTypes.GARDEN ? 'сада' : 'монастыря'
 )
 
-const potentialPoints = computed(() => {
-  const abbot = myAbbot.value
-  if (!abbot) return 0
-  const stats = props.gameBoard.tilePlacesStats ?? {}
-  const x = abbot.point.x
-  const y = abbot.point.y
-
-  let count = 0
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (stats[y + dy]?.[x + dx]) count++
-    }
-  }
-  return count
-})
+const potentialPoints = computed(() => recall.value?.points ?? 0)
 
 const pluralSuffix = computed(() =>
   pluralForm(potentialPoints.value, 'о', 'а', 'ов')
 )
 
-const recall = () => {
+const recallAbbot = () => {
   void GameService.recallAbbot().catch((error: unknown) => {
     notifyError(error, 'Не удалось отозвать аббата')
   })

@@ -2,11 +2,13 @@ import type { IGameBoard } from './GameManager'
 import type {
   AvailableFollowerPlace,
   BaseObject,
+  CompletedObjects,
+  FollowerCount,
   FollowerType,
   ObjectFollower,
+  PlayerId,
   Tile,
 } from './types'
-import { FollowerType as FollowerTypes } from './types'
 import { rotateTileGroups, rotateTileSides } from './tileRotation'
 
 export interface SimulationMove {
@@ -23,14 +25,22 @@ export interface SimulationResult {
   moves: SimulationMove[]
 }
 
+/** Снимок одной коллекции объектов доски для отката пробного хода. */
+interface ObjectCollectionSnapshot {
+  /** Массив доски, который возвращается на место при откате. */
+  objects: BaseObject[]
+  /** Состояние объектов на момент снимка. */
+  saved: BaseObject[]
+  /** Объекты доски по идентификатору: ссылки на них переиспользуются. */
+  index: Map<string, BaseObject>
+  /** Массив, который заполняется при каждом откате. */
+  restored: BaseObject[]
+}
+
 /** Изменяемые коллекции одного пробного размещения; доска здесь не копируется. */
 interface TileSimulationSnapshot {
-  temporaryObjects: IGameBoard['temporaryObjects']
-  temporaryArrays: IGameBoard['temporaryObjects']
-  temporaryObjectState: IGameBoard['temporaryObjects']
-  completedObjects: IGameBoard['completedObjects']
-  completedArrays: IGameBoard['completedObjects']
-  completedObjectState: IGameBoard['completedObjects']
+  temporaryCollections: ObjectCollectionSnapshot[]
+  completedCollections: ObjectCollectionSnapshot[]
   scores: IGameBoard['scores']
   scoreState: IGameBoard['scores']
   placedFollowers: IGameBoard['placedFollowers']
@@ -49,59 +59,111 @@ type HeuristicGameState = Pick<
   'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'
 >
 
+const TILE_ROTATION_STEPS = [0, 1, 2, 3]
+
+/** Вес типа объекта в оценке хода: сколько очков эвристики даёт одна фишка. */
+const OBJECT_WEIGHTS = {
+  cities: 2,
+  roads: 1,
+  monasteries: 3,
+  gardens: 3,
+} as const
+
+/**
+ * Больше фишка за ход не даёт: тяжёлый объект весит 3, большой подданный
+ * считается за две фишки. Нужен, чтобы не перебирать фишки там, где они
+ * заведомо не улучшат лучший найденный ход.
+ */
+const MAX_FOLLOWER_GAIN = Math.max(...Object.values(OBJECT_WEIGHTS)) * 2
+
+function rotateTile(tile: Tile, turns: number): Tile {
+  return {
+    ...tile,
+    rotation: (tile.rotation + turns * 90) % 360,
+    sides: rotateTileSides(tile.sides, turns),
+    roadGroups: rotateTileGroups(tile.roadGroups, turns),
+    cityGroups: rotateTileGroups(tile.cityGroups, turns),
+    cityShieldGroups: rotateTileGroups(tile.cityShieldGroups, turns),
+  }
+}
+
+/**
+ * Копия объекта для снимка.
+ *
+ * `points` и `followers` копируются поверхностно: пробный ход либо заменяет
+ * массив целиком (объединение участков), либо дописывает фишку в конец, и
+ * откат убирает её обратно по длине. Правок элементов на месте нет, поэтому
+ * снимок остаётся неизменным и при переборе всех поворотов одной позиции.
+ * `score` — итог последнего подсчёта, он только переопределяется целиком.
+ */
+function copyObject(object: BaseObject): BaseObject {
+  return {
+    ...object,
+    score: object.score
+      ? { ...object.score, players: { ...object.score.players } }
+      : undefined,
+    points: [...object.points],
+    followers: object.followers.map((follower) => ({ ...follower })),
+  }
+}
+
+/** Запасы подданных — плоские числа, их достаточно скопировать поверхностно. */
+function copyFollowerPools(
+  pools: IGameBoard['playersFollowers']
+): Record<PlayerId, FollowerCount> {
+  const copies: Record<PlayerId, FollowerCount> = {}
+  for (const playerId of Object.keys(pools) as PlayerId[]) {
+    const pool = pools[playerId]
+    if (pool) copies[playerId] = { ...pool }
+  }
+  return copies
+}
+
 function followerStrength(follower: ObjectFollower): number {
   return follower.isBigFollower ? 2 : 1
 }
 
-function scoreOwnedObjects(
+function countOwnedFollowers(
   objects: BaseObject[],
-  playerId: number | string,
-  weight: number,
+  playerId: PlayerId,
   innsAndCathedralsEnabled: boolean
 ): number {
-  return objects.reduce(
-    (score, object) =>
-      score +
-      object.followers
-        .filter((follower) => follower.playerId === playerId)
-        .reduce(
-          (strength, follower) =>
-            strength +
-            (innsAndCathedralsEnabled ? followerStrength(follower) : 1),
-          0
-        ) *
-        weight,
-    0
-  )
+  let strength = 0
+  for (const object of objects) {
+    for (const follower of object.followers) {
+      if (follower.playerId !== playerId) continue
+      strength += innsAndCathedralsEnabled ? followerStrength(follower) : 1
+    }
+  }
+  return strength
 }
 
 export function calculateHeuristicScore(gameState: HeuristicGameState): number {
-  const completedScore = Object.values(gameState.scores).reduce(
-    (sum, value) => sum + value,
-    0
-  )
+  let completedScore = 0
+  for (const playerId of Object.keys(gameState.scores)) {
+    completedScore += gameState.scores[playerId]
+  }
 
   const currentPlayer = gameState.currentPlayer
   if (!currentPlayer) return completedScore
 
+  const innsAndCathedrals = gameState.rules.expansions.innsAndCathedrals
   const temporaryObjects = gameState.temporaryObjects
-  const weightedObjectGroups = [
-    [temporaryObjects.cities, 2],
-    [temporaryObjects.roads, 1],
-    [temporaryObjects.monasteries, 3],
-    [temporaryObjects.gardens, 3],
-  ] as const
-
-  return weightedObjectGroups.reduce(
-    (score, [objects, weight]) =>
-      score +
-      scoreOwnedObjects(
-        objects,
-        currentPlayer.id,
-        weight,
-        gameState.rules.expansions.innsAndCathedrals
-      ),
-    completedScore
+  const playerId = currentPlayer.id
+  return (
+    completedScore +
+    countOwnedFollowers(temporaryObjects.cities, playerId, innsAndCathedrals) *
+      OBJECT_WEIGHTS.cities +
+    countOwnedFollowers(temporaryObjects.roads, playerId, innsAndCathedrals) *
+      OBJECT_WEIGHTS.roads +
+    countOwnedFollowers(
+      temporaryObjects.monasteries,
+      playerId,
+      innsAndCathedrals
+    ) *
+      OBJECT_WEIGHTS.monasteries +
+    countOwnedFollowers(temporaryObjects.gardens, playerId, innsAndCathedrals) *
+      OBJECT_WEIGHTS.gardens
   )
 }
 
@@ -116,23 +178,17 @@ export class GameSimulatorModule {
     let bestScore = -Infinity
     let bestMoves: SimulationMove[] = []
 
-    this.gameState.availablePlacesTiles.forEach(({ rowIndex, tileIndex }) => {
-      for (let rotation = 0; rotation < 360; rotation += 90) {
-        const turns = rotation / 90
-        const rotatedTile: Tile = {
-          ...tile,
-          rotation: (tile.rotation + rotation) % 360,
-          sides: rotateTileSides(tile.sides, turns),
-          roadGroups: rotateTileGroups(tile.roadGroups, turns),
-          cityGroups: rotateTileGroups(tile.cityGroups, turns),
-          cityShieldGroups: rotateTileGroups(tile.cityShieldGroups, turns),
-        }
+    const rotatedTiles = TILE_ROTATION_STEPS.map((turns) =>
+      rotateTile(tile, turns)
+    )
 
-        const snapshot = this.snapshotTilePlacement(
-          this.gameState,
-          rowIndex,
-          tileIndex
-        )
+    for (const { rowIndex, tileIndex } of this.gameState.availablePlacesTiles) {
+      // Снимок берётся на позицию, а не на поворот: все четыре поворота одного
+      // места откатываются в одно и то же состояние, поэтому копировать доску
+      // четыре раза подряд незачем.
+      const snapshot = this.snapshotTilePlacement(rowIndex, tileIndex)
+
+      for (const rotatedTile of rotatedTiles) {
         try {
           if (
             !this.gameState.simulatePlaceTile(rotatedTile, rowIndex, tileIndex)
@@ -140,7 +196,6 @@ export class GameSimulatorModule {
             continue
           }
 
-          // Оценка без подданного
           const scoreWithoutFollower = calculateHeuristicScore(this.gameState)
           if (scoreWithoutFollower > bestScore) {
             bestScore = scoreWithoutFollower
@@ -154,125 +209,107 @@ export class GameSimulatorModule {
             ]
           }
 
-          // Проверка фишек откатывается локально; доска и объекты не клонируются.
-          for (const place of this.gameState.availableFollowersPlaces) {
-            const followerTypes = this.getFollowerTypes(this.gameState, place)
-            for (const followerType of followerTypes) {
-              const pool =
-                this.gameState.playersFollowers[
-                  this.gameState.currentPlayer?.id ?? ''
-                ]
-              const placedObject = place.temporaryObject
-              const previousFollowersLength = placedObject.followers.length
-              const previousPlacedFollowersLength =
-                this.gameState.placedFollowers.length
-              const previousPool = pool ? { ...pool } : undefined
+          // Фишки перебираются только там, где они ещё могут улучшить ход.
+          if (scoreWithoutFollower + MAX_FOLLOWER_GAIN <= bestScore) continue
 
-              try {
-                if (
-                  !this.gameState.simulatePlaceFollower(place, followerType)
-                ) {
-                  continue
-                }
-
-                const score = calculateHeuristicScore(this.gameState)
-                if (score > bestScore) {
-                  bestScore = score
-                  const followerPlacement = structuredClone({
-                    point: place.point,
-                    temporaryObject: placedObject,
-                  })
-                  bestMoves = [
-                    {
-                      tile: rotatedTile,
-                      rowIndex,
-                      tileIndex,
-                      rotation: rotatedTile.rotation,
-                      followerPlace: followerPlacement,
-                      followerType,
-                    },
-                  ]
-                }
-              } finally {
-                placedObject.followers.length = previousFollowersLength
-                this.gameState.placedFollowers.length =
-                  previousPlacedFollowersLength
-                if (pool && previousPool) Object.assign(pool, previousPool)
-              }
-            }
+          const followerMove = this.findBestFollowerMove(
+            rotatedTile,
+            rowIndex,
+            tileIndex
+          )
+          if (followerMove && followerMove.score > bestScore) {
+            bestScore = followerMove.score
+            bestMoves = [followerMove.move]
           }
         } finally {
-          this.restoreTilePlacement(
-            this.gameState,
-            rowIndex,
-            tileIndex,
-            snapshot
-          )
+          this.restoreTilePlacement(rowIndex, tileIndex, snapshot)
         }
       }
-    })
+    }
 
     return { score: bestScore, moves: bestMoves }
   }
 
-  private getFollowerTypes(
-    gameState: IGameBoard,
-    place: AvailableFollowerPlace
-  ): FollowerType[] {
-    const pool = gameState.playersFollowers[gameState.currentPlayer?.id ?? '']
-    const followerTypes: FollowerType[] = place.temporaryObject.isGarden
-      ? []
-      : [FollowerTypes.Follower]
-    if (
-      pool?.bigFollowers &&
-      this.gameState.rules.expansions.innsAndCathedrals
-    ) {
-      followerTypes.push(FollowerTypes.BigFollower)
+  /**
+   * Лучшая расстановка фишки на уже поставленном тайле. Пробные фишки
+   * откатываются на месте, доска и объекты для этого не копируются.
+   */
+  private findBestFollowerMove(
+    rotatedTile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): { score: number; move: SimulationMove } | undefined {
+    let bestScore = -Infinity
+    let bestMove: SimulationMove | undefined
+
+    for (const place of this.gameState.availableFollowersPlaces) {
+      for (const followerType of this.gameState.getAvailableFollowerTypes(
+        place
+      )) {
+        const pool =
+          this.gameState.playersFollowers[
+            this.gameState.currentPlayer?.id ?? ''
+          ]
+        const placedObject = place.temporaryObject
+        const previousFollowersLength = placedObject.followers.length
+        const previousPlacedFollowersLength =
+          this.gameState.placedFollowers.length
+        const previousPool = pool ? { ...pool } : undefined
+
+        try {
+          if (!this.gameState.simulatePlaceFollower(place, followerType)) {
+            continue
+          }
+
+          const score = calculateHeuristicScore(this.gameState)
+          if (score > bestScore) {
+            bestScore = score
+            bestMove = {
+              tile: rotatedTile,
+              rowIndex,
+              tileIndex,
+              rotation: rotatedTile.rotation,
+              followerPlace: {
+                point: { ...place.point },
+                temporaryObject: copyObject(placedObject),
+              },
+              followerType,
+            }
+          }
+        } finally {
+          placedObject.followers.length = previousFollowersLength
+          this.gameState.placedFollowers.length = previousPlacedFollowersLength
+          if (pool && previousPool) Object.assign(pool, previousPool)
+        }
+      }
     }
-    if (
-      (place.temporaryObject.isMonastery || place.temporaryObject.isGarden) &&
-      pool?.monks
-    ) {
-      followerTypes.push(FollowerTypes.Abbot)
-    }
-    return followerTypes
+
+    return bestMove ? { score: bestScore, move: bestMove } : undefined
   }
 
   private snapshotTilePlacement(
-    gameState: IGameBoard,
     rowIndex: number,
     tileIndex: number
   ): TileSimulationSnapshot {
+    const gameState = this.gameState
     const row = gameState.tilePlacesStats[rowIndex]
-    const temporaryObjects = gameState.temporaryObjects
-    const completedObjects = gameState.completedObjects
     const scores = gameState.scores
     const placedFollowers = gameState.placedFollowers
     const playersFollowers = gameState.playersFollowers
     const availableFollowersPlaces = gameState.availableFollowersPlaces
     return {
-      temporaryObjects,
-      temporaryArrays: {
-        cities: temporaryObjects.cities,
-        roads: temporaryObjects.roads,
-        monasteries: temporaryObjects.monasteries,
-        gardens: temporaryObjects.gardens,
-      },
-      temporaryObjectState: structuredClone(temporaryObjects),
-      completedObjects,
-      completedArrays: {
-        cities: completedObjects.cities,
-        roads: completedObjects.roads,
-        monasteries: completedObjects.monasteries,
-        gardens: completedObjects.gardens,
-      },
-      completedObjectState: structuredClone(completedObjects),
+      temporaryCollections: snapshotObjectCollections(
+        gameState.temporaryObjects
+      ),
+      completedCollections: snapshotObjectCollections(
+        gameState.completedObjects
+      ),
       scores,
       scoreState: { ...scores },
       placedFollowers,
       placedFollowerState: placedFollowers.map((follower) => ({ ...follower })),
       playersFollowers,
-      followerPoolState: structuredClone(playersFollowers),
+      followerPoolState: copyFollowerPools(playersFollowers),
       availableFollowersPlaces,
       availableFollowerState: [...availableFollowersPlaces],
       actionsHistoryLength: gameState.actionsHistory.length,
@@ -282,23 +319,19 @@ export class GameSimulatorModule {
   }
 
   private restoreTilePlacement(
-    gameState: IGameBoard,
     rowIndex: number,
     tileIndex: number,
     snapshot: TileSimulationSnapshot
   ): void {
+    const gameState = this.gameState
     restoreObjectCollections(
       gameState.temporaryObjects,
-      snapshot.temporaryArrays,
-      snapshot.temporaryObjectState
+      snapshot.temporaryCollections
     )
     restoreObjectCollections(
       gameState.completedObjects,
-      snapshot.completedArrays,
-      snapshot.completedObjectState
+      snapshot.completedCollections
     )
-    Object.assign(snapshot.scores, snapshot.scoreState)
-    gameState.scores = snapshot.scores
     snapshot.placedFollowers.splice(
       0,
       snapshot.placedFollowers.length,
@@ -322,6 +355,7 @@ export class GameSimulatorModule {
       if (!(playerId in snapshot.scoreState)) delete snapshot.scores[playerId]
     }
     Object.assign(snapshot.scores, snapshot.scoreState)
+    gameState.scores = snapshot.scores
 
     const row = gameState.tilePlacesStats[rowIndex]
     if (snapshot.placedTile && row) {
@@ -335,30 +369,45 @@ export class GameSimulatorModule {
   }
 }
 
+function snapshotObjectCollections(
+  collections: CompletedObjects
+): ObjectCollectionSnapshot[] {
+  return (['cities', 'roads', 'monasteries', 'gardens'] as const).map((key) => {
+    const objects = collections[key]
+    return {
+      objects,
+      saved: objects.map(copyObject),
+      index: new Map(objects.map((object) => [object.id, object])),
+      restored: [],
+    }
+  })
+}
+
 function restoreObjectCollections(
-  target: IGameBoard['temporaryObjects'],
-  original: IGameBoard['temporaryObjects'],
-  snapshot: IGameBoard['temporaryObjects']
+  target: CompletedObjects,
+  collections: ObjectCollectionSnapshot[]
 ): void {
-  for (const key of ['cities', 'roads', 'monasteries', 'gardens'] as const) {
-    const originalObjects = original[key]
-    const snapshotObjects = snapshot[key]
-    if (!originalObjects || !snapshotObjects) continue
+  const keys = ['cities', 'roads', 'monasteries', 'gardens'] as const
+  for (let position = 0; position < collections.length; position += 1) {
+    const { objects, saved, index, restored } = collections[position]
+    restored.length = 0
+    for (const savedObject of saved) {
+      const object = index.get(savedObject.id)
+      if (!object) {
+        restored.push(savedObject)
+        continue
+      }
 
-    const originalById = new Map(
-      originalObjects.map((object) => [object.id, object])
-    )
-    const restoredObjects = snapshotObjects.map((savedObject) => {
-      const originalObject = originalById.get(savedObject.id)
-      if (!originalObject) return savedObject
+      // Массивы отдаются доске из снимка: по инварианту `copyObject` их
+      // элементы не правятся на месте, поэтому снимок остаётся пригодным для
+      // отката остальных поворотов этой позиции.
+      Object.assign(object, savedObject)
+      object.points = savedObject.points
+      object.followers = savedObject.followers
+      restored.push(object)
+    }
 
-      Object.assign(originalObject, savedObject)
-      originalObject.points = savedObject.points
-      originalObject.followers = savedObject.followers
-      return originalObject
-    })
-
-    originalObjects.splice(0, originalObjects.length, ...restoredObjects)
-    target[key] = originalObjects
+    objects.splice(0, objects.length, ...restored)
+    target[keys[position]] = objects
   }
 }
