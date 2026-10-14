@@ -53,8 +53,6 @@
 
 | Команда                          | Назначение                                  |
 | -------------------------------- | ------------------------------------------- |
-| `pnpm run dev`                   | Vite dev-сервер клиента                     |
-| `pnpm --filter server run dev`   | сервер с nodemon                            |
 | `pnpm run type-check`            | проверка типов клиента (`vue-tsc --noEmit`) |
 | `pnpm test`                      | полный набор Vitest: unit и integration     |
 | `pnpm run test:coverage`         | тесты и пороги покрытия по слоям            |

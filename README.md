@@ -230,24 +230,6 @@ Dev-сервер (`pnpm --filter server run dev`) автоматически и�
 in-memory хранилище: игры доступны, пока сервер запущен, и не требуют
 подключения к Firebase. Production-сервер продолжает сохранять игры в Firebase.
 
-### Скрипты
-
-| Команда                          | Назначение                                                     |
-| -------------------------------- | -------------------------------------------------------------- |
-| `pnpm run dev`                   | dev-сервер клиента (Vite, HMR)                                 |
-| `pnpm run build`                 | проверка типов и сборка клиента в `dist/` (base `/karkasson/`) |
-| `pnpm run preview`               | предпросмотр собранного клиента                                |
-| `pnpm test`                      | все тесты (unit + интеграционные)                              |
-| `pnpm run test:gameplay`         | полные партии: 4 ИИ и человек против ИИ                        |
-| `pnpm run test:browser`          | браузерный smoke: создание лобби и старт игры                  |
-| `pnpm run type-check`            | проверка типов (`vue-tsc --noEmit`)                            |
-| `pnpm run lint`                  | ESLint, только проверка                                        |
-| `pnpm run lint:fix`              | ESLint с автоисправлением                                      |
-| `pnpm run format`                | Prettier по всему репозиторию                                  |
-| `pnpm --filter server run dev`   | сервер с nodemon (hot-reload)                                  |
-| `pnpm --filter server run build` | компиляция сервера в `server/dist`                             |
-| `pnpm --filter server run start` | запуск собранного сервера                                      |
-
 ## Тесты
 
 Vitest (конфиг — `vitest.integration.config.ts`): окружение node,
@@ -260,18 +242,9 @@ Vitest (конфиг — `vitest.integration.config.ts`): окружение nod
   очки, reconnect, персистентность, полная партия из четырёх ИИ и полная
   партия человека с компьютерными игроками.
 
-```sh
-pnpm test
-```
-
-Для отдельного прогона двух полных партий используй
-`pnpm run test:gameplay`. Эта команда дополняет, но не заменяет полный
-`pnpm test`. Общие требования к регрессионному покрытию и проверкам описаны в
-[`AGENTS.md`](AGENTS.md) и инструкциях соответствующего слоя.
-
-Браузерный smoke запускает Chromium через Playwright и проверяет путь от
-создания лобби до появления игровой доски. Один раз установи браузер командой
-`pnpm exec playwright install chromium`.
+Команды запуска проверок, требования к регрессионному покрытию и установка
+Chromium для браузерного smoke описаны в [`AGENTS.md`](AGENTS.md) и инструкциях
+соответствующего слоя.
 
 ## Переменные окружения
 
