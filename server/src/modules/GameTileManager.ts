@@ -206,24 +206,28 @@ export class GameTileManager {
     rowIndex: number,
     tileIndex: number
   ): boolean {
-    if (
-      this.state.rules.expansions.river &&
-      tile.expansion === ExpansionName.River
-    ) {
+    const riverEnabled = this.state.rules.expansions.river
+
+    if (riverEnabled && tile.expansion === ExpansionName.River) {
       return (
         !this.state.tilePlacesStats[rowIndex]?.[tileIndex] &&
         this.checkRiverPlacement(tile, rowIndex, tileIndex).valid
       )
     }
 
-    return (
-      isCorrectTilePosition(
-        tile,
-        rowIndex,
-        tileIndex,
-        this.state.tilePlacesStats,
-        this.state.isEmptyGrid()
-      ) && this.checkRiverPlacement(tile, rowIndex, tileIndex).valid
+    if (
+      riverEnabled &&
+      !this.checkRiverPlacement(tile, rowIndex, tileIndex).valid
+    ) {
+      return false
+    }
+
+    return isCorrectTilePosition(
+      tile,
+      rowIndex,
+      tileIndex,
+      this.state.tilePlacesStats,
+      this.state.isEmptyGrid()
     )
   }
 
@@ -309,24 +313,18 @@ export class GameTileManager {
     rowIndex: number,
     tileIndex: number
   ): { valid: boolean; conflict?: RiverPlacementConflict } {
-    if (!this.state.rules.expansions.river) return { valid: true }
     if (this.isPlacingStartTile()) {
       return {
         valid:
           tile.id === TileId.RIVER_A && rowIndex === 15 && tileIndex === 15,
       }
     }
-    if (!Object.keys(this.state.tilePlacesStats).length) return { valid: true }
     if (tile.id === TileId.RIVER_A) return { valid: false }
-    const hasRiverEnd = Object.values(this.state.tilePlacesStats).some((row) =>
-      Object.values(row).some((placedTile) => placedTile.id === TileId.RIVER_L)
-    )
-    if (hasRiverEnd) return { valid: !tile.riverGroups?.length }
+    if (this.hasRiverEnd()) return { valid: !tile.riverGroups?.length }
     if (!tile.riverGroups?.length) return { valid: false }
 
     const riverSides = tile.riverGroups.flat()
     if (tile.riverGroups.length !== 1) return { valid: false }
-    if (tile.id === TileId.RIVER_A) return { valid: false }
 
     const placedRivers = Object.values(this.state.tilePlacesStats).flatMap(
       (row) =>
@@ -341,9 +339,9 @@ export class GameTileManager {
     // тайлов и не открывать новых: у открытого конца и у выхода нового тайла
     // должны совпасть клетка и сторона.
     const openEnds = this.findOpenRiverEnds()
-    if (openEnds.length !== 1) return { valid: false }
-
     const openEnd = openEnds[0]
+    if (openEnds.length !== 1 || !openEnd) return { valid: false }
+
     const connections = NEIGHBOR_SIDES.flatMap((side) => {
       const adjacent = neighborCoordinates(rowIndex, tileIndex, side)
       const neighbor =
@@ -358,7 +356,6 @@ export class GameTileManager {
     if (
       connections.length !== 1 ||
       !connection ||
-      !openEnd ||
       connection.rowIndex !== openEnd.rowIndex ||
       connection.tileIndex !== openEnd.tileIndex ||
       openEnd.side !== OPPOSITE_SIDE[connection.side]

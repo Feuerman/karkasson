@@ -1,5 +1,9 @@
 import type { GameAction, NewGameAction } from './gameActions'
-import { countCenterObjectPoints, describeCentralObjectPoints } from './scoring'
+import {
+  CENTRAL_OBJECT_NAMES,
+  countCenterObjectPoints,
+  describeCentralObjectPoints,
+} from './scoring'
 import {
   ActionTypes,
   FollowerType as FollowerTypes,
@@ -64,6 +68,15 @@ interface FollowerState {
     y: number,
     direction?: PointDirection
   ): BaseObject | undefined
+}
+
+/** Центральный объект текущего игрока, с которого можно отозвать аббата. */
+interface RecallableAbbot {
+  object: BaseObject
+  abbot: ObjectFollower
+  objectType: ObjectTypes.GARDEN | ObjectTypes.MONASTERY
+  playerId: PlayerId
+  points: number
 }
 
 /** Owns legal follower positions, placement, skipping and abbot recall. */
@@ -300,17 +313,14 @@ export class FollowerManager {
    */
   getAbbotRecallInfo(): AbbotRecallInfo | null {
     if (this.state.gameIsEnded) return null
-    const currentPlayer = this.state.currentPlayer
-    if (!currentPlayer) return null
 
-    const found = this.findOwnAbbot(String(currentPlayer.id))
-    if (!found) return null
+    const target = this.findRecallableAbbot()
+    if (!target) return null
 
-    const { object } = found
     return {
-      objectId: object.id,
-      objectType: object.isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY,
-      points: this.countCenterObjectPoints(object),
+      objectId: target.object.id,
+      objectType: target.objectType,
+      points: target.points,
     }
   }
 
@@ -322,48 +332,40 @@ export class FollowerManager {
    */
   recallAbbot(): boolean {
     if (this.state.gameIsEnded) return false
-    const currentPlayer = this.state.currentPlayer
-    if (!currentPlayer) return false
 
-    const playerKey = String(currentPlayer.id)
-    const found = this.findOwnAbbot(playerKey)
-    if (!found) return false
-    const { object: target, abbot } = found
+    const target = this.findRecallableAbbot()
+    if (!target) return false
+    const { object, abbot, objectType, playerId, points } = target
 
-    const objectType = target.isGarden
-      ? ObjectTypes.GARDEN
-      : ObjectTypes.MONASTERY
-    const points = this.countCenterObjectPoints(target)
-    this.state.scores[currentPlayer.id] =
-      (this.state.scores[currentPlayer.id] ?? 0) + points
+    this.state.scores[playerId] = (this.state.scores[playerId] ?? 0) + points
 
     this.state.recordAction({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
         objectType,
-        objectData: target,
+        objectData: object,
         score: {
-          objectId: target.id,
-          players: { [currentPlayer.id]: points },
+          objectId: object.id,
+          players: { [playerId]: points },
           total: points,
         },
         ...describeCentralObjectPoints(
           points,
-          target.isGarden ? 'сада' : 'монастыря'
+          CENTRAL_OBJECT_NAMES[objectType]
         ),
       },
     })
 
-    target.followers = target.followers.filter((follower) => follower !== abbot)
+    object.followers = object.followers.filter((follower) => follower !== abbot)
     const placedIndex = this.state.placedFollowers.findIndex(
       (follower) =>
         follower.isAbbot &&
-        follower.objectId === target.id &&
-        String(follower.playerId) === playerKey
+        follower.objectId === object.id &&
+        follower.playerId === playerId
     )
     if (placedIndex !== -1) this.state.placedFollowers.splice(placedIndex, 1)
 
-    this.state.playersFollowers[currentPlayer.id].monks += 1
+    this.state.playersFollowers[playerId].monks += 1
     this.state.recordAction({
       actionType: ActionTypes.BACK_FOLLOWER,
       actionData: {
@@ -376,6 +378,32 @@ export class FollowerManager {
       },
     })
     return true
+  }
+
+  /**
+   * Общая часть предпросмотра и отзыва: собственный аббат текущего игрока на
+   * центральном объекте вместе с очками за «незавершённый» объект.
+   */
+  private findRecallableAbbot(): RecallableAbbot | undefined {
+    const currentPlayer = this.state.currentPlayer
+    if (!currentPlayer) return undefined
+
+    const found = this.findOwnAbbot(String(currentPlayer.id))
+    if (!found) return undefined
+
+    const objectType = found.object.isGarden
+      ? ObjectTypes.GARDEN
+      : ObjectTypes.MONASTERY
+    return {
+      ...found,
+      objectType,
+      playerId: currentPlayer.id,
+      points: countCenterObjectPoints(
+        this.state.tilePlacesStats,
+        found.object,
+        objectType
+      ),
+    }
   }
 
   /**
@@ -394,14 +422,11 @@ export class FollowerManager {
     const isOwnAbbot = (follower: ObjectFollower) =>
       Boolean(follower.isAbbot) && String(follower.playerId) === playerKey
 
-    const object = centerObjects.find((centerObject) =>
-      centerObject.followers.some(isOwnAbbot)
-    )
-    if (!object) return undefined
-
-    const abbot = object.followers.find(isOwnAbbot)
-    if (!abbot) return undefined
-    return { object, abbot }
+    for (const object of centerObjects) {
+      const abbot = object.followers.find(isOwnAbbot)
+      if (abbot) return { object, abbot }
+    }
+    return undefined
   }
 
   /**
@@ -522,13 +547,5 @@ export class FollowerManager {
     } else {
       this.state.playersFollowers[playerId].ordinaryFollowers -= 1
     }
-  }
-
-  private countCenterObjectPoints(object: BaseObject): number {
-    return countCenterObjectPoints(
-      this.state.tilePlacesStats,
-      object,
-      object.isGarden ? ObjectTypes.GARDEN : ObjectTypes.MONASTERY
-    )
   }
 }

@@ -261,24 +261,15 @@ export class GameManager implements IGameBoard {
   }
 
   initPlayers(players: Player[]) {
-    players.forEach((player) => {
+    for (const player of players) {
       this.players.push(player)
       this.scores[player.id] = 0
-    })
-
-    this.playersFollowers = players.reduce<Record<PlayerId, FollowerCount>>(
-      (acc, player) => {
-        acc[player.id] = {
-          ordinaryFollowers: 7,
-          ...(this.rules.expansions.innsAndCathedrals
-            ? { bigFollowers: 1 }
-            : {}),
-          monks: 1,
-        }
-        return acc
-      },
-      {}
-    )
+      this.playersFollowers[player.id] = {
+        ordinaryFollowers: 7,
+        ...(this.rules.expansions.innsAndCathedrals ? { bigFollowers: 1 } : {}),
+        monks: 1,
+      }
+    }
   }
 
   startGame() {
@@ -304,9 +295,9 @@ export class GameManager implements IGameBoard {
     }
 
     const startTileId = this.rules.expansions.river ? TileId.RIVER_A : TileId.D
-    const startDefinition = this.rules.expansions.river
-      ? riverTiles.find(({ id }) => id === startTileId)
-      : this.tilesList.find(({ id }) => id === startTileId)
+    const startDefinition = (
+      this.rules.expansions.river ? riverTiles : this.tilesList
+    ).find(({ id }) => id === startTileId)
     if (!startDefinition) throw new Error('Game has no starting tile')
     const startTile: Tile = { ...startDefinition, rotation: 0 }
     const startTileIndex = this.tilesList.findIndex(

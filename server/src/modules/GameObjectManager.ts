@@ -102,8 +102,8 @@ export class GameObjectManager {
 
     this.checkLinearFeatureOnTile(tile, rowIndex, tileIndex)
 
-    this.checkMonasteries(tile)
-    this.checkGardens(tile)
+    this.addCentralObject(ObjectTypes.MONASTERY, tile, tile.isMonastery)
+    this.addCentralObject(ObjectTypes.GARDEN, tile, tile.hasGarden)
   }
 
   /** Дороги и города одного вида на тайле разбираются одинаково. */
@@ -124,20 +124,9 @@ export class GameObjectManager {
       )
       this.checkConnectedFeatures(
         kind,
-        featurePoints,
         this.getConnectedFeatureGroups(tile, featurePoints, kind)
       )
     }
-  }
-
-  /** Монастырь стоит в центре тайла, поэтому игнорирует поворот. */
-  private checkMonasteries(tile: GridTile) {
-    this.addCentralObject(ObjectTypes.MONASTERY, tile, tile.isMonastery)
-  }
-
-  /** Сад, как и монастырь, занимает центр тайла, но ставится только на свой тайл. */
-  private checkGardens(tile: GridTile) {
-    this.addCentralObject(ObjectTypes.GARDEN, tile, tile.hasGarden)
   }
 
   /** Создаёт объект в центре тайла, если такой тайл только что поставлен. */
@@ -291,13 +280,8 @@ export class GameObjectManager {
     this.removePlacedFollower(follower)
   }
 
-  private checkConnectedFeatures(
-    kind: LinearFeatureKind,
-    featurePoints: Point[],
-    connectedGroups?: Point[][]
-  ) {
+  private checkConnectedFeatures(kind: LinearFeatureKind, groups: Point[][]) {
     const collection = LINEAR_FEATURE_COLLECTIONS[kind]
-    const groups = connectedGroups ?? featurePoints.map((point) => [point])
 
     for (const group of groups) {
       if (!group.length) continue
@@ -328,8 +312,10 @@ export class GameObjectManager {
   ) {
     const collection = LINEAR_FEATURE_COLLECTIONS[kind]
     const existingObjects = this.state.temporaryObjects[collection]
-    const placedTile =
-      this.state.tilePlacesStats[newPoints[0]?.y ?? -1]?.[newPoints[0]?.x ?? -1]
+    const firstPoint = newPoints[0]
+    const placedTile = firstPoint
+      ? this.state.tilePlacesStats[firstPoint.y]?.[firstPoint.x]
+      : undefined
     const hasInn = kind === TileSideType.Road && Boolean(placedTile?.hasInn)
     const hasCathedral =
       kind === TileSideType.City && Boolean(placedTile?.hasCathedral)
