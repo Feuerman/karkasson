@@ -436,16 +436,6 @@ export class DragonPrincessManager {
     )
   }
 
-  private findCitiesOnPrincessTile(rowIndex: number, tileIndex: number) {
-    return this.state.temporaryObjects.cities.filter(
-      (city) =>
-        city.followers.length > 0 &&
-        city.points.some(
-          (point) => point.x === tileIndex && point.y === rowIndex
-        )
-    )
-  }
-
   /**
    * Снимает подданного с поля и возвращает его в пул владельца.
    * Возвращает описание фишки для истории или `undefined`, если её не было.
