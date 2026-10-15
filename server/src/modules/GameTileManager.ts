@@ -5,6 +5,7 @@ import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
 import { findTileDefinitionById } from '../data/tileDefinitions'
 import type { TileDefinition } from '../data/tiles'
 import {
+  boardCenterCoordinates,
   isCorrectTilePosition,
   neighborCoordinates,
   NEIGHBOR_SIDES,
@@ -31,6 +32,7 @@ interface RiverOpenEnd {
 interface GameTileState {
   gameIsEnded: boolean
   rules: GameRules
+  gridSize: number[]
   tilesList: Tile[]
   currentTile: GridTile | null
   tilePlacesStats: TilePlacesStats
@@ -79,6 +81,34 @@ export class GameTileManager {
 
   findTileDefinition(tileId: string): TileDefinition | undefined {
     return findTileDefinitionById(tileId, this.state.rules)
+  }
+
+  /**
+   * Стартовый тайл партии: с River русло начинается с `RIVER_A`, в базовой игре
+   * это классический тайл D.
+   */
+  private get startTileId(): TileId {
+    return this.state.rules.expansions.river ? TileId.RIVER_A : TileId.D
+  }
+
+  /**
+   * Забирает стартовый тайл из колоды: форму берём из каталога с учётом
+   * расширений, а его копию удаляем, чтобы тайл не выпал позже. Поворот всегда
+   * нулевой: стартовые тайлы ориентированы выходом на доску.
+   */
+  takeStartTile(): Tile {
+    const startTileId = this.startTileId
+    const definition = findTileDefinitionById(startTileId, this.state.rules)
+    if (!definition) throw new Error('Game has no starting tile')
+
+    // В колоде партии лежит ровно одна копия стартового тайла. Если её там нет
+    // (колода собрана вручную), убирать нечего — старт всё равно ставится.
+    const deckIndex = this.state.tilesList.findIndex(
+      (tile) => tile.id === startTileId
+    )
+    if (deckIndex !== -1) this.state.tilesList.splice(deckIndex, 1)
+
+    return { ...definition, rotation: 0 }
   }
 
   initializeDeck() {
@@ -314,9 +344,12 @@ export class GameTileManager {
     tileIndex: number
   ): { valid: boolean; conflict?: RiverPlacementConflict } {
     if (this.isPlacingStartTile()) {
+      const center = boardCenterCoordinates(this.state.gridSize)
       return {
         valid:
-          tile.id === TileId.RIVER_A && rowIndex === 15 && tileIndex === 15,
+          tile.id === TileId.RIVER_A &&
+          rowIndex === center.rowIndex &&
+          tileIndex === center.tileIndex,
       }
     }
     if (tile.id === TileId.RIVER_A) return { valid: false }

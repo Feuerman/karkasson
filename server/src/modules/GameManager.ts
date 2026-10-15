@@ -1,7 +1,7 @@
-import { riverTiles } from '../data/riverTiles'
 import { GameSimulatorModule } from './GameSimulatorModule'
 import { cloneGameState, pickGameState } from './gameState'
 import {
+  boardCenterCoordinates,
   findTileSideConflicts,
   getPrecisionCoordinates,
   isOppositePoint,
@@ -31,7 +31,6 @@ import {
   RotationDirection as RotationDirections,
   RotationTurns,
   SideName,
-  TileId,
   TileSideType,
   type AbbotRecallInfo,
   type AvailableFollowerPlace,
@@ -288,33 +287,32 @@ export class GameManager implements IGameBoard {
     }
   }
 
-  placeStartTile() {
-    const centerCoordinates = {
-      rowIndex: Math.floor(this.gridSize[1] / 2),
-      tileIndex: Math.floor(this.gridSize[0] / 2),
-    }
+  /**
+   * Ставит стартовый тайл в центр доски и убирает его копию из колоды.
+   *
+   * В River стартовый тайл открывает русло, поэтому на время постановки
+   * включается режим старта: правила реки и обязательное продолжение русла к
+   * нему не применяются. В базовой игре режим старта, наоборот, снимается:
+   * `placeTile` должен доиграть фиктивный ход и раздать первый тайл, который
+   * в River выдаёт уже `startGame`.
+   */
+  private placeStartTile() {
+    const center = boardCenterCoordinates(this.gridSize)
+    const startTile = this.tileManager.takeStartTile()
+    this.updateTileHistory(startTile)
 
-    const startTileId = this.rules.expansions.river ? TileId.RIVER_A : TileId.D
-    const startDefinition = (
-      this.rules.expansions.river ? riverTiles : this.tilesList
-    ).find(({ id }) => id === startTileId)
-    if (!startDefinition) throw new Error('Game has no starting tile')
-    const startTile: Tile = { ...startDefinition, rotation: 0 }
-    const startTileIndex = this.tilesList.findIndex(
-      (tile) => tile.id === startTileId
-    )
-    if (startTileIndex >= 0) this.tilesList.splice(startTileIndex, 1)
-
-    this.tileHistory.push(structuredClone(startTile))
     const wasPlacingStartTile = this.isPlacingStartTile
     this.isPlacingStartTile = this.rules.expansions.river
-    const isPlaced = this.placeTile(
-      startTile,
-      centerCoordinates.rowIndex,
-      centerCoordinates.tileIndex
-    )
-    this.isPlacingStartTile = wasPlacingStartTile
-    if (!isPlaced) throw new Error('Unable to place starting tile')
+    try {
+      const isPlaced = this.placeTile(
+        startTile,
+        center.rowIndex,
+        center.tileIndex
+      )
+      if (!isPlaced) throw new Error('Unable to place starting tile')
+    } finally {
+      this.isPlacingStartTile = wasPlacingStartTile
+    }
   }
 
   /**
