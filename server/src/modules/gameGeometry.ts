@@ -99,6 +99,17 @@ export function neighborCoordinates(
   }
 }
 
+/** Центральная клетка доски: с неё начинается партия. */
+export function boardCenterCoordinates(gridSize: number[]): {
+  rowIndex: number
+  tileIndex: number
+} {
+  return {
+    rowIndex: Math.floor(gridSize[1] / 2),
+    tileIndex: Math.floor(gridSize[0] / 2),
+  }
+}
+
 /** Сопоставляет стороны нового тайла с противоположными сторонами соседей. */
 function collectSideMatches(
   tile: Tile,
