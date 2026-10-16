@@ -14,7 +14,6 @@ export interface TileDefinition {
   isMonastery?: boolean
   hasGarden?: boolean
   withShield?: boolean
-  isSolidCity?: boolean
   hasInn?: boolean
   hasCathedral?: boolean
   hasPrincess?: boolean
@@ -72,7 +71,6 @@ export const tiles: TileDefinition[] = [
       [SideName.North, SideName.East, SideName.South, SideName.West],
     ],
     withShield: true,
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_C.png',
   },
   {
@@ -113,7 +111,6 @@ export const tiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.East, SideName.West]],
     withShield: true,
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_F.png',
   },
   {
@@ -127,7 +124,6 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.East, SideName.West]],
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_G.png',
   },
   {
@@ -239,7 +235,6 @@ export const tiles: TileDefinition[] = [
     roadGroups: [[SideName.East, SideName.South]],
     cityGroups: [[SideName.North, SideName.West]],
     withShield: true,
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_O.png',
   },
   {
@@ -254,7 +249,6 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.South]],
     cityGroups: [[SideName.North, SideName.West]],
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_P.png',
   },
   {
@@ -269,7 +263,6 @@ export const tiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
     withShield: true,
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_Q.png',
   },
   {
@@ -284,7 +277,6 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_R.png',
   },
   {
@@ -299,7 +291,6 @@ export const tiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
     withShield: true,
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_S.png',
   },
   {
@@ -313,7 +304,6 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
-    isSolidCity: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_T.png',
   },
   {

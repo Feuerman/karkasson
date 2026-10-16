@@ -38,7 +38,6 @@ export interface TileSnapshot {
   y?: number
   rowIndex?: number
   tileIndex?: number
-  isSolidCity?: boolean
   withShield?: boolean
   isMonastery?: boolean
   hasGarden?: boolean

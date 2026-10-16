@@ -331,9 +331,7 @@ export interface BaseObject {
   expansion?: ExpansionName
 }
 
-export interface City extends BaseObject {
-  isSolidCity?: boolean
-}
+export type City = BaseObject
 
 export type Road = BaseObject
 
@@ -353,7 +351,6 @@ export interface Tile {
   x?: number
   y?: number
   sides: TileSides
-  isSolidCity?: boolean
   withShield?: boolean
   isMonastery?: boolean
   hasGarden?: boolean
