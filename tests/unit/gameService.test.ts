@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryGameDatabase } from '@server/modules/Database'
 import { GameService } from '@server/services/GameService'
 
@@ -17,14 +17,16 @@ function serviceWithGame() {
 }
 
 describe('Сборка забытых партий', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+  })
+
   afterEach(() => {
     vi.useRealTimers()
   })
 
   it('обновляет метку активности на живом объекте партии', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-
     const service = new GameService(new InMemoryGameDatabase())
     const game = startedGame(service)
     await service.saveGame(game.id)
@@ -33,9 +35,6 @@ describe('Сборка забытых партий', () => {
   })
 
   it('не удаляет партию, в которой продолжают играть', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-
     const service = new GameService(new InMemoryGameDatabase())
     const game = startedGame(service)
     await service.saveGame(game.id)
@@ -55,9 +54,6 @@ describe('Сборка забытых партий', () => {
   })
 
   it('удаляет партию, в которой давно не играли', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-
     const service = new GameService(new InMemoryGameDatabase())
     const game = startedGame(service)
     await service.saveGame(game.id)
@@ -71,9 +67,6 @@ describe('Сборка забытых партий', () => {
   })
 
   it('не трогает завершённые и ещё не начатые партии', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
-
     const service = new GameService(new InMemoryGameDatabase())
     const notStarted = service.createLobby('socket-1')
     const ended = startedGame(service)

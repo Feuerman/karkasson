@@ -43,34 +43,19 @@ describe('Поворот тайла на сервере', () => {
     expect(rotateTileSides(sides, rotation / 90)).toEqual(expected)
   })
 
-  it('поворачивает связанные группы сторон на тот же угол', () => {
-    const groups = [[SideName.North, SideName.East], [SideName.South]] as const
+  it.each([
+    [0, [[SideName.North, SideName.East], [SideName.South]]],
+    [1, [[SideName.East, SideName.South], [SideName.West]]],
+    [2, [[SideName.South, SideName.West], [SideName.North]]],
+    [3, [[SideName.West, SideName.North], [SideName.East]]],
+  ] as const)(
+    'поворачивает связанные группы на %i четверти',
+    (turns, expected) => {
+      const groups = [[SideName.North, SideName.East], [SideName.South]]
 
-    expect(
-      rotateTileGroups(
-        groups.map((group) => [...group]),
-        0
-      )
-    ).toEqual([[SideName.North, SideName.East], [SideName.South]])
-    expect(
-      rotateTileGroups(
-        groups.map((group) => [...group]),
-        1
-      )
-    ).toEqual([[SideName.East, SideName.South], [SideName.West]])
-    expect(
-      rotateTileGroups(
-        groups.map((group) => [...group]),
-        2
-      )
-    ).toEqual([[SideName.South, SideName.West], [SideName.North]])
-    expect(
-      rotateTileGroups(
-        groups.map((group) => [...group]),
-        3
-      )
-    ).toEqual([[SideName.West, SideName.North], [SideName.East]])
-  })
+      expect(rotateTileGroups(groups, turns)).toEqual(expected)
+    }
+  )
 
   it('нормализует отрицательные и полные обороты, не мутируя входные данные', () => {
     const originalGroups = [[SideName.North, SideName.West]]

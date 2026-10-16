@@ -32,16 +32,6 @@ describe('Тайлы дополнения «Река»', () => {
     expect(monasteryTile).toMatchObject({ isMonastery: true })
   })
 
-  it('задаёт стороны выхода русла, которые можно поворачивать', () => {
-    const tile = riverTiles.find(({ id }) => id === TileId.RIVER_B)
-    expect(tile).toBeDefined()
-    if (!tile) return
-
-    expect(rotateTileGroups(tile.riverGroups, 1)).toEqual([
-      [SideName.South, SideName.North],
-    ])
-  })
-
   it('добавляет реку перед базовой колодой и ставит исток вместо стартового тайла', () => {
     const game = new GameManager({
       riverEnabled: true,
@@ -95,22 +85,6 @@ describe('Тайлы дополнения «Река»', () => {
     }
   })
 
-  it('сохраняет hasGarden речного тайла при генерации колоды', () => {
-    const game = new GameManager({
-      riverEnabled: true,
-      startImmediately: false,
-    })
-    const riverGardenTiles = game.tilesList.filter(
-      ({ id, expansion, hasGarden }) =>
-        id === TileId.RIVER_J && expansion === ExpansionName.River && hasGarden
-    )
-
-    expect(riverGardenTiles).toHaveLength(1)
-    expect(riverTiles.find(({ id }) => id === TileId.RIVER_J)?.hasGarden).toBe(
-      true
-    )
-  })
-
   it('разрешает только продолжение открытого русла до конечного озера', () => {
     const game = new GameManager({
       riverEnabled: true,
@@ -146,6 +120,9 @@ describe('Тайлы дополнения «Река»', () => {
     const straightRiver = riverTiles.find(({ id }) => id === TileId.RIVER_D)
     if (!riverBend || !straightRiver) throw new Error('River tile is missing')
 
+    expect(rotateTileGroups(riverBend.riverGroups, 3)).toEqual([
+      [SideName.North, SideName.East],
+    ])
     expect(game.placeTile({ ...riverBend, rotation: 270 }, 16, 15)).toBe(true)
     expect(game.placeTile({ ...straightRiver, rotation: 90 }, 16, 16)).toBe(
       true

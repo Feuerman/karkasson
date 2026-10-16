@@ -42,48 +42,74 @@ function makeStats(neighbour: GridTile): TilePlacesStats {
   return { [neighbour.y]: { [neighbour.x]: neighbour } }
 }
 
+function sidesWith(side: SideName, sideType: TileSideType): TileSides {
+  return {
+    [SideName.North]: side === SideName.North ? sideType : TileSideType.Field,
+    [SideName.East]: side === SideName.East ? sideType : TileSideType.Field,
+    [SideName.South]: side === SideName.South ? sideType : TileSideType.Field,
+    [SideName.West]: side === SideName.West ? sideType : TileSideType.Field,
+  }
+}
+
+function allSides(sideType: TileSideType): TileSides {
+  return {
+    [SideName.North]: sideType,
+    [SideName.East]: sideType,
+    [SideName.South]: sideType,
+    [SideName.West]: sideType,
+  }
+}
+
+function conflict(
+  side: SideName,
+  rowIndex: number,
+  tileIndex: number,
+  own: TileSideType,
+  adjacent: TileSideType
+) {
+  return { side, rowIndex, tileIndex, own, adjacent }
+}
+
+const northConflict = conflict(
+  SideName.North,
+  14,
+  15,
+  TileSideType.Field,
+  TileSideType.City
+)
+const eastConflict = conflict(
+  SideName.East,
+  15,
+  16,
+  TileSideType.Road,
+  TileSideType.Field
+)
+
 describe('Конфликты сторон при размещении тайла', () => {
   const target = { rowIndex: 15, tileIndex: 15 }
 
   it('возвращает несовпавшую сторону и координаты соседа', () => {
     const neighbour = makeNeighbour({
-      sides: {
-        [SideName.North]: TileSideType.Field,
-        [SideName.East]: TileSideType.Field,
-        [SideName.South]: TileSideType.City,
-        [SideName.West]: TileSideType.Field,
-      },
+      sides: sidesWith(SideName.South, TileSideType.City),
     })
-    const tile = makeTile({
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    })
+    const tile = makeTile(sidesWith(SideName.North, TileSideType.Field))
+    const stats = makeStats(neighbour)
 
     expect(
       findTileSideConflicts(
         tile,
         target.rowIndex,
         target.tileIndex,
-        makeStats(neighbour),
+        stats,
         false
       )
-    ).toEqual([
-      {
-        side: SideName.North,
-        rowIndex: 14,
-        tileIndex: 15,
-        own: TileSideType.Field,
-        adjacent: TileSideType.City,
-      },
-    ])
+    ).toEqual([northConflict])
     expect(
       isCorrectTilePosition(
         tile,
         target.rowIndex,
         target.tileIndex,
-        makeStats(neighbour),
+        stats,
         false
       )
     ).toBe(false)
@@ -91,26 +117,17 @@ describe('Конфликты сторон при размещении тайла
 
   it('не сообщает конфликтов, когда стороны совпадают', () => {
     const neighbour = makeNeighbour({
-      sides: {
-        [SideName.North]: TileSideType.Field,
-        [SideName.East]: TileSideType.Field,
-        [SideName.South]: TileSideType.Road,
-        [SideName.West]: TileSideType.Field,
-      },
+      sides: sidesWith(SideName.South, TileSideType.Road),
     })
-    const tile = makeTile({
-      [SideName.North]: TileSideType.Road,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    })
+    const tile = makeTile(sidesWith(SideName.North, TileSideType.Road))
+    const stats = makeStats(neighbour)
 
     expect(
       findTileSideConflicts(
         tile,
         target.rowIndex,
         target.tileIndex,
-        makeStats(neighbour),
+        stats,
         false
       )
     ).toEqual([])
@@ -119,19 +136,14 @@ describe('Конфликты сторон при размещении тайла
         tile,
         target.rowIndex,
         target.tileIndex,
-        makeStats(neighbour),
+        stats,
         false
       )
     ).toBe(true)
   })
 
   it('возвращает пустой список без соседей, на занятой клетке и на пустой доске', () => {
-    const tile = makeTile({
-      [SideName.North]: TileSideType.City,
-      [SideName.East]: TileSideType.City,
-      [SideName.South]: TileSideType.City,
-      [SideName.West]: TileSideType.City,
-    })
+    const tile = makeTile(allSides(TileSideType.City))
     const neighbour = makeNeighbour()
     const stats = makeStats(neighbour)
 
@@ -159,27 +171,12 @@ describe('Описание причины отказа в размещении',
   })
 
   it('перечисляет каждую несовпавшую сторону с типами', () => {
-    const message = describePlacementConflicts([
-      {
-        side: SideName.North,
-        rowIndex: 14,
-        tileIndex: 15,
-        own: TileSideType.Field,
-        adjacent: TileSideType.City,
-      },
-      {
-        side: SideName.East,
-        rowIndex: 15,
-        tileIndex: 16,
-        own: TileSideType.Road,
-        adjacent: TileSideType.Field,
-      },
-    ])
+    const message = describePlacementConflicts([northConflict, eastConflict])
 
-    expect(message.startsWith(PLACEMENT_FAILURE_MESSAGE)).toBe(true)
-    expect(message).toContain('север — поле, а у соседа с юга — город')
-    expect(message).toContain('восток — дорога, а у соседа с запада — поле')
-    expect(message.endsWith('.')).toBe(true)
+    expect(message).toBe(
+      `${PLACEMENT_FAILURE_MESSAGE}: север — поле, а у соседа с юга — город; ` +
+        'восток — дорога, а у соседа с запада — поле.'
+    )
   })
 })
 
@@ -189,30 +186,17 @@ describe('Описание причины отказа по реке', () => {
   })
 
   it('для несовпавшей стороны повторяет сообщение о размещении', () => {
-    const conflicts = [
-      {
-        side: SideName.North,
-        rowIndex: 14,
-        tileIndex: 15,
-        own: TileSideType.Field,
-        adjacent: TileSideType.City,
-      },
-    ]
+    const conflicts = [northConflict]
 
     const message = describePlacementFailure(conflicts)
 
-    expect(message).toBe(describePlacementConflicts(conflicts))
-    expect(message).toContain('север — поле, а у соседа с юга — город')
+    expect(message).toBe(
+      `${PLACEMENT_FAILURE_MESSAGE}: север — поле, а у соседа с юга — город.`
+    )
   })
 
   it('отдаёт приоритет причине по реке перед конфликтами сторон', () => {
-    const sideConflict = {
-      side: SideName.North,
-      rowIndex: 14,
-      tileIndex: 15,
-      own: TileSideType.Field,
-      adjacent: TileSideType.City,
-    }
+    const sideConflict = northConflict
     const riverConflict = {
       reason: 'openEnd' as const,
       side: SideName.South,
@@ -239,9 +223,9 @@ describe('Описание причины отказа по реке', () => {
     ])
 
     expect(message.startsWith(PLACEMENT_FAILURE_MESSAGE)).toBe(true)
-    expect(message).toContain('река')
-    expect(message).toContain('незакрытый конец')
-    expect(message.endsWith('.')).toBe(true)
+    expect(message).toBe(
+      `${PLACEMENT_FAILURE_MESSAGE}: река — незакрытый конец русла у соседнего тайла.`
+    )
   })
 
   it('описывает выход русла не в ту сторону', () => {
@@ -254,9 +238,8 @@ describe('Описание причины отказа по реке', () => {
       },
     ])
 
-    expect(message.startsWith(PLACEMENT_FAILURE_MESSAGE)).toBe(true)
-    expect(message).toContain('река')
-    expect(message).toContain('не в ту сторону')
-    expect(message.endsWith('.')).toBe(true)
+    expect(message).toBe(
+      `${PLACEMENT_FAILURE_MESSAGE}: река — русло этого тайла выходит не в ту сторону.`
+    )
   })
 })

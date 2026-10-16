@@ -10,14 +10,6 @@ import {
 } from '@server/modules/errors'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 
-const MESSAGES = [
-  ...Object.values(CommonErrors),
-  ...Object.values(LobbyErrors),
-  ...Object.values(GameErrors),
-  ...Object.values(SaveErrors),
-  PLACEMENT_FAILURE_MESSAGE,
-]
-
 const PROJECT_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 const SOURCE_DIRECTORIES = ['server/src', 'src', 'tests']
 const DEFINITION_FILES = [
@@ -29,6 +21,10 @@ const ERROR_CATALOGS = [
   { name: 'LobbyErrors', values: LobbyErrors },
   { name: 'GameErrors', values: GameErrors },
   { name: 'SaveErrors', values: SaveErrors },
+]
+const MESSAGES = [
+  ...ERROR_CATALOGS.flatMap(({ values }) => Object.values(values)),
+  PLACEMENT_FAILURE_MESSAGE,
 ]
 
 function collectSourceFiles(directory: string): string[] {

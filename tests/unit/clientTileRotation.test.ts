@@ -17,25 +17,29 @@ import {
  * эталоном сервера для всех направлений и стартовых углов.
  */
 
-const sides: TileSides = {
+const ORIGINAL_SIDES: TileSides = {
   [SideName.North]: TileSideType.City,
   [SideName.East]: TileSideType.Road,
   [SideName.South]: TileSideType.Field,
   [SideName.West]: TileSideType.City,
 }
 
-const QUARTER_TURNS: Record<RotationDirection, number> = {
+const SERVER_TURN_STEPS: Record<RotationDirection, number> = {
   [RotationDirection.Clockwise]: 1,
   [RotationDirection.Counterclockwise]: -1,
 }
 
-const DEGREE_SHIFT: Record<RotationDirection, number> = {
+const CLIENT_DEGREE_SHIFT: Record<RotationDirection, number> = {
   [RotationDirection.Clockwise]: 90,
   [RotationDirection.Counterclockwise]: -90,
 }
 
 function makeTile(rotation: number): Tile {
-  return { id: 'client-rotation-tile', rotation, sides: { ...sides } }
+  return {
+    id: 'client-rotation-tile',
+    rotation,
+    sides: { ...ORIGINAL_SIDES },
+  }
 }
 
 describe('Нормализация угла поворота на клиенте', () => {
@@ -78,32 +82,31 @@ describe.each(Object.values(RotationDirection))(
         const rotated = rotateTile(makeTile(startRotation), direction)
 
         expect(rotated.sides).toEqual(
-          rotateTileSides(sides, QUARTER_TURNS[direction])
+          rotateTileSides(ORIGINAL_SIDES, SERVER_TURN_STEPS[direction])
         )
         expect(rotated.rotation).toBe(
-          normalizeRotation(startRotation + DEGREE_SHIFT[direction])
+          normalizeRotation(startRotation + CLIENT_DEGREE_SHIFT[direction])
         )
       }
     )
 
     it('не мутирует исходный тайл', () => {
       const original = makeTile(0)
-      const originalSides = { ...original.sides }
+      const originalSnapshot = structuredClone(original)
 
       rotateTile(original, direction)
 
-      expect(original.sides).toEqual(originalSides)
-      expect(original.rotation).toBe(0)
+      expect(original).toEqual(originalSnapshot)
     })
 
     it('четыре последовательных поворота возвращают тайл в исходное состояние', () => {
-      let rotated = makeTile(0)
+      const original = makeTile(0)
+      let rotated = original
       for (let turn = 0; turn < 4; turn += 1) {
         rotated = rotateTile(rotated, direction)
       }
 
-      expect(rotated.sides).toEqual(sides)
-      expect(rotated.rotation).toBe(0)
+      expect(rotated).toEqual(original)
     })
   }
 )

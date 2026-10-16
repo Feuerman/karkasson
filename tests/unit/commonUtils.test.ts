@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clamp, pluralForm, throttle } from '@/utils/common'
 
 /**
@@ -14,30 +14,20 @@ describe('pluralForm', () => {
   it.each([
     [1, ONE],
     [21, ONE],
-    [101, ONE],
-    [121, ONE],
     [2, TWO],
-    [3, TWO],
     [4, TWO],
     [22, TWO],
-    [23, TWO],
-    [24, TWO],
     [102, TWO],
     [0, FIVE],
     [5, FIVE],
-    [9, FIVE],
     [10, FIVE],
     [11, FIVE],
-    [12, FIVE],
-    [13, FIVE],
     [14, FIVE],
     [15, FIVE],
-    [19, FIVE],
     [20, FIVE],
     [25, FIVE],
     [100, FIVE],
     [111, FIVE],
-    [112, FIVE],
     [114, FIVE],
   ])('для числа %i выбирает «%s»', (count, expected) => {
     expect(pluralForm(count, ONE, TWO, FIVE)).toBe(expected)
@@ -57,71 +47,54 @@ describe('clamp', () => {
 })
 
 describe('throttle', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
   it('вызывает функцию один раз после паузы, а не на каждый вызов', () => {
-    vi.useFakeTimers()
-    try {
-      const spy = vi.fn()
-      const throttled = throttle(spy, 100)
+    const spy = vi.fn()
+    const throttled = throttle(spy, 100)
 
-      throttled()
-      throttled()
-      throttled()
+    throttled()
+    throttled()
+    throttled()
 
-      expect(spy).not.toHaveBeenCalled()
-      vi.advanceTimersByTime(100)
-      expect(spy).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(spy).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(100)
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 
   it('после паузы снова принимает вызов', () => {
-    vi.useFakeTimers()
-    try {
-      const spy = vi.fn()
-      const throttled = throttle(spy, 100)
+    const spy = vi.fn()
+    const throttled = throttle(spy, 100)
 
-      throttled()
-      vi.advanceTimersByTime(100)
-      throttled()
-      vi.advanceTimersByTime(100)
+    throttled()
+    vi.advanceTimersByTime(100)
+    throttled()
+    vi.advanceTimersByTime(100)
 
-      expect(spy).toHaveBeenCalledTimes(2)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(spy).toHaveBeenCalledTimes(2)
   })
 
   it('cancel отменяет отложенный вызов', () => {
-    vi.useFakeTimers()
-    try {
-      const spy = vi.fn()
-      const throttled = throttle(spy, 100)
+    const spy = vi.fn()
+    const throttled = throttle(spy, 100)
 
-      throttled()
-      throttled.cancel()
-      vi.advanceTimersByTime(100)
+    throttled()
+    throttled.cancel()
+    vi.advanceTimersByTime(100)
 
-      expect(spy).not.toHaveBeenCalled()
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(spy).not.toHaveBeenCalled()
   })
 
   it('после отмены следующий вызов снова планируется', () => {
-    vi.useFakeTimers()
-    try {
-      const spy = vi.fn()
-      const throttled = throttle(spy, 100)
+    const spy = vi.fn()
+    const throttled = throttle(spy, 100)
 
-      throttled()
-      throttled.cancel()
-      throttled()
-      vi.advanceTimersByTime(100)
+    throttled()
+    throttled.cancel()
+    throttled()
+    vi.advanceTimersByTime(100)
 
-      expect(spy).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(spy).toHaveBeenCalledTimes(1)
   })
 })

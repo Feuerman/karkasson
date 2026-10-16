@@ -20,41 +20,37 @@ function createGhost() {
 }
 
 describe('Масштаб превью тайла', () => {
-  it('масштабирует превью и растягивает рамку под размер тайла', () => {
+  it('масштабирует превью и возвращает его к исходному размеру', () => {
     const { ghost, preview, frame } = createGhost()
 
     expect(ghost.applyZoom(1.5)).toBe(true)
-
     expect(preview.style.transform).toBe('scale(1.5)')
     expect(frame.style.width).toBe(`${TILE_SIZE * 1.5}px`)
     expect(frame.style.height).toBe(`${TILE_SIZE * 1.5}px`)
-  })
 
-  it('не применяет зум, пока превью не смонтировано', () => {
-    const ghost = useGhostZoom()
-
-    expect(ghost.applyZoom(2)).toBe(false)
-  })
-
-  it('не применяет зум, если смонтирована только часть превью', () => {
-    const ghost = useGhostZoom()
-    const preview = document.createElement('div')
-    ghost.previewRef.value = preview
-
-    expect(ghost.applyZoom(2)).toBe(false)
-    expect(preview.style.transform).toBe('')
-  })
-
-  it('возвращает превью к единичному масштабу', () => {
-    const { ghost, preview, frame } = createGhost()
-
-    ghost.applyZoom(2.5)
     ghost.applyZoom(1)
 
     expect(preview.style.transform).toBe('scale(1)')
     expect(frame.style.width).toBe(`${TILE_SIZE}px`)
     expect(frame.style.height).toBe(`${TILE_SIZE}px`)
   })
+
+  it.each([
+    ['не смонтировано', false, false],
+    ['смонтирована только часть превью', true, false],
+  ])(
+    'не применяет зум, если превью %s',
+    (_description, hasPreview, hasFrame) => {
+      const ghost = useGhostZoom()
+      const preview = hasPreview ? document.createElement('div') : null
+      const frame = hasFrame ? document.createElement('div') : null
+      ghost.previewRef.value = preview
+      ghost.frameRef.value = frame
+
+      expect(ghost.applyZoom(2)).toBe(false)
+      expect(preview?.style.transform ?? '').toBe('')
+    }
+  )
 
   it('переносит масштаб на новое превью после повторного монтирования', () => {
     const ghost = useGhostZoom()

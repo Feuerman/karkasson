@@ -64,11 +64,18 @@ describe('Группировка истории по ходам', () => {
       tileAction(2),
     ])
 
-    expect(groups).toHaveLength(2)
-    expect(groups[0]?.moveNumber).toBe(1)
-    expect(groups[0]?.actions).toHaveLength(2)
-    expect(groups[1]?.moveNumber).toBe(2)
-    expect(groups[1]?.actions).toHaveLength(2)
+    expect(groups).toEqual([
+      {
+        moveNumber: 1,
+        isFinalScoring: false,
+        actions: [tileAction(1), scoresAction(1)],
+      },
+      {
+        moveNumber: 2,
+        isFinalScoring: false,
+        actions: [tileAction(2), tileAction(2)],
+      },
+    ])
   })
 
   it('выносит финальный подсчёт в отдельную группу без номера хода', () => {
@@ -80,13 +87,23 @@ describe('Группировка истории по ходам', () => {
       finalScoresAction,
     ])
 
-    expect(groups).toHaveLength(3)
-    expect(groups[2]?.isFinalScoring).toBe(true)
-    expect(groups[2]?.moveNumber).toBeNull()
-    expect(groups[2]?.actions).toHaveLength(2)
-    expect(groups.slice(0, 2).every((group) => !group.isFinalScoring)).toBe(
-      true
-    )
+    expect(groups).toEqual([
+      {
+        moveNumber: 1,
+        isFinalScoring: false,
+        actions: [tileAction(1), scoresAction(1)],
+      },
+      {
+        moveNumber: 2,
+        isFinalScoring: false,
+        actions: [tileAction(2)],
+      },
+      {
+        moveNumber: null,
+        isFinalScoring: true,
+        actions: [finalScoresAction, finalScoresAction],
+      },
+    ])
   })
 
   it('собирает записи без номера хода в один блок без заголовка', () => {
@@ -96,10 +113,13 @@ describe('Группировка истории по ходам', () => {
     }
     const groups = groupActionsHistory([unnumbered, unnumbered])
 
-    expect(groups).toHaveLength(1)
-    expect(groups[0]?.moveNumber).toBeNull()
-    expect(groups[0]?.isFinalScoring).toBe(false)
-    expect(groups[0]?.actions).toHaveLength(2)
+    expect(groups).toEqual([
+      {
+        moveNumber: null,
+        isFinalScoring: false,
+        actions: [unnumbered, unnumbered],
+      },
+    ])
   })
 
   it('не смешивает записи без номера хода с нумерованными', () => {
@@ -109,9 +129,18 @@ describe('Группировка истории по ходам', () => {
     }
     const groups = groupActionsHistory([unnumbered, tileAction(3)])
 
-    expect(groups).toHaveLength(2)
-    expect(groups[0]?.moveNumber).toBeNull()
-    expect(groups[1]?.moveNumber).toBe(3)
+    expect(groups).toEqual([
+      {
+        moveNumber: null,
+        isFinalScoring: false,
+        actions: [unnumbered],
+      },
+      {
+        moveNumber: 3,
+        isFinalScoring: false,
+        actions: [tileAction(3)],
+      },
+    ])
   })
 
   it('возвращает пустой список для пустой истории', () => {

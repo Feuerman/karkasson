@@ -274,55 +274,34 @@ describe('calcCityScore', () => {
     expect(scores[1]).toBe(2)
   })
 
-  it('герб добавляет по 2 очка за каждый тайл с гербом', () => {
-    const board = boardOf([
-      [0, 0],
-      [0, 1],
-    ])
-    board[0][1] = gridTile({ x: 1, y: 0, withShield: true })
+  it.each([
+    { tiles: 2, expected: 6 },
+    { tiles: 3, expected: 8 },
+  ])(
+    'считает герб отдельно от числа тайлов: $tiles тайла и 1 герб',
+    ({ tiles, expected }) => {
+      const board = boardOf(
+        Array.from({ length: tiles }, (_, x) => [0, x] as [number, number])
+      )
+      board[0][1] = gridTile({ x: 1, y: 0, withShield: true })
 
-    const city: BaseObject = {
-      id: 'city-shield',
-      points: [
-        { x: 0, y: 0, pointType: TileSideType.City },
-        { x: 1, y: 0, pointType: TileSideType.City },
-      ],
-      followers: [follower(1, 'city-shield')],
+      const city: BaseObject = {
+        id: 'city-shield',
+        points: Array.from({ length: tiles }, (_, x) => ({
+          x,
+          y: 0,
+          pointType: TileSideType.City,
+        })),
+        followers: [follower(1, 'city-shield')],
+      }
+
+      const scores = emptyScores()
+      const result = calcCityScore(board, city, scores)
+
+      expect(result.total).toBe(expected)
+      expect(scores[1]).toBe(expected)
     }
-
-    const scores = emptyScores()
-    const result = calcCityScore(board, city, scores)
-
-    // 2 тайла × 2 + герб × 2 = 6
-    expect(result.total).toBe(6)
-    expect(scores[1]).toBe(6)
-  })
-
-  it('город с гербом на 3 тайлах даёт 8 очков', () => {
-    // Один герб из трёх тайлов
-    const board = boardOf([
-      [0, 0],
-      [0, 1],
-      [0, 2],
-    ])
-    board[0][1] = gridTile({ x: 1, y: 0, withShield: true })
-
-    const city: BaseObject = {
-      id: 'city-shield-2',
-      points: [
-        { x: 0, y: 0, pointType: TileSideType.City },
-        { x: 1, y: 0, pointType: TileSideType.City },
-        { x: 2, y: 0, pointType: TileSideType.City },
-      ],
-      followers: [follower(1, 'city-shield-2')],
-    }
-
-    const scores = emptyScores()
-    const result = calcCityScore(board, city, scores)
-
-    expect(result.total).toBe(8) // 3×2 + 1×2
-    expect(scores[1]).toBe(8)
-  })
+  )
 
   it('город с равным числом подданных у двух игроков делят очки поровну', () => {
     const board = boardOf([[0, 0]])

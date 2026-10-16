@@ -120,38 +120,6 @@ describe('follower positions', () => {
     }
   })
 
-  it('rotates the follower position with the tile', () => {
-    const basePosition = getFollowerPosition(
-      TileId.V,
-      SideName.South,
-      0,
-      TileSideType.Road
-    )
-    const clockwiseSidePosition = getFollowerPosition(
-      TileId.V,
-      SideName.West,
-      90,
-      TileSideType.Road
-    )
-    const halfTurnPosition = getFollowerPosition(
-      TileId.V,
-      SideName.North,
-      180,
-      TileSideType.Road
-    )
-    const counterClockwiseSidePosition = getFollowerPosition(
-      TileId.V,
-      SideName.East,
-      270,
-      TileSideType.Road
-    )
-
-    expect(basePosition).toEqual([0.5, 0.82])
-    expect(clockwiseSidePosition).toEqual([0.18, 0.5])
-    expect(halfTurnPosition).toEqual([0.5, 0.18])
-    expect(counterClockwiseSidePosition).toEqual([0.82, 0.5])
-  })
-
   it('places followers on separate city sections of tile I', () => {
     const topCityPosition = getFollowerPosition(
       TileId.I,

@@ -20,6 +20,26 @@ const players = makePlayers()
 const cellTile = (x: number, withShield = false): GridTile =>
   gridTile({ x, y: 15, withShield, id: `tile-${x}` })
 
+function roadWithCompetingFollowers(): BaseObject {
+  return {
+    id: 'shared-road',
+    points: [{ x: 15, y: 15, direction: SideName.East }],
+    followers: [
+      {
+        playerId: 1,
+        objectId: 'shared-road',
+        point: { x: 15, y: 15 },
+        isBigFollower: true,
+      },
+      {
+        playerId: 2,
+        objectId: 'shared-road',
+        point: { x: 16, y: 15 },
+      },
+    ],
+  }
+}
+
 function segment(id: string, point: Point, playerId: number): BaseObject {
   const follower: ObjectFollower = {
     playerId,
@@ -39,23 +59,7 @@ describe('Слияние и завершение дорог и городов', 
       players,
       innsAndCathedralsEnabled: true,
     })
-    const road: BaseObject = {
-      id: 'shared-road',
-      points: [{ x: 15, y: 15, direction: SideName.East }],
-      followers: [
-        {
-          playerId: 1,
-          objectId: 'shared-road',
-          point: { x: 15, y: 15 },
-          isBigFollower: true,
-        },
-        {
-          playerId: 2,
-          objectId: 'shared-road',
-          point: { x: 16, y: 15 },
-        },
-      ],
-    }
+    const road = roadWithCompetingFollowers()
     game.tilePlacesStats = { 15: { 15: cellTile(15) } }
     game.playersFollowers[1].bigFollowers = 0
     const result = game.calcScoreForRoad(road)
@@ -68,23 +72,7 @@ describe('Слияние и завершение дорог и городов', 
 
   it('без дополнения большой подданный на дороге считается как обычный', () => {
     const game = new GameManager({ players })
-    const road: BaseObject = {
-      id: 'shared-road',
-      points: [{ x: 15, y: 15, direction: SideName.East }],
-      followers: [
-        {
-          playerId: 1,
-          objectId: 'shared-road',
-          point: { x: 15, y: 15 },
-          isBigFollower: true,
-        },
-        {
-          playerId: 2,
-          objectId: 'shared-road',
-          point: { x: 16, y: 15 },
-        },
-      ],
-    }
+    const road = roadWithCompetingFollowers()
     game.tilePlacesStats = { 15: { 15: cellTile(15) } }
 
     expect(game.calcScoreForRoad(road).players).toEqual({ 1: 1, 2: 1 })

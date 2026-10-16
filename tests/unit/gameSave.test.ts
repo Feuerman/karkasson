@@ -418,57 +418,46 @@ describe('Схема сохранения игры', () => {
     ).toThrow('Unsupported game save schema version: 99')
   })
 
-  it('отклоняет сохранение с повреждённым тайлом и пулом фишек', () => {
-    const game = new GameManager({
-      players: [
-        {
-          id: 1,
-          name: 'Player',
-          color: 'coral',
-          score: 0,
-          socketId: null,
-          deviceId: null,
-        },
-      ],
-    })
-    game.id = 'invalid-state'
-    const state = JSON.parse(JSON.stringify(game)) as Record<string, unknown>
+  it.each([
+    ['тайлом', 'tile', SaveErrors.SaveInvalidTile],
+    [
+      'пулом обычных фишек',
+      'ordinaryFollowers',
+      SaveErrors.SaveInvalidFollowerPool,
+    ],
+    ['пулом больших фишек', 'bigFollowers', SaveErrors.SaveInvalidFollowerPool],
+  ] as const)(
+    'отклоняет сохранение с повреждённым %s',
+    (_name, invalidField, expectedError) => {
+      const game = new GameManager({
+        players: [
+          {
+            id: 1,
+            name: 'Player',
+            color: 'coral',
+            score: 0,
+            socketId: null,
+            deviceId: null,
+          },
+        ],
+      })
+      game.id = 'invalid-state'
+      const state = JSON.parse(JSON.stringify(game)) as Record<string, unknown>
 
-    const brokenTile = JSON.parse(JSON.stringify(state.tilesList)) as Array<
-      Record<string, unknown>
-    >
-    brokenTile[0].sides = { north: 'forest' }
-    state.tilesList = brokenTile
-    expect(() => deserializeGameState(state)).toThrow(
-      SaveErrors.SaveInvalidTile
-    )
+      if (invalidField === 'tile') {
+        const brokenTile = state.tilesList as Array<Record<string, unknown>>
+        brokenTile[0].sides = { north: 'forest' }
+      } else {
+        const pools = state.playersFollowers as Record<
+          string,
+          Record<string, number>
+        >
+        pools['1'][invalidField] = -1
+      }
 
-    const validState = JSON.parse(JSON.stringify(game)) as Record<
-      string,
-      unknown
-    >
-    const pools = validState.playersFollowers as Record<
-      string,
-      Record<string, number>
-    >
-    pools['1'].ordinaryFollowers = -1
-    expect(() => deserializeGameState(validState)).toThrow(
-      SaveErrors.SaveInvalidFollowerPool
-    )
-
-    const invalidBigFollowerPool = JSON.parse(JSON.stringify(game)) as Record<
-      string,
-      unknown
-    >
-    const invalidPools = invalidBigFollowerPool.playersFollowers as Record<
-      string,
-      Record<string, number>
-    >
-    invalidPools['1'].bigFollowers = -1
-    expect(() => deserializeGameState(invalidBigFollowerPool)).toThrow(
-      SaveErrors.SaveInvalidFollowerPool
-    )
-  })
+      expect(() => deserializeGameState(state)).toThrow(expectedError)
+    }
+  )
 
   it.each([
     ['некорректный JSON', '{broken'],

@@ -41,6 +41,11 @@ const place = (
   temporaryObject: object(objectFlags),
 })
 
+const placeWithoutPointType: AvailableFollowerPlace = {
+  point: { x: 15, y: 15, direction: PointDirection.Center },
+  temporaryObject: object(),
+}
+
 describe('pointTypeTitle', () => {
   const TITLES: Array<[Parameters<typeof pointTypeTitle>[0], string]> = [
     [TileSideType.City, 'Город'],
@@ -105,11 +110,8 @@ describe('followerPlaceIcon', () => {
   })
 
   it('для места без типа стороны даёт иконку человека', () => {
-    expect(
-      followerPlaceIcon({
-        point: { x: 15, y: 15, direction: PointDirection.Center },
-        temporaryObject: object(),
-      } as unknown as AvailableFollowerPlace)
-    ).toBe('i-lucide-person-standing')
+    expect(followerPlaceIcon(placeWithoutPointType)).toBe(
+      'i-lucide-person-standing'
+    )
   })
 })

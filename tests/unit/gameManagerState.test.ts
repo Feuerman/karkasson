@@ -19,10 +19,11 @@ function createGame(): GameManager {
   return game
 }
 
-function assertIndependentGameState(
+function expectEquivalentIndependentState(
   source: IGameBoard,
   copy: IGameBoard
 ): void {
+  expect(serializeGameState(copy)).toBe(serializeGameState(source))
   const savedSourceBeforeMutation = serializeGameState(source)
 
   const currentTile = copy.currentTile
@@ -54,8 +55,7 @@ describe('Копирование состояния GameManager', () => {
     const clone = game.clone()
 
     expect(clone).toBeInstanceOf(GameManager)
-    expect(serializeGameState(clone)).toBe(serializeGameState(game))
-    assertIndependentGameState(game, clone)
+    expectEquivalentIndependentState(game, clone)
   })
 
   it('copyStateFrom восстанавливает снимок без общих вложенных данных', () => {
@@ -65,8 +65,7 @@ describe('Копирование состояния GameManager', () => {
 
     target.copyStateFrom(source)
 
-    expect(serializeGameState(target)).toBe(serializeGameState(source))
-    assertIndependentGameState(source, target)
+    expectEquivalentIndependentState(source, target)
   })
 
   it('restore гидратирует экземпляр и отделяет его от состояния сохранения', () => {
@@ -77,8 +76,7 @@ describe('Копирование состояния GameManager', () => {
     const restored = GameManager.restore(savedState.state)
 
     expect(restored).toBeInstanceOf(GameManager)
-    expect(serializeGameState(restored)).toBe(serializeGameState(game))
-    assertIndependentGameState(savedState.state, restored)
+    expectEquivalentIndependentState(savedState.state, restored)
   })
 })
 

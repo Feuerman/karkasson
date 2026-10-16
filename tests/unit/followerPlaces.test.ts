@@ -74,8 +74,8 @@ describe('groupFollowerPlaces', () => {
     ])
   })
 
-  // Тайл I: сад в центре и два отдельных города на северной и западной стороне.
-  it('counts a garden apart from the cities around it', () => {
+  it('counts central objects apart from neighboring features', () => {
+    // Тайл I: сад в центре и два отдельных города на северной и западной стороне.
     const garden = makeCenterPlace('garden-1', { isGarden: true })
     const northCity = makePlace('city-1', TileSideType.City, SideName.North)
     const westCity = makePlace('city-2', TileSideType.City, SideName.West)
@@ -85,10 +85,8 @@ describe('groupFollowerPlaces', () => {
       { place: northCity, sameTypeCount: 2 },
       { place: westCity, sameTypeCount: 2 },
     ])
-  })
 
-  // Тайл A: монастырь в центре и дорога на южной стороне.
-  it('counts a monastery apart from the road beside it', () => {
+    // Тайл A: монастырь в центре и дорога на южной стороне.
     const monastery = makeCenterPlace('monastery-1', { isMonastery: true })
     const road = makePlace('road-1', TileSideType.Road, SideName.South)
 
