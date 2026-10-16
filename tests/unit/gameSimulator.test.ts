@@ -51,6 +51,10 @@ function object(id: string, followers: ObjectFollower[]): BaseObject {
   return { id, points: [], followers }
 }
 
+function withoutGeneratedIds(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value).replace(/id0\.\d+/g, 'generated-id'))
+}
+
 describe('calculateHeuristicScore', () => {
   it('sums existing scores and weighted value of each owned object type', () => {
     const state = gameState({
@@ -123,27 +127,12 @@ describe('GameSimulatorModule', () => {
     const resultWithLongHistory = new GameSimulatorModule(game).findBestMove(
       tile
     )
-    const initialMove = initialResult.moves[0]
-    const moveWithLongHistory = resultWithLongHistory.moves[0]
 
     expect(simulationCopy.tileHistory).toHaveLength(0)
     expect(simulationCopy.actionsHistory).toHaveLength(0)
-    expect(resultWithLongHistory.score).toBe(initialResult.score)
-    expect(moveWithLongHistory).toMatchObject({
-      tile: { id: initialMove?.tile.id },
-      rowIndex: initialMove?.rowIndex,
-      tileIndex: initialMove?.tileIndex,
-      rotation: initialMove?.rotation,
-      followerType: initialMove?.followerType,
-      followerPlace: initialMove?.followerPlace
-        ? {
-            point: initialMove.followerPlace.point,
-            temporaryObject: {
-              points: initialMove.followerPlace.temporaryObject.points,
-            },
-          }
-        : undefined,
-    })
+    expect(withoutGeneratedIds(resultWithLongHistory)).toEqual(
+      withoutGeneratedIds(initialResult)
+    )
   })
 
   it('не клонирует доску для каждой позиции и оставляет исходную партию без изменений', () => {

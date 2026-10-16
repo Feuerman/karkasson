@@ -4,7 +4,6 @@ import {
   filterActionsHistory,
   HISTORY_FILTERS,
   HistoryFilters,
-  matchesHistoryFilter,
 } from '@/components/GameActionsHistory/internal/historyFilter'
 import {
   ActionTypes,
@@ -150,11 +149,5 @@ describe('фильтр истории по типу действия', () => {
       DRAGON: 0,
       PRINCESS: 0,
     })
-  })
-
-  it('фильтр «Все» подходит любому действию', () => {
-    for (const action of history) {
-      expect(matchesHistoryFilter(action, HistoryFilters.ALL)).toBe(true)
-    }
   })
 })

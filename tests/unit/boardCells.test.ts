@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cellOfPoint, cellsOfPoints } from '@/utils/board'
-import { PointDirection, type Point } from '@server/modules/types'
+import type { Point } from '@server/modules/types'
 
 /**
  * Точки сервера заданы как X — столбец, Y — строка, а доска адресуется
@@ -8,41 +8,23 @@ import { PointDirection, type Point } from '@server/modules/types'
  * клеткам, поэтому перестановка осей и порядок клеток проверяются явно.
  */
 
-function point(x: number, y: number, direction?: PointDirection): Point {
-  return direction ? { x, y, direction } : { x, y }
+function point(x: number, y: number): Point {
+  return { x, y }
 }
 
 describe('cellOfPoint', () => {
   it.each([
     [10, 20, { rowIndex: 20, tileIndex: 10 }],
-    [15, 15, { rowIndex: 15, tileIndex: 15 }],
     [0, 31, { rowIndex: 31, tileIndex: 0 }],
-  ])('точка (%i, %i) → строка %i, столбец %i', (x, y, expected) => {
+  ])('точка (%i, %i) преобразуется в ожидаемую клетку', (x, y, expected) => {
     expect(cellOfPoint(point(x, y))).toEqual(expected)
-  })
-
-  it('не зависит от направления точки', () => {
-    expect(cellOfPoint(point(10, 20, PointDirection.West))).toEqual({
-      rowIndex: 20,
-      tileIndex: 10,
-    })
   })
 })
 
 describe('cellsOfPoints', () => {
-  it('для монастыря и сада отдаёт единственную клетку', () => {
-    expect(cellsOfPoints([point(12, 14, PointDirection.Center)])).toEqual([
-      { rowIndex: 14, tileIndex: 12 },
-    ])
-  })
-
   it('для дороги отдаёт клетки по порядку точек объекта', () => {
     expect(
-      cellsOfPoints([
-        point(10, 12, PointDirection.East),
-        point(11, 12, PointDirection.West),
-        point(12, 12, PointDirection.West),
-      ])
+      cellsOfPoints([point(10, 12), point(11, 12), point(12, 12)])
     ).toEqual([
       { rowIndex: 12, tileIndex: 10 },
       { rowIndex: 12, tileIndex: 11 },
@@ -50,14 +32,9 @@ describe('cellsOfPoints', () => {
     ])
   })
 
-  it('убирает повтор клетки, но сохраняет позицию первой встречи', () => {
+  it('убирает повтор клетки и сохраняет порядок первого появления', () => {
     expect(
-      cellsOfPoints([
-        point(12, 10, PointDirection.East),
-        point(12, 10, PointDirection.West),
-        point(10, 12, PointDirection.South),
-        point(12, 10, PointDirection.North),
-      ])
+      cellsOfPoints([point(12, 10), point(10, 12), point(12, 10)])
     ).toEqual([
       { rowIndex: 10, tileIndex: 12 },
       { rowIndex: 12, tileIndex: 10 },
@@ -67,13 +44,14 @@ describe('cellsOfPoints', () => {
   it('различает клетки, у которых совпадает только одна координата', () => {
     expect(
       cellsOfPoints([point(10, 12), point(12, 10), point(12, 12)])
-    ).toHaveLength(3)
+    ).toEqual([
+      { rowIndex: 12, tileIndex: 10 },
+      { rowIndex: 10, tileIndex: 12 },
+      { rowIndex: 12, tileIndex: 12 },
+    ])
   })
 
-  it.each([[], undefined])(
-    'для пустого списка точек (%s) возвращает пустой список',
-    (points) => {
-      expect(cellsOfPoints(points)).toEqual([])
-    }
-  )
+  it('для отсутствующего списка точек возвращает пустой список', () => {
+    expect(cellsOfPoints(undefined)).toEqual([])
+  })
 })

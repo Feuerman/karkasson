@@ -215,7 +215,12 @@ describe('Клиентское приложение (GameService)', () => {
     await client.addPlayer({ name: null, index: 1 })
     const started = await client.startGame()
     expect(started.rules.expansions.princessAndDragon).toBe(true)
-    expect(started.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
+    expect(started.tilesList).toHaveLength(game.tilesList.length - 2)
+    const drawnAndDeckIds = [
+      ...started.tilesList.map(({ id }) => id),
+      ...(started.currentTile ? [started.currentTile.id] : []),
+    ]
+    expect(drawnAndDeckIds.some((id) => id.startsWith('PAD_'))).toBe(true)
 
     const serverGame = server.handle.gameService.getGame(game.id ?? '')
     expect(serverGame).toBeTruthy()

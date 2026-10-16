@@ -88,10 +88,14 @@ describe('Конфигурация Firebase', () => {
   })
 
   it('сообщает имя отсутствующей обязательной переменной', () => {
-    expect(() => getFirebaseConfig({})).toThrow(
+    const missingApiKey = () => getFirebaseConfig({})
+    const missingDatabaseUrl = () =>
+      getFirebaseConfig({ FIREBASE_API_KEY: 'test-key' })
+
+    expect(missingApiKey).toThrow(
       'Missing required environment variable FIREBASE_API_KEY'
     )
-    expect(() => getFirebaseConfig({ FIREBASE_API_KEY: 'test-key' })).toThrow(
+    expect(missingDatabaseUrl).toThrow(
       'Missing required environment variable FIREBASE_DATABASE_URL'
     )
   })

@@ -247,9 +247,12 @@ describe('Масштаб доски', () => {
     expect(pan.getZoom()).toBe(1)
   })
 
-  it('сообщает о зуме через onZoomChange', () => {
+  it('сообщает только об изменениях зума через onZoomChange', () => {
     const onZoomChange = vi.fn()
     const { pan, board } = mountPan({ onZoomChange })
+
+    board.dispatchEvent(wheelEvent({ deltaY: 0, clientX: 0, clientY: 0 }))
+    expect(onZoomChange).not.toHaveBeenCalled()
 
     board.dispatchEvent(wheelEvent({ deltaY: -100, clientX: 0, clientY: 0 }))
     pan.resetZoom()
@@ -257,15 +260,6 @@ describe('Масштаб доски', () => {
     expect(onZoomChange).toHaveBeenCalledTimes(2)
     expect(onZoomChange.mock.calls[0]?.[0]).toBeGreaterThan(1)
     expect(onZoomChange).toHaveBeenLastCalledWith(1)
-  })
-
-  it('не сообщает о зуме, если он не изменился', () => {
-    const onZoomChange = vi.fn()
-    const { board } = mountPan({ onZoomChange })
-
-    board.dispatchEvent(wheelEvent({ deltaY: 0, clientX: 0, clientY: 0 }))
-
-    expect(onZoomChange).not.toHaveBeenCalled()
   })
 
   it('запрещает перетаскивание картинок на доске', () => {

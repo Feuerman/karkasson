@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { computed, createSSRApp, h } from 'vue'
-import type { Component } from 'vue'
+import type { App, Component } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import PlayerNameById from '@/components/GameActionsHistory/internal/PlayerNameById.vue'
 import BackFollowerAction from '@/components/GameActionsHistory/internal/actions/BackFollowerAction.vue'
@@ -49,12 +49,16 @@ const follower = (
   ...overrides,
 })
 
-const render = (component: Component, props: Record<string, unknown>) => {
-  const app = createSSRApp({ render: () => h(component, props) })
+const providePlayers = (app: App) => {
   app.provide(
     HISTORY_PLAYERS_KEY,
     computed(() => players)
   )
+}
+
+const render = (component: Component, props: Record<string, unknown>) => {
+  const app = createSSRApp({ render: () => h(component, props) })
+  providePlayers(app)
   return renderToString(app)
 }
 
@@ -99,10 +103,7 @@ describe('имя игрока в истории', () => {
       render: () =>
         h(PlayerNameById, { playerId: 42 }, { default: () => ' — рыцарь' }),
     })
-    app.provide(
-      HISTORY_PLAYERS_KEY,
-      computed(() => players)
-    )
+    providePlayers(app)
     const html = await renderToString(app)
 
     expect(textOf(html)).toBe('Борис — рыцарь')

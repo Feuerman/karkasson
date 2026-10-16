@@ -22,6 +22,8 @@ function collectExamples(docs: { sections: { blocks: unknown[] }[] }[]) {
     )
 }
 
+const examples = collectExamples([baseGameRules])
+
 describe('примеры правил', () => {
   it('раздел дополнения содержит примеры, а каталоги тайлов подключены', () => {
     expect(baseGameRules.sections.map(({ title }) => title)).toEqual([
@@ -45,7 +47,6 @@ describe('примеры правил', () => {
   })
 
   it('все сетки примеров корректны (грани совпадают, маркеры осмысленны)', () => {
-    const examples = collectExamples([baseGameRules])
     expect(examples.length).toBeGreaterThan(0)
 
     const errors = validateExampleGrids(examples)
@@ -53,7 +54,6 @@ describe('примеры правил', () => {
   })
 
   it('у каждого примера уникальный id и заполненная сетка', () => {
-    const examples = collectExamples([baseGameRules])
     const ids = examples.map((example) => example.id)
     expect(new Set(ids).size).toBe(ids.length)
 
@@ -66,7 +66,7 @@ describe('примеры правил', () => {
   })
 
   it('для каждого ключевого правила есть наглядный пример', () => {
-    const ids = collectExamples([baseGameRules]).map(({ id }) => id)
+    const ids = examples.map(({ id }) => id)
 
     expect(ids).toEqual(
       expect.arrayContaining([
@@ -99,7 +99,7 @@ describe('примеры правил', () => {
   })
 
   it('примеры поясняют подсчёт очков в подписи', () => {
-    for (const example of collectExamples([baseGameRules])) {
+    for (const example of examples) {
       expect(example.caption?.trim(), example.id).toBeTruthy()
     }
   })
@@ -111,9 +111,7 @@ describe('примеры правил', () => {
     const cathedralRules = expansion?.blocks.find(
       (block) => block.type === 'paragraph' && block.title === 'Соборы'
     )
-    const cathedralExample = collectExamples([baseGameRules]).find(
-      ({ id }) => id === 'cathedral-city'
-    )
+    const cathedralExample = examples.find(({ id }) => id === 'cathedral-city')
     const scoringTable = expansion?.blocks.find(
       (block) => block.type === 'table' && block.title === 'Очки с дополнением'
     )
@@ -135,7 +133,7 @@ describe('примеры правил', () => {
   })
 
   it('маршрут дракона в примерах пронумерован подряд и без повторов', () => {
-    const dragonExamples = collectExamples([baseGameRules]).filter(({ id }) =>
+    const dragonExamples = examples.filter(({ id }) =>
       id.startsWith('dragon-move-')
     )
     expect(dragonExamples.length).toBeGreaterThan(0)
@@ -156,9 +154,7 @@ describe('примеры правил', () => {
   })
 
   it('примеры дракона показывают возврат съеденного подданного', () => {
-    const straight = collectExamples([baseGameRules]).find(
-      ({ id }) => id === 'dragon-move-straight'
-    )
+    const straight = examples.find(({ id }) => id === 'dragon-move-straight')
 
     expect(straight?.returnedFollowers).toEqual(['coral'])
     expect(

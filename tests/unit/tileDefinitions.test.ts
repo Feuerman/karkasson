@@ -26,23 +26,19 @@ describe('findTileDefinitionById', () => {
     expect(definition?.id).toBe(TileId.A)
   })
 
-  it('возвращает undefined для тайла расширения при выключенном правиле', () => {
-    expect(findTileDefinitionById(TileId.IAC_A, noExpansions)).toBeUndefined()
-    expect(findTileDefinitionById(TileId.RIVER_A, noExpansions)).toBeUndefined()
-    expect(findTileDefinitionById(TileId.PAD_A, noExpansions)).toBeUndefined()
-  })
+  it.each([TileId.IAC_A, TileId.RIVER_A, TileId.PAD_A])(
+    'не находит тайл расширения %s при выключенных правилах',
+    (tileId) => {
+      expect(findTileDefinitionById(tileId, noExpansions)).toBeUndefined()
+    }
+  )
 
-  it('находит тайлы расширений при включённых правилах', () => {
-    expect(findTileDefinitionById(TileId.IAC_A, allExpansions)?.id).toBe(
-      TileId.IAC_A
-    )
-    expect(findTileDefinitionById(TileId.RIVER_A, allExpansions)?.id).toBe(
-      TileId.RIVER_A
-    )
-    expect(findTileDefinitionById(TileId.PAD_A, allExpansions)?.id).toBe(
-      TileId.PAD_A
-    )
-  })
+  it.each([TileId.IAC_A, TileId.RIVER_A, TileId.PAD_A])(
+    'находит тайл расширения %s при включённых правилах',
+    (tileId) => {
+      expect(findTileDefinitionById(tileId, allExpansions)?.id).toBe(tileId)
+    }
+  )
 
   it('возвращает undefined для неизвестного id', () => {
     const unknownId = 'NO-SUCH-TILE'

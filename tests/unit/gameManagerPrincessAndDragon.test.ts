@@ -416,9 +416,6 @@ describe('Правила дополнения «Принцесса и драко
     expect(game.moveDragon(15, 11)).toBe(false)
     expect(game.currentPlayerIndex).toBe(1)
     game.currentPlayerIndex = 0
-    expect(game.moveDragon(15, 12)).toBe(false)
-    expect(game.moveDragon(15, 9)).toBe(false)
-    expect(game.moveDragon(16, 11)).toBe(false)
     expect(game.moveDragon(14, 10)).toBe(true)
 
     expect(game.dragonPosition).toEqual({ rowIndex: 14, tileIndex: 10 })

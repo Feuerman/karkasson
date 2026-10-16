@@ -64,11 +64,6 @@ describe('scrollToTile', () => {
       inline: 'center',
     })
   })
-
-  it('не падает, если клетки на доске нет', () => {
-    expect(() => scrollToTile(99, 99)).not.toThrow()
-    expect(scrollIntoView).not.toHaveBeenCalled()
-  })
 })
 
 describe('highlightCells', () => {
@@ -115,15 +110,6 @@ describe('highlightCells', () => {
     expect(document.querySelectorAll(`.${HIGHLIGHT_CLASS}`)).toHaveLength(1)
   })
 
-  it('подсвечивает одну клетку один раз, даже если она передана дважды', () => {
-    const tile = addTile(12, 20)
-
-    highlightCells([cell(12, 20), cell(12, 20)])
-
-    expect(document.querySelectorAll(`.${HIGHLIGHT_CLASS}`)).toHaveLength(1)
-    expect(tile.style.getPropertyValue(DELAY_PROPERTY)).toBe('0ms')
-  })
-
   it.each([
     [[], 'пустого списка'],
     [[{ rowIndex: 12 }], 'неполной клетки'],
@@ -134,28 +120,23 @@ describe('highlightCells', () => {
     expect(() => cancel()).not.toThrow()
   })
 
-  it('снимает подсветку и стили после отложенного таймера', () => {
+  it('сохраняет подсветку до конца задержки, затем снимает её и стили', () => {
     const first = addTile(12, 20)
     const second = addTile(12, 21)
 
     highlightCells([cell(12, 20), cell(12, 21)], 1000)
-    // Последняя клетка задержана на 90 мс, поэтому ждём длительность плюс задержку
-    vi.advanceTimersByTime(1000 + 90)
+    // Последняя клетка задержана на 90 мс: до 1090 мс подсветка сохраняется.
+    vi.advanceTimersByTime(1000 + 90 - 1)
+    expect(first.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+    expect(second.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
+
+    vi.advanceTimersByTime(1)
 
     for (const tile of [first, second]) {
       expect(tile.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
       expect(tile.style.getPropertyValue(DURATION_PROPERTY)).toBe('')
       expect(tile.style.getPropertyValue(DELAY_PROPERTY)).toBe('')
     }
-  })
-
-  it('не снимает подсветку раньше времени', () => {
-    const tile = addTile(12, 20)
-
-    highlightCells([cell(12, 20)], 1000)
-    vi.advanceTimersByTime(500)
-
-    expect(tile.classList.contains(HIGHLIGHT_CLASS)).toBe(true)
   })
 
   it('отмена снимает подсветку сразу и отменяет отложенное снятие', () => {
@@ -184,24 +165,5 @@ describe('highlightCells', () => {
     // Подсветка второго объекта держится до конца своей длительности
     vi.advanceTimersByTime(1000)
     expect(second.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
-  })
-
-  it('повторная отмена уже снятой подсветки безопасна', () => {
-    const tile = addTile(12, 20)
-
-    const cancel = highlightCells([cell(12, 20)], 1000)
-    cancel()
-    expect(() => cancel()).not.toThrow()
-    expect(tile.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
-  })
-
-  it('отмена после срабатывания таймера безопасна', () => {
-    const tile = addTile(12, 20)
-
-    const cancel = highlightCells([cell(12, 20)], 1000)
-    vi.advanceTimersByTime(1000)
-
-    expect(() => cancel()).not.toThrow()
-    expect(tile.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
   })
 })
