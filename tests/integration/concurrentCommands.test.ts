@@ -3,8 +3,15 @@ import { GameErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
-import { createLobbyWithPlayers, type TestGameData } from './helpers/lobby'
-import { startGame } from './helpers/gameplay'
+import { createLobbyWithPlayers, type LobbySetup } from './helpers/lobby'
+import {
+  alternateRotation,
+  startGame,
+  type GameAck,
+  type GameStateSnapshot,
+} from './helpers/gameplay'
+import { delaySaves, failNextSave } from './helpers/storage'
+import { sleep } from './helpers/wait'
 import { startTestServer, type RunningServer } from './helpers/server'
 
 describe('Конкурентные команды одной партии', () => {
@@ -22,33 +29,27 @@ describe('Конкурентные команды одной партии', () =
     },
   })
 
-  async function lobbyWithTwoHumans() {
+  interface StartedTwoHumanGame {
+    server: RunningServer
+    gameId: string
+    lobby: LobbySetup
+    state: GameStateSnapshot
+  }
+
+  /** Партия двух людей: чужая команда должна отклоняться по очереди хода. */
+  async function startedGameWithTwoHumans(): Promise<StartedTwoHumanGame> {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
-    return lobby
-  }
-
-  /** Задерживает запись в хранилище, чтобы поймать команду, летящую следом. */
-  function gateNextSave(delayMs = 100) {
-    const database = server!.db
-    const originalSave = database.saveGame.bind(database)
-    const gate = new Promise<void>((resolve) => setTimeout(resolve, delayMs))
-    database.saveGame = async (gameId, gameState) => {
-      await gate
-      await originalSave(gameId, gameState)
-    }
-    return gate
+    const state = await startGame(lobby.creator, lobby.gameId)
+    return { server, gameId: lobby.gameId, lobby, state }
   }
 
   it('команда чужой партии отклоняется, пока очередь занята ходом', async () => {
-    const lobby = await lobbyWithTwoHumans()
-    const { gameId } = lobby
-    const state = await startGame(lobby.creator, gameId)
+    const { server, gameId, lobby, state } = await startedGameWithTwoHumans()
+    const rotation = alternateRotation(state)
 
-    const rotation = state.currentTile!.rotation === 180 ? 90 : 180
-
-    const gate = gateNextSave()
+    const gate = delaySaves(server.db)
 
     // Алиса поворачивает тайл; запись ещё в полёте, когда приходит команда Боба.
     // Поворот выбран намеренно: он не двигает очередь, поэтому проверка не
@@ -57,7 +58,7 @@ describe('Конкурентные команды одной партии', () =
       gameId,
       rotation,
     })
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await sleep(20)
     const intruder = lobby.joiner.emitAck(SocketEvents.SelectPlacingPoint, {
       gameId,
       point: { rowIndex: 15, tileIndex: 16 },
@@ -67,7 +68,7 @@ describe('Конкурентные команды одной партии', () =
     await rotating
     await expect(intruder).rejects.toThrow(GameErrors.NotPlayersTurn)
 
-    const live = server!.handle.gameService.getGame(gameId)
+    const live = server.handle.gameService.getGame(gameId)
     expect(live?.currentTile?.rotation).toBe(rotation)
     // Чужая команда не применилась: выбранная точка осталась прежней
     expect(live?.placingPoint).toEqual(state.placingPoint)
@@ -75,78 +76,62 @@ describe('Конкурентные команды одной партии', () =
   })
 
   it('откат неудачной команды не затирает следующую команду', async () => {
-    const lobby = await lobbyWithTwoHumans()
-    const { gameId } = lobby
-    const state = await startGame(lobby.creator, gameId)
-
-    const rotation = state.currentTile!.rotation === 180 ? 90 : 180
-
-    const database = server!.db
-    const originalSave = database.saveGame.bind(database)
-    const gate = new Promise<void>((resolve) => setTimeout(resolve, 60))
-    let failed = false
-    database.saveGame = async (gameIdToSave, gameState) => {
-      await gate
-      if (failed) return originalSave(gameIdToSave, gameState)
-      failed = true
-      throw new Error('storage unavailable')
-    }
+    const { server, gameId, lobby, state } = await startedGameWithTwoHumans()
+    const rotation = alternateRotation(state)
+    const point = { rowIndex: 15, tileIndex: 16 }
 
     // Первая команда падает на записи и откатывается уже после того, как
     // вторая успела изменить состояние.
+    const gate = failNextSave(server.db, new Error('storage unavailable'))
+
     const rotating = lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
       gameId,
       rotation,
     })
     const selecting = lobby.creator.emitAck(SocketEvents.SelectPlacingPoint, {
       gameId,
-      point: { rowIndex: 15, tileIndex: 16 },
+      point,
     })
 
     await expect(rotating).rejects.toThrow('storage unavailable')
     await expect(selecting).resolves.toMatchObject({ success: true })
+    await gate
 
-    const live = server!.handle.gameService.getGame(gameId)
-    expect(live?.currentTile?.rotation).toBe(state.currentTile!.rotation)
-    expect(live?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
+    const live = server.handle.gameService.getGame(gameId)
+    expect(live?.currentTile?.rotation).toBe(state.currentTile?.rotation)
+    expect(live?.placingPoint).toEqual(point)
 
-    const saved = await database.getGame(gameId)
-    expect(saved?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
-    expect(saved?.currentTile?.rotation).toBe(state.currentTile!.rotation)
+    const saved = await server.db.getGame(gameId)
+    expect(saved?.placingPoint).toEqual(point)
+    expect(saved?.currentTile?.rotation).toBe(state.currentTile?.rotation)
   })
 
   it('параллельные команды одного игрока дают согласованное состояние', async () => {
-    const lobby = await lobbyWithTwoHumans()
-    const { gameId } = lobby
-    const state = await startGame(lobby.creator, gameId)
-
-    const rotation = state.currentTile!.rotation === 180 ? 90 : 180
+    const { server, gameId, lobby, state } = await startedGameWithTwoHumans()
+    const rotation = alternateRotation(state)
     const point = { rowIndex: 15, tileIndex: 16 }
 
     // Клиент шлёт обе команды, не дожидаясь первой: сервер обязан выполнить
     // их последовательно и оставить память и хранилище одинаковыми.
     const [rotated, selected] = await Promise.all([
-      lobby.creator.emitAck<{ success: boolean; game: TestGameData }>(
-        SocketEvents.UpdateCurrentTile,
-        { gameId, rotation }
-      ),
-      lobby.creator.emitAck<{ success: boolean; game: TestGameData }>(
-        SocketEvents.SelectPlacingPoint,
-        {
-          gameId,
-          point,
-        }
-      ),
+      lobby.creator.emitAck<GameAck>(SocketEvents.UpdateCurrentTile, {
+        gameId,
+        rotation,
+      }),
+      lobby.creator.emitAck<GameAck>(SocketEvents.SelectPlacingPoint, {
+        gameId,
+        point,
+      }),
     ])
 
     expect(rotated.success).toBe(true)
     expect(selected.success).toBe(true)
 
-    const live = server!.handle.gameService.getGame(gameId)
-    const saved = await server!.db.getGame(gameId)
-    expect(live?.currentTile?.rotation).toBe(rotation)
-    expect(live?.placingPoint).toEqual(point)
-    expect(saved?.currentTile?.rotation).toBe(rotation)
-    expect(saved?.placingPoint).toEqual(point)
+    const live = server.handle.gameService.getGame(gameId)
+    const saved = await server.db.getGame(gameId)
+    for (const snapshot of [live, saved]) {
+      expect(snapshot?.currentTile?.rotation).toBe(rotation)
+      expect(snapshot?.placingPoint).toEqual(point)
+    }
   })
 })

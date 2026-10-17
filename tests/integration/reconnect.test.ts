@@ -4,6 +4,7 @@ import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
+  createLobby,
   createLobbyWithPlayers,
   latestGame,
   type TestGameData,
@@ -51,10 +52,10 @@ describe('Отключение и переподключение игроков'
       (g) => g.players.find((p) => p.name === 'Bob')?.socketId === null
     )
 
-    const tempEvent = (await lobby.creator.waitForEvent(
+    const tempEvent = await lobby.creator.waitForEvent<{ deviceId: string }>(
       SocketEvents.PlayerTemporaryDisconnected,
-      (p) => (p as { deviceId?: string }).deviceId === 'device-joiner'
-    )) as { deviceId: string }
+      (payload) => payload.deviceId === 'device-joiner'
+    )
     expect(tempEvent.deviceId).toBe('device-joiner')
 
     // Device у Боба сохранился, а socket освобождён
@@ -161,17 +162,11 @@ describe('Отключение и переподключение игроков'
 
   it('отключение последнего игрока лобби удаляет игру', async () => {
     server = await startTestServer()
-    const creator = new TestClient(server.url, 'device-lone')
+    const { gameId, creator } = await createLobby(server.url, {
+      deviceId: 'device-lone',
+      computers: 0,
+    })
     clients.push(creator)
-    await creator.connect()
-    creator.registerDevice()
-
-    creator.emit(SocketEvents.CreateGame)
-    const { gameId } = (await creator.waitForEvent(
-      SocketEvents.GameCreated
-    )) as {
-      gameId: string
-    }
 
     creator.disconnect()
 
@@ -310,25 +305,19 @@ describe('Отключение и переподключение игроков'
 
   it('освобождает слот игрока во всех партиях, где он состоял', async () => {
     server = await startTestServer()
-    const alice = new TestClient(server.url, 'device-alice')
-    const bob = new TestClient(server.url, 'device-bob')
-    clients.push(alice, bob)
-    await Promise.all([alice.connect(), bob.connect()])
-    alice.registerDevice()
-    bob.registerDevice()
-
-    alice.emit(SocketEvents.CreateGame)
-    const ownLobby = (await alice.waitForEvent(SocketEvents.GameCreated)) as {
-      gameId: string
-    }
-    bob.emit(SocketEvents.CreateGame)
-    const foreignLobby = (await bob.waitForEvent(SocketEvents.GameCreated)) as {
-      gameId: string
-    }
+    const own = await createLobby(server.url, {
+      deviceId: 'device-alice',
+      computers: 0,
+    })
+    const foreign = await createLobby(server.url, {
+      deviceId: 'device-bob',
+      computers: 0,
+    })
+    const alice = own.creator
+    clients.push(alice, foreign.creator)
 
     // Алиса состоит сразу в двух лобби: в своём (слот 0) и в чужом (слот 1).
-    alice.emit(SocketEvents.JoinGame, { gameId: foreignLobby.gameId })
-    await alice.waitForEvent(SocketEvents.GameUpdated)
+    await alice.emitAck(SocketEvents.JoinGame, { gameId: foreign.gameId })
 
     alice.closeTransport()
 
@@ -336,14 +325,14 @@ describe('Отключение и переподключение игроков'
       server?.handle.gameService.getGame(gameId)?.players[index]
 
     await waitForCondition(() => {
-      const own = slot(ownLobby.gameId, 0)
-      const foreign = slot(foreignLobby.gameId, 1)
+      const ownSlot = slot(own.gameId, 0)
+      const foreignSlot = slot(foreign.gameId, 1)
       // Обрабатывается только первая партия, если сокет ищут по одной игре.
       return (
-        own?.socketId === null &&
-        own.deviceId === null &&
-        foreign?.socketId === null &&
-        foreign.deviceId === null
+        ownSlot?.socketId === null &&
+        ownSlot.deviceId === null &&
+        foreignSlot?.socketId === null &&
+        foreignSlot.deviceId === null
       )
     }, 'освобождение слота во всех партиях отключившегося игрока')
   })

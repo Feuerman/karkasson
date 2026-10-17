@@ -20,24 +20,24 @@ describe('Запуск сервера и фронтенда', () => {
     if (server) await stopTestServer(server)
   })
 
-  it('сервер отвечает по HTTP и поднимает Engine.IO', async () => {
+  it('сервер поднимает Socket.IO по HTTP', async () => {
     const handshake = await fetch(
       `${server!.url}/socket.io/?EIO=4&transport=polling`
     )
     expect(handshake.ok).toBe(true)
-    const text = await handshake.text()
-    expect(text).toContain('0{')
+    // Открывающий пакет Engine.IO с идентификатором сессии
+    expect(await handshake.text()).toMatch(/^0\{"sid":"[^"]+"/)
   })
 
-  it('фронтенд отдаёт index.html с точкой монтирования Vue', async () => {
+  it('фронтенд отдаёт index.html с точкой монтирования', async () => {
     const response = await frontend!.fetch('/')
     expect(response.status).toBe(200)
     const html = await response.text()
-    expect(html).toContain('<div id="app')
+    expect(html).toContain('<div id="app"')
     expect(html).toContain('/src/main.js')
   })
 
-  it('отдаёт состояние хранилища по health-эндпоинту', async () => {
+  it('health-эндпоинт отдаёт состояние хранилища', async () => {
     const response = await fetch(`${server!.url}/health`)
 
     expect(response.status).toBe(200)
@@ -50,10 +50,13 @@ describe('Запуск сервера и фронтенда', () => {
   it('фронтенд компилирует точку входа и корневой компонент', async () => {
     const main = await frontend!.fetch('/src/main.js')
     expect(main.status).toBe(200)
-    expect(await main.text()).toContain('createApp')
+    const entry = await main.text()
+    expect(entry).toContain('createApp')
+    expect(entry).toContain('/src/App.vue')
 
     const app = await frontend!.fetch('/src/App.vue')
     expect(app.status).toBe(200)
-    expect(await app.text()).toContain('GameLobby')
+    // Признак успешной компиляции однофайлового компонента плагином Vue
+    expect(await app.text()).toContain('_sfc_main')
   })
 })

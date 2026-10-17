@@ -4,9 +4,7 @@ import {
   ActionTypes,
   FollowerType,
   ObjectTypes,
-  PointDirection,
   SideName,
-  TileId,
   TileSideType,
 } from '@server/modules/types'
 import type { Tile, TileSides } from '@server/modules/types'
@@ -52,6 +50,21 @@ function placeTileWithSides(
 
 function currentScore(game: GameManager, playerId: number): number {
   return game.scores[playerId] ?? 0
+}
+
+// Партия, в которой у Алисы аббат стоит на монастыре в (16,15)
+function gameWithAbbotOnMonastery(): GameManager {
+  const game = new GameManager({ players: makePlayers() })
+
+  stashDeck(game)
+  expect(placeMonastery(game, 16, 15)).toBe(true)
+  const monasteryPlace = game.availableFollowersPlaces.find(
+    (place) => place.temporaryObject.isMonastery
+  )!
+  stashDeck(game)
+  game.availableFollowersPlaces = [monasteryPlace]
+  game.placeFollower(monasteryPlace, FollowerType.Abbot)
+  return game
 }
 
 describe('Аббат (оба игрока-человека, фиксированная доска)', () => {
@@ -193,17 +206,8 @@ describe('Аббат (оба игрока-человека, фиксирован
   })
 
   it('отзыв аббата начисляет частичные очки и возвращает фишку без расхода хода', () => {
-    const game = new GameManager({ players: makePlayers() })
-
     // Ход Алисы 1: монастырь B (16,15) + аббат
-    stashDeck(game)
-    expect(placeMonastery(game, 16, 15)).toBe(true)
-    const monasteryPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isMonastery
-    )!
-    game.availableFollowersPlaces = [monasteryPlace]
-    stashDeck(game)
-    game.placeFollower(monasteryPlace, FollowerType.Abbot)
+    const game = gameWithAbbotOnMonastery()
 
     // Ход Боба 1: тайл в стороне от 3×3 аббата — (14,15), севернее E.
     // У стартового E north = city, поэтому юг тайла — город; западный тупик
@@ -270,29 +274,9 @@ describe('Аббат (оба игрока-человека, фиксирован
     expect(game.currentPlayer!.id).toBe(1)
   })
 
-  it('повторный отзыв без аббата на доске вернуть нечего', () => {
-    const game = new GameManager({ players: makePlayers() })
-
-    expect(game.recallAbbot()).toBe(false)
-
-    // У Боба аббата тоже нет на доске
-    game.currentPlayerIndex = 1
-    game.currentPlayer = game.players[1]
-    expect(game.recallAbbot()).toBe(false)
-  })
-
   it('завершённый монастырь с аббатом очков не даёт, аббат ждёт отзыва', () => {
-    const game = new GameManager({ players: makePlayers() })
-
     // Ход 1 (Алиса): B (16,15) + аббат
-    stashDeck(game)
-    expect(placeMonastery(game, 16, 15)).toBe(true)
-    const monasteryPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isMonastery
-    )!
-    stashDeck(game)
-    game.availableFollowersPlaces = [monasteryPlace]
-    game.placeFollower(monasteryPlace, FollowerType.Abbot)
+    const game = gameWithAbbotOnMonastery()
 
     // Заполняем 3×3 вокруг аббата: ходы чередуются, Боб и Алиса
     // просто пропускают выставление фишек.
@@ -364,42 +348,25 @@ describe('Аббат (оба игрока-человека, фиксирован
 })
 
 describe('Сведения об отзыве аббата для интерфейса', () => {
-  /** Партия, в которой у Алисы аббат стоит на монастыре в (16,15). */
-  function gameWithAbbotOnMonastery(): GameManager {
-    const game = new GameManager({ players: makePlayers() })
-
-    stashDeck(game)
-    expect(placeMonastery(game, 16, 15)).toBe(true)
-    const monasteryPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isMonastery
-    )!
-    stashDeck(game)
-    game.availableFollowersPlaces = [monasteryPlace]
-    game.placeFollower(monasteryPlace, FollowerType.Abbot)
-    return game
-  }
-
   it('до хода владельца аббата отзыв не предлагается', () => {
     const game = gameWithAbbotOnMonastery()
 
-    // Ход перешёл к Бобу: отзывать нечего
+    // Ход перешёл к Бобу: аббат Алисы на месте, но ход сейчас не её
     expect(game.currentPlayer!.id).toBe(2)
     expect(game.getAbbotRecallInfo()).toBeNull()
-
-    // Аббат Алисы на месте, но ход сейчас не её
-    expect(
-      game.completedObjects.monasteries
-        .concat(game.temporaryObjects.monasteries)
-        .some((monastery) =>
-          monastery.followers.some((follower) => follower.isAbbot)
-        )
-    ).toBe(true)
   })
 
-  it('без аббата на доске отзыв не предлагается', () => {
+  it('без аббата на доске отзыв не предлагается и отзывать нечего', () => {
     const game = new GameManager({ players: makePlayers() })
 
     expect(game.getAbbotRecallInfo()).toBeNull()
+    expect(game.recallAbbot()).toBe(false)
+
+    // У Боба аббата тоже нет на доске
+    game.currentPlayerIndex = 1
+    game.currentPlayer = game.players[1]
+    expect(game.getAbbotRecallInfo()).toBeNull()
+    expect(game.recallAbbot()).toBe(false)
   })
 
   it('сообщает объект и очки, которые начисляет отзыв', () => {
@@ -426,45 +393,5 @@ describe('Сведения об отзыве аббата для интерфе�
     expect(game.recallAbbot()).toBe(true)
     expect(currentScore(game, 1) - scoreBefore).toBe(info!.points)
     expect(game.getAbbotRecallInfo()).toBeNull()
-  })
-
-  it('очки за сад считаются по той же формуле', () => {
-    const game = new GameManager({ players: makePlayers() })
-    const gardenPoint = { x: 15, y: 16, direction: PointDirection.Center }
-    game.tilePlacesStats[16] = {
-      15: {
-        id: TileId.I,
-        rotation: 0,
-        x: 15,
-        y: 16,
-        sides: {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.Field,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Field,
-        },
-        hasGarden: true,
-      },
-    }
-    game.checkGridAfterPlacingTile(16, 15)
-    game.temporaryObjects.gardens[0].followers.push({
-      playerId: 1,
-      objectId: game.temporaryObjects.gardens[0].id,
-      point: gardenPoint,
-      isAbbot: true,
-    })
-    game.placedFollowers.push({
-      playerId: 1,
-      objectId: game.temporaryObjects.gardens[0].id,
-      point: gardenPoint,
-      isAbbot: true,
-      isGarden: true,
-    })
-    game.playersFollowers[1].monks = 0
-
-    const info = game.getAbbotRecallInfo()
-    expect(info?.objectType).toBe(ObjectTypes.GARDEN)
-    // Сад и стартовый тайл в окрестности 3×3
-    expect(info?.points).toBe(2)
   })
 })

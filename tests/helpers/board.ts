@@ -1,7 +1,13 @@
 import { GameManager } from '@server/modules/GameManager'
 import { SideName } from '@server/modules/types'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
-import type { Tile } from '@server/modules/types'
+import type {
+  BaseObject,
+  GridTile,
+  Player,
+  PointDirection,
+  Tile,
+} from '@server/modules/types'
 import { makePlayers } from './fixtures'
 
 /**
@@ -39,10 +45,62 @@ export function emptyBoard(game: GameManager): void {
   game.tilePlacesStats = {}
 }
 
-/** Назначает текущим игроком первого: нужно для placeTile и checkAvailableFollowers */
-export function useFirstPlayerAsCurrent(game: GameManager): void {
-  game.currentPlayer = game.players[0] ?? null
-  game.currentPlayerIndex = 0
+/** Назначает текущим игроком: нужно для placeTile и checkAvailableFollowers */
+export function usePlayerAsCurrent(
+  game: {
+    players: Player[]
+    currentPlayer: Player | null
+    currentPlayerIndex: number
+  },
+  index: number
+): void {
+  game.currentPlayer = game.players[index] ?? null
+  game.currentPlayerIndex = index
+}
+
+/** Тайл, который кладётся в центр доски: координаты проставляет хелпер */
+type CenterTile = Pick<GridTile, 'id' | 'sides'> &
+  Partial<Omit<GridTile, 'x' | 'y'>>
+
+/** Кладёт тайл в центр доски, не пересобирая объекты */
+export function setCenterTile(game: GameManager, tile: CenterTile): GridTile {
+  const gridTile: GridTile = { rotation: 0, ...tile, x: CENTER_X, y: CENTER_Y }
+  game.tilePlacesStats[CENTER_Y] = { [CENTER_X]: gridTile }
+  return gridTile
+}
+
+/**
+ * Кладёт тайл в центр доски и пересобирает объекты по всей доске: так тайл
+ * оказывается на месте так же, как после настоящего размещения.
+ */
+export function placeCenterTile(game: GameManager, tile: CenterTile): GridTile {
+  const gridTile = setCenterTile(game, tile)
+  game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
+  return gridTile
+}
+
+/**
+ * Кладёт тайл на доску настоящим placeTile: currentTile и координаты
+ * проставляет хелпер, тест отвечает только за стороны тайла и за клетку.
+ */
+export function placeTileOnBoard(
+  game: GameManager,
+  tile: Omit<Tile, 'x' | 'y'> & Partial<Pick<GridTile, 'x' | 'y'>>,
+  row: number,
+  col: number
+): boolean {
+  game.currentTile = { ...tile, x: col, y: row }
+  return game.placeTile(game.currentTile, row, col)
+}
+
+/** Объект, в котором есть точка в указанном направлении */
+export function objectAt<T extends BaseObject>(
+  objects: T[],
+  direction: PointDirection
+): T | undefined {
+  return objects.find((object) =>
+    object.points.some((point) => point.direction === direction)
+  )
 }
 
 /** Направления доступных мест в отсортированном порядке — так сравнивают наборы */

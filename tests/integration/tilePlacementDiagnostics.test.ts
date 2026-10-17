@@ -11,6 +11,12 @@ import { makePlayers } from '../helpers/fixtures'
  * тестами функций геометрии.
  */
 
+function tileById(id: TileId, rotation = 0): Tile {
+  const found = tiles.find((tile) => tile.id === id)
+  if (!found) throw new Error(`Tile ${id} is missing`)
+  return { ...found, rotation }
+}
+
 describe('Размещение тайла не зависит от порядка ключей sides', () => {
   it('принимает повёрнутый тайл со сторонами в клиентском порядке {north,west,south,east}', () => {
     const game = new GameManager({ players: makePlayers() })
@@ -55,14 +61,10 @@ describe('Размещение тайла не зависит от порядк�
 describe('Диагностика неудачного размещения тайла', () => {
   it('возвращает конфликтующую сторону и координаты соседа', () => {
     const game = new GameManager({ players: makePlayers() })
-    const cityTile = tiles.find(({ id }) => id === TileId.C)
-    if (!cityTile) throw new Error('Tile C is missing')
 
     // Стартовый D на (15,15): восток — дорога. Городской тайл C в клетке
     // (15,16) не совпадает с ней по западной стороне.
-    expect(
-      game.getPlacementConflicts({ ...cityTile, rotation: 0 }, 15, 16)
-    ).toEqual([
+    expect(game.getPlacementConflicts(tileById(TileId.C), 15, 16)).toEqual([
       {
         side: SideName.West,
         rowIndex: 15,
@@ -73,28 +75,15 @@ describe('Диагностика неудачного размещения та�
     ])
   })
 
-  it('возвращает пустой список для подходящего тайла и для занятой клетки', () => {
-    const game = new GameManager({ players: makePlayers() })
-    const roadTile = tiles.find(({ id }) => id === TileId.L)
-    if (!roadTile) throw new Error('Tile L is missing')
-
-    // Запад L — дорога, как и восток стартового D.
-    expect(
-      game.getPlacementConflicts({ ...roadTile, rotation: 0 }, 15, 16)
-    ).toEqual([])
-    expect(
-      game.getPlacementConflicts({ ...roadTile, rotation: 0 }, 15, 15)
-    ).toEqual([])
-  })
-
   it('не выдаёт причину для тайла, который действительно можно разместить', () => {
     const game = new GameManager({ players: makePlayers() })
-    const roadTile = tiles.find(({ id }) => id === TileId.L)
-    if (!roadTile) throw new Error('Tile L is missing')
-    const tile = { ...roadTile, rotation: 0 }
+    // Запад L — дорога, как и восток стартового D.
+    const roadTile = tileById(TileId.L)
 
-    expect(game.getPlacementConflicts(tile, 15, 16)).toEqual([])
-    expect(game.placeTile(tile, 15, 16)).toBe(true)
+    // Занятая стартовым тайлом клетка (15,15) тоже не считается конфликтом.
+    expect(game.getPlacementConflicts(roadTile, 15, 15)).toEqual([])
+    expect(game.getPlacementConflicts(roadTile, 15, 16)).toEqual([])
+    expect(game.placeTile(roadTile, 15, 16)).toBe(true)
     expect(game.tilePlacesStats[15]?.[16]).toBeDefined()
   })
 })

@@ -4,7 +4,6 @@ import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   assertFollowerInvariants,
   chooseFollowerPlace,
-  createLobbyWithSingleHuman,
   driveTurnsUntilFollowerOffer,
   makeHumanMove,
   playerId,
@@ -12,6 +11,7 @@ import {
   waitForHumanTurnOrEnd,
   type GameStateSnapshot,
 } from './helpers/gameplay'
+import { createLobbyWithSingleHuman } from './helpers/lobby'
 import { startTestServer, type RunningServer } from './helpers/server'
 import { monasteryTile } from '../helpers/tiles'
 import {

@@ -5,12 +5,14 @@ import {
   FollowerType,
   ObjectTypes,
   PointDirection,
-  SideName,
   TileId,
   TileSideType,
 } from '@server/modules/types'
+import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { Tile, TileSides } from '@server/modules/types'
+import { placeTileOnBoard } from '../helpers/board'
 import { makePlayers } from '../helpers/fixtures'
+import { FIELD_SIDES, sides } from '../helpers/tiles'
 
 /**
  * Детерминированные тесты сада на «живом» GameManager: на сад ставится только
@@ -19,16 +21,14 @@ import { makePlayers } from '../helpers/fixtures'
  * определением тайла, а позиция в колоде остаётся случайной.
  */
 
+const GARDEN_ROW = 16
+const GARDEN_COL = 15
+
 function gardenTile(): Tile {
   return {
     id: 'test-garden',
     rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
-    },
+    sides: FIELD_SIDES,
     hasGarden: true,
   }
 }
@@ -38,34 +38,97 @@ const stashDeck = (game: GameManager) => {
 }
 
 function placeGarden(game: GameManager, row: number, col: number): boolean {
-  game.currentTile = { ...gardenTile(), x: col, y: row }
-  return game.placeTile(game.currentTile, row, col)
+  return placeTileOnBoard(game, gardenTile(), row, col)
 }
 
 function placeTileWithSides(
   game: GameManager,
-  sides: TileSides,
+  tileSides: TileSides,
   row: number,
   col: number
 ): boolean {
-  const tile: Tile = { id: 'test', rotation: 0, sides }
-  game.currentTile = { ...tile, x: col, y: row }
-  return game.placeTile(game.currentTile, row, col)
+  return placeTileOnBoard(
+    game,
+    { id: 'test', rotation: 0, sides: tileSides },
+    row,
+    col
+  )
 }
 
 function placeFieldTile(game: GameManager, row: number, col: number): boolean {
-  const tile: Tile = {
-    id: 'test-field',
-    rotation: 0,
-    sides: {
-      [SideName.North]: TileSideType.Field,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.Field,
+  return placeTileWithSides(game, FIELD_SIDES, row, col)
+}
+
+/** Единственное доступное место на саду */
+function gardenPlaceOf(game: GameManager): AvailableFollowerPlace {
+  const place = game.availableFollowersPlaces.find(
+    (candidate) => candidate.temporaryObject.isGarden
+  )
+  if (!place) throw new Error('Garden place is missing')
+  return place
+}
+
+/** Общая подготовка проверок сада: тайл с садом и аббат на нём */
+function placeGardenWithAbbot(game: GameManager): AvailableFollowerPlace {
+  stashDeck(game)
+  expect(placeGarden(game, GARDEN_ROW, GARDEN_COL)).toBe(true)
+  const gardenPlace = gardenPlaceOf(game)
+  stashDeck(game)
+  game.placeFollower(gardenPlace, FollowerType.Abbot)
+  return gardenPlace
+}
+
+/**
+ * Завершает сад: кладёт тайлы по кругу за двоих игроков, пропуская фишки.
+ * Допустимые клетки и повороты подобраны так, чтобы каждый тайл примыкал к
+ * уже выложенным и не требовал фишек.
+ */
+function completeGarden(game: GameManager): void {
+  const turns: Array<{ row: number; col: number; sides?: TileSides }> = [
+    { row: 16, col: 14 },
+    { row: 17, col: 15 },
+    { row: 16, col: 16 },
+    {
+      row: 15,
+      col: 16,
+      sides: sides(
+        TileSideType.Field,
+        TileSideType.Field,
+        TileSideType.Field,
+        TileSideType.Road
+      ),
     },
+    {
+      row: 15,
+      col: 14,
+      sides: sides(
+        TileSideType.Road,
+        TileSideType.Road,
+        TileSideType.Field,
+        TileSideType.Field
+      ),
+    },
+    { row: 17, col: 14 },
+    { row: 17, col: 16 },
+  ]
+
+  for (const [turnIndex, turn] of turns.entries()) {
+    stashDeck(game)
+    game.players = [...game.players.slice(0, 2)]
+    game.currentPlayer = game.players[turnIndex % 2 === 0 ? 1 : 0] ?? null
+    game.currentPlayerIndex = turnIndex % 2 === 0 ? 1 : 0
+    const placed = turn.sides
+      ? placeTileWithSides(game, turn.sides, turn.row, turn.col)
+      : placeFieldTile(game, turn.row, turn.col)
+    expect(
+      placed,
+      `failed synthetic turn ${turnIndex}: ${turn.row},${turn.col}, grid=${JSON.stringify(game.tilePlacesStats)}`
+    ).toBe(true)
+    if (game.isPlacingFollower) {
+      stashDeck(game)
+      game.skipFollower()
+    }
   }
-  game.currentTile = { ...tile, x: col, y: row }
-  return game.placeTile(game.currentTile, row, col)
 }
 
 function currentScore(game: GameManager, playerId: number): number {
@@ -94,19 +157,16 @@ describe('Сад (оба игрока-человека, фиксированна
     const game = new GameManager({ players: makePlayers() })
 
     stashDeck(game)
-    expect(placeGarden(game, 16, 15)).toBe(true)
+    expect(placeGarden(game, GARDEN_ROW, GARDEN_COL)).toBe(true)
     expect(game.isPlacingFollower).toBe(true)
 
-    const gardenPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isGarden
-    )
-    expect(gardenPlace).toBeTruthy()
-    expect(gardenPlace!.point.direction).toBe(PointDirection.Center)
+    const gardenPlace = gardenPlaceOf(game)
+    expect(gardenPlace.point.direction).toBe(PointDirection.Center)
 
     // Обычный подданный на сад не ставится: ход пропускается, фишка не списана
     stashDeck(game)
-    game.availableFollowersPlaces = [gardenPlace!]
-    game.placeFollower(gardenPlace!, FollowerType.Follower)
+    game.availableFollowersPlaces = [gardenPlace]
+    game.placeFollower(gardenPlace, FollowerType.Follower)
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
       monks: 1,
@@ -120,7 +180,7 @@ describe('Сад (оба игрока-человека, фиксированна
     game.playersFollowers[1].monks = 0
 
     stashDeck(game)
-    expect(placeGarden(game, 16, 15)).toBe(true)
+    expect(placeGarden(game, GARDEN_ROW, GARDEN_COL)).toBe(true)
 
     // Все стороны тайла — поле, поэтому единственное место (сад) отпадает
     expect(game.availableFollowersPlaces).toEqual([])
@@ -135,13 +195,7 @@ describe('Сад (оба игрока-человека, фиксированна
   it('аббат ставится на сад и списывает пул monks', () => {
     const game = new GameManager({ players: makePlayers() })
 
-    stashDeck(game)
-    expect(placeGarden(game, 16, 15)).toBe(true)
-    const gardenPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isGarden
-    )!
-    stashDeck(game)
-    game.placeFollower(gardenPlace, FollowerType.Abbot)
+    const gardenPlace = placeGardenWithAbbot(game)
 
     expect(game.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
@@ -161,59 +215,8 @@ describe('Сад (оба игрока-человека, фиксированна
   it('завершённый сад с аббатом очков не даёт, аббат ждёт отзыва', () => {
     const game = new GameManager({ players: makePlayers() })
 
-    stashDeck(game)
-    expect(placeGarden(game, 16, 15)).toBe(true)
-    const gardenPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isGarden
-    )!
-    stashDeck(game)
-    game.placeFollower(gardenPlace, FollowerType.Abbot)
-
-    const turns: Array<{ row: number; col: number; sides?: TileSides }> = [
-      { row: 16, col: 14 },
-      { row: 17, col: 15 },
-      { row: 16, col: 16 },
-      {
-        row: 15,
-        col: 16,
-        sides: {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.Field,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Road,
-        },
-      },
-      {
-        row: 15,
-        col: 14,
-        sides: {
-          [SideName.North]: TileSideType.Road,
-          [SideName.East]: TileSideType.Road,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Field,
-        },
-      },
-      { row: 17, col: 14 },
-      { row: 17, col: 16 },
-    ]
-
-    for (const [turnIndex, turn] of turns.entries()) {
-      stashDeck(game)
-      game.players = [...game.players.slice(0, 2)]
-      game.currentPlayer = game.players[turnIndex % 2 === 0 ? 1 : 0] ?? null
-      game.currentPlayerIndex = turnIndex % 2 === 0 ? 1 : 0
-      const placed = turn.sides
-        ? placeTileWithSides(game, turn.sides, turn.row, turn.col)
-        : placeFieldTile(game, turn.row, turn.col)
-      expect(
-        placed,
-        `failed synthetic turn ${turnIndex}: ${turn.row},${turn.col}, grid=${JSON.stringify(game.tilePlacesStats)}`
-      ).toBe(true)
-      if (game.isPlacingFollower) {
-        stashDeck(game)
-        game.skipFollower()
-      }
-    }
+    const gardenPlace = placeGardenWithAbbot(game)
+    completeGarden(game)
 
     // Завершение сада очков не начислило, аббат остался на доске
     expect(currentScore(game, 1)).toBe(0)
@@ -232,25 +235,19 @@ describe('Сад (оба игрока-человека, фиксированна
   it('отзыв аббата с сада начисляет частичные очки и возвращает фишку', () => {
     const game = new GameManager({ players: makePlayers() })
 
-    stashDeck(game)
-    expect(placeGarden(game, 16, 15)).toBe(true)
-    const gardenPlace = game.availableFollowersPlaces.find(
-      (place) => place.temporaryObject.isGarden
-    )!
-    stashDeck(game)
-    game.placeFollower(gardenPlace, FollowerType.Abbot)
+    placeGardenWithAbbot(game)
 
     expect(game.currentPlayer!.id).toBe(2)
     stashDeck(game)
     expect(
       placeTileWithSides(
         game,
-        {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.Field,
-          [SideName.South]: TileSideType.City,
-          [SideName.West]: TileSideType.Road,
-        },
+        sides(
+          TileSideType.Field,
+          TileSideType.Field,
+          TileSideType.City,
+          TileSideType.Road
+        ),
         14,
         15
       )

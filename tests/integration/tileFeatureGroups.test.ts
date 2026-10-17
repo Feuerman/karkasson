@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import tiles from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
-import type { Tile, TileSides } from '@server/modules/types'
+import type { Tile } from '@server/modules/types'
 import { makeEmptyGame, rotatedCopies } from '../helpers/board'
 
 /**
@@ -15,8 +15,8 @@ const FEATURES = [TileSideType.Road, TileSideType.City] as const
 
 type Feature = (typeof FEATURES)[number]
 
-function sidesWithFeature(tile: Tile, feature: Feature): string[] {
-  return (Object.keys(tile.sides) as (keyof TileSides)[]).filter(
+function sidesWithFeature(tile: Tile, feature: Feature): SideName[] {
+  return (Object.keys(tile.sides) as SideName[]).filter(
     (side) => tile.sides[side] === feature
   )
 }
@@ -41,22 +41,60 @@ function expectGroupsCoverFeature(
   )
 }
 
-describe('Группы связности базовых тайлов', () => {
-  it('нормализует стороны каждого каталожного тайла в группы без пропусков и дублей', () => {
-    const game = makeEmptyGame()
-
-    for (const definition of tiles) {
-      for (const feature of FEATURES) {
-        for (const rotated of rotatedCopies(game, definition)) {
-          expectGroupsCoverFeature(
-            game,
-            rotated,
-            feature,
-            `${definition.id} ${feature} at ${rotated.rotation} degrees`
-          )
-        }
+/** Проверяет каталог всех фич и всех поворотов указанного набора тайлов */
+function expectGroupsValidForAllRotations(
+  game: ReturnType<typeof makeEmptyGame>,
+  catalog: readonly (Omit<Tile, 'rotation'> & { rotation?: number })[]
+): void {
+  for (const definition of catalog) {
+    for (const feature of FEATURES) {
+      for (const rotated of rotatedCopies(game, definition)) {
+        expectGroupsCoverFeature(
+          game,
+          rotated,
+          feature,
+          `${definition.id} ${feature} at ${rotated.rotation} degrees`
+        )
       }
     }
+  }
+}
+
+/**
+ * Обещанные каталогом группы обязаны стоять на сторонах своей фичи, а герб —
+ * защищать одну из групп города того же тайла.
+ */
+function expectDeclaredGroupsFitFeatures(tile: Tile): void {
+  const roadSides = sidesWithFeature(tile, TileSideType.Road)
+  const citySides = sidesWithFeature(tile, TileSideType.City)
+  const declared: Array<[string, SideName[][], SideName[]]> = [
+    [TileSideType.Road, tile.roadGroups ?? [], roadSides],
+    [TileSideType.City, tile.cityGroups ?? [], citySides],
+    ['shield', tile.cityShieldGroups ?? [], citySides],
+  ]
+
+  for (const [feature, groups, validSides] of declared) {
+    for (const group of groups) {
+      expect(
+        group.every((side) => validSides.includes(side)),
+        `${tile.id} ${feature} group ${group.join(',')}`
+      ).toBe(true)
+    }
+  }
+
+  for (const shieldGroup of tile.cityShieldGroups ?? []) {
+    expect(
+      (tile.cityGroups ?? []).some((cityGroup) =>
+        shieldGroup.every((side) => cityGroup.includes(side))
+      ),
+      `${tile.id} shield ${shieldGroup.join(',')}`
+    ).toBe(true)
+  }
+}
+
+describe('Группы связности базовых тайлов', () => {
+  it('нормализует стороны каждого каталожного тайла в группы без пропусков и дублей', () => {
+    expectGroupsValidForAllRotations(makeEmptyGame(), tiles)
   })
 
   it('оставляет каждую ветвь дороги отдельной группой', () => {
@@ -80,20 +118,10 @@ describe('Группы связности базовых тайлов', () => {
 
 describe('Группы связности тайлов дополнения «Таверны и соборы»', () => {
   it('покрывает стороны и группы каждого тайла дополнения', () => {
-    const game = makeEmptyGame({ innsAndCathedralsEnabled: true })
-
-    for (const definition of innsAndCathedralsTiles) {
-      for (const feature of FEATURES) {
-        for (const rotated of rotatedCopies(game, definition)) {
-          expectGroupsCoverFeature(
-            game,
-            rotated,
-            feature,
-            `${definition.id} ${feature} at ${rotated.rotation} degrees`
-          )
-        }
-      }
-    }
+    expectGroupsValidForAllRotations(
+      makeEmptyGame({ innsAndCathedralsEnabled: true }),
+      innsAndCathedralsTiles
+    )
   })
 
   it('проверяет ожидаемую топологию дорог и городов всех тайлов дополнения', () => {
@@ -180,30 +208,7 @@ describe('Группы связности тайлов дополнения «Т
         ).toEqual(expectedGroups[definition.id]?.[feature])
       }
 
-      const roadSides = sidesWithFeature(start, TileSideType.Road)
-      const citySides = sidesWithFeature(start, TileSideType.City)
-      for (const [feature, groups, validSides] of [
-        [TileSideType.Road, definition.roadGroups, roadSides],
-        [TileSideType.City, definition.cityGroups, citySides],
-        ['shield', definition.cityShieldGroups, citySides],
-      ] as const) {
-        for (const group of groups ?? []) {
-          expect(
-            group.every((side) => validSides.includes(side as never)),
-            `${definition.id} ${feature} group ${group.join(',')}`
-          ).toBe(true)
-        }
-      }
-
-      // Герб защищает одну из групп города того же тайла
-      for (const shieldGroup of definition.cityShieldGroups ?? []) {
-        expect(
-          (definition.cityGroups ?? []).some((cityGroup) =>
-            shieldGroup.every((side) => cityGroup.includes(side))
-          ),
-          `${definition.id} shield ${shieldGroup.join(',')}`
-        ).toBe(true)
-      }
+      expectDeclaredGroupsFitFeatures(start)
     }
   })
 

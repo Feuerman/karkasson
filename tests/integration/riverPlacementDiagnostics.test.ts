@@ -46,6 +46,17 @@ function riverTile(id: TileId): Tile {
   return { ...found, rotation: 0 }
 }
 
+/** Отказ сервера: размещение не проходит, клетка остаётся свободной */
+function expectRejected(
+  game: GameManager,
+  tile: Tile,
+  row: number,
+  col: number
+): void {
+  expect(game.placeTile(tile, row, col)).toBe(false)
+  expect(game.tilePlacesStats[row]?.[col]).toBeUndefined()
+}
+
 describe('Диагностика отказа по правилам реки', () => {
   it('указывает незакрытый конец русла для клетки вне открытого конца', () => {
     const { game, currentTile } = startRiverGame()
@@ -55,8 +66,7 @@ describe('Диагностика отказа по правилам реки', (
     expect(game.getPlacementConflicts({ ...currentTile }, 15, 16)).toEqual([
       { reason: 'openEnd', rowIndex: 15, tileIndex: 15, side: SideName.South },
     ])
-    expect(game.placeTile({ ...currentTile }, 15, 16)).toBe(false)
-    expect(game.tilePlacesStats[15]?.[16]).toBeUndefined()
+    expectRejected(game, { ...currentTile }, 15, 16)
   })
 
   it('указывает не ту сторону русла, когда русло не выходит к открытому концу', () => {
@@ -71,8 +81,7 @@ describe('Диагностика отказа по правилам реки', (
         side: SideName.South,
       },
     ])
-    expect(game.placeTile(rotated, 16, 15)).toBe(false)
-    expect(game.tilePlacesStats[16]?.[15]).toBeUndefined()
+    expectRejected(game, rotated, 16, 15)
   })
 
   it('отклоняет русло, выходящее вверх, и принимает поворот с выходом вниз', () => {
@@ -88,8 +97,7 @@ describe('Диагностика отказа по правилам реки', (
     ).toEqual([
       { reason: 'wrongSide', rowIndex: 16, tileIndex: 15, side: SideName.East },
     ])
-    expect(game.placeTile({ ...houseBend, rotation: 0 }, 16, 16)).toBe(false)
-    expect(game.tilePlacesStats[16]?.[16]).toBeUndefined()
+    expectRejected(game, { ...houseBend, rotation: 0 }, 16, 16)
 
     expect(game.placeTile({ ...curved, rotation: 90 }, 16, 16)).toBe(true)
   })
