@@ -15,9 +15,13 @@ import {
   directionsOf,
   makeEmptyGame,
   NEIGHBOR_BY_SIDE,
+  objectAt,
+  placeCenterTile,
   rotatedCopies,
-  useFirstPlayerAsCurrent,
+  setCenterTile,
+  usePlayerAsCurrent,
 } from '../helpers/board'
+import { FIELD_SIDES, sides } from '../helpers/tiles'
 
 /**
  * Места под фишку считаются из групп связности и занятости объектов, поэтому
@@ -34,16 +38,19 @@ function collectionOf(feature: Feature): 'roads' | 'cities' {
   return feature === TileSideType.Road ? 'roads' : 'cities'
 }
 
-/** Кладёт объект на каждую группу фичи; первую группу отдаёт второму игроку */
+/**
+ * Кладёт объект на каждую группу фичи; первую группу отдаёт второму игроку.
+ * Возвращает направления групп, которые остались свободными.
+ */
 function occupyGroups(
   game: GameManager,
   tile: Tile,
   feature: Feature,
   idPrefix: string,
   occupied: boolean
-): void {
-  const groups = game.getTileFeatureGroups(tile, feature)
-  groups.forEach((group, index) => {
+): SideName[] {
+  const free: SideName[] = []
+  game.getTileFeatureGroups(tile, feature).forEach((group, index) => {
     const points = group.map((direction) => ({
       x: tile.x ?? CENTER_X,
       y: tile.y ?? CENTER_Y,
@@ -65,7 +72,9 @@ function occupyGroups(
           ]
         : [],
     })
+    if (!isOccupied) free.push(...group)
   })
+  return free
 }
 
 /** Каталоговый тайл, положенный в центр доски */
@@ -84,40 +93,46 @@ describe('Доступные места при соседях вокруг та�
   it.each([
     {
       id: TileId.L,
-      sides: {
-        [SideName.North]: TileSideType.City,
-        [SideName.East]: TileSideType.Road,
-        [SideName.South]: TileSideType.Road,
-        [SideName.West]: TileSideType.Road,
-      },
+      tileSides: sides(
+        TileSideType.City,
+        TileSideType.Road,
+        TileSideType.Road,
+        TileSideType.Road
+      ),
       expectedDirections: [SideName.North, SideName.South, SideName.West],
     },
     {
       id: TileId.W,
-      sides: {
-        [SideName.North]: TileSideType.Field,
-        [SideName.East]: TileSideType.Road,
-        [SideName.South]: TileSideType.Road,
-        [SideName.West]: TileSideType.Road,
-      },
+      tileSides: sides(
+        TileSideType.Field,
+        TileSideType.Road,
+        TileSideType.Road,
+        TileSideType.Road
+      ),
       expectedDirections: [SideName.South, SideName.West],
     },
     {
       id: TileId.X,
-      sides: {
-        [SideName.North]: TileSideType.Road,
-        [SideName.East]: TileSideType.Road,
-        [SideName.South]: TileSideType.Road,
-        [SideName.West]: TileSideType.Road,
-      },
+      tileSides: sides(
+        TileSideType.Road,
+        TileSideType.Road,
+        TileSideType.Road,
+        TileSideType.Road
+      ),
       expectedDirections: [SideName.North, SideName.South, SideName.West],
     },
   ])(
     'оставляет свободные ответвления перекрёстка $id доступными, если восточная дорога занята',
-    ({ id, sides, expectedDirections }) => {
+    ({ id, tileSides, expectedDirections }) => {
       const game = makeEmptyGame()
-      useFirstPlayerAsCurrent(game)
-      game.currentTile = { id, rotation: 0, sides, x: CENTER_X, y: CENTER_Y }
+      usePlayerAsCurrent(game, 0)
+      game.currentTile = {
+        id,
+        rotation: 0,
+        sides: tileSides,
+        x: CENTER_X,
+        y: CENTER_Y,
+      }
 
       for (const direction of [
         SideName.North,
@@ -125,7 +140,7 @@ describe('Доступные места при соседях вокруг та�
         SideName.South,
         SideName.West,
       ] as const) {
-        if (sides[direction] !== TileSideType.Road) continue
+        if (tileSides[direction] !== TileSideType.Road) continue
 
         const neighbor = NEIGHBOR_BY_SIDE[direction]
         const row = game.tilePlacesStats[neighbor.y] ?? {}
@@ -135,10 +150,7 @@ describe('Доступные места при соседях вокруг та�
           x: neighbor.x,
           y: neighbor.y,
           sides: {
-            [SideName.North]: TileSideType.Field,
-            [SideName.East]: TileSideType.Field,
-            [SideName.South]: TileSideType.Field,
-            [SideName.West]: TileSideType.Field,
+            ...FIELD_SIDES,
             [neighbor.toward]: TileSideType.Road,
           },
         }
@@ -189,7 +201,7 @@ describe('Доступные места при соседях вокруг та�
     ({ id, occupiedFeature, expectedAvailable }) => {
       const game = makeEmptyGame()
       const tile = tileOf(id)
-      useFirstPlayerAsCurrent(game)
+      usePlayerAsCurrent(game, 0)
       game.currentTile = tile
 
       for (const feature of FEATURES) {
@@ -215,37 +227,19 @@ describe('Доступные места при соседях вокруг та�
       ).entries()) {
         const game = makeEmptyGame()
         const gridTile: GridTile = { ...tile, x: CENTER_X, y: CENTER_Y }
-        useFirstPlayerAsCurrent(game)
+        usePlayerAsCurrent(game, 0)
         game.currentTile = gridTile
 
-        const expectedDirections: string[] = []
-        for (const feature of FEATURES) {
-          const groups = game.getTileFeatureGroups(gridTile, feature)
-          groups.forEach((group, groupIndex) => {
-            const points = group.map((direction) => ({
-              x: CENTER_X,
-              y: CENTER_Y,
-              direction,
-              pointType: feature,
-            }))
-            const objectId = `${definition.id}-${turns}-${feature}-${groupIndex}`
-            game.temporaryObjects[collectionOf(feature)].push({
-              id: objectId,
-              points,
-              followers:
-                groupIndex === 0
-                  ? [
-                      {
-                        playerId: 2,
-                        objectId,
-                        point: points[0] ?? { x: CENTER_X, y: CENTER_Y },
-                      },
-                    ]
-                  : [],
-            })
-            if (groupIndex > 0) expectedDirections.push(...group)
-          })
-        }
+        const expectedDirections: PointDirection[] = FEATURES.flatMap(
+          (feature) =>
+            occupyGroups(
+              game,
+              gridTile,
+              feature,
+              `${definition.id}-${turns}`,
+              true
+            )
+        )
 
         if (gridTile.isMonastery || gridTile.hasGarden) {
           expectedDirections.push(PointDirection.Center)
@@ -263,45 +257,31 @@ describe('Доступные места при соседях вокруг та�
 describe('Разделение объектов после установки тайла', () => {
   it('сохраняет отдельные городские сегменты на тайле F', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.F,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.City,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.City,
-        },
-        cityGroups: [[SideName.East], [SideName.West]],
-      },
-    }
-
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
+    placeCenterTile(game, {
+      id: TileId.F,
+      sides: sides(
+        TileSideType.Field,
+        TileSideType.City,
+        TileSideType.Field,
+        TileSideType.City
+      ),
+      cityGroups: [[SideName.East], [SideName.West]],
+    })
 
     expect(game.temporaryObjects.cities).toHaveLength(2)
   })
 
   it('оставляет две несвязанные области города H разными объектами', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.H,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.City,
-          [SideName.East]: TileSideType.Field,
-          [SideName.South]: TileSideType.City,
-          [SideName.West]: TileSideType.Field,
-        },
-      },
-    }
-
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
+    placeCenterTile(game, {
+      id: TileId.H,
+      sides: sides(
+        TileSideType.City,
+        TileSideType.Field,
+        TileSideType.City,
+        TileSideType.Field
+      ),
+    })
 
     const [northCity, southCity] = game.temporaryObjects.cities
     expect(game.temporaryObjects.cities).toHaveLength(2)
@@ -315,46 +295,32 @@ describe('Разделение объектов после установки т
 
   it('разделяет ветви дороги тайла D', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.D,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.City,
-          [SideName.East]: TileSideType.Road,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Road,
-        },
-        roadGroups: [[SideName.East], [SideName.West]],
-        cityGroups: [[SideName.North]],
-      },
-    }
-
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
+    placeCenterTile(game, {
+      id: TileId.D,
+      sides: sides(
+        TileSideType.City,
+        TileSideType.Road,
+        TileSideType.Field,
+        TileSideType.Road
+      ),
+      roadGroups: [[SideName.East], [SideName.West]],
+      cityGroups: [[SideName.North]],
+    })
 
     expect(game.temporaryObjects.roads).toHaveLength(2)
   })
 
   it('не объединяет сплошной город тайла C с несколькими городами', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.C,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.City,
-          [SideName.East]: TileSideType.City,
-          [SideName.South]: TileSideType.City,
-          [SideName.West]: TileSideType.City,
-        },
-      },
-    }
-
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
+    placeCenterTile(game, {
+      id: TileId.C,
+      sides: sides(
+        TileSideType.City,
+        TileSideType.City,
+        TileSideType.City,
+        TileSideType.City
+      ),
+    })
 
     expect(game.temporaryObjects.cities).toHaveLength(1)
     expect(game.temporaryObjects.cities[0]?.points).toHaveLength(4)
@@ -396,24 +362,16 @@ describe('Защита от подмены объекта клиентом', () 
 
   it('не позволяет изменить заявку, подменив занятый объект города', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.F,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.City,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.City,
-        },
-      },
-    }
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
-    const city = game.temporaryObjects.cities.find((item) =>
-      item.points.some((point) => point.direction === SideName.East)
-    )
+    placeCenterTile(game, {
+      id: TileId.F,
+      sides: sides(
+        TileSideType.Field,
+        TileSideType.City,
+        TileSideType.Field,
+        TileSideType.City
+      ),
+    })
+    const city = objectAt(game.temporaryObjects.cities, SideName.East)
     expect(city).toBeDefined()
     if (!city) return
 
@@ -449,21 +407,16 @@ describe('Защита от подмены объекта клиентом', () 
       points: [firstPoint, secondPoint],
       followers: [{ playerId: 1, objectId: 'shared-city', point: firstPoint }],
     }
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.M,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.City,
-          [SideName.East]: TileSideType.City,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Field,
-        },
-        cityGroups: [[SideName.North, SideName.East]],
-      },
-    }
+    setCenterTile(game, {
+      id: TileId.M,
+      sides: sides(
+        TileSideType.City,
+        TileSideType.City,
+        TileSideType.Field,
+        TileSideType.Field
+      ),
+      cityGroups: [[SideName.North, SideName.East]],
+    })
     game.temporaryObjects.cities.push(city)
 
     expect(
@@ -480,32 +433,20 @@ describe('Защита от подмены объекта клиентом', () 
 describe('Объединённые объекты принимают только одну фишку', () => {
   it('учитывает объединённый город F при размещении подданных', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.F,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.Field,
-          [SideName.East]: TileSideType.City,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.City,
-        },
-      },
-    }
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
-    const city = game.temporaryObjects.cities.find((item) =>
-      item.points.some((point) => point.direction === SideName.West)
-    )
-    expect(
-      game.temporaryObjects.cities.find((item) =>
-        item.points.some((point) => point.direction === SideName.East)
-      )
-    ).toBe(city)
+    placeCenterTile(game, {
+      id: TileId.F,
+      sides: sides(
+        TileSideType.Field,
+        TileSideType.City,
+        TileSideType.Field,
+        TileSideType.City
+      ),
+    })
+    const city = objectAt(game.temporaryObjects.cities, SideName.West)
+    expect(objectAt(game.temporaryObjects.cities, SideName.East)).toBe(city)
     if (!city) return
 
-    useFirstPlayerAsCurrent(game)
+    usePlayerAsCurrent(game, 0)
     expect(
       game.simulatePlaceFollower({
         point: { x: CENTER_X, y: CENTER_Y, direction: SideName.East },
@@ -513,8 +454,7 @@ describe('Объединённые объекты принимают тольк�
       })
     ).toBe(true)
 
-    game.currentPlayer = game.players[1] ?? null
-    game.currentPlayerIndex = 1
+    usePlayerAsCurrent(game, 1)
     expect(
       game.simulatePlaceFollower({
         point: { x: CENTER_X, y: CENTER_Y, direction: SideName.West },
@@ -525,40 +465,27 @@ describe('Объединённые объекты принимают тольк�
 
   it('объединяет обе стороны прямой дороги D в один объект', () => {
     const game = makeEmptyGame()
-    game.tilePlacesStats[CENTER_Y] = {
-      [CENTER_X]: {
-        id: TileId.D,
-        rotation: 0,
-        x: CENTER_X,
-        y: CENTER_Y,
-        sides: {
-          [SideName.North]: TileSideType.City,
-          [SideName.East]: TileSideType.Road,
-          [SideName.South]: TileSideType.Field,
-          [SideName.West]: TileSideType.Road,
-        },
-      },
-    }
-    game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
-    const eastRoad = game.temporaryObjects.roads.find((road) =>
-      road.points.some((point) => point.direction === SideName.East)
-    )
-    expect(
-      game.temporaryObjects.roads.find((road) =>
-        road.points.some((point) => point.direction === SideName.West)
-      )
-    ).toBe(eastRoad)
+    placeCenterTile(game, {
+      id: TileId.D,
+      sides: sides(
+        TileSideType.City,
+        TileSideType.Road,
+        TileSideType.Field,
+        TileSideType.Road
+      ),
+    })
+    const eastRoad = objectAt(game.temporaryObjects.roads, SideName.East)
+    expect(objectAt(game.temporaryObjects.roads, SideName.West)).toBe(eastRoad)
     if (!eastRoad) return
 
-    useFirstPlayerAsCurrent(game)
+    usePlayerAsCurrent(game, 0)
     const eastPlace = {
       point: { x: CENTER_X, y: CENTER_Y, direction: SideName.East },
       temporaryObject: eastRoad,
     }
     expect(game.simulatePlaceFollower(eastPlace)).toBe(true)
 
-    game.currentPlayer = game.players[1] ?? null
-    game.currentPlayerIndex = 1
+    usePlayerAsCurrent(game, 1)
     expect(
       game.simulatePlaceFollower({
         point: { x: CENTER_X, y: CENTER_Y, direction: SideName.West },

@@ -73,9 +73,9 @@ describe('Лобби', () => {
     creator.registerDevice()
 
     creator.emit(SocketEvents.CreateGame)
-    const created = (await creator.waitForEvent(SocketEvents.GameCreated)) as {
-      gameId: string
-    }
+    const created = await creator.waitForEvent<{ gameId: string }>(
+      SocketEvents.GameCreated
+    )
 
     const { games } = await creator.emitAck<{
       games: Array<{
@@ -129,12 +129,10 @@ describe('Лобби', () => {
     creator.registerDevice()
 
     creator.emit(SocketEvents.CreateGame)
-    const { gameId, game } = (await creator.waitForEvent(
-      SocketEvents.GameCreated
-    )) as {
+    const { gameId, game } = await creator.waitForEvent<{
       gameId: string
       game: TestGameData
-    }
+    }>(SocketEvents.GameCreated)
     expect(gameId).toBeTruthy()
     expect(game.gridSize).toEqual([30, 30])
 

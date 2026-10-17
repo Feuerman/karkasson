@@ -1,19 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
-import {
-  FollowerType,
-  SideName,
-  TileId,
-  TileSideType,
-} from '@server/modules/types'
-import type { GridTile, Tile } from '@server/modules/types'
+import { FollowerType, TileId, TileSideType } from '@server/modules/types'
+import type { Tile } from '@server/modules/types'
 import { makePlayers } from '../helpers/fixtures'
-import { monasteryTile, monasteryWithRoadTile } from '../helpers/tiles'
+import { monasteryTile, monasteryWithRoadTile, sides } from '../helpers/tiles'
 import {
-  CENTER_X,
-  CENTER_Y,
   makeEmptyGame,
-  useFirstPlayerAsCurrent,
+  placeCenterTile,
+  usePlayerAsCurrent,
 } from '../helpers/board'
 
 /**
@@ -22,19 +16,16 @@ import {
  * идут на живом GameManager и сверяют оба применения одного правила.
  */
 
-function gardenTile(): GridTile {
+function gardenTile(): Pick<Tile, 'id' | 'sides'> & Partial<Tile> {
   return {
     id: TileId.I,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_I.png',
-    rotation: 0,
-    x: CENTER_X,
-    y: CENTER_Y,
-    sides: {
-      [SideName.North]: TileSideType.City,
-      [SideName.East]: TileSideType.Field,
-      [SideName.South]: TileSideType.Field,
-      [SideName.West]: TileSideType.City,
-    },
+    sides: sides(
+      TileSideType.City,
+      TileSideType.Field,
+      TileSideType.Field,
+      TileSideType.City
+    ),
     hasGarden: true,
   }
 }
@@ -47,10 +38,8 @@ function makeGardenGame(
   params: { innsAndCathedralsEnabled?: boolean } = {}
 ): GameManager {
   const game = makeEmptyGame(params)
-  const tile = gardenTile()
-  game.tilePlacesStats[CENTER_Y] = { [CENTER_X]: tile }
-  game.checkGridAfterPlacingTile(CENTER_Y, CENTER_X)
-  useFirstPlayerAsCurrent(game)
+  const tile = placeCenterTile(game, gardenTile())
+  usePlayerAsCurrent(game, 0)
   game.currentTile = tile
   game.checkAvailableFollowers()
   return game

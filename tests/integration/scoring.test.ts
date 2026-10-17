@@ -6,12 +6,12 @@ import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   assertFollowerInvariants,
   countPlacedTiles,
-  createLobbyWithSingleHuman,
   playFullGame,
   verifyScoringAgainstServer,
   waitForHumanTurnOrEnd,
   type GameStateSnapshot,
 } from './helpers/gameplay'
+import { createLobbyWithSingleHuman } from './helpers/lobby'
 import { startTestServer, type RunningServer } from './helpers/server'
 import { sleep } from './helpers/wait'
 

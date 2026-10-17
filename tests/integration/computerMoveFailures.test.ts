@@ -3,6 +3,7 @@ import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import { startTestServer, type RunningServer } from './helpers/server'
+import { createLobby } from './helpers/lobby'
 
 const STORAGE_FAILURE_SETTLE_MS = 900
 
@@ -24,29 +25,11 @@ describe('Сбои ходов компьютера', () => {
   /** Лобби, в котором все игровые места занимают компьютеры. */
   async function allComputerGame() {
     server = await startTestServer()
-    const creator = new TestClient(server.url, 'device-spectator')
-    clients.push(creator)
-    await creator.connect()
-    creator.registerDevice()
-
-    creator.emit(SocketEvents.CreateGame, {})
-    const { gameId } = (await creator.waitForEvent(
-      SocketEvents.GameCreated
-    )) as {
-      gameId: string
-    }
-    await creator.emitAck(SocketEvents.RemovePlayer, {
-      gameId,
-      index: 0,
-      keepAsComputer: false,
+    const { gameId, creator } = await createLobby(server.url, {
+      deviceId: 'device-spectator',
+      computerOnly: true,
     })
-    for (let index = 0; index < 4; index++) {
-      await creator.emitAck(SocketEvents.AddPlayer, {
-        gameId,
-        name: null,
-        index,
-      })
-    }
+    clients.push(creator)
     await creator.emitAck(SocketEvents.StartGame, { gameId })
 
     return { gameId, creator }

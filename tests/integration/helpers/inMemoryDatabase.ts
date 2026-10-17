@@ -38,6 +38,13 @@ export function readStoredGame(
 export class InMemoryDatabase implements IGameDatabase {
   saveError: Error | null = null
   readError: Error | null = null
+  /**
+   * Хук перед записью. Нужен тестам, которые управляют временем записи:
+   * задержать её, чтобы поймать следующую команду, или провалить, чтобы
+   * проверить откат. `null` — запись идёт сразу.
+   */
+  beforeSave:
+    ((gameId: string, state: GameSavePayload) => Promise<void>) | null = null
 
   constructor(private readonly store: InMemoryStore = { games: {} }) {}
 
@@ -45,6 +52,7 @@ export class InMemoryDatabase implements IGameDatabase {
     gameId: string,
     serializedState: GameSavePayload
   ): Promise<void> {
+    if (this.beforeSave) await this.beforeSave(gameId, serializedState)
     if (this.saveError) throw this.saveError
     this.store.games[gameId] = serializedState
   }

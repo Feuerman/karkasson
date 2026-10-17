@@ -10,6 +10,11 @@ export interface SocketAckBase {
 
 export type SocketAck<T extends object = object> = SocketAckBase & T
 
+/** Ответ игровой команды: подтверждение и состояние партии после хода. */
+export interface GameAck extends SocketAckBase {
+  game: GameData
+}
+
 export interface GamesListResponse {
   games: GameSummary[]
   error?: string

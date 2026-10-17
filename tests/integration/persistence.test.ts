@@ -7,13 +7,16 @@ import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   countPlacedTiles,
-  createLobbyWithSingleHuman,
   makeHumanMove,
   startGame,
   waitForHumanTurnOrEnd,
   type GameStateSnapshot,
 } from './helpers/gameplay'
-import { createLobbyWithPlayers, latestGame } from './helpers/lobby'
+import {
+  createLobbyWithPlayers,
+  createLobbyWithSingleHuman,
+  latestGame,
+} from './helpers/lobby'
 import { waitForCondition } from './helpers/wait'
 import {
   createInMemoryStore,

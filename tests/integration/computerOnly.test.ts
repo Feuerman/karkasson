@@ -9,6 +9,7 @@ import {
   verifyScoringAgainstServer,
 } from './helpers/gameplay'
 import { startTestServer, type RunningServer } from './helpers/server'
+import { createLobby } from './helpers/lobby'
 
 describe('Полностью автоматическая партия (4 компьютера)', () => {
   let server: RunningServer | undefined
@@ -29,54 +30,29 @@ describe('Полностью автоматическая партия (4 ком
     'игра с дополнением «Принцесса и дракон» доигрывается до конца (запуск %i)',
     async () => {
       server = await startTestServer()
-      const creator = new TestClient(server.url, 'device-spectator')
-      clients.push(creator)
-      await creator.connect()
-      creator.registerDevice()
-
-      // Лобби из четырёх компьютерных игроков (без реальных человека - все слоты ИИ).
-      // Создатель по умолчанию занимает слот 0, поэтому освобождаем его —
-      // иначе `startGame` не увидит «всех компьютеров» и не запустит автоигру.
-      creator.emit(SocketEvents.CreateGame, { princessAndDragonEnabled: true })
-      const { gameId } = (await creator.waitForEvent(
-        SocketEvents.GameCreated
-      )) as {
-        gameId: string
-      }
-      // Создатель освобождает свой слот; все игровые места занимают компьютеры.
-      await creator.emitAck(SocketEvents.RemovePlayer, {
-        gameId,
-        index: 0,
-        keepAsComputer: false,
+      const { gameId, creator } = await createLobby(server.url, {
+        deviceId: 'device-spectator',
+        computerOnly: true,
+        rules: { princessAndDragonEnabled: true },
       })
-      for (let index = 0; index < 4; index++) {
-        await creator.emitAck(SocketEvents.AddPlayer, {
-          gameId,
-          name: null,
-          index,
-        })
-      }
+      clients.push(creator)
 
       // Старт автоматически запускает цепочку компьютерных ходов
       creator.emit(SocketEvents.StartGame, { gameId })
 
-      const started = await creator.waitForEvent(
+      const startedState = await creator.waitForEvent<GameStateSnapshot>(
         SocketEvents.GameUpdated,
-        (payload) =>
-          (payload as GameStateSnapshot).gameIsStarted === true &&
-          (payload as GameStateSnapshot).gameIsEnded === false
+        (game) => game.gameIsStarted === true && game.gameIsEnded === false
       )
-      const startedState = started as GameStateSnapshot
       expect(startedState.gameIsStarted).toBe(true)
       expect(startedState.tilePlacesStats[15]?.[15]).toBeTruthy()
 
       // Ждём завершения партии (71 ход колоды + стартовый тайл)
-      const endedPayload = await creator.waitForEvent(
+      const ended = await creator.waitForEvent<GameStateSnapshot>(
         SocketEvents.GameUpdated,
-        (payload) => (payload as GameStateSnapshot).gameIsEnded === true,
+        (game) => game.gameIsEnded === true,
         120_000
       )
-      const ended = endedPayload as GameStateSnapshot
       expect(ended.gameIsEnded).toBe(true)
 
       // Победителя присылает сервер, и он совпадает с максимумом в таблице очков

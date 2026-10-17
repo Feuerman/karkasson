@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type {
-  GridTile,
   Tile,
   TileSideType as Side,
   TileSides,
 } from '@server/modules/types'
+import { placeTileOnBoard } from '../helpers/board'
 import { makePlayers } from '../helpers/fixtures'
+import { monasteryTile, sides } from '../helpers/tiles'
 
 /**
  * Условия окончания партии, связанные с колодой: сервер пропускает тайлы без
@@ -17,31 +18,21 @@ import { makePlayers } from '../helpers/fixtures'
 
 const players = makePlayers().slice(0, 1)
 
-function tileWith(sides: TileSides): Tile {
-  return { id: 'test', rotation: 0, sides }
-}
-
-function place(game: GameManager, tile: Tile, row: number, col: number) {
-  game.currentTile = { ...tile, x: col, y: row } as GridTile
-  return game.placeTile(game.currentTile, row, col)
-}
-
 /** Схема клетки блока 13..17 x 13..17: дороги только на внешней границе. */
 function blockSides(row: number, col: number): TileSides {
   const road: Side = TileSideType.Road
   const field: Side = TileSideType.Field
-  const city: Side = TileSideType.City
-  const sides: TileSides = {
-    [SideName.North]: row === 13 ? road : field,
-    [SideName.East]: col === 17 ? road : field,
-    [SideName.South]: row === 17 ? road : field,
-    [SideName.West]: col === 13 ? road : field,
-  }
+  const block: TileSides = sides(
+    row === 13 ? road : field,
+    col === 17 ? road : field,
+    row === 17 ? road : field,
+    col === 13 ? road : field
+  )
   // Совпадения с гранями стартового тайла D: город сверху, дороги слева и справа.
-  if (row === 14 && col === 15) sides[SideName.South] = city
-  if (row === 15 && col === 14) sides[SideName.East] = road
-  if (row === 15 && col === 16) sides[SideName.West] = road
-  return sides
+  if (row === 14 && col === 15) block[SideName.South] = TileSideType.City
+  if (row === 15 && col === 14) block[SideName.East] = road
+  if (row === 15 && col === 16) block[SideName.West] = road
+  return block
 }
 
 /**
@@ -68,52 +59,43 @@ function gameWithRoadBlock(): GameManager {
   )
   for (const [row, col] of cells) {
     expect(
-      place(game, tileWith(blockSides(row, col)), row, col),
+      placeTileOnBoard(
+        game,
+        { id: 'test', rotation: 0, sides: blockSides(row, col) },
+        row,
+        col
+      ),
       `клетка ${row},${col}`
     ).toBe(true)
   }
   return game
 }
 
-function monastery(): Tile {
-  const field = TileSideType.Field
-  return tileWith({
-    [SideName.North]: field,
-    [SideName.East]: field,
-    [SideName.South]: field,
-    [SideName.West]: field,
-  })
-}
-
 function roadTile(): Tile {
   const road = TileSideType.Road
   const field = TileSideType.Field
   return {
-    ...tileWith({
-      [SideName.North]: road,
-      [SideName.East]: field,
-      [SideName.South]: road,
-      [SideName.West]: field,
-    }),
     id: TileId.U,
+    rotation: 0,
+    sides: sides(road, field, road, field),
   }
 }
 
 describe('Колода и окончание партии', () => {
   it('откладывает тайл без допустимого места в конец колоды и берёт следующий', () => {
     const game = gameWithRoadBlock()
-    game.tilesList = [monastery(), roadTile()]
+    game.tilesList = [monasteryTile(), roadTile()]
 
     game.getRandomTileFromList()
 
     expect(game.gameIsEnded).toBe(false)
     expect(game.currentTile?.id).toBe(TileId.U)
-    expect(game.tilesList.map(({ id }) => id)).toEqual(['test'])
+    expect(game.tilesList.map(({ id }) => id)).toEqual([TileId.B])
   })
 
   it('заканчивает партию, если ни один оставшийся тайл нельзя выложить', () => {
     const game = gameWithRoadBlock()
-    game.tilesList = [monastery(), monastery()]
+    game.tilesList = [monasteryTile(), monasteryTile()]
 
     game.getRandomTileFromList()
 

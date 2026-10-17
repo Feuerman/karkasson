@@ -12,6 +12,7 @@ import {
 } from '@server/modules/types'
 import type {
   SocketAck,
+  GameAck,
   GamesListResponse,
   CreateGameResponse,
   PrincessChoicePayload,
@@ -351,14 +352,14 @@ export class GameService implements IGameService {
     rowIndex: number
     tileIndex: number
   }) {
-    return this.emitAck<SocketAck>(SocketEvents.SelectPlacingPoint, {
+    return this.emitAck<GameAck>(SocketEvents.SelectPlacingPoint, {
       gameId: this.gameId,
       point: { rowIndex, tileIndex },
     })
   }
 
   setCurrentTileRotation(rotation: number) {
-    return this.emitAck<SocketAck>(SocketEvents.UpdateCurrentTile, {
+    return this.emitAck<GameAck>(SocketEvents.UpdateCurrentTile, {
       gameId: this.gameId,
       rotation,
     })
@@ -368,7 +369,7 @@ export class GameService implements IGameService {
     tile: Tile | GridTile,
     position: { rowIndex: number; tileIndex: number }
   ) {
-    return this.emitAck<SocketAck>(SocketEvents.PlaceTile, {
+    return this.emitAck<GameAck>(SocketEvents.PlaceTile, {
       gameId: this.gameId,
       rotation: tile.rotation,
       position,
@@ -379,7 +380,7 @@ export class GameService implements IGameService {
     place: AvailableFollowerPlace,
     followerType: FollowerTypeValue = FollowerType.Follower
   ) {
-    return this.emitAck<SocketAck>(SocketEvents.PlaceFollower, {
+    return this.emitAck<GameAck>(SocketEvents.PlaceFollower, {
       gameId: this.gameId,
       place: {
         point: place.point,
@@ -390,7 +391,7 @@ export class GameService implements IGameService {
   }
 
   recallAbbot() {
-    return this.emitAck<SocketAck>(SocketEvents.RecallAbbot, {
+    return this.emitAck<GameAck>(SocketEvents.RecallAbbot, {
       gameId: this.gameId,
     })
   }
@@ -400,7 +401,7 @@ export class GameService implements IGameService {
       gameId: this.gameId,
       position,
     }
-    return this.emitAck<SocketAck>(SocketEvents.MoveDragon, payload)
+    return this.emitAck<GameAck>(SocketEvents.MoveDragon, payload)
   }
 
   choosePrincessFollower(
@@ -412,11 +413,11 @@ export class GameService implements IGameService {
       cityId,
       point,
     }
-    return this.emitAck<SocketAck>(SocketEvents.ChoosePrincess, payload)
+    return this.emitAck<GameAck>(SocketEvents.ChoosePrincess, payload)
   }
 
   skipFollower() {
-    return this.emitAck<SocketAck>(SocketEvents.SkipFollower, {
+    return this.emitAck<GameAck>(SocketEvents.SkipFollower, {
       gameId: this.gameId,
     })
   }

@@ -113,20 +113,21 @@ export class TestClient {
    * Дожидается события (уже полученное тоже подхватывает из «ящика»).
    * Возвращает первый payload, удовлетворяющий предикату.
    */
-  async waitForEvent(
+  async waitForEvent<T = unknown>(
     event: string,
-    predicate: (payload: unknown) => boolean = () => true,
+    predicate: (payload: T) => boolean = () => true,
     timeoutMs = 10_000
-  ): Promise<unknown> {
-    const existing = this.takeFromInbox(event, predicate)
-    if (existing.found) return existing.payload
+  ): Promise<T> {
+    const matches = predicate as (payload: unknown) => boolean
+    const existing = this.takeFromInbox(event, matches)
+    if (existing.found) return existing.payload as T
 
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         waiter.reject(new Error(`Timeout waiting for event "${event}"`))
       }, timeoutMs)
       const waiter: Waiter = {
-        predicate,
+        predicate: matches,
         cleanup: () => {
           clearTimeout(timer)
           const pending = this.waiters.get(event)
@@ -136,7 +137,7 @@ export class TestClient {
         },
         resolve: (payload) => {
           waiter.cleanup()
-          resolve(payload)
+          resolve(payload as T)
         },
         reject: (error) => {
           waiter.cleanup()
@@ -192,6 +193,21 @@ export class TestClient {
     const manager = this.socket.io as unknown as { _close?: () => void }
     manager._close?.()
   }
+}
+
+/**
+ * Подключает клиента к серверу и объявляет его устройство. Тесты держат
+ * список клиентов для освобождения в конце, поэтому подключённого клиента
+ * нужно положить в этот список.
+ */
+export async function connectTestClient(
+  serverUrl: string,
+  deviceId: string
+): Promise<TestClient> {
+  const client = new TestClient(serverUrl, deviceId)
+  await client.connect()
+  client.registerDevice()
+  return client
 }
 
 export { io }

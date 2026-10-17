@@ -171,9 +171,24 @@ export interface ValidMove {
   tileIndex: number
 }
 
+/** Ответ игровой команды: сервер подтверждает ход и присылает состояние. */
+export interface GameAck {
+  success: boolean
+  game: GameStateSnapshot
+}
+
 interface StatsLike {
   tilePlacesStats: GameStateSnapshot['tilePlacesStats']
 }
+
+/**
+ * Минимальный срез состояния, которого достаточно для подбора размещения:
+ * тесты передают сюда и снимок gameUpdated, и GameData клиентского сервиса.
+ */
+export type PlacementState = Pick<
+  GameStateSnapshot,
+  'currentTile' | 'availablePlacesTiles' | 'tilePlacesStats'
+>
 
 export const playerId = (value: number | string): string => String(value)
 
@@ -230,7 +245,7 @@ export function isValidPosition(
 }
 
 /** Подбирает легальное место и поворот для текущего тайла игрока */
-export function findValidPlacement(state: GameStateSnapshot): ValidMove | null {
+export function findValidPlacement(state: PlacementState): ValidMove | null {
   const tile = state.currentTile ?? null
   if (!tile?.sides) return null
 
@@ -250,10 +265,15 @@ export function findValidPlacement(state: GameStateSnapshot): ValidMove | null {
   return null
 }
 
+/** Как findValidPlacement, но падает: тесту без легального хода нечего проверять. */
+export function requireValidPlacement(state: PlacementState): ValidMove {
+  const move = findValidPlacement(state)
+  if (!move) throw new Error('Не найдено легальное место для текущего тайла')
+  return move
+}
+
 /** Подбирает место и поворот, который нарушает совпадение сторон с соседями. */
-export function findInvalidPlacement(
-  state: GameStateSnapshot
-): ValidMove | null {
+export function findInvalidPlacement(state: PlacementState): ValidMove | null {
   const tile = state.currentTile ?? null
   if (!tile?.sides) return null
 
@@ -276,6 +296,24 @@ export function findInvalidPlacement(
   return null
 }
 
+/** Как findInvalidPlacement, но падает: тесту нужен заведомо неверный ход. */
+export function requireInvalidPlacement(state: PlacementState): ValidMove {
+  const move = findInvalidPlacement(state)
+  if (!move) throw new Error('Не найдено заведомо неверное размещение')
+  return move
+}
+
+/**
+ * Поворот, отличный от текущего: команда, которая меняет только превью тайла
+ * и не двигает очередь. Удобна для проверок, где ход не должен уводить партию
+ * дальше, а важен только порядок обработки команд.
+ */
+export function alternateRotation(state: PlacementState): number {
+  const rotation = state.currentTile?.rotation
+  if (rotation === undefined) throw new Error('У партии нет текущего тайла')
+  return rotation === 180 ? 90 : 180
+}
+
 export function countPlacedTiles(
   tilePlacesStats: GameStateSnapshot['tilePlacesStats']
 ): number {
@@ -286,43 +324,6 @@ export function countPlacedTiles(
 }
 
 // ----------------------------------------------------------- лобби и старт игры
-
-export interface SingleHumanLobby {
-  gameId: string
-  creator: TestClient
-  aliceId: number
-}
-
-/**
- * Лобби с одним реальным игроком (слот 0) и тремя компьютерными.
- * После хода Алисы очередь всегда переходит компьютерам, поэтому
- * тесту не нужно водить второго человека.
- */
-export async function createLobbyWithSingleHuman(
-  serverUrl: string
-): Promise<SingleHumanLobby> {
-  const creator = new TestClient(serverUrl, 'device-human')
-  await creator.connect()
-  creator.registerDevice()
-
-  creator.emit(SocketEvents.CreateGame)
-  const created = (await creator.waitForEvent(SocketEvents.GameCreated)) as {
-    gameId: string
-  }
-  const gameId = created.gameId
-
-  await creator.emitAck(SocketEvents.AddPlayer, {
-    gameId,
-    name: 'Alice',
-    index: 0,
-  })
-
-  for (let index = 1; index <= 3; index++) {
-    await creator.emitAck(SocketEvents.AddPlayer, { gameId, name: null, index })
-  }
-
-  return { gameId, creator, aliceId: 1 }
-}
 
 /** Стартует игру и возвращает первый «человеческий» срез состояния */
 export async function startGame(
@@ -407,33 +408,47 @@ export interface HumanMoveResult {
   placedFollower: FollowerPlaceSnapshot | null
 }
 
+/**
+ * Ставит тайл хода: поворот сначала синхронизируется с сервером, как это
+ * делает интерфейс, иначе «подсказки» для фишек не совпали бы с размещённым
+ * тайлом. Возвращает состояние после размещения.
+ */
+async function placeTurnTile(
+  client: TestClient,
+  gameId: string,
+  move: ValidMove
+): Promise<GameStateSnapshot> {
+  await client.emitAck(SocketEvents.UpdateCurrentTile, {
+    gameId,
+    rotation: move.tile.rotation,
+  })
+  const placed = await client.emitAck<GameAck>(SocketEvents.PlaceTile, {
+    gameId,
+    position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
+  })
+  return placed.game
+}
+
+/** Завершает ход без фишки: мест для неё нет или нет подходящего типа. */
+async function skipTurnFollower(
+  client: TestClient,
+  gameId: string
+): Promise<GameStateSnapshot> {
+  const skipped = await client.emitAck<GameAck>(SocketEvents.SkipFollower, {
+    gameId,
+  })
+  return skipped.game
+}
+
 /** Выполняет один полный ход человека: тайл + (опционально) фишка/пропуск */
 export async function makeHumanMove(
   client: TestClient,
   gameId: string,
   state: GameStateSnapshot
 ): Promise<HumanMoveResult> {
-  const move = findValidPlacement(state)
-  if (!move) {
-    throw new Error('Не найдено легальное место для текущего тайла')
-  }
+  const move = requireValidPlacement(state)
 
-  // Как и фронтенд, синхронизируем повёрнутый тайл с сервером,
-  // чтобы «подсказки» для фишек совпадали с реально размещённым тайлом.
-  await client.emitAck(SocketEvents.UpdateCurrentTile, {
-    gameId,
-    rotation: move.tile.rotation,
-  })
-
-  const placed = await client.emitAck<{
-    success: boolean
-    game: GameStateSnapshot
-  }>(SocketEvents.PlaceTile, {
-    gameId,
-    position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
-  })
-
-  let game = placed.game
+  let game = await placeTurnTile(client, gameId, move)
   let placedFollower: FollowerPlaceSnapshot | null = null
 
   if (game.isPlacingFollower) {
@@ -447,21 +462,17 @@ export async function makeHumanMove(
 
     if (place && followerType) {
       placedFollower = place
-      const follower = await client.emitAck<{
-        success: boolean
-        game: GameStateSnapshot
-      }>(SocketEvents.PlaceFollower, {
-        gameId,
-        place,
-        followerType,
-      })
+      const follower = await client.emitAck<GameAck>(
+        SocketEvents.PlaceFollower,
+        {
+          gameId,
+          place,
+          followerType,
+        }
+      )
       game = follower.game
     } else {
-      const skipped = await client.emitAck<{
-        success: boolean
-        game: GameStateSnapshot
-      }>(SocketEvents.SkipFollower, { gameId })
-      game = skipped.game
+      game = await skipTurnFollower(client, gameId)
     }
   }
 
@@ -519,31 +530,14 @@ export async function driveTurnsUntilFollowerOffer(
     })
     if (state.gameIsEnded) return { preState: null, offerGame: null }
 
-    const move = findValidPlacement(state)
-    if (!move) throw new Error('Не найдено легальное место для текущего тайла')
+    const move = requireValidPlacement(state)
 
-    await client.emitAck(SocketEvents.UpdateCurrentTile, {
-      gameId,
-      rotation: move.tile.rotation,
-    })
-    const placed = await client.emitAck<{
-      success: boolean
-      game: GameStateSnapshot
-    }>(SocketEvents.PlaceTile, {
-      gameId,
-      position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
-    })
-
-    let game = placed.game
+    let game = await placeTurnTile(client, gameId, move)
     if (game.isPlacingFollower && game.availableFollowersPlaces?.length) {
       return { preState: state, offerGame: game }
     }
     if (game.isPlacingFollower) {
-      const skipped = await client.emitAck<{
-        success: boolean
-        game: GameStateSnapshot
-      }>(SocketEvents.SkipFollower, { gameId })
-      game = skipped.game
+      game = await skipTurnFollower(client, gameId)
     }
 
     state = game
@@ -607,6 +601,45 @@ export function scoringWinners(
   return players
 }
 
+/** Очки дороги и города одним числом: сумма делится между лидерами. */
+interface ExpectedObjectScore {
+  total: number
+  players: Record<string, number>
+}
+
+/**
+ * Ожидаемый счёт объекта: сумма целиком, если на ней нет фишек, иначе она
+ * делится поровну между игроками с максимальным числом подданных.
+ */
+function expectedObjectScore(
+  points: number,
+  followers: ObjectFollowerSnapshot[]
+): ExpectedObjectScore {
+  const players = scoringWinners(points, followers)
+  return {
+    total: followers.length ? points * Object.keys(players).length : points,
+    players,
+  }
+}
+
+function roadScore(
+  road: BaseObjectSnapshot,
+  tilePlacesStats: GameStateSnapshot['tilePlacesStats']
+): ExpectedObjectScore {
+  return expectedObjectScore(
+    countUniqueTiles(road.points, tilePlacesStats),
+    road.followers
+  )
+}
+
+function cityScore(
+  city: BaseObjectSnapshot,
+  tilePlacesStats: GameStateSnapshot['tilePlacesStats']
+): ExpectedObjectScore {
+  const { tiles, shields } = countCityPoints(city, tilePlacesStats)
+  return expectedObjectScore(tiles * 2 + shields * 2, city.followers)
+}
+
 /**
  * Независимо пересчитывает базовые очки игроков по завершённым объектам и
  * доске. Модель рассчитана на обычные дороги, города, монастыри и сады;
@@ -625,24 +658,14 @@ export function recomputeExpectedScores(
     expected[playerId(pid)] = (expected[playerId(pid)] ?? 0) + value
   }
 
-  for (const road of completed.roads) {
-    const points = countUniqueTiles(road.points, tilePlacesStats)
-    for (const [pid, value] of Object.entries(
-      scoringWinners(points, road.followers)
-    )) {
-      credit(pid, value)
-    }
+  const creditObject = (score: ExpectedObjectScore) => {
+    for (const [pid, value] of Object.entries(score.players)) credit(pid, value)
   }
 
-  for (const city of completed.cities) {
-    const { tiles, shields } = countCityPoints(city, tilePlacesStats)
-    const points = tiles * 2 + shields * 2
-    for (const [pid, value] of Object.entries(
-      scoringWinners(points, city.followers)
-    )) {
-      credit(pid, value)
-    }
-  }
+  for (const road of completed.roads)
+    creditObject(roadScore(road, tilePlacesStats))
+  for (const city of completed.cities)
+    creditObject(cityScore(city, tilePlacesStats))
 
   for (const monastery of completed.monasteries) {
     for (const follower of monastery.followers) {
@@ -683,24 +706,15 @@ export function verifyScoringAgainstServer(state: GameStateSnapshot): void {
   expect(state.scores ?? {}).toEqual(expected)
 
   for (const road of completed.roads) {
-    const points = countUniqueTiles(road.points, state.tilePlacesStats)
-    expect(road.score?.total).toBe(
-      road.followers.length
-        ? points * Object.keys(scoringWinners(points, road.followers)).length
-        : points
-    )
-    expect(road.score?.players).toEqual(scoringWinners(points, road.followers))
+    const { total, players } = roadScore(road, state.tilePlacesStats)
+    expect(road.score?.total).toBe(total)
+    expect(road.score?.players).toEqual(players)
   }
 
   for (const city of completed.cities) {
-    const { tiles, shields } = countCityPoints(city, state.tilePlacesStats)
-    const points = tiles * 2 + shields * 2
-    expect(city.score?.total).toBe(
-      city.followers.length
-        ? points * Object.keys(scoringWinners(points, city.followers)).length
-        : points
-    )
-    expect(city.score?.players).toEqual(scoringWinners(points, city.followers))
+    const { total, players } = cityScore(city, state.tilePlacesStats)
+    expect(city.score?.total).toBe(total)
+    expect(city.score?.players).toEqual(players)
   }
 }
 
