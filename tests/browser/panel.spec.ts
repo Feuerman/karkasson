@@ -97,3 +97,108 @@ test('масштаб доски меняется кнопками', async ({ pag
     await gameServer.close()
   }
 })
+
+test('расположение окон сохраняется и восстанавливается', async ({ page }) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    await startSinglePlayerGame(page, frontend.url)
+
+    // Окна перетаскиваются в режиме настройки.
+    await page.getByRole('button', { name: 'Настроить окна' }).click()
+
+    const panel = page.locator('[data-draggable-id="player-stats"]')
+    const before = await panel.boundingBox()
+    if (!before) throw new Error('Панель партии не найдена')
+
+    await page.mouse.move(before.x + 40, before.y + 12)
+    await page.mouse.down()
+    await page.mouse.move(before.x + 240, before.y + 132, { steps: 12 })
+    await page.mouse.up()
+
+    const after = await panel.boundingBox()
+    if (!after) throw new Error('Панель партии потеряна')
+    expect(after.x).toBeGreaterThan(before.x + 100)
+
+    // Место окна сохранено в браузере.
+    const saved = await page.evaluate(() => localStorage.getItem('panelLayout'))
+    expect(saved).toContain('player-stats')
+
+    // После перезагрузки окно возвращается на своё место.
+    await page.reload()
+    await page.getByRole('button', { name: 'Продолжить' }).click()
+    await expect(
+      page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)
+    ).toBeVisible()
+
+    const restored = await panel.boundingBox()
+    if (!restored) throw new Error('Панель партии не появилась')
+    expect(Math.round(restored.x)).toBe(Math.round(after.x))
+    expect(Math.round(restored.y)).toBe(Math.round(after.y))
+  } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})
+
+test('окно панели сворачивается и разворачивается', async ({ page }) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    await startSinglePlayerGame(page, frontend.url)
+
+    const progress = page.getByTestId(TEST_IDS.gameStatsTilesProgress)
+    await expect(progress).toBeVisible()
+
+    const collapseButton = page.getByTestId(
+      `${TEST_IDS.panelCollapse}-player-stats`
+    )
+    await collapseButton.click()
+    await expect(progress).toBeHidden()
+
+    await collapseButton.click()
+    await expect(progress).toBeVisible()
+  } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})
+
+test('на узком экране окна сворачиваются сами', async ({ browser }) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+  const context = await browser.newContext({
+    viewport: { width: 480, height: 800 },
+  })
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    const page = await context.newPage()
+    await startSinglePlayerGame(page, frontend.url)
+
+    // На узком экране панели мешают доске, поэтому свёрнуты.
+    const progress = page.getByTestId(TEST_IDS.gameStatsTilesProgress)
+    await expect(progress).toBeHidden()
+
+    // Игрок может развернуть окно сам.
+    await page.getByTestId(`${TEST_IDS.panelCollapse}-player-stats`).click()
+    await expect(progress).toBeVisible()
+  } finally {
+    await context.close()
+    await frontend?.close()
+    await gameServer.close()
+  }
+})

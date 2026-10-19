@@ -41,6 +41,8 @@ export const TEST_IDS = {
   zoomValue: 'zoom-value',
   gameResultOverlay: 'game-result-overlay',
   gameResultRow: 'game-result-row',
+  panelCollapse: 'panel-collapse',
+  resetPanelLayout: 'reset-panel-layout',
   gameResultClose: 'game-result-close',
   gameResultGoLobby: 'game-result-go-lobby',
   gameResultPlayAgain: 'game-result-play-again',

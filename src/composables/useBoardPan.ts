@@ -5,6 +5,13 @@ const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
 /** Шаг кнопок приближения и отдаления. */
 const ZOOM_STEP = 0.25
+/**
+ * Пауза, в течение которого мышь не управляет доской.
+ *
+ * После касания браузер повторяет его как события мыши: без паузы доска
+ * дёргалась бы дважды, а касание, оказавшееся прокруткой, выбирало бы клетку.
+ */
+const TOUCH_TO_MOUSE_GUARD_MS = 700
 
 export interface BoardPanOptions {
   onZoomChange?: (zoom: number) => void
@@ -29,6 +36,17 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
   let startScrollTop = 0
   let dragged = false
   let suppressNextClick = false
+
+  /** Состояние щипка двумя пальцами. */
+  let isPinching = false
+  let pinchStartDistance = 0
+  let pinchStartZoom = 1
+  let pinchStartMidX = 0
+  let pinchStartMidY = 0
+  let pinchStartScrollLeft = 0
+  let pinchStartScrollTop = 0
+
+  let ignoreMouseUntil = 0
 
   const applyZoom = (nextZoom: number) => {
     const plane = planeRef.value
@@ -89,6 +107,9 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
 
     if (event.button !== 0) return
 
+    // Касание браузер повторяет как события мыши: они не должны двигать доску.
+    if (Date.now() < ignoreMouseUntil) return
+
     const board = boardRef.value
     if (!board) return
 
@@ -112,6 +133,7 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     event.preventDefault()
     event.stopPropagation()
   }
+
   const onWheel = (event: WheelEvent) => {
     event.preventDefault()
 
@@ -175,9 +197,151 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     event.preventDefault()
   }
 
+  /** Середина и расстояние между касаниями. */
+  const measureTouches = (touches: TouchList) => {
+    const first = touches[0]
+    const second = touches[1]
+    if (!first) return { midX: 0, midY: 0, distance: 0 }
+
+    const midX = second ? (first.clientX + second.clientX) / 2 : first.clientX
+    const midY = second ? (first.clientY + second.clientY) / 2 : first.clientY
+    const distance = second
+      ? Math.hypot(
+          first.clientX - second.clientX,
+          first.clientY - second.clientY
+        )
+      : 0
+
+    return { midX, midY, distance }
+  }
+
+  /** Запоминает состояние доски в момент начала щипка. */
+  const startPinch = (touches: TouchList) => {
+    const board = boardRef.value
+    if (!board) return
+
+    const { midX, midY, distance } = measureTouches(touches)
+    pinchStartDistance = distance
+    pinchStartZoom = zoom.value
+    pinchStartMidX = midX
+    pinchStartMidY = midY
+    pinchStartScrollLeft = board.scrollLeft
+    pinchStartScrollTop = board.scrollTop
+    isPinching = true
+    // После щипка клик по клетке не должен выбирать её.
+    dragged = true
+    isPanning.value = false
+    suppressNextClick = true
+  }
+
+  /**
+   * Масштаб двумя пальцами.
+   *
+   * Точка, которая была под пальцами в начале щипка, остаётся на месте: её
+   * координаты считаются в системе плоскости, до масштабирования.
+   */
+  const applyPinch = (touches: TouchList) => {
+    const board = boardRef.value
+    if (!board) return
+
+    const rect = board.getBoundingClientRect()
+    const { midX, midY, distance } = measureTouches(touches)
+    const ratio = pinchStartDistance > 0 ? distance / pinchStartDistance : 1
+    const nextZoom = Math.min(
+      MAX_ZOOM,
+      Math.max(MIN_ZOOM, pinchStartZoom * ratio)
+    )
+
+    const startAnchorX = pinchStartMidX - rect.left
+    const startAnchorY = pinchStartMidY - rect.top
+    const contentX = (pinchStartScrollLeft + startAnchorX) / pinchStartZoom
+    const contentY = (pinchStartScrollTop + startAnchorY) / pinchStartZoom
+
+    if (nextZoom !== zoom.value) {
+      zoom.value = nextZoom
+      canReset.value = nextZoom !== 1
+      applyZoom(nextZoom)
+      options.onZoomChange?.(nextZoom)
+    }
+
+    board.scrollLeft = contentX * nextZoom - (midX - rect.left)
+    board.scrollTop = contentY * nextZoom - (midY - rect.top)
+  }
+
+  const onTouchStart = (event: TouchEvent) => {
+    const board = boardRef.value
+    if (!board) return
+
+    ignoreMouseUntil = Date.now() + TOUCH_TO_MOUSE_GUARD_MS
+
+    if (event.touches.length >= 2) {
+      startPinch(event.touches)
+      return
+    }
+
+    const touch = event.touches[0]
+    if (!touch) return
+
+    startClientX = touch.clientX
+    startClientY = touch.clientY
+    startScrollLeft = board.scrollLeft
+    startScrollTop = board.scrollTop
+    dragged = false
+    suppressNextClick = false
+    isPinching = false
+  }
+
+  const onTouchMove = (event: TouchEvent) => {
+    const board = boardRef.value
+    if (!board) return
+
+    if (event.touches.length >= 2) {
+      if (!isPinching) startPinch(event.touches)
+      applyPinch(event.touches)
+      event.preventDefault()
+      return
+    }
+
+    const touch = event.touches[0]
+    if (!touch || isPinching) return
+
+    const dx = touch.clientX - startClientX
+    const dy = touch.clientY - startClientY
+
+    if (!dragged && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return
+
+    if (!dragged) {
+      dragged = true
+      isPanning.value = true
+    }
+
+    board.scrollLeft = startScrollLeft - dx
+    board.scrollTop = startScrollTop - dy
+    event.preventDefault()
+  }
+
+  const onTouchEnd = (event: TouchEvent) => {
+    ignoreMouseUntil = Date.now() + TOUCH_TO_MOUSE_GUARD_MS
+
+    if (event.touches.length > 0) return
+
+    if (dragged) suppressNextClick = true
+    dragged = false
+    isPanning.value = false
+    isPinching = false
+  }
+
   onMounted(() => {
     boardRef.value?.addEventListener('wheel', onWheel, { passive: false })
     boardRef.value?.addEventListener('dragstart', onDragStart)
+    boardRef.value?.addEventListener('touchstart', onTouchStart, {
+      passive: false,
+    })
+    boardRef.value?.addEventListener('touchmove', onTouchMove, {
+      passive: false,
+    })
+    boardRef.value?.addEventListener('touchend', onTouchEnd)
+    boardRef.value?.addEventListener('touchcancel', onTouchEnd)
 
     if (planeRef.value && typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(measure)
@@ -193,6 +357,10 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
 
     boardRef.value?.removeEventListener('wheel', onWheel)
     boardRef.value?.removeEventListener('dragstart', onDragStart)
+    boardRef.value?.removeEventListener('touchstart', onTouchStart)
+    boardRef.value?.removeEventListener('touchmove', onTouchMove)
+    boardRef.value?.removeEventListener('touchend', onTouchEnd)
+    boardRef.value?.removeEventListener('touchcancel', onTouchEnd)
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
   })

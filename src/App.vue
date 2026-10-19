@@ -37,6 +37,7 @@
         :layout-edit-mode="isLayoutEditMode"
         @select="onMenuSelect"
         @toggle-layout-edit="isLayoutEditMode = !isLayoutEditMode"
+        @reset-layout="onResetLayout"
         @exit="goInLobby"
       />
       <GameResultPanel
@@ -76,6 +77,7 @@ import notificationService from './plugins/notification'
 import GameLobby from './components/GameLobby'
 import GameService from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
+import { resetPanelLayout } from './modules/panelLayout'
 import {
   pendingActionKeys,
   usePendingActions,
@@ -399,6 +401,17 @@ const menuItems = computed<GameMenuItem[]>(() => {
 
   return items
 })
+
+/**
+ * Сброс расположения окон.
+ *
+ * Окна возвращаются на исходные места и разворачиваются, сохранённая
+ * раскладка удаляется.
+ */
+const onResetLayout = () => {
+  resetPanelLayout()
+  notificationService.info('Расположение окон сброшено')
+}
 
 const onMenuSelect = async (id: string) => {
   if (id === 'result') {

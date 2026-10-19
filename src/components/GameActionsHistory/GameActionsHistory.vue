@@ -5,9 +5,11 @@
     :initial-y="16"
     :right-offset="16"
     :drag-enabled="dragEnabled"
+    :collapsed="collapsed"
     surface-class="w-[330px] max-w-[90vw] overflow-hidden"
+    @toggle="toggle"
   >
-    <template #header>
+    <template #header="{ collapsed: isCollapsed, toggle: togglePanel }">
       <div
         class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gold-dark/30 bg-surface/90 px-3 py-2 backdrop-blur"
       >
@@ -22,26 +24,18 @@
             {{ gameBoard.moveCounter ?? 0 }}
             <span class="text-sm">ход</span>
           </span>
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            :icon="
-              isCollapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'
-            "
-            :aria-label="
-              isCollapsed ? 'Развернуть историю' : 'Свернуть историю'
-            "
-            :aria-expanded="!isCollapsed"
-            class="h-7 w-7 cursor-pointer justify-center p-0"
-            @click="isCollapsed = !isCollapsed"
+          <PanelCollapseButton
+            panel-id="game-actions-history"
+            :collapsed="isCollapsed"
+            expand-label="Развернуть историю"
+            collapse-label="Свернуть историю"
+            @toggle="togglePanel"
           />
         </div>
       </div>
     </template>
 
     <div
-      v-if="!isCollapsed"
       data-no-drag
       class="border-b border-gold-dark/20 bg-surface/60 px-2 py-1.5"
     >
@@ -70,10 +64,9 @@
       </div>
     </div>
     <div
-      v-if="!isCollapsed"
       ref="historyScroll"
       data-no-drag
-      class="max-h-[min(62vh,560px)] overflow-y-auto px-2 pb-2 pt-1"
+      class="max-h-[min(62vh,560px)] touch-pan-y overflow-y-auto px-2 pb-2 pt-1"
     >
       <p
         v-if="!visibleActions.length"
@@ -100,6 +93,7 @@ import type { IGameBoard } from '@/types/game'
 import type { TileCoordinates } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
 import GamePanel from '@/components/GamePanel.vue'
+import PanelCollapseButton from '@/components/PanelCollapseButton.vue'
 import { highlightCells } from '@/utils/board'
 import HistoryGroupBlock from './internal/HistoryGroupBlock.vue'
 import {
@@ -111,6 +105,7 @@ import {
 } from './internal/historyFilter'
 import { groupActionsHistory } from './internal/historyGroups'
 import { HISTORY_PLAYERS_KEY } from './internal/players'
+import { usePanelCollapse } from '@/composables/usePanelCollapse'
 
 const { gameBoard } = defineProps<{
   gameBoard: IGameBoard
@@ -123,9 +118,16 @@ provide(
 )
 
 let cancelHighlight: (() => void) | undefined
-const isCollapsed = ref(false)
 const activeFilter = ref<HistoryFilter>(HistoryFilters.ALL)
 const historyScroll = ref<HTMLElement | null>(null)
+
+/**
+ * История на узком экране мешает доске, поэтому окно сворачивается само.
+ * Игрок может развернуть его и вернуть обратно.
+ */
+const { collapsed, toggle } = usePanelCollapse('game-actions-history', {
+  autoCollapseOnNarrow: true,
+})
 
 const actions = computed(() => gameBoard.actionsHistory ?? [])
 const filterCounts = computed(() => countActionsByFilter(actions.value))
@@ -135,9 +137,9 @@ const visibleActions = computed(() =>
 const visibleGroups = computed(() => groupActionsHistory(visibleActions.value))
 
 watch(
-  () => [actions.value.length, isCollapsed.value, activeFilter.value],
+  () => [actions.value.length, collapsed.value, activeFilter.value],
   async () => {
-    if (isCollapsed.value) return
+    if (collapsed.value) return
     await nextTick()
     if (historyScroll.value) {
       historyScroll.value.scrollTop = historyScroll.value.scrollHeight

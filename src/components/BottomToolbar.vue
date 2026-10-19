@@ -17,6 +17,18 @@
       </span>
     </UButton>
     <UButton
+      v-if="!showLobby && layoutEditMode"
+      color="primary"
+      icon="i-lucide-rotate-ccw"
+      :data-testid="TEST_IDS.resetPanelLayout"
+      aria-label="Сбросить расположение окон"
+      title="Сбросить расположение окон"
+      class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
+      @click="emit('resetLayout')"
+    >
+      <span class="hidden sm:inline">Сбросить расположение</span>
+    </UButton>
+    <UButton
       v-if="!showLobby"
       color="primary"
       icon="i-lucide-arrow-left"
@@ -45,6 +57,7 @@ defineProps<{
 const emit = defineEmits<{
   select: [id: string]
   toggleLayoutEdit: []
+  resetLayout: []
   exit: []
 }>()
 </script>
