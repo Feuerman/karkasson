@@ -37,6 +37,13 @@
         @toggle-layout-edit="isLayoutEditMode = !isLayoutEditMode"
         @exit="goInLobby"
       />
+      <GameResultPanel
+        v-if="showResultPanel && gameState.gameIsEnded"
+        :game-board="gameState"
+        @go-lobby="goInLobby"
+        @play-again="playAgain"
+        @close="showResultPanel = false"
+      />
       <RulesPanel
         v-if="rulesDocument"
         v-model:open="showRules"
@@ -58,6 +65,7 @@ import {
 import GameBoard from './components/GameBoard.vue'
 import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
+import GameResultPanel from './components/GameResultPanel.vue'
 import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import ToastBridge from './components/ToastBridge.vue'
@@ -105,6 +113,21 @@ watch(
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
 
+/**
+ * Панель итогов партии.
+ *
+ * Показывается один раз в конце партии; её можно закрыть, чтобы посмотреть
+ * на доску, и вернуть кнопкой в нижней панели.
+ */
+const showResultPanel = ref(false)
+
+watch(
+  () => gameState.value.gameIsEnded,
+  (isEnded) => {
+    if (isEnded) showResultPanel.value = true
+  }
+)
+
 /** Команды, ожидающие ответа сервера: индикаторы занятости в интерфейсе. */
 const { pendingList, runPending } = usePendingActions()
 
@@ -122,6 +145,7 @@ const onGameStart = (gameData: IGame) => {
   applyGameState(gameData)
 
   showLobby.value = false
+  showResultPanel.value = false
 
   if (gameData.id) {
     handleGameCreated(gameData.id)
@@ -206,6 +230,7 @@ const clearSession = () => {
   playersList.value = []
   currentGame.value = null
   previousIsMyTurn.value = null
+  showResultPanel.value = false
 }
 
 const leaveGame = async () => {
@@ -243,6 +268,36 @@ const createGame = async (options: CreateGameOptions) => {
     } catch (error) {
       notifyError(error)
     }
+  })
+}
+
+/**
+ * Новая партия с теми же правилами.
+ *
+ * Прежняя партия покидается: игрок не может остаться сразу в двух партиях.
+ */
+const playAgain = async () => {
+  const rules = gameState.value.rules
+
+  const left = await runPending(pendingActionKeys.leaveGame(), async () => {
+    try {
+      await GameService.leaveGame()
+      clearSession()
+      showLobby.value = true
+      return true
+    } catch (error) {
+      notifyError(error, 'Не удалось покинуть партию')
+      return false
+    }
+  })
+
+  if (!left) return
+
+  await createGame({
+    finalScoringEnabled: rules?.finalScoringEnabled ?? false,
+    innsAndCathedralsEnabled: rules?.expansions?.innsAndCathedrals ?? false,
+    riverEnabled: rules?.expansions?.river ?? false,
+    princessAndDragonEnabled: rules?.expansions?.princessAndDragon ?? false,
   })
 }
 
@@ -303,11 +358,30 @@ const currentGame = ref<IGame | null>(null)
 
 const showRules = ref(false)
 const rulesDocument = ref<RulesDocument | null>(null)
-const menuItems: GameMenuItem[] = [
-  { id: 'rules', label: 'Правила игры', icon: 'i-lucide-circle-help' },
-]
+
+/** Пункты меню: итоги партии появляются, когда партия закончилась. */
+const menuItems = computed<GameMenuItem[]>(() => {
+  const items: GameMenuItem[] = [
+    { id: 'rules', label: 'Правила игры', icon: 'i-lucide-circle-help' },
+  ]
+
+  if (gameState.value.gameIsEnded) {
+    items.push({
+      id: 'result',
+      label: 'Итоги партии',
+      icon: 'i-lucide-trophy',
+    })
+  }
+
+  return items
+})
 
 const onMenuSelect = async (id: string) => {
+  if (id === 'result') {
+    showResultPanel.value = true
+    return
+  }
+
   if (id === 'rules') {
     try {
       const { baseGameRules } = await import('./rules/baseGame')
