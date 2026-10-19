@@ -10,78 +10,6 @@
     :drag-enabled="layoutEditMode"
   />
   <GameAbbotRecall :game-board="gameBoard" :drag-enabled="layoutEditMode" />
-  <Draggable
-    v-if="
-      !gameBoard.isPlacingFollower &&
-      !gameBoard.dragonMove &&
-      !gameBoard.princessChoice &&
-      !gameBoard.gameIsEnded
-    "
-    is-none-style
-    :initial-x="currentStatePosition.x"
-    :initial-y="currentStatePosition.y"
-    :disabled="!gameBoard.isMyTurn"
-    draggable-id="tile-preview"
-  >
-    <div
-      ref="ghostFrameRef"
-      class="relative cursor-grab select-none active:cursor-grabbing"
-    >
-      <UButton
-        v-if="gameBoard.isMyTurn"
-        color="success"
-        class="btn-primary-action absolute -top-[34px] left-1/2 z-10 min-h-8 -translate-x-1/2 cursor-pointer whitespace-nowrap rounded-lg px-3 py-1 text-[14px] font-semibold shadow-soft"
-        @mousedown.stop
-        @click="gameBoard.isMyTurn && placeTile(localCurrentTile, hoveredTile)"
-      >
-        Разместить
-      </UButton>
-      <div
-        v-if="gameBoard.isMyTurn"
-        class="absolute left-[-32px] top-1/2 -translate-y-1/2"
-      >
-        <UButton
-          color="primary"
-          icon="i-lucide-rotate-ccw"
-          class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
-          :ui="{ leadingIcon: 'size-4' }"
-          @mousedown.stop
-          @click.stop.prevent="
-            rotateLocalTile(
-              localCurrentTile,
-              RotationDirection.Counterclockwise
-            )
-          "
-        />
-      </div>
-      <div
-        v-if="gameBoard.isMyTurn"
-        class="absolute right-[-32px] top-1/2 -translate-y-1/2"
-      >
-        <UButton
-          color="primary"
-          icon="i-lucide-rotate-cw"
-          class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
-          :ui="{ leadingIcon: 'size-4' }"
-          @mousedown.stop
-          @click.stop.prevent="
-            rotateLocalTile(localCurrentTile, RotationDirection.Clockwise)
-          "
-        />
-      </div>
-      <div
-        ref="ghostPreviewRef"
-        class="origin-top-left bg-black/15 shadow-card ring-1 ring-gold/80"
-        :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
-      >
-        <TileView
-          :tile="localCurrentTile"
-          :size="TILE_SIZE"
-          class="h-full w-full"
-        />
-      </div>
-    </div>
-  </Draggable>
   <div
     ref="boardRef"
     class="board-surface min-h-0 w-full flex-1 select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
@@ -133,6 +61,66 @@
               :size="TILE_SIZE"
             />
             <div
+              v-if="isGhostCell(rowIndex, tileIndex)"
+              class="absolute inset-0"
+              @mouseenter="showRotateButtons"
+              @mouseleave="scheduleHideRotateButtons"
+            >
+              <div
+                v-if="tileIndex > 0"
+                class="absolute left-[-32px] top-1/2 -translate-y-1/2 transition-opacity duration-150"
+                :class="
+                  rotateButtonsVisible
+                    ? 'pointer-events-auto opacity-100'
+                    : 'pointer-events-none opacity-0'
+                "
+              >
+                <UButton
+                  color="primary"
+                  icon="i-lucide-rotate-ccw"
+                  class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
+                  :ui="{ leadingIcon: 'size-4' }"
+                  @mousedown.stop
+                  @click.stop.prevent="
+                    rotateLocalTile(
+                      localCurrentTile,
+                      RotationDirection.Counterclockwise
+                    )
+                  "
+                />
+              </div>
+              <div class="tile-ghost-placed h-full w-full">
+                <TileView
+                  :tile="localCurrentTile"
+                  :size="TILE_SIZE"
+                  class="h-full w-full"
+                />
+              </div>
+              <div
+                v-if="tileIndex < gridDimensions[0] - 1"
+                class="absolute right-[-32px] top-1/2 -translate-y-1/2 transition-opacity duration-150"
+                :class="
+                  rotateButtonsVisible
+                    ? 'pointer-events-auto opacity-100'
+                    : 'pointer-events-none opacity-0'
+                "
+              >
+                <UButton
+                  color="primary"
+                  icon="i-lucide-rotate-cw"
+                  class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
+                  :ui="{ leadingIcon: 'size-4' }"
+                  @mousedown.stop
+                  @click.stop.prevent="
+                    rotateLocalTile(
+                      localCurrentTile,
+                      RotationDirection.Clockwise
+                    )
+                  "
+                />
+              </div>
+            </div>
+            <div
               v-if="
                 gameBoard.dragonPosition?.rowIndex === rowIndex &&
                 gameBoard.dragonPosition?.tileIndex === tileIndex
@@ -148,6 +136,78 @@
       </div>
     </div>
   </div>
+  <div
+    v-if="canShowPlacementUi"
+    class="fixed bottom-6 left-1/2 z-[3000] flex -translate-x-1/2 flex-col items-center gap-3"
+  >
+    <div
+      v-if="!hasSelectedCell"
+      class="flex flex-col items-center gap-2"
+      :data-testid="TEST_IDS.pendingTilePreview"
+    >
+      <div class="relative">
+        <div class="absolute left-[-34px] top-1/2 -translate-y-1/2">
+          <UButton
+            color="primary"
+            icon="i-lucide-rotate-ccw"
+            class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
+            :ui="{ leadingIcon: 'size-4' }"
+            title="Повернуть тайл против часовой стрелки"
+            @mousedown.stop
+            @click.stop.prevent="
+              rotateLocalTile(
+                localCurrentTile,
+                RotationDirection.Counterclockwise
+              )
+            "
+          />
+        </div>
+        <div
+          class="overflow-hidden rounded-xl shadow-strong ring-1 ring-black/10"
+          :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
+        >
+          <TileView
+            :tile="localCurrentTile"
+            :size="TILE_SIZE"
+            class="h-full w-full"
+          />
+        </div>
+        <div class="absolute right-[-34px] top-1/2 -translate-y-1/2">
+          <UButton
+            color="primary"
+            icon="i-lucide-rotate-cw"
+            class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
+            :ui="{ leadingIcon: 'size-4' }"
+            title="Повернуть тайл по часовой стрелке"
+            @mousedown.stop
+            @click.stop.prevent="
+              rotateLocalTile(localCurrentTile, RotationDirection.Clockwise)
+            "
+          />
+        </div>
+      </div>
+      <span
+        class="rounded-lg bg-black/50 px-3 py-1 text-xs font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
+      >
+        Выберите клетку на поле
+      </span>
+    </div>
+    <UButton
+      color="success"
+      icon="i-lucide-map-pin"
+      :disabled="!hasSelectedCell"
+      :title="
+        hasSelectedCell
+          ? 'Разместить тайл на выбранной клетке'
+          : 'Сначала выберите клетку на поле'
+      "
+      class="btn-primary-action min-h-12 cursor-pointer whitespace-nowrap rounded-xl px-6 py-2 text-base font-semibold shadow-strong"
+      :data-testid="TEST_IDS.placeTile"
+      @click="placeTile(localCurrentTile, hoveredTile)"
+    >
+      Разместить
+    </UButton>
+  </div>
   <UButton
     v-if="!showLobby && canReset"
     color="primary"
@@ -161,15 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  toRefs,
-  watch,
-} from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, toRefs, watch } from 'vue'
 import type { PlacedFollower } from '@server/modules/types'
 import {
   BOARD_GRID_SIZE,
@@ -181,7 +233,6 @@ import type { BoardCell, IGameBoard } from '../types/game'
 import GameActionsHistory from './GameActionsHistory'
 import GameAbbotRecall from './GameAbbotRecall.vue'
 import GameControls from './GameControls.vue'
-import Draggable from './Draggable.vue'
 import GamePlacingFollowers from './GamePlacingFollowers.vue'
 import GamePrincessAndDragon from './GamePrincessAndDragon.vue'
 import TileView from './TileView.vue'
@@ -189,11 +240,10 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import GameService, { SocketAckError } from '../modules/GameService'
 import { notifyError, throttle } from '../utils/common'
 import notificationService from '../plugins/notification'
-import { boardCellTestId } from '../data/testIds'
+import { boardCellTestId, TEST_IDS } from '../data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from '../utils/tiles'
-import { findTileElement, scrollToTile } from '../utils/board'
+import { scrollToTile } from '../utils/board'
 import { useBoardPan } from '../composables/useBoardPan'
-import { useGhostZoom } from '../composables/useGhostZoom'
 
 const props = defineProps<{
   gameBoard: IGameBoard
@@ -203,22 +253,15 @@ const props = defineProps<{
 const { gameBoard, layoutEditMode, showLobby } = toRefs(props)
 
 const {
-  previewRef: ghostPreviewRef,
-  frameRef: ghostFrameRef,
-  applyZoom: applyGhostZoom,
-} = useGhostZoom()
-
-const {
   boardRef,
   planeRef,
   sizeBoxRef,
   isPanning,
   canReset,
-  getZoom,
   resetZoom,
   onMouseDown,
   onClickCapture,
-} = useBoardPan({ onZoomChange: applyGhostZoom })
+} = useBoardPan()
 
 const gridDimensions = computed(
   () => gameBoard.value.gridSize ?? BOARD_GRID_SIZE
@@ -269,8 +312,6 @@ watch(
   { deep: true, immediate: true }
 )
 
-const currentStatePosition = ref({ x: 0, y: 0 })
-
 /** Клетка доски: выбрана игроком или пришла с сервера. */
 const hoveredTile = ref<BoardCell>({})
 
@@ -301,11 +342,55 @@ const conflictCells = computed(
     )
 )
 
+/** Выбрана ли клетка для размещения текущего тайла. */
+const hasSelectedCell = computed(() => hasPlacedPoint(hoveredTile.value))
+
+/**
+ * Кнопки поворота показываются при наведении на превью тайла или сами кнопки.
+ * Между кнопками и тайлом есть зазор, поэтому скрытие откладывается: иначе
+ * указатель успевает покинуть область наведения раньше, чем попадёт на кнопку.
+ */
+const ROTATE_BUTTONS_HIDE_DELAY = 250
+
+const rotateButtonsVisible = ref(false)
+let hideRotateButtonsTimeout: ReturnType<typeof setTimeout> | undefined
+
+const showRotateButtons = () => {
+  if (hideRotateButtonsTimeout !== undefined) {
+    clearTimeout(hideRotateButtonsTimeout)
+    hideRotateButtonsTimeout = undefined
+  }
+  rotateButtonsVisible.value = true
+}
+
+const scheduleHideRotateButtons = () => {
+  if (hideRotateButtonsTimeout !== undefined) {
+    clearTimeout(hideRotateButtonsTimeout)
+  }
+  hideRotateButtonsTimeout = setTimeout(() => {
+    hideRotateButtonsTimeout = undefined
+    rotateButtonsVisible.value = false
+  }, ROTATE_BUTTONS_HIDE_DELAY)
+}
+
+/** Панель размещения видна только в фазе раскладки тайла своего хода. */
+const canShowPlacementUi = computed(
+  () =>
+    gameBoard.value.isMyTurn &&
+    !gameBoard.value.isPlacingFollower &&
+    !gameBoard.value.dragonMove &&
+    !gameBoard.value.princessChoice &&
+    !gameBoard.value.gameIsEnded
+)
+
 const localCurrentTile = ref<Tile | null>(null)
 
-watch([ghostPreviewRef, ghostFrameRef], () => {
-  applyGhostZoom(getZoom())
-})
+/** Превью рисуется прямо в выбранной клетке доски, поэтому двигается вместе с ней. */
+const isGhostCell = (rowIndex: number, tileIndex: number) =>
+  canShowPlacementUi.value &&
+  hasSelectedCell.value &&
+  hoveredTile.value.rowIndex === rowIndex &&
+  hoveredTile.value.tileIndex === tileIndex
 
 const updateSelectedPlacingPoint = throttle(
   (value: { rowIndex: number; tileIndex: number }) => {
@@ -363,33 +448,11 @@ const syncLocalTileIfDiffers = (tile?: Tile | null) => {
   }
 }
 
-let gameUpdateTimeout: ReturnType<typeof setTimeout> | undefined
-
-const clearGameUpdateTimeout = () => {
-  clearTimeout(gameUpdateTimeout)
-  gameUpdateTimeout = undefined
-}
-
 const followServerPlacingPoint = (point?: BoardCell | null) => {
   if (isSamePlacedPoint(point, hoveredTile.value)) return
 
   setHoveredTile(point)
   zoomToTile(hoveredTile.value)
-  clearGameUpdateTimeout()
-  gameUpdateTimeout = setTimeout(() => {
-    gameUpdateTimeout = undefined
-    const targetTileRect = findTileElement(
-      hoveredTile.value.rowIndex ?? -1,
-      hoveredTile.value.tileIndex ?? -1
-    )?.getBoundingClientRect()
-
-    if (targetTileRect) {
-      currentStatePosition.value = {
-        x: targetTileRect.left,
-        y: targetTileRect.top,
-      }
-    }
-  }, 1000)
 }
 
 watch(
@@ -397,7 +460,6 @@ watch(
   (gameBoard, oldGameBoard) => {
     if (!gameBoard.gameIsStarted) {
       updateSelectedPlacingPoint.cancel()
-      clearGameUpdateTimeout()
       return
     }
 
@@ -406,7 +468,6 @@ watch(
 
     if (isNewGame) {
       updateSelectedPlacingPoint.cancel()
-      clearGameUpdateTimeout()
       if (gameBoard.dragonMove) setHoveredTile(gameBoard.dragonPosition)
       if (hasPlacedPoint(gameBoard.placingPoint)) {
         setHoveredTile(gameBoard.placingPoint)
@@ -425,9 +486,9 @@ watch(
 
     if (localCurrentTile.value?.id !== gameBoard.currentTile?.id) {
       syncLocalTile(gameBoard.currentTile)
-      if (hasPlacedPoint(gameBoard.placingPoint)) {
-        setHoveredTile(gameBoard.placingPoint)
-      }
+      // Новый тайл: прошлый выбор клетки неактуален, кнопки поворота и
+      // подсветка скрываются до нового выбора.
+      setHoveredTile(null)
     }
   },
   { immediate: true }
@@ -464,15 +525,10 @@ const placeTile = async (
   }
 }
 
-onMounted(() => {
-  currentStatePosition.value = {
-    x: window.innerWidth / 2,
-    y: window.innerHeight / 2,
-  }
-})
-
 onBeforeUnmount(() => {
   updateSelectedPlacingPoint.cancel()
-  clearGameUpdateTimeout()
+  if (hideRotateButtonsTimeout !== undefined) {
+    clearTimeout(hideRotateButtonsTimeout)
+  }
 })
 </script>

@@ -185,6 +185,22 @@
       border-color: rgba(191, 68, 51, 0.95);
     }
   }
+
+  /* Пульс «призрака» тайла на выбранной клетке: только свечение,
+     без transform — масштаб превью задаётся инлайновым стилем */
+  @keyframes tile-ghost-placed {
+    0%,
+    100% {
+      box-shadow:
+        0 0 12px 3px rgba(255, 193, 90, 0.3),
+        0 0 30px 10px rgba(201, 153, 63, 0.18);
+    }
+    50% {
+      box-shadow:
+        0 0 24px 9px rgba(255, 203, 118, 0.45),
+        0 0 58px 22px rgba(201, 153, 63, 0.28);
+    }
+  }
 }
 
 /* Runtime-toggled highlight for the hovered/active board tile */
@@ -216,6 +232,15 @@
     tile-conflict 1s infinite ease-in-out
   );
   z-index: 5;
+}
+
+/* «Призрак» текущего тайла поверх выбранной клетки:
+   без полупрозрачности, только золотое пульсирующее свечение */
+@utility tile-ghost-placed {
+  animation: var(
+    --animate-tile-ghost-placed,
+    tile-ghost-placed 1.6s infinite ease-in-out
+  );
 }
 
 /* Warm parchment panel with a double "gilded" frame */

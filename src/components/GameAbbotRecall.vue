@@ -59,10 +59,15 @@ onMounted(() => {
   )
 })
 
-/** Возможность отзыва и выигрыш считает сервер: клиент только показывает их. */
 const recall = computed(() => props.gameBoard.abbotRecall ?? null)
 
-const showRecall = computed(() => recall.value !== null)
+/**
+ * Возможность отзыва и выигрыш считает сервер: клиент только показывает их.
+ * Сервер считает их для текущего игрока, поэтому окно видно только в его ход.
+ */
+const showRecall = computed(
+  () => props.gameBoard.isMyTurn && recall.value !== null
+)
 
 const abbotLocation = computed(() => {
   const objectType = recall.value?.objectType
