@@ -203,12 +203,12 @@
         </div>
       </div>
       <span
-        class="rounded-lg bg-black/50 px-3 py-1 text-xs font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
+        class="rounded-lg bg-black/50 px-3 py-1 text-sm font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
       >
         {{ placementHint }}
       </span>
       <span
-        class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.7rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
+        class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.8rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
       >
         Клавиши: R — повернуть, P — разместить, Esc — снять выбор
       </span>
@@ -472,9 +472,7 @@ const clearPlacementError = () => {
 }
 
 const placementHint = computed(() =>
-  hasSelectedCell.value
-    ? 'Разместите тайл или поверните его'
-    : 'Выберите клетку на поле'
+  hasSelectedCell.value ? 'Разместите тайл' : 'Выберите клетку на поле'
 )
 
 /** Превью рисуется прямо в выбранной клетке доски, поэтому двигается вместе с ней. */
