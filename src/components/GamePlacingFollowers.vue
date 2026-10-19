@@ -1,6 +1,6 @@
 <template>
   <GamePanel
-    v-if="gameBoard.isPlacingFollower"
+    v-if="showPanel"
     draggable-id="placing-followers"
     :initial-x="700"
     :initial-y="400"
@@ -31,11 +31,7 @@
           block
           variant="ghost"
           class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-          :disabled="choice.disabled"
-          @click.stop="
-            gameBoard.isMyTurn &&
-            placeFollower(group.place, choice.followerType)
-          "
+          @click.stop="placeFollower(group.place, choice.followerType)"
         >
           <template #leading>
             <UIcon :name="choice.icon" class="h-4 w-4 text-gold-dark" />
@@ -49,8 +45,7 @@
       variant="soft"
       color="neutral"
       class="btn-secondary mt-2 min-h-10 w-full cursor-pointer rounded-lg px-4 font-semibold"
-      :disabled="!gameBoard.isMyTurn"
-      @click="gameBoard.isMyTurn && skipFollower()"
+      @click="skipFollower()"
     >
       {{
         gameBoard.princessFollowerPenalty
@@ -128,7 +123,6 @@ interface FollowerChoice {
   label: string
   icon: string
   followerType: FollowerType
-  disabled: boolean
 }
 
 interface ChoiceGroup {
@@ -140,13 +134,20 @@ interface ChoiceGroup {
 }
 
 /**
+ * Окно выбора фишки показывается только в ход игрока: сервер присылает
+ * `isPlacingFollower` всем, а варианты действий относятся к текущему игроку.
+ */
+const showPanel = computed(
+  () => Boolean(props.gameBoard.isMyTurn) && props.gameBoard.isPlacingFollower
+)
+
+/**
  * Кнопки выбора фишки для каждого доступного места. Набор допустимых типов
  * приходит с сервером вместе с состоянием партии, поэтому интерфейс не решает,
  * какая фишка куда разрешена; здесь остаются только подписи и значки.
  */
 const choiceGroups = computed<ChoiceGroup[]>(() =>
   groupedPlaces.value.map(({ place, sameTypeCount }, index) => {
-    const isMyTurn = Boolean(props.gameBoard.isMyTurn)
     const followerTypes =
       props.gameBoard.availableFollowerTypes?.[place.temporaryObject.id] ?? []
 
@@ -159,7 +160,6 @@ const choiceGroups = computed<ChoiceGroup[]>(() =>
       ),
       icon: followerChoiceIcon(place, followerType),
       followerType,
-      disabled: !isMyTurn,
     }))
 
     return {

@@ -8,11 +8,17 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  label: string
-  enabled: boolean
-  enabledText: string
-  disabledText: string
-  testId?: string
-}>()
+withDefaults(
+  defineProps<{
+    label: string
+    enabled: boolean
+    enabledText: string
+    disabledText: string
+    testId?: string
+  }>(),
+  {
+    enabledText: 'вкл',
+    disabledText: 'выкл',
+  }
+)
 </script>

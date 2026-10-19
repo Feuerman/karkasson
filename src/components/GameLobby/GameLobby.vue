@@ -178,8 +178,6 @@
           :key="rule.label"
           :label="rule.label"
           :enabled="rule.enabled"
-          :enabled-text="rule.enabledText"
-          :disabled-text="rule.disabledText"
           :test-id="rule.testId"
         />
       </div>
@@ -284,29 +282,21 @@ const activeGameRules = computed(() => {
     {
       label: 'Финальный подсчёт очков',
       enabled: Boolean(game.finalScoringEnabled),
-      enabledText: 'включён',
-      disabledText: 'выключен',
       testId: undefined,
     },
     {
       label: 'Таверны и соборы',
       enabled: Boolean(expansions?.innsAndCathedrals),
-      enabledText: 'включены',
-      disabledText: 'выключены',
       testId: undefined,
     },
     {
       label: 'Река',
       enabled: Boolean(expansions?.river),
-      enabledText: 'включена',
-      disabledText: 'выключена',
       testId: undefined,
     },
     {
       label: 'Принцесса и дракон',
       enabled: Boolean(expansions?.princessAndDragon),
-      enabledText: 'включены',
-      disabledText: 'выключены',
       testId: TEST_IDS.lobbyPrincessDragonStatus,
     },
   ]

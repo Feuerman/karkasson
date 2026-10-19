@@ -45,6 +45,8 @@ const emit = defineEmits(['drag', 'drag-start', 'drag-end'])
 
 const dragPosition = ref({ x: props.initialX, y: props.initialY })
 const isDragging = ref(false)
+/** Панель с `rightOffset` прижата к правому краю, пока её не перетащили. */
+const isDetachedFromEdge = ref(false)
 const startPos = ref({ x: 0, y: 0 })
 const elementOffset = ref({ x: 0, y: 0 })
 const draggableElement = ref<HTMLElement | null>(null)
@@ -159,6 +161,7 @@ const onDragMove = (event: MouseEvent) => {
 const stopDrag = () => {
   if (isDragging.value) {
     isDragging.value = false
+    if (props.rightOffset !== undefined) isDetachedFromEdge.value = true
     emit('drag-end', { x: dragPosition.value.x, y: dragPosition.value.y })
 
     if (draggableElement.value) {
@@ -176,8 +179,16 @@ const stopDrag = () => {
   document.removeEventListener('mouseup', stopDrag)
 }
 
-const dragStyle = computed(() => ({
-  top: `${dragPosition.value.y}px`,
-  left: `${dragPosition.value.x}px`,
-}))
+/**
+ * Привязанная к правому краю панель позиционируется через `right`, поэтому не
+ * смещается при изменении ширины окна. После перетаскивания она остаётся там,
+ * где её оставили, и дальше считается по `left`.
+ */
+const dragStyle = computed(() => {
+  const top = `${dragPosition.value.y}px`
+  if (props.rightOffset !== undefined && !isDetachedFromEdge.value) {
+    return { top, right: `${props.rightOffset}px` }
+  }
+  return { top, left: `${dragPosition.value.x}px` }
+})
 </script>

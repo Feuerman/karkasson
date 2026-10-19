@@ -19,6 +19,8 @@ export const TEST_IDS = {
   historyScoreDetailsTooltip: 'history-score-details-tooltip',
   historyObjectFocus: 'history-object-focus',
   boardCell: 'board-cell',
+  pendingTilePreview: 'pending-tile-preview',
+  placeTile: 'place-tile',
 } as const
 
 export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>
