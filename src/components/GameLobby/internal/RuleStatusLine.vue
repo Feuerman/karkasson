@@ -12,8 +12,8 @@ withDefaults(
   defineProps<{
     label: string
     enabled: boolean
-    enabledText: string
-    disabledText: string
+    enabledText?: string
+    disabledText?: string
     testId?: string
   }>(),
   {
