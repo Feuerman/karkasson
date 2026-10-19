@@ -3,6 +3,8 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 const DRAG_THRESHOLD_PX = 5
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 3
+/** Шаг кнопок приближения и отдаления. */
+const ZOOM_STEP = 0.25
 
 export interface BoardPanOptions {
   onZoomChange?: (zoom: number) => void
@@ -14,8 +16,9 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
   const sizeBoxRef = ref<HTMLElement | null>(null)
   const isPanning = ref(false)
   const canReset = ref(false)
+  /** Текущий масштаб доски: от 0.5 до 3. */
+  const zoom = ref(1)
 
-  let zoom = 1
   let baseWidth = 0
   let baseHeight = 0
   let resizeObserver: ResizeObserver | null = null
@@ -48,7 +51,7 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
 
     baseWidth = nextWidth
     baseHeight = nextHeight
-    applyZoom(zoom)
+    applyZoom(zoom.value)
   }
 
   const onMouseMove = (event: MouseEvent) => {
@@ -120,7 +123,7 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     const cursorY = event.clientY - rect.top
 
     const rawDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
-    const newZoom = zoom * Math.exp(-rawDelta * 0.001)
+    const newZoom = zoom.value * Math.exp(-rawDelta * 0.001)
 
     setZoom(newZoom, cursorX, cursorY)
   }
@@ -134,14 +137,14 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     if (!board) return
 
     const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom))
-    if (clamped === zoom) return
+    if (clamped === zoom.value) return
 
     const rect = board.getBoundingClientRect()
     const anchorX = anchorClientX ?? rect.width / 2
     const anchorY = anchorClientY ?? rect.height / 2
-    const prevZoom = zoom
+    const prevZoom = zoom.value
 
-    zoom = clamped
+    zoom.value = clamped
     canReset.value = clamped !== 1
     applyZoom(clamped)
     options.onZoomChange?.(clamped)
@@ -152,11 +155,21 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
       ((board.scrollTop + anchorY) / prevZoom) * clamped - anchorY
   }
 
+  /** Приближает доску на шаг. */
+  const zoomIn = () => {
+    setZoom(zoom.value + ZOOM_STEP)
+  }
+
+  /** Отдаляет доску на шаг. */
+  const zoomOut = () => {
+    setZoom(zoom.value - ZOOM_STEP)
+  }
+
   const resetZoom = () => {
     setZoom(1)
   }
 
-  const getZoom = () => zoom
+  const getZoom = () => zoom.value
 
   const onDragStart = (event: DragEvent) => {
     event.preventDefault()
@@ -190,6 +203,9 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     sizeBoxRef,
     isPanning,
     canReset,
+    zoom,
+    zoomIn,
+    zoomOut,
     getZoom,
     resetZoom,
     onMouseDown,

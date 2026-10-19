@@ -27,6 +27,14 @@ export const TEST_IDS = {
   cellRotateTileClockwise: 'cell-rotate-tile-clockwise',
   cellRotateTileCounterclockwise: 'cell-rotate-tile-counterclockwise',
   gameStatsTurnBadge: 'game-stats-turn-badge',
+  gameStatsOwnPlayer: 'game-stats-own-player',
+  gameStatsTurnTimer: 'game-stats-turn-timer',
+  gameStatsComputerThinking: 'game-stats-computer-thinking',
+  gameStatsTilesProgress: 'game-stats-tiles-progress',
+  gameStatsTilesProgressBar: 'game-stats-tiles-progress-bar',
+  zoomIn: 'zoom-in',
+  zoomOut: 'zoom-out',
+  zoomValue: 'zoom-value',
 } as const
 
 export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>

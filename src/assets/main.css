@@ -234,6 +234,19 @@
     }
   }
 
+  /* Мигание точки «компьютер думает» в панели партии */
+  @keyframes stats-thinking {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+
   /* Пульс «призрака» тайла на выбранной клетке: только свечение,
      без transform — масштаб превью задаётся инлайновым стилем */
   @keyframes tile-ghost-placed {
@@ -312,6 +325,14 @@
   animation: var(
     --animate-stats-turn-pulse,
     stats-turn-pulse 1.8s infinite ease-in-out
+  );
+}
+
+/* Точка рядом с именем соперника, когда ходит компьютер */
+@utility stats-thinking-dot {
+  animation: var(
+    --animate-stats-thinking,
+    stats-thinking 1.2s infinite ease-in-out
   );
 }
 

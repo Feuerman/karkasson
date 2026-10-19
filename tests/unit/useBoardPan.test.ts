@@ -272,6 +272,38 @@ describe('Масштаб доски', () => {
   })
 })
 
+describe('Кнопки масштаба', () => {
+  it('приближают и отдаляют доску на шаг', () => {
+    const { pan } = mountPan()
+
+    pan.zoomIn()
+    expect(pan.zoom.value).toBeCloseTo(1.25, 5)
+
+    pan.zoomOut()
+    expect(pan.zoom.value).toBeCloseTo(1, 5)
+  })
+
+  it('не выходят за границы масштаба', () => {
+    const { pan } = mountPan()
+
+    for (let step = 0; step < 20; step += 1) pan.zoomOut()
+    expect(pan.zoom.value).toBe(MIN_ZOOM)
+
+    for (let step = 0; step < 20; step += 1) pan.zoomIn()
+    expect(pan.zoom.value).toBe(MAX_ZOOM)
+  })
+
+  it('сброс возвращает единичный масштаб', () => {
+    const { pan } = mountPan()
+
+    pan.zoomIn()
+    pan.resetZoom()
+
+    expect(pan.zoom.value).toBe(1)
+    expect(pan.canReset.value).toBe(false)
+  })
+})
+
 describe('Панорамирование доски', () => {
   it('не двигает доску при перемещении меньше порога', () => {
     const { pan, board } = mountPan()
