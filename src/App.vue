@@ -53,6 +53,7 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  watch,
 } from 'vue'
 import GameBoard from './components/GameBoard.vue'
 import type { GameMenuItem } from './components/GameMenu.vue'
@@ -61,6 +62,7 @@ import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError } from './utils/common'
+import notificationService from './plugins/notification'
 import GameLobby from './components/GameLobby'
 import GameService from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
@@ -78,6 +80,27 @@ const RulesPanel = defineAsyncComponent(
 )
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
+
+/**
+ * Состояние хода до последнего обновления.
+ *
+ * `null` означает, что состояние партии ещё не приходило: первый снимок
+ * уведомления не вызывает, иначе игрок получал бы «Ваш ход» при входе в
+ * партию, а не при настоящей передаче хода.
+ */
+const previousIsMyTurn = ref<boolean | null>(null)
+
+watch(
+  () => gameState.value.isMyTurn,
+  (isMyTurn) => {
+    const previous = previousIsMyTurn.value
+    previousIsMyTurn.value = isMyTurn
+    if (previous === null) return
+    if (isMyTurn && !previous) {
+      notificationService.info('Ваш ход')
+    }
+  }
+)
 
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
@@ -182,6 +205,7 @@ const clearSession = () => {
   activeGameId = undefined
   playersList.value = []
   currentGame.value = null
+  previousIsMyTurn.value = null
 }
 
 const leaveGame = async () => {

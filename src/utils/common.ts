@@ -1,16 +1,29 @@
 import notificationService from '@/plugins/notification'
 
+/**
+ * Текст ошибки для показа игроку.
+ *
+ * Сервер присылает причину отказа в сообщении, поэтому она и показывается
+ * как есть; если текста нет, подставляется запасной вариант.
+ */
+export const errorMessage = (
+  error: unknown,
+  fallbackMessage = 'Произошла ошибка'
+): string => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  if (typeof error === 'string' && error) {
+    return error
+  }
+  return fallbackMessage
+}
+
 export const notifyError = (
   error: unknown,
   fallbackMessage = 'Произошла ошибка'
 ): void => {
-  if (error instanceof Error && error.message) {
-    notificationService.error(error.message)
-  } else if (typeof error === 'string' && error) {
-    notificationService.error(error)
-  } else {
-    notificationService.error(fallbackMessage)
-  }
+  notificationService.error(errorMessage(error, fallbackMessage))
 }
 
 export const clamp = (value: number, min: number, max: number): number =>

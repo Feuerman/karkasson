@@ -1,8 +1,11 @@
 <template>
   <div class="panel-parchment w-[300px] overflow-hidden text-text shadow-card">
     <div
-      :class="playerBackgroundColorClass(headerColor)"
-      class="flex items-center justify-center gap-2 px-3 py-2.5"
+      class="flex items-center justify-center gap-2 border-b-2 px-3 py-2.5"
+      :class="[
+        playerBackgroundColorClass(headerColor),
+        isMyTurn ? 'border-gold-dark' : 'border-transparent',
+      ]"
     >
       <UIcon
         :name="gameBoard.gameIsEnded ? 'i-lucide-crown' : 'i-lucide-footprints'"
@@ -15,6 +18,12 @@
       >
         {{ gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel }}
       </span>
+      <span
+        v-if="isMyTurn"
+        :data-testid="TEST_IDS.gameStatsTurnBadge"
+        class="stats-turn-pulse ml-1 h-2.5 w-2.5 shrink-0 rounded-full bg-white shadow-soft"
+        aria-hidden="true"
+      ></span>
     </div>
 
     <div class="divide-y divide-border/70 px-2 py-1">
@@ -145,6 +154,11 @@ const currentPlayerLabel = computed(() =>
   props.gameBoard.isMyTurn
     ? 'Ваш ход'
     : (props.gameBoard.currentPlayer?.name ?? '')
+)
+
+/** Ход игрока: шапка панели отмечается, чтобы пропущенный ход был заметен. */
+const isMyTurn = computed(
+  () => props.gameBoard.isMyTurn && !props.gameBoard.gameIsEnded
 )
 
 const headerColor = computed(() => {

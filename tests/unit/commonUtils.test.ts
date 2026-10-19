@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clamp, pluralForm, throttle } from '@/utils/common'
+import { clamp, errorMessage, pluralForm, throttle } from '@/utils/common'
 
 /**
  * `pluralForm` разбирает числа для подписей вида «3 очка», поэтому проверяется
@@ -43,6 +43,29 @@ describe('clamp', () => {
     [3, 0, 3, 3],
   ])('clamp(%i, %i, %i) = %i', (value, min, max, expected) => {
     expect(clamp(value, min, max)).toBe(expected)
+  })
+})
+
+describe('errorMessage', () => {
+  it('берёт текст ошибки', () => {
+    expect(errorMessage(new Error('Невозможно разместить тайл'))).toBe(
+      'Невозможно разместить тайл'
+    )
+  })
+
+  it('берёт текст строки', () => {
+    expect(errorMessage('Сервер не ответил вовремя')).toBe(
+      'Сервер не ответил вовремя'
+    )
+  })
+
+  it.each([
+    [new Error(''), 'Запасной текст'],
+    ['', 'Запасной текст'],
+    [undefined, 'Запасной текст'],
+    [null, 'Запасной текст'],
+  ])('для %s без текста даёт запасной вариант', (error, expected) => {
+    expect(errorMessage(error, 'Запасной текст')).toBe(expected)
   })
 })
 

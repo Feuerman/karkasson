@@ -186,6 +186,54 @@
     }
   }
 
+  /* Подсветка клеток, где сервер разрешает поставить тайл: светлая рамка,
+     чтобы её нельзя было спутать с золотой подсветкой выбранной клетки */
+  @keyframes tile-available {
+    0%,
+    100% {
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.5),
+        0 0 10px 2px rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.7);
+    }
+  }
+
+  /* Выбранная клетка с «призраком» тайла: то же золотое свечение, но без
+     увеличения — иначе кнопки поворота внутри клетки дрожат и в них сложно
+     попасть пальцем */
+  @keyframes tile-selected {
+    0%,
+    100% {
+      box-shadow:
+        0 0 12px 3px rgba(255, 193, 90, 0.28),
+        0 0 30px 10px rgba(201, 153, 63, 0.16),
+        inset 0 0 0 1px rgba(255, 236, 190, 0.18);
+      border-color: rgba(255, 193, 90, 0.45);
+    }
+    50% {
+      box-shadow:
+        0 0 24px 9px rgba(255, 203, 118, 0.42),
+        0 0 58px 22px rgba(201, 153, 63, 0.26),
+        inset 0 0 0 1px rgba(255, 236, 190, 0.32);
+      border-color: rgba(255, 203, 118, 0.75);
+    }
+  }
+
+  /* Пульс шапки панели партии, когда ход перешёл к игроку */
+  @keyframes stats-turn-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(255, 214, 140, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 0 7px rgba(255, 214, 140, 0);
+    }
+  }
+
   /* Пульс «призрака» тайла на выбранной клетке: только свечение,
      без transform — масштаб превью задаётся инлайновым стилем */
   @keyframes tile-ghost-placed {
@@ -206,6 +254,19 @@
 /* Runtime-toggled highlight for the hovered/active board tile */
 @utility tile-pulse {
   animation: var(--animate-tile-pulse, tile-pulse 1.6s infinite ease-in-out);
+  transition-duration: 350ms;
+  z-index: 5;
+}
+
+/*
+ * Выбранная клетка с «призраком» тайла. Отличие от `tile-pulse` — нет
+ * увеличения: клетка с кнопками поворота не должна дрожать.
+ */
+@utility tile-selected {
+  animation: var(
+    --animate-tile-selected,
+    tile-selected 1.6s infinite ease-in-out
+  );
   transition-duration: 350ms;
   z-index: 5;
 }
@@ -232,6 +293,26 @@
     tile-conflict 1s infinite ease-in-out
   );
   z-index: 5;
+}
+
+/*
+ * Подсветка клеток, где сервер разрешает поставить тайл. Список таких клеток
+ * приходит с сервером, поэтому рамка — подсказка, а не правило размещения.
+ */
+@utility tile-available {
+  animation: var(
+    --animate-tile-available,
+    tile-available 2.4s infinite ease-in-out
+  );
+  z-index: 1;
+}
+
+/* Пульс шапки панели партии, когда ход перешёл к игроку */
+@utility stats-turn-pulse {
+  animation: var(
+    --animate-stats-turn-pulse,
+    stats-turn-pulse 1.8s infinite ease-in-out
+  );
 }
 
 /* «Призрак» текущего тайла поверх выбранной клетки:

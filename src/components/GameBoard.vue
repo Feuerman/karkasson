@@ -39,16 +39,19 @@
               gameBoard.tilePlacesStats?.[rowIndex]?.[tileIndex]
                 ? 'border-black/15'
                 : '',
-              hoveredTile?.rowIndex === rowIndex &&
-              hoveredTile?.tileIndex === tileIndex
-                ? 'tile-pulse'
+              isSelectedCell(rowIndex, tileIndex)
+                ? isGhostCell(rowIndex, tileIndex)
+                  ? 'tile-selected'
+                  : 'tile-pulse'
                 : '',
               conflictCells.has(`${rowIndex}:${tileIndex}`)
                 ? 'tile-conflict'
                 : '',
+              isAvailableCell(rowIndex, tileIndex) ? 'tile-available' : '',
             ]"
             :data-row-index="rowIndex"
             :data-tile-index="tileIndex"
+            :data-available="isAvailableCell(rowIndex, tileIndex) || undefined"
             :data-testid="boardCellTestId(rowIndex, tileIndex)"
             @click="handleTileClick(rowIndex, tileIndex)"
           >
@@ -63,23 +66,19 @@
             <div
               v-if="isGhostCell(rowIndex, tileIndex)"
               class="absolute inset-0"
-              @mouseenter="showRotateButtons"
-              @mouseleave="scheduleHideRotateButtons"
             >
               <div
                 v-if="tileIndex > 0"
-                class="absolute left-[-32px] top-1/2 -translate-y-1/2 transition-opacity duration-150"
-                :class="
-                  rotateButtonsVisible
-                    ? 'pointer-events-auto opacity-100'
-                    : 'pointer-events-none opacity-0'
-                "
+                class="absolute left-[-32px] top-1/2 -translate-y-1/2"
               >
                 <UButton
                   color="primary"
                   icon="i-lucide-rotate-ccw"
                   class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
                   :ui="{ leadingIcon: 'size-4' }"
+                  title="Повернуть тайл против часовой стрелки"
+                  aria-label="Повернуть тайл против часовой стрелки"
+                  :data-testid="TEST_IDS.cellRotateTileCounterclockwise"
                   @mousedown.stop
                   @click.stop.prevent="
                     rotateLocalTile(
@@ -98,18 +97,16 @@
               </div>
               <div
                 v-if="tileIndex < gridDimensions[0] - 1"
-                class="absolute right-[-32px] top-1/2 -translate-y-1/2 transition-opacity duration-150"
-                :class="
-                  rotateButtonsVisible
-                    ? 'pointer-events-auto opacity-100'
-                    : 'pointer-events-none opacity-0'
-                "
+                class="absolute right-[-32px] top-1/2 -translate-y-1/2"
               >
                 <UButton
                   color="primary"
                   icon="i-lucide-rotate-cw"
                   class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
                   :ui="{ leadingIcon: 'size-4' }"
+                  title="Повернуть тайл по часовой стрелке"
+                  aria-label="Повернуть тайл по часовой стрелке"
+                  :data-testid="TEST_IDS.cellRotateTileClockwise"
                   @mousedown.stop
                   @click.stop.prevent="
                     rotateLocalTile(
@@ -141,7 +138,17 @@
     class="fixed bottom-6 left-1/2 z-[3000] flex -translate-x-1/2 flex-col items-center gap-3"
   >
     <div
-      v-if="!hasSelectedCell"
+      v-if="placementError"
+      role="alert"
+      :data-testid="TEST_IDS.placementError"
+      class="max-w-[min(92vw,32rem)] rounded-xl border border-danger/70 bg-danger/15 px-4 py-2 text-sm leading-snug font-medium text-danger-dark shadow-soft backdrop-blur-sm"
+    >
+      <span class="flex items-start gap-2">
+        <UIcon name="i-lucide-alert-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+        <span>{{ placementError }}</span>
+      </span>
+    </div>
+    <div
       class="flex flex-col items-center gap-2"
       :data-testid="TEST_IDS.pendingTilePreview"
     >
@@ -153,6 +160,8 @@
             class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
             :ui="{ leadingIcon: 'size-4' }"
             title="Повернуть тайл против часовой стрелки"
+            aria-label="Повернуть тайл против часовой стрелки"
+            :data-testid="TEST_IDS.rotateTileCounterclockwise"
             @mousedown.stop
             @click.stop.prevent="
               rotateLocalTile(
@@ -179,6 +188,8 @@
             class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
             :ui="{ leadingIcon: 'size-4' }"
             title="Повернуть тайл по часовой стрелке"
+            aria-label="Повернуть тайл по часовой стрелке"
+            :data-testid="TEST_IDS.rotateTileClockwise"
             @mousedown.stop
             @click.stop.prevent="
               rotateLocalTile(localCurrentTile, RotationDirection.Clockwise)
@@ -189,7 +200,7 @@
       <span
         class="rounded-lg bg-black/50 px-3 py-1 text-xs font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
       >
-        Выберите клетку на поле
+        {{ placementHint }}
       </span>
     </div>
     <UButton
@@ -237,12 +248,14 @@ import GamePlacingFollowers from './GamePlacingFollowers.vue'
 import GamePrincessAndDragon from './GamePrincessAndDragon.vue'
 import TileView from './TileView.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
 import GameService, { SocketAckError } from '../modules/GameService'
-import { notifyError, throttle } from '../utils/common'
+import { errorMessage, notifyError, throttle } from '../utils/common'
 import notificationService from '../plugins/notification'
 import { boardCellTestId, TEST_IDS } from '../data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from '../utils/tiles'
 import { scrollToTile } from '../utils/board'
+import { boardCellKey, buildAvailableCells } from '../utils/availableCells'
 import { useBoardPan } from '../composables/useBoardPan'
 
 const props = defineProps<{
@@ -345,34 +358,6 @@ const conflictCells = computed(
 /** Выбрана ли клетка для размещения текущего тайла. */
 const hasSelectedCell = computed(() => hasPlacedPoint(hoveredTile.value))
 
-/**
- * Кнопки поворота показываются при наведении на превью тайла или сами кнопки.
- * Между кнопками и тайлом есть зазор, поэтому скрытие откладывается: иначе
- * указатель успевает покинуть область наведения раньше, чем попадёт на кнопку.
- */
-const ROTATE_BUTTONS_HIDE_DELAY = 250
-
-const rotateButtonsVisible = ref(false)
-let hideRotateButtonsTimeout: ReturnType<typeof setTimeout> | undefined
-
-const showRotateButtons = () => {
-  if (hideRotateButtonsTimeout !== undefined) {
-    clearTimeout(hideRotateButtonsTimeout)
-    hideRotateButtonsTimeout = undefined
-  }
-  rotateButtonsVisible.value = true
-}
-
-const scheduleHideRotateButtons = () => {
-  if (hideRotateButtonsTimeout !== undefined) {
-    clearTimeout(hideRotateButtonsTimeout)
-  }
-  hideRotateButtonsTimeout = setTimeout(() => {
-    hideRotateButtonsTimeout = undefined
-    rotateButtonsVisible.value = false
-  }, ROTATE_BUTTONS_HIDE_DELAY)
-}
-
 /** Панель размещения видна только в фазе раскладки тайла своего хода. */
 const canShowPlacementUi = computed(
   () =>
@@ -383,7 +368,36 @@ const canShowPlacementUi = computed(
     !gameBoard.value.gameIsEnded
 )
 
+/**
+ * Клетки, в которых сервер разрешает поставить тайл.
+ *
+ * Список приходит с сервером: подсветка помогает игроку выбрать место, но
+ * решение о размещении по-прежнему принимает сервер.
+ */
+const availableCells = computed(() =>
+  buildAvailableCells(gameBoard.value.availablePlacesTiles)
+)
+
 const localCurrentTile = ref<Tile | null>(null)
+
+/**
+ * Причина отказа размещения.
+ *
+ * Показывается рядом с кнопкой «Разместить» и держится до смены клетки или
+ * поворота тайла: всплывающее уведомление живёт несколько секунд, а причину
+ * отказа нужно прочитать спокойно.
+ */
+const placementError = ref('')
+
+const clearPlacementError = () => {
+  placementError.value = ''
+}
+
+const placementHint = computed(() =>
+  hasSelectedCell.value
+    ? 'Разместите тайл или поверните его'
+    : 'Выберите клетку на поле'
+)
 
 /** Превью рисуется прямо в выбранной клетке доски, поэтому двигается вместе с ней. */
 const isGhostCell = (rowIndex: number, tileIndex: number) =>
@@ -391,6 +405,22 @@ const isGhostCell = (rowIndex: number, tileIndex: number) =>
   hasSelectedCell.value &&
   hoveredTile.value.rowIndex === rowIndex &&
   hoveredTile.value.tileIndex === tileIndex
+
+/** Выбрана ли клетка доски игроком. */
+const isSelectedCell = (rowIndex: number, tileIndex: number): boolean =>
+  hoveredTile.value.rowIndex === rowIndex &&
+  hoveredTile.value.tileIndex === tileIndex
+
+/**
+ * Клетка, в которой сервер разрешает поставить тайл.
+ *
+ * Выбранная клетка из подсветки исключена: её и так отмечает «призрак» тайла.
+ */
+const isAvailableCell = (rowIndex: number, tileIndex: number): boolean =>
+  canShowPlacementUi.value &&
+  !gameBoard.value.tilePlacesStats?.[rowIndex]?.[tileIndex] &&
+  !isGhostCell(rowIndex, tileIndex) &&
+  availableCells.value.has(boardCellKey(rowIndex, tileIndex))
 
 const updateSelectedPlacingPoint = throttle(
   (value: { rowIndex: number; tileIndex: number }) => {
@@ -411,6 +441,7 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
     }
 
     placementConflicts.value = []
+    clearPlacementError()
     setHoveredTile({ rowIndex, tileIndex })
     updateSelectedPlacingPoint({ rowIndex, tileIndex })
   }
@@ -468,6 +499,7 @@ watch(
 
     if (isNewGame) {
       updateSelectedPlacingPoint.cancel()
+      clearPlacementError()
       if (gameBoard.dragonMove) setHoveredTile(gameBoard.dragonPosition)
       if (hasPlacedPoint(gameBoard.placingPoint)) {
         setHoveredTile(gameBoard.placingPoint)
@@ -479,6 +511,7 @@ watch(
     if (gameBoard.dragonMove) setHoveredTile(gameBoard.dragonPosition)
 
     if (!gameBoard.isMyTurn) {
+      clearPlacementError()
       followServerPlacingPoint(gameBoard.placingPoint)
       syncLocalTileIfDiffers(gameBoard.currentTile)
       return
@@ -486,8 +519,9 @@ watch(
 
     if (localCurrentTile.value?.id !== gameBoard.currentTile?.id) {
       syncLocalTile(gameBoard.currentTile)
-      // Новый тайл: прошлый выбор клетки неактуален, кнопки поворота и
-      // подсветка скрываются до нового выбора.
+      // Новый тайл: прошлый выбор клетки неактуален, поэтому «призрак» и
+      // причина отказа сбрасываются до нового выбора.
+      clearPlacementError()
       setHoveredTile(null)
     }
   },
@@ -497,6 +531,7 @@ watch(
 const rotateLocalTile = (tile: Tile | null, direction: RotationDirection) => {
   if (!tile) return
   placementConflicts.value = []
+  clearPlacementError()
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
   void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
@@ -517,18 +552,20 @@ const placeTile = async (
   placementConflicts.value = []
   try {
     await GameService.placeTile(tile, { rowIndex, tileIndex })
+    clearPlacementError()
   } catch (error: unknown) {
     if (error instanceof SocketAckError) {
       placementConflicts.value = error.conflicts
     }
+    placementError.value = errorMessage(
+      error,
+      'Произошла ошибка при размещении плитки'
+    )
     notifyError(error, 'Произошла ошибка при размещении плитки')
   }
 }
 
 onBeforeUnmount(() => {
   updateSelectedPlacingPoint.cancel()
-  if (hideRotateButtonsTimeout !== undefined) {
-    clearTimeout(hideRotateButtonsTimeout)
-  }
 })
 </script>

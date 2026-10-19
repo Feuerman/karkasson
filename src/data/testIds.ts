@@ -21,6 +21,12 @@ export const TEST_IDS = {
   boardCell: 'board-cell',
   pendingTilePreview: 'pending-tile-preview',
   placeTile: 'place-tile',
+  placementError: 'placement-error',
+  rotateTileClockwise: 'rotate-tile-clockwise',
+  rotateTileCounterclockwise: 'rotate-tile-counterclockwise',
+  cellRotateTileClockwise: 'cell-rotate-tile-clockwise',
+  cellRotateTileCounterclockwise: 'cell-rotate-tile-counterclockwise',
+  gameStatsTurnBadge: 'game-stats-turn-badge',
 } as const
 
 export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>
