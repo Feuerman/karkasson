@@ -15,11 +15,13 @@
         :is-creator="isLobbyCreator"
         :is-games-list-loading="isGamesListLoading"
         :pending-actions="pendingList"
+        :show-room="showRoom"
         :device-id="GameService.deviceId"
         @start-game="startGame"
         @rejoin-game="rejoinGame"
         @join-game="joinGame"
         @leave-game="leaveGame"
+        @back-to-list="backToList"
         @create-game="createGame"
         @add-player="addPlayer"
         @remove-player="removePlayer"
@@ -114,6 +116,14 @@ const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
 
 /**
+ * Показывать комнату, а не список партий.
+ *
+ * Игрок может остаться в комнате и вернуться к списку: слот при этом
+ * остаётся за ним, в отличие от выхода из комнаты.
+ */
+const showRoom = ref(false)
+
+/**
  * Панель итогов партии.
  *
  * Показывается один раз в конце партии; её можно закрыть, чтобы посмотреть
@@ -146,6 +156,7 @@ const onGameStart = (gameData: IGame) => {
 
   showLobby.value = false
   showResultPanel.value = false
+  showRoom.value = false
 
   if (gameData.id) {
     handleGameCreated(gameData.id)
@@ -196,12 +207,23 @@ const getGamesList = async () => {
  * иначе остаёмся в лобби комнаты.
  */
 const enterGame = (game: IGame) => {
+  showRoom.value = true
   if (game.gameIsStarted) {
     showLobby.value = false
     return
   }
   currentGame.value = game
   playersList.value = game.players
+}
+
+/**
+ * Возврат к списку партий без выхода из комнаты.
+ *
+ * Слот остаётся за игроком, поэтому в комнату можно вернуться из списка.
+ */
+const backToList = () => {
+  showRoom.value = false
+  getGamesList()
 }
 
 const joinGame = async (gameId: string) => {
@@ -231,6 +253,7 @@ const clearSession = () => {
   currentGame.value = null
   previousIsMyTurn.value = null
   showResultPanel.value = false
+  showRoom.value = false
 }
 
 const leaveGame = async () => {
@@ -265,6 +288,7 @@ const createGame = async (options: CreateGameOptions) => {
       const game = await GameService.createGame(options)
       currentGame.value = game
       playersList.value = game.players
+      showRoom.value = true
     } catch (error) {
       notifyError(error)
     }

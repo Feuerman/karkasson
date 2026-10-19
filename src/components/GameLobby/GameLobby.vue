@@ -6,7 +6,7 @@
 
     <!-- Лобби: выбор игры -->
     <div
-      v-if="!currentGame?.id"
+      v-if="!currentGame?.id || !showRoom"
       class="panel-parchment animate-fade-rise my-auto w-full max-w-[880px] p-5 sm:p-7"
     >
       <LobbyHeader
@@ -165,7 +165,7 @@
 
     <!-- Лобби: готовность к старту -->
     <div
-      v-if="currentGame?.id"
+      v-if="currentGame?.id && showRoom"
       class="panel-parchment animate-fade-rise my-auto mt-8 w-full max-w-[680px] p-5 sm:p-7"
     >
       <LobbyHeader
@@ -175,6 +175,22 @@
         size="md"
         :data-testid="TEST_IDS.lobbyRoomHeading"
       />
+
+      <div class="flex justify-center">
+        <button
+          type="button"
+          class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gold-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-gold/15"
+          :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
+          :data-testid="TEST_IDS.lobbyCopyRoomCode"
+          @click="copyRoomCode"
+        >
+          <UIcon
+            :name="copied ? 'i-lucide-check' : 'i-lucide-copy'"
+            class="h-4 w-4"
+          />
+          {{ copied ? 'Номер скопирован' : 'Скопировать номер' }}
+        </button>
+      </div>
 
       <div class="mt-3">
         <RuleStatusLine
@@ -192,27 +208,61 @@
       />
 
       <div v-else class="flex flex-col items-center">
-        <div class="my-4 mb-6 grid w-full max-w-[500px] grid-cols-1 gap-3">
-          <PlayerSlot
-            v-for="(player, index) in players"
-            :key="player.id"
-            :player="player"
-            :index="index"
-            :device-id="deviceId"
-            :pending="isSlotPending(index)"
-            @toggle-checkbox="toggleCheckbox"
-            @name-input="currentPlayerName = $event"
-            @toggle-button="toggleButton"
-          />
+        <div class="my-4 mb-6 flex w-full max-w-[500px] flex-col gap-5">
+          <section v-if="occupiedSlots.length" class="flex flex-col gap-3">
+            <h4
+              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
+            >
+              Игроки
+            </h4>
+            <PlayerSlot
+              v-for="slot in occupiedSlots"
+              :key="slot.index"
+              :player="slot.player"
+              :index="slot.index"
+              :device-id="deviceId"
+              :pending="isSlotPending(slot.index)"
+              @toggle-checkbox="toggleCheckbox"
+              @name-input="currentPlayerName = $event"
+              @toggle-button="toggleButton"
+            />
+          </section>
+
+          <section v-if="freeSlots.length" class="flex flex-col gap-3">
+            <h4
+              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
+            >
+              Свободные слоты
+            </h4>
+            <PlayerSlot
+              v-for="slot in freeSlots"
+              :key="slot.index"
+              :player="slot.player"
+              :index="slot.index"
+              :device-id="deviceId"
+              :pending="isSlotPending(slot.index)"
+              @toggle-checkbox="toggleCheckbox"
+              @name-input="currentPlayerName = $event"
+              @toggle-button="toggleButton"
+            />
+          </section>
         </div>
 
         <div class="mt-2 flex flex-wrap justify-center gap-4">
           <UButton
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             :loading="isLeaveGamePending"
+            :data-testid="TEST_IDS.lobbyLeaveRoom"
             @click="emit('leaveGame')"
           >
-            Отключиться
+            Выйти из комнаты
+          </UButton>
+          <UButton
+            class="btn-secondary min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
+            :data-testid="TEST_IDS.lobbyBackToList"
+            @click="emit('backToList')"
+          >
+            Назад к списку
           </UButton>
           <UButton
             v-if="isCreator"
@@ -231,10 +281,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
+import { copyToClipboard } from '@/utils/clipboard'
 import type { IGame, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -260,6 +311,8 @@ const props = withDefaults(
     isConnected?: boolean
     isCreator?: boolean
     isGamesListLoading?: boolean
+    /** Показывать комнату, а не список партий. */
+    showRoom?: boolean
     /** Ключи команд, ожидающих ответа сервера: показываем индикатор занятости. */
     pendingActions?: string[]
     deviceId?: string
@@ -271,6 +324,7 @@ const props = withDefaults(
     isConnected: false,
     isCreator: false,
     isGamesListLoading: false,
+    showRoom: false,
     pendingActions: () => [],
     deviceId: '',
   }
@@ -281,10 +335,48 @@ const emit = defineEmits<{
   joinGame: [gameId: string]
   rejoinGame: [gameId: string]
   leaveGame: []
+  backToList: []
   addPlayer: [name: string, index: number]
   removePlayer: [index: number, keepAsComputer: boolean]
   startGame: []
 }>()
+
+/** Слоты с игроками и свободные слоты: показываются отдельными списками. */
+const slotsWithIndex = computed(() =>
+  props.players.map((player, index) => ({ player, index }))
+)
+
+const occupiedSlots = computed(() =>
+  slotsWithIndex.value.filter(({ player }) => Boolean(player.name))
+)
+
+const freeSlots = computed(() =>
+  slotsWithIndex.value.filter(({ player }) => !player.name)
+)
+
+/** Номер комнаты только что скопирован. */
+const copied = ref(false)
+
+let copiedTimeout: ReturnType<typeof setTimeout> | undefined
+
+const copyRoomCode = async () => {
+  const roomCode = props.currentGame?.roomCode ?? ''
+  if (!roomCode) return
+
+  const copiedSuccessfully = await copyToClipboard(roomCode)
+  if (!copiedSuccessfully) return
+
+  copied.value = true
+  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
+  copiedTimeout = setTimeout(() => {
+    copied.value = false
+    copiedTimeout = undefined
+  }, 2000)
+}
+
+onBeforeUnmount(() => {
+  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
+})
 
 const activeGameRules = computed(() => {
   const game = props.currentGame
