@@ -55,6 +55,7 @@
           <input
             v-model="roomCodeSearch"
             :data-testid="TEST_IDS.lobbyRoomSearch"
+            :disabled="isRoomCodeJoinPending"
             type="search"
             inputmode="numeric"
             autocomplete="off"
@@ -84,6 +85,7 @@
               :key="game.id"
               :game="game"
               :device-id="deviceId"
+              :pending="isGamePending(game)"
               @join="joinGame"
               @rejoin="rejoinGame"
             />
@@ -143,6 +145,7 @@
             color="neutral"
             variant="outline"
             class="cursor-pointer"
+            :disabled="isCreateGamePending"
             @click="isCreateGameModalOpen = false"
           >
             Отмена
@@ -150,6 +153,7 @@
           <UButton
             color="primary"
             :data-testid="TEST_IDS.createGameSubmit"
+            :loading="isCreateGamePending"
             class="btn-primary-action cursor-pointer"
             @click="createGame"
           >
@@ -195,6 +199,7 @@
             :player="player"
             :index="index"
             :device-id="deviceId"
+            :pending="isSlotPending(index)"
             @toggle-checkbox="toggleCheckbox"
             @name-input="currentPlayerName = $event"
             @toggle-button="toggleButton"
@@ -204,6 +209,7 @@
         <div class="mt-2 flex flex-wrap justify-center gap-4">
           <UButton
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
+            :loading="isLeaveGamePending"
             @click="emit('leaveGame')"
           >
             Отключиться
@@ -212,6 +218,8 @@
             v-if="isCreator"
             :data-testid="TEST_IDS.lobbyStartGame"
             class="btn-stone min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
+            :loading="isStartGamePending"
+            :disabled="isStartGamePending"
             @click="emit('startGame')"
           >
             Начать игру
@@ -223,9 +231,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
+import { pendingActionKeys } from '@/composables/usePendingActions'
 import type { IGame, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -240,6 +249,7 @@ import OptionToggle from './internal/OptionToggle.vue'
 import GameCard from './internal/GameCard.vue'
 import PlayerSlot from './internal/PlayerSlot.vue'
 import RuleStatusLine from './internal/RuleStatusLine.vue'
+import { isRejoinable } from './internal/helpers'
 
 const props = withDefaults(
   defineProps<{
@@ -250,6 +260,8 @@ const props = withDefaults(
     isConnected?: boolean
     isCreator?: boolean
     isGamesListLoading?: boolean
+    /** Ключи команд, ожидающих ответа сервера: показываем индикатор занятости. */
+    pendingActions?: string[]
     deviceId?: string
   }>(),
   {
@@ -259,6 +271,7 @@ const props = withDefaults(
     isConnected: false,
     isCreator: false,
     isGamesListLoading: false,
+    pendingActions: () => [],
     deviceId: '',
   }
 )
@@ -311,6 +324,40 @@ const princessAndDragonEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 
+const isPendingAction = (key: string) => props.pendingActions.includes(key)
+
+const isSlotPending = (index: number) =>
+  isPendingAction(pendingActionKeys.slot(index))
+
+const isCreateGamePending = computed(() =>
+  isPendingAction(pendingActionKeys.createGame())
+)
+
+const isStartGamePending = computed(() =>
+  isPendingAction(pendingActionKeys.startGame())
+)
+
+const isLeaveGamePending = computed(() =>
+  isPendingAction(pendingActionKeys.leaveGame())
+)
+
+const gameJoinKey = (game: LobbyGame) =>
+  isRejoinable(game, props.deviceId)
+    ? pendingActionKeys.rejoinGame(game.id ?? '')
+    : pendingActionKeys.joinGame(game.id ?? '')
+
+const isGamePending = (game: LobbyGame) => isPendingAction(gameJoinKey(game))
+
+const isRoomCodeJoinPending = computed(() =>
+  isPendingAction(pendingActionKeys.joinGame(roomCodeSearch.value.trim()))
+)
+
+// Модалка создания игры закрывается по ответу сервера, а не сразу: пока
+// команда выполняется, окно остаётся открытым с индикатором на кнопке.
+watch(isCreateGamePending, (pending) => {
+  if (!pending) isCreateGameModalOpen.value = false
+})
+
 const computedGamesList = computed<LobbyGame[]>(() =>
   (showEndedGames.value
     ? props.gamesList
@@ -321,12 +368,13 @@ const computedGamesList = computed<LobbyGame[]>(() =>
 )
 
 function joinByRoomCode() {
+  if (isRoomCodeJoinPending.value) return
   const roomCode = roomCodeSearch.value.trim()
   if (/^\d{6}$/.test(roomCode)) emit('joinGame', roomCode)
 }
 
 function createGame() {
-  isCreateGameModalOpen.value = false
+  if (isCreateGamePending.value) return
   emit('createGame', {
     finalScoringEnabled: finalScoringEnabled.value,
     innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,

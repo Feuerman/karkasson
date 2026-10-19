@@ -70,10 +70,15 @@
     <UButton
       class="flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-gold-dark/60 bg-gold/15 text-center text-base leading-tight font-semibold text-[#fff2d2] hover:bg-gold/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:w-[180px]"
       color="neutral"
+      :loading="pending"
       @click="onJoin"
     >
       <template #leading>
-        <UIcon :name="joinButtonIcon(game)" class="h-[18px] w-[18px]" />
+        <UIcon
+          :name="joinButtonIcon(game)"
+          class="h-[18px] w-[18px]"
+          :class="pending ? 'invisible' : ''"
+        />
       </template>
       {{ joinButtonLabel(game) }}
     </UButton>
@@ -89,10 +94,15 @@ import { playerBackgroundColorClass } from '@/utils/colors'
 import GameStatus from './GameStatus.vue'
 import { isRejoinable, joinButtonIcon, joinButtonLabel } from './helpers'
 
-const props = defineProps<{
-  game: LobbyGame
-  deviceId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    game: LobbyGame
+    deviceId: string
+    /** Команта входа или переподключения ожидает ответа сервера. */
+    pending?: boolean
+  }>(),
+  { pending: false }
+)
 
 const lobbyName = computed(
   () => props.game.players.find((player) => player.name)?.name ?? 'Каркассон'
@@ -119,7 +129,7 @@ const emit = defineEmits<{
 }>()
 
 const onJoin = () => {
-  if (!props.game.id) return
+  if (!props.game.id || props.pending) return
   if (isRejoinable(props.game, props.deviceId)) {
     emit('rejoin', props.game.id)
   } else {

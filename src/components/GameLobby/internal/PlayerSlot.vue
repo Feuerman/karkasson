@@ -6,7 +6,7 @@
       :class="playerTextColorClass(player.color)"
       :data-testid="TEST_IDS.playerSlotCheckbox"
       :model-value="Boolean(player.name)"
-      :disabled="checkboxDisabled"
+      :disabled="checkboxDisabled || pending"
       @update:model-value="emit('toggleCheckbox', player, index)"
     />
 
@@ -35,6 +35,7 @@
         'flex min-h-10 w-[150px] shrink-0 items-center justify-center whitespace-nowrap px-4 text-center text-base leading-tight font-semibold text-text',
         canToggle ? '' : 'invisible',
       ]"
+      :disabled="pending"
       :ui="{
         base:
           'border-2 ' +
@@ -42,7 +43,14 @@
       }"
       @click="emit('toggleButton', player, index)"
     >
-      {{ player.socketId ? 'Освободить' : 'Занять' }}
+      <UIcon
+        v-if="pending"
+        name="i-lucide-loader-circle"
+        class="h-5 w-5 animate-spin"
+      />
+      <template v-else>
+        {{ player.socketId ? 'Освободить' : 'Занять' }}
+      </template>
     </UButton>
   </div>
 </template>
@@ -51,17 +59,23 @@
 import { computed } from 'vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
 import UInput from '@nuxt/ui/components/Input.vue'
 import type { Player } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
 import { canToggleSlot } from './helpers'
 
-const props = defineProps<{
-  player: Player
-  index: number
-  deviceId: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    player: Player
+    index: number
+    deviceId: string
+    /** Слот занят командой, ожидающей ответа сервера. */
+    pending?: boolean
+  }>(),
+  { pending: false }
+)
 
 const emit = defineEmits<{
   toggleCheckbox: [player: Player, index: number]
@@ -69,8 +83,11 @@ const emit = defineEmits<{
   toggleButton: [player: Player, index: number]
 }>()
 
-const checkboxDisabled = computed(() =>
-  Boolean(props.player.socketId && props.player.deviceId !== props.deviceId)
+const checkboxDisabled = computed(
+  () =>
+    Boolean(
+      props.player.socketId && props.player.deviceId !== props.deviceId
+    ) || props.pending
 )
 
 const canToggle = computed(() => canToggleSlot(props.player, props.deviceId))
