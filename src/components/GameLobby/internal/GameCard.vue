@@ -10,11 +10,22 @@
         </span>
       </div>
 
-      <span
-        class="rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-sm tracking-widest text-gold"
-        :aria-label="`Номер комнаты ${game.roomCode}`"
+      <button
+        type="button"
+        class="cursor-pointer rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-sm tracking-widest text-gold transition-colors hover:bg-gold/25"
+        :aria-label="`Скопировать номер комнаты ${game.roomCode}`"
+        :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
+        :data-testid="TEST_IDS.lobbyCardCopyRoomCode"
+        @click.stop="copyRoomCode"
       >
         № {{ game.roomCode }}
+      </button>
+
+      <span
+        v-if="copied"
+        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+      >
+        Скопировано
       </span>
 
       <span
@@ -30,6 +41,15 @@
         {{ game.players?.length }}
       </div>
 
+      <span
+        class="flex items-center gap-1.5 text-sm text-[#d9c9a3]"
+        :title="`Обновлено ${updatedText}`"
+        data-testid="lobbyCardUpdated"
+      >
+        <UIcon name="i-lucide-clock" class="h-4 w-4 text-gold" />
+        {{ updatedText }}
+      </span>
+
       <GameStatus :game="game" />
       <span
         v-if="game.rules?.expansions.innsAndCathedrals"
@@ -42,6 +62,13 @@
         class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
       >
         Река
+      </span>
+      <span
+        v-if="game.rules?.expansions.princessAndDragon"
+        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+        data-testid="lobbyCardPrincessDragon"
+      >
+        Принцесса и дракон
       </span>
     </div>
 
@@ -88,9 +115,12 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import type { LobbyGame } from '@/types/game'
 import { playerBackgroundColorClass } from '@/utils/colors'
+import { copyToClipboard } from '@/utils/clipboard'
+import { formatRelativeTime } from '@/utils/time'
+import { TEST_IDS } from '@/data/testIds'
 import GameStatus from './GameStatus.vue'
 import { isRejoinable, joinButtonIcon, joinButtonLabel } from './helpers'
 
@@ -98,7 +128,7 @@ const props = withDefaults(
   defineProps<{
     game: LobbyGame
     deviceId: string
-    /** Команта входа или переподключения ожидает ответа сервера. */
+    /** Команда входа или переподключения ожидает ответа сервера. */
     pending?: boolean
   }>(),
   { pending: false }
@@ -107,6 +137,28 @@ const props = withDefaults(
 const lobbyName = computed(
   () => props.game.players.find((player) => player.name)?.name ?? 'Каркассон'
 )
+
+/** Давность партии: видно, какая комната живая. */
+const updatedText = computed(() =>
+  formatRelativeTime(props.game.lastUpdate ?? 0)
+)
+
+/** Номер комнаты только что скопирован. */
+const copied = ref(false)
+
+let copiedTimeout: ReturnType<typeof setTimeout> | undefined
+
+const copyRoomCode = async () => {
+  const copiedSuccessfully = await copyToClipboard(props.game.roomCode)
+  if (!copiedSuccessfully) return
+
+  copied.value = true
+  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
+  copiedTimeout = setTimeout(() => {
+    copied.value = false
+    copiedTimeout = undefined
+  }, 2000)
+}
 
 /**
  * Счёт — запись по id игрока, а не по позиции в массиве, поэтому игрока ищем
@@ -127,6 +179,10 @@ const emit = defineEmits<{
   join: [gameId: string]
   rejoin: [gameId: string]
 }>()
+
+onBeforeUnmount(() => {
+  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
+})
 
 const onJoin = () => {
   if (!props.game.id || props.pending) return
