@@ -14,6 +14,7 @@
         :is-connected="GameService.isConnected.value"
         :is-creator="isLobbyCreator"
         :is-games-list-loading="isGamesListLoading"
+        :pending-actions="pendingList"
         :device-id="GameService.deviceId"
         @start-game="startGame"
         @rejoin-game="rejoinGame"
@@ -63,6 +64,10 @@ import { notifyError } from './utils/common'
 import GameLobby from './components/GameLobby'
 import GameService from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
+import {
+  pendingActionKeys,
+  usePendingActions,
+} from './composables/usePendingActions'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import { SocketEvents, type Player } from '@server/modules/types'
@@ -76,6 +81,9 @@ const gameState = ref<IGameBoard>({} as IGameBoard)
 
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
+
+/** Команды, ожидающие ответа сервера: индикаторы занятости в интерфейсе. */
+const { pendingList, runPending } = usePendingActions()
 
 /** Добавляет к серверному снимку локальный признак текущего хода. */
 const applyGameState = (game: IGame) => {
@@ -150,19 +158,23 @@ const enterGame = (game: IGame) => {
 }
 
 const joinGame = async (gameId: string) => {
-  try {
-    enterGame(await GameService.joinGame(gameId))
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.joinGame(gameId), async () => {
+    try {
+      enterGame(await GameService.joinGame(gameId))
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const rejoinGame = async (gameId: string) => {
-  try {
-    enterGame(await GameService.rejoinGame(gameId))
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.rejoinGame(gameId), async () => {
+    try {
+      enterGame(await GameService.rejoinGame(gameId))
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 /** Сбрасывает локальное состояние партии перед возвратом в лобби. */
@@ -173,59 +185,71 @@ const clearSession = () => {
 }
 
 const leaveGame = async () => {
-  try {
-    await GameService.leaveGame()
-    clearSession()
-    getGamesList()
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.leaveGame(), async () => {
+    try {
+      await GameService.leaveGame()
+      clearSession()
+      getGamesList()
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const goInLobby = async () => {
-  try {
-    await GameService.leaveGame()
-    clearSession()
-    showLobby.value = true
-    gameState.value = {} as IGameBoard
-    getGamesList()
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.leaveGame(), async () => {
+    try {
+      await GameService.leaveGame()
+      clearSession()
+      showLobby.value = true
+      gameState.value = {} as IGameBoard
+      getGamesList()
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const createGame = async (options: CreateGameOptions) => {
-  try {
-    const game = await GameService.createGame(options)
-    currentGame.value = game
-    playersList.value = game.players
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.createGame(), async () => {
+    try {
+      const game = await GameService.createGame(options)
+      currentGame.value = game
+      playersList.value = game.players
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const addPlayer = async (name: string, index: number) => {
-  try {
-    await GameService.addPlayer({ name, index })
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.slot(index), async () => {
+    try {
+      await GameService.addPlayer({ name, index })
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const removePlayer = async (index: number, keepAsComputer: boolean) => {
-  try {
-    await GameService.removePlayer(index, keepAsComputer)
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.slot(index), async () => {
+    try {
+      await GameService.removePlayer(index, keepAsComputer)
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const startGame = async () => {
-  try {
-    onGameStart(await GameService.startGame())
-  } catch (error) {
-    notifyError(error)
-  }
+  await runPending(pendingActionKeys.startGame(), async () => {
+    try {
+      onGameStart(await GameService.startGame())
+    } catch (error) {
+      notifyError(error)
+    }
+  })
 }
 
 const isLobbyCreator = computed(() => {
