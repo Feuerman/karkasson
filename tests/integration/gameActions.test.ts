@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
-import { GameErrors, LobbyErrors } from '@server/modules/errors'
+import { CommonErrors, GameErrors, LobbyErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { deserializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
@@ -156,7 +156,9 @@ describe('Действия в игре: валидация ходов', () => {
 
     expect(failure).toBeInstanceOf(Error)
     expect(failure.message).toContain(PLACEMENT_FAILURE_MESSAGE)
-    expect(failure.message).toMatch(/(север|восток|юг|запад) —/)
+    expect(failure.message).toMatch(
+      /(северной|восточной|южной|западной) стороне/
+    )
     expect(failure.message).toMatch(/(поле|дорога|город)/)
   })
 
@@ -216,7 +218,7 @@ describe('Действия в игре: валидация ходов', () => {
         rotation: move.tile.rotation,
         position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
       })
-    ).rejects.toThrow('storage unavailable')
+    ).rejects.toThrow(CommonErrors.InternalFailure)
 
     const current = running.handle.gameService.getGame(gameId)
     expect(current?.tilePlacesStats[move.rowIndex]?.[move.tileIndex]).toBe(
@@ -378,14 +380,14 @@ describe('Действия в игре: валидация ходов', () => {
         gameId,
         point: { rowIndex: 15, tileIndex: 16 },
       })
-    ).rejects.toThrow('storage unavailable')
+    ).rejects.toThrow(CommonErrors.InternalFailure)
 
     await expect(
       creator.emitAck(SocketEvents.UpdateCurrentTile, {
         gameId,
         rotation: 180,
       })
-    ).rejects.toThrow('storage unavailable')
+    ).rejects.toThrow(CommonErrors.InternalFailure)
 
     const after = running.handle.gameService.getGame(gameId)
     expect(after?.currentTile?.rotation).toBe(rotationBefore)

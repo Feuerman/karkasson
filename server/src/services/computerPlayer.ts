@@ -294,7 +294,7 @@ async function playComputerMove(
     return Boolean(nextPlayer && isComputerPlayer(nextPlayer))
   } catch (error) {
     game.copyStateFrom(previousState)
-    events.publishGameError(gameId, 'Error processing computer move')
+    events.publishGameError(gameId, 'Не удалось выполнить ход компьютера')
     throw error
   }
 }

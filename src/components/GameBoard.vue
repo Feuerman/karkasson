@@ -510,7 +510,7 @@ const placeTile = async (
 ) => {
   if (!tile) return
   if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
-    notificationService.error('Выберите клетку для размещения')
+    notificationService.warning('Сначала выберите клетку для размещения')
     return
   }
 

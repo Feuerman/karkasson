@@ -174,8 +174,9 @@ describe('Описание причины отказа в размещении',
     const message = describePlacementConflicts([northConflict, eastConflict])
 
     expect(message).toBe(
-      `${PLACEMENT_FAILURE_MESSAGE}: север — поле, а у соседа с юга — город; ` +
-        'восток — дорога, а у соседа с запада — поле.'
+      `${PLACEMENT_FAILURE_MESSAGE}: на северной стороне у вас — поле, ` +
+        'а у соседнего тайла на юге — город; ' +
+        'на восточной стороне у вас — дорога, а у соседнего тайла на западе — поле.'
     )
   })
 })
@@ -191,7 +192,8 @@ describe('Описание причины отказа по реке', () => {
     const message = describePlacementFailure(conflicts)
 
     expect(message).toBe(
-      `${PLACEMENT_FAILURE_MESSAGE}: север — поле, а у соседа с юга — город.`
+      `${PLACEMENT_FAILURE_MESSAGE}: на северной стороне у вас — поле, ` +
+        'а у соседнего тайла на юге — город.'
     )
   })
 
@@ -224,7 +226,7 @@ describe('Описание причины отказа по реке', () => {
 
     expect(message.startsWith(PLACEMENT_FAILURE_MESSAGE)).toBe(true)
     expect(message).toBe(
-      `${PLACEMENT_FAILURE_MESSAGE}: река — незакрытый конец русла у соседнего тайла.`
+      `${PLACEMENT_FAILURE_MESSAGE}: река — у соседнего тайла остался незакрытый конец русла.`
     )
   })
 

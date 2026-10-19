@@ -2,9 +2,9 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type { GameService } from '../../services/GameService'
 import { CommonErrors, GameErrors } from '../../modules/errors'
 import type { SocketEvent } from '../../modules/types'
-import { getErrorMessage } from '../../utils/common'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback, SocketHandlerContext } from '../types'
+import { toPlayerErrorMessage } from './playerErrors'
 import { ackGameUpdated } from './shared'
 
 const logger = createLogger('gameCommand')
@@ -117,7 +117,7 @@ export async function runGameCommand(
       game.copyStateFrom(previousState)
       logger.error(`Ошибка команды ${command}:`, error)
       callback?.({
-        error: getErrorMessage(error),
+        error: toPlayerErrorMessage(error),
         ...commandErrorDetails(error),
       })
     }

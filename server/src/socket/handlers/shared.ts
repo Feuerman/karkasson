@@ -1,9 +1,9 @@
 import type { IGameBoard } from '../../modules/GameManager'
 import type { GameService } from '../../services/GameService'
 import type { GameEventsPublisher } from '../../services/gameEvents'
-import { getErrorMessage } from '../../utils/common'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback } from '../types'
+import { toPlayerErrorMessage } from './playerErrors'
 
 const logger = createLogger('socket')
 
@@ -35,6 +35,6 @@ export function runLobbyCommand(
 ): Promise<void> {
   return execute().catch((error: unknown) => {
     logger.error('Lobby command failed:', error)
-    callback?.({ error: getErrorMessage(error) })
+    callback?.({ error: toPlayerErrorMessage(error) })
   })
 }

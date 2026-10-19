@@ -17,20 +17,20 @@ import {
 } from '../../modules/types'
 
 export const PLACEMENT_FAILURE_MESSAGE =
-  'Невозможно разместить тайл на данной позиции'
+  'Невозможно разместить тайл на этой позиции'
 
-const SIDE_LABELS: Record<SideName, string> = {
-  [SideName.North]: 'север',
-  [SideName.East]: 'восток',
-  [SideName.South]: 'юг',
-  [SideName.West]: 'запад',
+const SIDE_LOCATIVE_LABELS: Record<SideName, string> = {
+  [SideName.North]: 'северной стороне',
+  [SideName.East]: 'восточной стороне',
+  [SideName.South]: 'южной стороне',
+  [SideName.West]: 'западной стороне',
 }
 
-const SIDE_GENITIVE_LABELS: Record<SideName, string> = {
-  [SideName.North]: 'севера',
-  [SideName.East]: 'востока',
-  [SideName.South]: 'юга',
-  [SideName.West]: 'запада',
+const SIDE_ON_LABELS: Record<SideName, string> = {
+  [SideName.North]: 'севере',
+  [SideName.East]: 'востоке',
+  [SideName.South]: 'юге',
+  [SideName.West]: 'западе',
 }
 
 const SIDE_TYPE_LABELS: Record<TileSideType, string> = {
@@ -48,8 +48,9 @@ export function describePlacementConflicts(
   const details = conflicts
     .map(
       ({ side, own, adjacent }) =>
-        `${SIDE_LABELS[side]} — ${SIDE_TYPE_LABELS[own]}, а у соседа с ` +
-        `${SIDE_GENITIVE_LABELS[OPPOSITE_SIDE[side]]} — ` +
+        `на ${SIDE_LOCATIVE_LABELS[side]} у вас — ${SIDE_TYPE_LABELS[own]}, ` +
+        `а у соседнего тайла на ` +
+        `${SIDE_ON_LABELS[OPPOSITE_SIDE[side]]} — ` +
         `${SIDE_TYPE_LABELS[adjacent]}`
     )
     .join('; ')
@@ -63,10 +64,10 @@ export function describeRiverConflict(
 ): string {
   const detail =
     conflict.reason === 'openEnd'
-      ? 'река — незакрытый конец русла у соседнего тайла'
-      : 'река — русло этого тайла выходит не в ту сторону'
+      ? 'у соседнего тайла остался незакрытый конец русла'
+      : 'русло этого тайла выходит не в ту сторону'
 
-  return `${PLACEMENT_FAILURE_MESSAGE}: ${detail}.`
+  return `${PLACEMENT_FAILURE_MESSAGE}: река — ${detail}.`
 }
 
 /** Сообщение о причине неудачного размещения по конфликтам диагностики. */
