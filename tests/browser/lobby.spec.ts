@@ -64,7 +64,7 @@ test('игрок создаёт лобби, занимает слот и нач�
     await expect(roomHeading).toContainText(/Комната № \d{6}/)
     await expect(
       page.getByTestId(TEST_IDS.lobbyPrincessDragonStatus)
-    ).toContainText('включены')
+    ).toContainText('вкл')
     await expect.poll(() => gameServer.gameService.allGames().length).toBe(1)
     expect(gameServer.gameService.allGames()[0]?.finalScoringEnabled).toBe(true)
     expect(
