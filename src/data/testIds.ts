@@ -35,6 +35,11 @@ export const TEST_IDS = {
   zoomIn: 'zoom-in',
   zoomOut: 'zoom-out',
   zoomValue: 'zoom-value',
+  gameResultOverlay: 'game-result-overlay',
+  gameResultRow: 'game-result-row',
+  gameResultClose: 'game-result-close',
+  gameResultGoLobby: 'game-result-go-lobby',
+  gameResultPlayAgain: 'game-result-play-again',
 } as const
 
 export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>
