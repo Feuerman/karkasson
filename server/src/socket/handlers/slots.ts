@@ -1,7 +1,6 @@
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
-import { getErrorMessage } from '../../utils/common'
 import { ackGameUpdated, runLobbyCommand } from './shared'
 
 /** Снимок списка игроков для отката неудачного изменения слота. */
@@ -50,7 +49,7 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
         } catch (error) {
           currentGame.players = previousPlayers
           callback?.({
-            error: getErrorMessage(error),
+            error: CommonErrors.SaveFailed,
           })
           return
         }
@@ -87,7 +86,7 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
         } catch (error) {
           currentGame.players = previousPlayers
           callback?.({
-            error: getErrorMessage(error),
+            error: CommonErrors.SaveFailed,
           })
           return
         }

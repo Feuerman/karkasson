@@ -7,7 +7,6 @@ import type { IGameBoard } from '../../modules/GameManager'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
-import { getErrorMessage } from '../../utils/common'
 import { ackGameUpdated, runLobbyCommand } from './shared'
 
 function isComputerOnlyGame(game: IGameBoard): boolean {
@@ -84,7 +83,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         } catch (error) {
           await service.deleteGame(game.id)
           callback?.({
-            error: getErrorMessage(error),
+            error: CommonErrors.SaveFailed,
           })
           return
         }
@@ -146,7 +145,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           service.releasePlayerSlot(resolvedGameId, socket.id)
           await socket.leave(resolvedGameId)
           callback?.({
-            error: getErrorMessage(error),
+            error: CommonErrors.SaveFailed,
           })
           return
         }
@@ -183,7 +182,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         } catch (error) {
           service.restoreGame(gameId, previousGame)
           callback?.({
-            error: getErrorMessage(error),
+            error: CommonErrors.SaveFailed,
           })
           return
         }
@@ -215,7 +214,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
               await service.deleteGame(gameId)
             } catch (error) {
               callback?.({
-                error: getErrorMessage(error),
+                error: CommonErrors.SaveFailed,
               })
               return
             }

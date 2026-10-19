@@ -130,7 +130,7 @@ export class GameService implements IGameService {
       this.pendingAcks.add(cancel)
 
       const timeout = setTimeout(() => {
-        cancel(new Error(`Таймаут ожидания ответа сервера: ${event}`))
+        cancel(new Error('Сервер не ответил вовремя. Повторите действие'))
       }, SOCKET_ACK_TIMEOUT_MS)
 
       const callback = (response: SocketAck) => {

@@ -4,9 +4,9 @@ export const notifyError = (
   error: unknown,
   fallbackMessage = 'Произошла ошибка'
 ): void => {
-  if (error instanceof Error) {
+  if (error instanceof Error && error.message) {
     notificationService.error(error.message)
-  } else if (typeof error === 'string') {
+  } else if (typeof error === 'string' && error) {
     notificationService.error(error)
   } else {
     notificationService.error(fallbackMessage)

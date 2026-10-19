@@ -195,7 +195,7 @@ describe('Размещение фишек', () => {
     const running = server
     if (!running) throw new Error('Сервер не запущен')
     const liveGame = running.handle.gameService.getGame(gameId)
-    if (!liveGame) throw new Error('Партия не найдена')
+    if (!liveGame) throw new Error('Партия не найдена в тесте')
 
     // Обычные подданные Алисы исчерпаны, аббат всё ещё в запасе, а тайл —
     // монастырь без сторон-объектов: сервер предложит только клетку-центр.

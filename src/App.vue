@@ -1,6 +1,5 @@
 <template>
-  <UApp class="h-full">
-    <UToaster />
+  <UApp class="h-full" :toaster="{ ui: { viewport: 'sm:w-[30rem]' } }">
     <ToastBridge />
     <div class="relative flex h-full flex-col bg-surface-muted text-text">
       <ReconnectingOverlay
@@ -59,7 +58,6 @@ import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
 import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import UApp from '@nuxt/ui/components/App.vue'
-import UToaster from '@nuxt/ui/components/Toaster.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError } from './utils/common'
 import GameLobby from './components/GameLobby'

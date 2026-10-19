@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GameErrors } from '@server/modules/errors'
+import { CommonErrors, GameErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
@@ -93,7 +93,7 @@ describe('Конкурентные команды одной партии', () =
       point,
     })
 
-    await expect(rotating).rejects.toThrow('storage unavailable')
+    await expect(rotating).rejects.toThrow(CommonErrors.InternalFailure)
     await expect(selecting).resolves.toMatchObject({ success: true })
     await gate
 
