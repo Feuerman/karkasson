@@ -1,17 +1,18 @@
 <template>
   <div
     ref="draggableElement"
-    class="absolute z-[2000] max-h-[90vh] touch-none will-change-transform"
+    class="absolute z-[2000] max-h-[90vh] touch-manipulation will-change-transform"
+    :data-draggable-id="draggableId"
     :class="
       isDragging
-        ? 'pointer-events-none transition-none'
+        ? 'pointer-events-none cursor-grabbing select-none transition-none'
         : [
             'pointer-events-auto transition-transform duration-200 ease',
             dragEnabled && !disabled ? 'cursor-grab' : '',
           ]
     "
     :style="dragStyle"
-    @mousedown="startDrag"
+    @pointerdown="startDrag"
   >
     <slot />
   </div>
@@ -20,6 +21,11 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { DraggableRegistry } from '@/modules/draggableRegistry'
+import {
+  panelLayoutVersion,
+  readSavedPanelLayout,
+  savePanelPosition,
+} from '@/modules/panelLayout'
 
 const props = withDefaults(
   defineProps<{
@@ -52,36 +58,90 @@ const elementOffset = ref({ x: 0, y: 0 })
 const draggableElement = ref<HTMLElement | null>(null)
 const elementSize = ref({ width: 0, height: 0 })
 
+let resizeObserver: ResizeObserver | null = null
+
+/**
+ * Место окна, к которому возвращается панель.
+ *
+ * Для панели у правого края это отступ от края окна, для остальных — исходные
+ * координаты, заданные компонентом.
+ */
+const initialPosition = (width: number): { x: number; y: number } => {
+  if (props.rightOffset === undefined) {
+    return { x: props.initialX, y: props.initialY }
+  }
+  return {
+    x: Math.max(16, window.innerWidth - width - props.rightOffset),
+    y: props.initialY,
+  }
+}
+
+/** Пересчитывает размер окна и обновляет его в реестре наложений. */
+const updateElementSize = () => {
+  const element = draggableElement.value
+  if (!element) return
+
+  const rect = element.getBoundingClientRect()
+  if (
+    rect.width === elementSize.value.width &&
+    rect.height === elementSize.value.height
+  ) {
+    return
+  }
+
+  elementSize.value = { width: rect.width, height: rect.height }
+  DraggableRegistry.register(props.draggableId, {
+    x: dragPosition.value.x,
+    y: dragPosition.value.y,
+    width: rect.width,
+    height: rect.height,
+  })
+}
+
 onMounted(async () => {
   await nextTick()
 
-  if (draggableElement.value) {
-    const rect = draggableElement.value.getBoundingClientRect()
-    elementSize.value = {
-      width: rect.width,
-      height: rect.height,
-    }
+  const element = draggableElement.value
+  if (!element) return
 
-    if (props.rightOffset !== undefined) {
-      dragPosition.value.x = Math.max(
-        16,
-        window.innerWidth - rect.width - props.rightOffset
-      )
-    }
+  const rect = element.getBoundingClientRect()
+  elementSize.value = {
+    width: rect.width,
+    height: rect.height,
+  }
 
-    dragPosition.value = DraggableRegistry.placeCollisionFree(
-      props.draggableId,
-      dragPosition.value.x,
-      dragPosition.value.y,
-      elementSize.value.width,
-      elementSize.value.height
-    )
+  // Сохранённое место применяется до расчёта наложений, иначе окна
+  // «прыгают» при загрузке страницы.
+  const savedPosition = readSavedPanelLayout().positions[props.draggableId]
+  if (savedPosition) {
+    dragPosition.value = { x: savedPosition.x, y: savedPosition.y }
+    isDetachedFromEdge.value = true
+  } else {
+    dragPosition.value = initialPosition(rect.width)
+  }
+
+  dragPosition.value = DraggableRegistry.placeCollisionFree(
+    props.draggableId,
+    dragPosition.value.x,
+    dragPosition.value.y,
+    elementSize.value.width,
+    elementSize.value.height
+  )
+
+  // Окно меняет размер, когда его сворачивают или разворачивают: реестр
+  // наложений должен знать актуальные размеры.
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(updateElementSize)
+    resizeObserver.observe(element)
   }
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousemove', onDragMove)
-  document.removeEventListener('mouseup', stopDrag)
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  document.removeEventListener('pointermove', onDragMove)
+  document.removeEventListener('pointerup', stopDrag)
+  document.removeEventListener('pointercancel', stopDrag)
   DraggableRegistry.unregister(props.draggableId)
 })
 
@@ -109,8 +169,29 @@ watch(
   }
 )
 
-const startDrag = (event: MouseEvent) => {
+// Сброс раскладки возвращает окна на исходные места.
+watch(panelLayoutVersion, () => {
+  const element = draggableElement.value
+  if (!element) return
+
+  const rect = element.getBoundingClientRect()
+  elementSize.value = { width: rect.width, height: rect.height }
+  isDetachedFromEdge.value = false
+
+  const position = initialPosition(rect.width)
+  dragPosition.value = DraggableRegistry.placeCollisionFree(
+    props.draggableId,
+    position.x,
+    position.y,
+    rect.width,
+    rect.height
+  )
+})
+
+const startDrag = (event: PointerEvent) => {
   if (!draggableElement.value || props.disabled || !props.dragEnabled) return
+  if (event.button !== 0) return
+  if (event.isPrimary === false) return
   if (
     event.target instanceof Element &&
     event.target.closest('button, a, input, textarea, select, [data-no-drag]')
@@ -128,11 +209,12 @@ const startDrag = (event: MouseEvent) => {
   }
   emit('drag-start', { x: dragPosition.value.x, y: dragPosition.value.y })
   event.preventDefault()
-  document.addEventListener('mousemove', onDragMove)
-  document.addEventListener('mouseup', stopDrag)
+  document.addEventListener('pointermove', onDragMove)
+  document.addEventListener('pointerup', stopDrag)
+  document.addEventListener('pointercancel', stopDrag)
 }
 
-const onDragMove = (event: MouseEvent) => {
+const onDragMove = (event: PointerEvent) => {
   if (!isDragging.value || !draggableElement.value) return
 
   let newX = elementOffset.value.x + (event.clientX - startPos.value.x)
@@ -159,24 +241,32 @@ const onDragMove = (event: MouseEvent) => {
 }
 
 const stopDrag = () => {
-  if (isDragging.value) {
-    isDragging.value = false
-    if (props.rightOffset !== undefined) isDetachedFromEdge.value = true
-    emit('drag-end', { x: dragPosition.value.x, y: dragPosition.value.y })
+  document.removeEventListener('pointermove', onDragMove)
+  document.removeEventListener('pointerup', stopDrag)
+  document.removeEventListener('pointercancel', stopDrag)
 
-    if (draggableElement.value) {
-      dragPosition.value = DraggableRegistry.placeCollisionFree(
-        props.draggableId,
-        dragPosition.value.x,
-        dragPosition.value.y,
-        elementSize.value.width,
-        elementSize.value.height
-      )
-    }
+  if (!isDragging.value) return
+
+  isDragging.value = false
+  if (props.rightOffset !== undefined) isDetachedFromEdge.value = true
+
+  if (draggableElement.value) {
+    dragPosition.value = DraggableRegistry.placeCollisionFree(
+      props.draggableId,
+      dragPosition.value.x,
+      dragPosition.value.y,
+      elementSize.value.width,
+      elementSize.value.height
+    )
   }
 
-  document.removeEventListener('mousemove', onDragMove)
-  document.removeEventListener('mouseup', stopDrag)
+  // Место окна запоминается: после перезагрузки окна будут здесь же.
+  savePanelPosition(props.draggableId, {
+    x: dragPosition.value.x,
+    y: dragPosition.value.y,
+  })
+
+  emit('drag-end', { x: dragPosition.value.x, y: dragPosition.value.y })
 }
 
 /**

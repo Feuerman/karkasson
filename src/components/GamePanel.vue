@@ -7,14 +7,26 @@
     :drag-enabled="dragEnabled"
   >
     <div class="panel-parchment text-text shadow-card" :class="surfaceClass">
-      <div v-if="icon && title" class="mb-2.5 flex items-center gap-2">
-        <UIcon :name="icon" class="h-5 w-5 text-gold-dark" />
-        <span class="title-medieval text-[1rem] leading-none">
+      <div
+        v-if="icon || title"
+        class="flex items-center gap-2"
+        :class="collapsed ? '' : 'mb-2.5'"
+      >
+        <UIcon v-if="icon" :name="icon" class="h-5 w-5 text-gold-dark" />
+        <span v-if="title" class="title-medieval text-[1rem] leading-none">
           {{ title }}
         </span>
+        <PanelCollapseButton
+          :panel-id="draggableId"
+          :collapsed="collapsed"
+          class="ml-auto"
+          @toggle="toggle"
+        />
       </div>
-      <slot name="header" />
-      <slot />
+      <slot name="header" :collapsed="collapsed" :toggle="toggle" />
+      <div v-show="!collapsed">
+        <slot />
+      </div>
     </div>
   </Draggable>
 </template>
@@ -22,10 +34,13 @@
 <script setup lang="ts">
 import Draggable from './Draggable.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
+import PanelCollapseButton from './PanelCollapseButton.vue'
 
 withDefaults(
   defineProps<{
     draggableId: string
+    /** Окно свёрнуто: показывается только заголовок. */
+    collapsed: boolean
     initialX?: number
     initialY?: number
     rightOffset?: number
@@ -44,4 +59,13 @@ withDefaults(
     surfaceClass: undefined,
   }
 )
+
+const emit = defineEmits<{
+  toggle: []
+}>()
+
+/** Просьба свернуть или развернуть окно. */
+const toggle = () => {
+  emit('toggle')
+}
 </script>

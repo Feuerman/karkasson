@@ -178,3 +178,50 @@ test('о возврате хода сообщает уведомление', asy
     await gameServer.close()
   }
 })
+
+test('доска управляется с клавиатуры', async ({ page }) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    await startSinglePlayerGame(page, frontend.url)
+
+    // Фокус стоит на клетке, стрелки перемещают его по доске.
+    await page.getByTestId(boardCellTestId(15, 15)).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          document.activeElement?.getAttribute('data-tile-index')
+        )
+      )
+      .toBe('16')
+
+    // Клавиша R поворачивает тайл.
+    const previewImage = page
+      .getByTestId(TEST_IDS.pendingTilePreview)
+      .locator('img')
+    await expect(previewImage).toHaveClass(/rotate-0/)
+    await page.keyboard.press('r')
+    await expect(previewImage).toHaveClass(/rotate-90/)
+
+    // Enter выбирает клетку под фокусом.
+    await page.keyboard.press('Enter')
+    await expect(
+      page.getByTestId(boardCellTestId(15, 16)).locator('.tile-ghost-placed')
+    ).toBeVisible()
+
+    // Escape снимает выбор.
+    await page.keyboard.press('Escape')
+    await expect(
+      page.getByTestId(boardCellTestId(15, 16)).locator('.tile-ghost-placed')
+    ).toHaveCount(0)
+  } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})

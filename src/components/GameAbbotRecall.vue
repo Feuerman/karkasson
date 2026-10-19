@@ -5,9 +5,11 @@
     :initial-x="initialX"
     :initial-y="16"
     :drag-enabled="dragEnabled"
+    :collapsed="collapsed"
     icon="i-lucide-church"
     title="Отзыв аббата"
     surface-class="min-w-[220px] max-w-[300px] p-3"
+    @toggle="toggle"
   >
     <p class="mb-2 text-[.9rem] leading-relaxed text-text-muted">
       Снять аббата с {{ abbotLocation }} и получить {{ potentialPoints }} очк{{
@@ -34,6 +36,7 @@ import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 import { notifyError, pluralForm } from '@/utils/common'
+import { usePanelCollapse } from '@/composables/usePanelCollapse'
 
 const props = defineProps({
   gameBoard: {
@@ -47,6 +50,9 @@ const props = defineProps({
 })
 
 const ABBOT_RECALL_PANEL_WIDTH = 260
+
+/** Окно можно свернуть, чтобы не закрывать доску. */
+const { collapsed, toggle } = usePanelCollapse('abbot-recall')
 
 // Ширина окна известна только после монтирования, поэтому панель центрируется
 // в `onMounted`, а не в момент создания компонента.

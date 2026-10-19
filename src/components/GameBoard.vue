@@ -12,10 +12,11 @@
   <GameAbbotRecall :game-board="gameBoard" :drag-enabled="layoutEditMode" />
   <div
     ref="boardRef"
-    class="board-surface min-h-0 w-full flex-1 select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+    class="board-surface min-h-0 w-full flex-1 touch-none select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
     :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
     @mousedown="onMouseDown"
     @click.capture="onClickCapture"
+    @keydown="onBoardKeyDown"
   >
     <div ref="sizeBoxRef">
       <div
@@ -33,7 +34,15 @@
           <div
             v-for="(_, tileIndex) in row"
             :key="tileIndex"
-            class="relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
+            :data-row-index="rowIndex"
+            :data-tile-index="tileIndex"
+            :data-available="isAvailableCell(rowIndex, tileIndex) || undefined"
+            :data-testid="boardCellTestId(rowIndex, tileIndex)"
+            role="button"
+            :tabindex="isFocusedCell(rowIndex, tileIndex) ? 0 : -1"
+            :aria-label="cellLabel(rowIndex, tileIndex)"
+            :aria-pressed="isSelectedCell(rowIndex, tileIndex)"
+            class="tile-keyboard-focus relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
             :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
             :class="[
               gameBoard.tilePlacesStats?.[rowIndex]?.[tileIndex]
@@ -49,10 +58,6 @@
                 : '',
               isAvailableCell(rowIndex, tileIndex) ? 'tile-available' : '',
             ]"
-            :data-row-index="rowIndex"
-            :data-tile-index="tileIndex"
-            :data-available="isAvailableCell(rowIndex, tileIndex) || undefined"
-            :data-testid="boardCellTestId(rowIndex, tileIndex)"
             @click="handleTileClick(rowIndex, tileIndex)"
           >
             <TileView
@@ -202,6 +207,11 @@
       >
         {{ placementHint }}
       </span>
+      <span
+        class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.7rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
+      >
+        Клавиши: R — повернуть, P — разместить, Esc — снять выбор
+      </span>
     </div>
     <UButton
       color="success"
@@ -278,7 +288,7 @@ import { errorMessage, notifyError, throttle } from '../utils/common'
 import notificationService from '../plugins/notification'
 import { boardCellTestId, TEST_IDS } from '../data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from '../utils/tiles'
-import { scrollToTile } from '../utils/board'
+import { findTileElement, scrollToTile } from '../utils/board'
 import { boardCellKey, buildAvailableCells } from '../utils/availableCells'
 import { useBoardPan } from '../composables/useBoardPan'
 
@@ -356,6 +366,45 @@ watch(
 
 /** Клетка доски: выбрана игроком или пришла с сервера. */
 const hoveredTile = ref<BoardCell>({})
+
+/**
+ * Клетка, на которой стоит фокус.
+ *
+ * Клеток на доске сотни, поэтому с клавиатуры доступна только одна: стрелки
+ * перемещают фокус, а Tab уводит дальше по странице.
+ */
+const focusedCell = ref({
+  rowIndex: Math.floor(BOARD_GRID_SIZE[1] / 2),
+  tileIndex: Math.floor(BOARD_GRID_SIZE[0] / 2),
+})
+
+/** Клетка под фокусом: по ней ходят стрелками. */
+const isFocusedCell = (rowIndex: number, tileIndex: number): boolean =>
+  focusedCell.value.rowIndex === rowIndex &&
+  focusedCell.value.tileIndex === tileIndex
+
+/** Подпись клетки для программ экранного чтения. */
+const cellLabel = (rowIndex: number, tileIndex: number): string => {
+  const isBusy = Boolean(
+    gameBoard.value.tilePlacesStats?.[rowIndex]?.[tileIndex]
+  )
+  return `Клетка ${rowIndex + 1}, ${tileIndex + 1}${isBusy ? ', занята' : ''}`
+}
+
+/** Ставит фокус на клетку и показывает её на экране. */
+const focusCell = (rowIndex: number, tileIndex: number) => {
+  const rows = gridDimensions.value[1]
+  const columns = gridDimensions.value[0]
+  const row = Math.min(Math.max(rowIndex, 0), rows - 1)
+  const column = Math.min(Math.max(tileIndex, 0), columns - 1)
+
+  focusedCell.value = { rowIndex: row, tileIndex: column }
+
+  const element = findTileElement(row, column)
+  if (!element) return
+  element.focus({ preventScroll: true })
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+}
 
 const setHoveredTile = (point?: BoardCell | null) => {
   hoveredTile.value = {
@@ -461,6 +510,9 @@ const updateSelectedPlacingPoint = throttle(
 )
 
 const handleTileClick = (rowIndex: number, tileIndex: number) => {
+  // Фокус идёт за выбором: с клавиатуры игрок продолжит с этой клетки.
+  focusCell(rowIndex, tileIndex)
+
   if (gameBoard.value.isMyTurn) {
     if (gameBoard.value.dragonMove) {
       void GameService.moveDragon({ rowIndex, tileIndex }).catch((error) => {
@@ -474,6 +526,80 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
     setHoveredTile({ rowIndex, tileIndex })
     updateSelectedPlacingPoint({ rowIndex, tileIndex })
   }
+}
+
+/** Снимает выбор клетки: «призрак» тайла исчезает. */
+const clearSelection = () => {
+  placementConflicts.value = []
+  clearPlacementError()
+  setHoveredTile(null)
+}
+
+/**
+ * Управление доской с клавиатуры.
+ *
+ * Стрелки перемещают фокус по клеткам, Enter и пробел выбирают клетку, R
+ * поворачивает тайл, P размещает его, Esc снимает выбор.
+ */
+const onBoardKeyDown = (event: KeyboardEvent) => {
+  // Кнопки внутри доски (поворот тайла) обрабатывают нажатия сами.
+  if (
+    event.target instanceof Element &&
+    event.target.closest('button, a, input, textarea, select')
+  ) {
+    return
+  }
+
+  const { rowIndex, tileIndex } = focusedCell.value
+
+  switch (event.code) {
+    case 'ArrowUp':
+      focusCell(rowIndex - 1, tileIndex)
+      break
+    case 'ArrowDown':
+      focusCell(rowIndex + 1, tileIndex)
+      break
+    case 'ArrowLeft':
+      focusCell(rowIndex, tileIndex - 1)
+      break
+    case 'ArrowRight':
+      focusCell(rowIndex, tileIndex + 1)
+      break
+    case 'Home':
+      focusCell(rowIndex, 0)
+      break
+    case 'End':
+      focusCell(rowIndex, gridDimensions.value[0] - 1)
+      break
+    case 'PageUp':
+      focusCell(0, tileIndex)
+      break
+    case 'PageDown':
+      focusCell(gridDimensions.value[1] - 1, tileIndex)
+      break
+    case 'Enter':
+    case 'Space':
+      handleTileClick(rowIndex, tileIndex)
+      break
+    case 'KeyR':
+      rotateLocalTile(
+        localCurrentTile.value,
+        event.shiftKey
+          ? RotationDirection.Counterclockwise
+          : RotationDirection.Clockwise
+      )
+      break
+    case 'KeyP':
+      void placeTile(localCurrentTile.value, hoveredTile.value)
+      break
+    case 'Escape':
+      clearSelection()
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
 }
 
 watch(

@@ -110,6 +110,21 @@ function wheelEvent(init: WheelEventInit): WheelEvent {
   return event
 }
 
+interface TouchPoint {
+  clientX: number
+  clientY: number
+}
+
+/** Событие касания: happy-dom не создаёт список касаний самостоятельно. */
+function touchEvent(type: string, touches: TouchPoint[]): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: touches,
+  })
+  return event
+}
+
 /**
  * ResizeObserver в happy-dom есть, но не срабатывает без раскладки, поэтому
  * заменяем его наблюдателем, который можно вызвать вручную: так проверяется
@@ -398,6 +413,115 @@ describe('Панорамирование доски', () => {
     grab(pan, 100, 100)
     app?.unmount()
     app = null
+    move(400, 400)
+
+    expect(board.scrollLeft).toBe(100)
+  })
+})
+
+describe('Панорамирование доски касанием', () => {
+  it('тянет доску за пальцем', () => {
+    const { pan, board } = mountPan()
+    board.scrollLeft = 100
+    board.scrollTop = 100
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [{ clientX: 100, clientY: 100 }])
+    )
+    board.dispatchEvent(
+      touchEvent('touchmove', [{ clientX: 140, clientY: 130 }])
+    )
+    board.dispatchEvent(touchEvent('touchend', []))
+
+    expect(board.scrollLeft).toBe(60)
+    expect(board.scrollTop).toBe(70)
+    expect(pan.isPanning.value).toBe(false)
+  })
+
+  it('не двигает доску при лёгком касании', () => {
+    const { pan, board } = mountPan()
+    board.scrollLeft = 100
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [{ clientX: 100, clientY: 100 }])
+    )
+    board.dispatchEvent(
+      touchEvent('touchmove', [{ clientX: 102, clientY: 102 }])
+    )
+
+    expect(board.scrollLeft).toBe(100)
+    expect(pan.isPanning.value).toBe(false)
+  })
+
+  it('подавляет выбор клетки после прокрутки', () => {
+    const { pan, board } = mountPan()
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [{ clientX: 100, clientY: 100 }])
+    )
+    board.dispatchEvent(
+      touchEvent('touchmove', [{ clientX: 200, clientY: 200 }])
+    )
+    board.dispatchEvent(touchEvent('touchend', []))
+
+    const click = mouseEvent('click', { clientX: 200, clientY: 200 })
+    pan.onClickCapture(click)
+
+    expect(click.defaultPrevented).toBe(true)
+  })
+
+  it('приближает доску щипком двумя пальцами', () => {
+    const { pan, board } = mountPan()
+    triggerResize?.()
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [
+        { clientX: 100, clientY: 100 },
+        { clientX: 200, clientY: 100 },
+      ])
+    )
+    board.dispatchEvent(
+      touchEvent('touchmove', [
+        { clientX: 50, clientY: 100 },
+        { clientX: 250, clientY: 100 },
+      ])
+    )
+
+    expect(pan.getZoom()).toBeCloseTo(2, 5)
+  })
+
+  it('оставляет точку под пальцами на месте при щипке', () => {
+    const { board } = mountPan()
+    triggerResize?.()
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [
+        { clientX: 100, clientY: 100 },
+        { clientX: 200, clientY: 100 },
+      ])
+    )
+    board.dispatchEvent(
+      touchEvent('touchmove', [
+        { clientX: 50, clientY: 100 },
+        { clientX: 250, clientY: 100 },
+      ])
+    )
+
+    // Середина щипка не сдвинулась, поэтому и содержимое под ней осталось
+    // на месте.
+    expect(board.scrollLeft).toBeCloseTo(150, 5)
+  })
+
+  it('не двигает доску мышью сразу после касания', () => {
+    const { pan, board } = mountPan()
+    board.scrollLeft = 100
+
+    board.dispatchEvent(
+      touchEvent('touchstart', [{ clientX: 10, clientY: 10 }])
+    )
+    board.dispatchEvent(touchEvent('touchend', []))
+
+    grab(pan, 100, 100)
     move(400, 400)
 
     expect(board.scrollLeft).toBe(100)

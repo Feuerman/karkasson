@@ -336,6 +336,16 @@
   );
 }
 
+/* Фокус клетки доски при управлении с клавиатуры */
+@utility tile-keyboard-focus {
+  outline: none;
+
+  &:focus-visible {
+    outline: 3px solid var(--color-gold);
+    outline-offset: 2px;
+  }
+}
+
 /* «Призрак» текущего тайла поверх выбранной клетки:
    без полупрозрачности, только золотое пульсирующее свечение */
 @utility tile-ghost-placed {

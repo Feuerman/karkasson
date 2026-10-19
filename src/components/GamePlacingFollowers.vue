@@ -5,9 +5,11 @@
     :initial-x="700"
     :initial-y="400"
     :drag-enabled="dragEnabled"
+    :collapsed="collapsed"
     icon="i-lucide-person-standing"
     title="Поставить подданного"
     surface-class="min-w-[220px] max-w-[300px] p-4"
+    @toggle="toggle"
   >
     <div v-if="gameBoard.princessFollowerPenalty" class="mb-2 text-text-muted">
       Принцесса забрала подданного — на этот тайл свою фишку поставить нельзя.
@@ -71,6 +73,7 @@ import {
 } from '@/utils/labels'
 import { notifyError } from '@/utils/common'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
+import { usePanelCollapse } from '@/composables/usePanelCollapse'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -87,6 +90,9 @@ const props = defineProps({
 const groupedPlaces = computed(() =>
   groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
 )
+
+/** Окно можно свернуть, чтобы не закрывать доску. */
+const { collapsed, toggle } = usePanelCollapse('placing-followers')
 
 /** Как называется фишка в кнопке выбора. */
 const FOLLOWER_TYPE_TITLES: Record<FollowerType, string> = {
