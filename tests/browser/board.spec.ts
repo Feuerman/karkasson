@@ -40,6 +40,8 @@ async function startSinglePlayerGame(page: Page, url: string) {
  *
  * Выпавший тайл подходит не к каждой свободной клетке, поэтому перебираются
  * повороты и соседние клетки: успех виден по окну выставления подданного.
+ * Поворачивается кнопкой в выбранной клетке: превью в панели после выбора
+ * клетки скрыто.
  */
 async function placeTileOnBoard(page: Page) {
   const skipFollower = page.getByRole('button', {
@@ -53,13 +55,12 @@ async function placeTileOnBoard(page: Page) {
   ]
 
   for (let rotation = 0; rotation < 4; rotation += 1) {
-    if (rotation > 0) {
-      await page.getByTestId(TEST_IDS.rotateTileClockwise).click()
-      await page.waitForTimeout(150)
-    }
-
     for (const [rowIndex, tileIndex] of neighbours) {
       await page.getByTestId(boardCellTestId(rowIndex, tileIndex)).click()
+      if (rotation > 0) {
+        await page.getByTestId(TEST_IDS.cellRotateTileClockwise).first().click()
+        await page.waitForTimeout(150)
+      }
       await page.getByTestId(TEST_IDS.placeTile).click()
       if (await skipFollower.isVisible().catch(() => false)) return
     }
@@ -140,7 +141,59 @@ test('тайл можно повернуть после выбора клетк�
     await expect(cellRotateButton).toBeVisible()
     await cellRotateButton.click()
 
-    await expect(previewImage).toHaveClass(/rotate-90/)
+    // Превью в выбранной клетке показывает тот же поворот.
+    const ghostImage = page
+      .getByTestId(boardCellTestId(14, 15))
+      .locator('.tile-ghost-placed img')
+    await expect(ghostImage).toHaveClass(/rotate-90/)
+  } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})
+
+test('отменённый выбор не оставляет следов на доске', async ({ page }) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    await startSinglePlayerGame(page, frontend.url)
+
+    // Прежде чем клетка выбрана, панель подсказывает, что делать.
+    await expect(page.getByTestId(TEST_IDS.pendingTilePreview)).toBeVisible()
+
+    await page.getByTestId(boardCellTestId(14, 15)).click()
+    await expect(
+      page.getByTestId(boardCellTestId(14, 15)).locator('.tile-ghost-placed')
+    ).toBeVisible()
+
+    // Выбранная клетка: панель оставляет только кнопку «Разместить».
+    await expect(page.getByTestId(TEST_IDS.pendingTilePreview)).toHaveCount(0)
+    await expect(page.getByTestId(TEST_IDS.placeTile)).toBeEnabled()
+
+    // Escape снимает выбор: ни плитки, ни рамки на клетке не остаётся.
+    await page.keyboard.press('Escape')
+    await expect(
+      page.getByTestId(boardCellTestId(14, 15)).locator('.tile-ghost-placed')
+    ).toHaveCount(0)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const cell = document.querySelector(
+            '[data-row-index="14"][data-tile-index="15"]'
+          )
+          return cell ? getComputedStyle(cell).outlineStyle : 'none'
+        })
+      )
+      .toBe('none')
+
+    // Панель возвращает подсказку, а кнопка снова ждёт выбора клетки.
+    await expect(page.getByTestId(TEST_IDS.pendingTilePreview)).toBeVisible()
+    await expect(page.getByTestId(TEST_IDS.placeTile)).toBeDisabled()
   } finally {
     await frontend?.close()
     await gameServer.close()

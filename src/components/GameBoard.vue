@@ -12,8 +12,9 @@
   <GameAbbotRecall :game-board="gameBoard" :drag-enabled="layoutEditMode" />
   <div
     ref="boardRef"
-    class="board-surface min-h-0 w-full flex-1 touch-none select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+    class="board-surface min-h-0 w-full flex-1 touch-none select-none overflow-auto rounded-xl shadow-[inset_0_0_30px_rgba(0,0,0,0.3)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden outline-none"
     :class="isPanning ? 'cursor-grabbing' : 'cursor-grab'"
+    tabindex="-1"
     @mousedown="onMouseDown"
     @click.capture="onClickCapture"
     @keydown="onBoardKeyDown"
@@ -41,18 +42,14 @@
             role="button"
             :tabindex="isFocusedCell(rowIndex, tileIndex) ? 0 : -1"
             :aria-label="cellLabel(rowIndex, tileIndex)"
-            :aria-pressed="isSelectedCell(rowIndex, tileIndex)"
+            :aria-pressed="isGhostCell(rowIndex, tileIndex)"
             class="tile-keyboard-focus relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
             :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
             :class="[
               gameBoard.tilePlacesStats?.[rowIndex]?.[tileIndex]
                 ? 'border-black/15'
                 : '',
-              isSelectedCell(rowIndex, tileIndex)
-                ? isGhostCell(rowIndex, tileIndex)
-                  ? 'tile-selected'
-                  : 'tile-pulse'
-                : '',
+              isDragonCell(rowIndex, tileIndex) ? 'tile-pulse' : '',
               conflictCells.has(`${rowIndex}:${tileIndex}`)
                 ? 'tile-conflict'
                 : '',
@@ -70,7 +67,7 @@
             />
             <div
               v-if="isGhostCell(rowIndex, tileIndex)"
-              class="absolute inset-0"
+              class="tile-selected absolute inset-0 rounded-xl"
             >
               <div
                 v-if="tileIndex > 0"
@@ -154,6 +151,7 @@
       </span>
     </div>
     <div
+      v-if="!hasSelectedCell"
       class="flex flex-col items-center gap-2"
       :data-testid="TEST_IDS.pendingTilePreview"
     >
@@ -205,7 +203,7 @@
       <span
         class="rounded-lg bg-black/50 px-3 py-1 text-sm font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
       >
-        {{ placementHint }}
+        Выберите клетку на поле
       </span>
       <span
         class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.8rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
@@ -266,7 +264,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, toRefs, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  toRefs,
+  watch,
+} from 'vue'
 import type { PlacedFollower } from '@server/modules/types'
 import {
   BOARD_GRID_SIZE,
@@ -471,10 +477,6 @@ const clearPlacementError = () => {
   placementError.value = ''
 }
 
-const placementHint = computed(() =>
-  hasSelectedCell.value ? 'Разместите тайл' : 'Выберите клетку на поле'
-)
-
 /** Превью рисуется прямо в выбранной клетке доски, поэтому двигается вместе с ней. */
 const isGhostCell = (rowIndex: number, tileIndex: number) =>
   canShowPlacementUi.value &&
@@ -482,10 +484,11 @@ const isGhostCell = (rowIndex: number, tileIndex: number) =>
   hoveredTile.value.rowIndex === rowIndex &&
   hoveredTile.value.tileIndex === tileIndex
 
-/** Выбрана ли клетка доски игроком. */
-const isSelectedCell = (rowIndex: number, tileIndex: number): boolean =>
-  hoveredTile.value.rowIndex === rowIndex &&
-  hoveredTile.value.tileIndex === tileIndex
+/** Клетка дракона: её отмечают, пока дракон ждёт хода. */
+const isDragonCell = (rowIndex: number, tileIndex: number): boolean =>
+  Boolean(gameBoard.value.dragonMove) &&
+  gameBoard.value.dragonPosition?.rowIndex === rowIndex &&
+  gameBoard.value.dragonPosition?.tileIndex === tileIndex
 
 /**
  * Клетка, в которой сервер разрешает поставить тайл.
@@ -526,18 +529,45 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
   }
 }
 
-/** Снимает выбор клетки: «призрак» тайла исчезает. */
+/**
+ * Снимает выбор клетки: «призрак» тайла исчезает.
+ *
+ * Фокус уходит с клетки на доску: иначе клетка остаётся обведённой рамкой
+ * фокуса и кажется, что выбор не отменился.
+ */
 const clearSelection = () => {
   placementConflicts.value = []
   clearPlacementError()
   setHoveredTile(null)
+  boardRef.value?.focus()
+}
+
+/**
+ * Отмена выбора клетки по Escape.
+ *
+ * Обработчик живёт на документе, а не на доске: после нажатия «Разместить»
+ * фокус остаётся на кнопке, и Escape должен снимать выбор в любом случае.
+ */
+const onDocumentKeyDown = (event: KeyboardEvent) => {
+  if (event.code !== 'Escape') return
+  if (!canShowPlacementUi.value || !hasSelectedCell.value) return
+  // Открытое окно (правила, итоги партии) само обрабатывает Escape.
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[role="dialog"]')
+  ) {
+    return
+  }
+  event.preventDefault()
+  clearSelection()
 }
 
 /**
  * Управление доской с клавиатуры.
  *
  * Стрелки перемещают фокус по клеткам, Enter и пробел выбирают клетку, R
- * поворачивает тайл, P размещает его, Esc снимает выбор.
+ * поворачивает тайл, P размещает его. Escape снимает выбор — его ловит
+ * отдельный обработчик на документе, чтобы кнопка «Разместить» не мешала.
  */
 const onBoardKeyDown = (event: KeyboardEvent) => {
   // Кнопки внутри доски (поворот тайла) обрабатывают нажатия сами.
@@ -589,9 +619,6 @@ const onBoardKeyDown = (event: KeyboardEvent) => {
       break
     case 'KeyP':
       void placeTile(localCurrentTile.value, hoveredTile.value)
-      break
-    case 'Escape':
-      clearSelection()
       break
     default:
       return
@@ -718,7 +745,12 @@ const placeTile = async (
   }
 }
 
+onMounted(() => {
+  document.addEventListener('keydown', onDocumentKeyDown)
+})
+
 onBeforeUnmount(() => {
   updateSelectedPlacingPoint.cancel()
+  document.removeEventListener('keydown', onDocumentKeyDown)
 })
 </script>

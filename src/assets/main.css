@@ -203,27 +203,6 @@
     }
   }
 
-  /* Выбранная клетка с «призраком» тайла: то же золотое свечение, но без
-     увеличения — иначе кнопки поворота внутри клетки дрожат и в них сложно
-     попасть пальцем */
-  @keyframes tile-selected {
-    0%,
-    100% {
-      box-shadow:
-        0 0 12px 3px rgba(255, 193, 90, 0.28),
-        0 0 30px 10px rgba(201, 153, 63, 0.16),
-        inset 0 0 0 1px rgba(255, 236, 190, 0.18);
-      border-color: rgba(255, 193, 90, 0.45);
-    }
-    50% {
-      box-shadow:
-        0 0 24px 9px rgba(255, 203, 118, 0.42),
-        0 0 58px 22px rgba(201, 153, 63, 0.26),
-        inset 0 0 0 1px rgba(255, 236, 190, 0.32);
-      border-color: rgba(255, 203, 118, 0.75);
-    }
-  }
-
   /* Пульс шапки панели партии, когда ход перешёл к игроку */
   @keyframes stats-turn-pulse {
     0%,
@@ -247,25 +226,9 @@
       transform: scale(1.15);
     }
   }
-
-  /* Пульс «призрака» тайла на выбранной клетке: только свечение,
-     без transform — масштаб превью задаётся инлайновым стилем */
-  @keyframes tile-ghost-placed {
-    0%,
-    100% {
-      box-shadow:
-        0 0 12px 3px rgba(255, 193, 90, 0.3),
-        0 0 30px 10px rgba(201, 153, 63, 0.18);
-    }
-    50% {
-      box-shadow:
-        0 0 24px 9px rgba(255, 203, 118, 0.45),
-        0 0 58px 22px rgba(201, 153, 63, 0.28);
-    }
-  }
 }
 
-/* Runtime-toggled highlight for the hovered/active board tile */
+/* Runtime-toggled highlight for the board tile that waits for the dragon */
 @utility tile-pulse {
   animation: var(--animate-tile-pulse, tile-pulse 1.6s infinite ease-in-out);
   transition-duration: 350ms;
@@ -273,15 +236,14 @@
 }
 
 /*
- * Выбранная клетка с «призраком» тайла. Отличие от `tile-pulse` — нет
- * увеличения: клетка с кнопками поворота не должна дрожать.
+ * Выбранная клетка с «призраком» тайла: тонкое тёплое кольцо вокруг «призрака»
+ * вместо пульсирующего сияния. Кольцо идёт снаружи плитки: она закрывает
+ * клетку целиком, и внутренняя рамка была бы не видна. Кольцо не пульсирует —
+ * иначе кнопки поворота рядом с плиткой дрожат.
  */
 @utility tile-selected {
-  animation: var(
-    --animate-tile-selected,
-    tile-selected 1.6s infinite ease-in-out
-  );
-  transition-duration: 350ms;
+  outline: 2px solid rgba(255, 214, 140, 0.6);
+  outline-offset: 1px;
   z-index: 5;
 }
 
@@ -342,18 +304,16 @@
   outline: none;
 
   &:focus-visible {
-    outline: 3px solid var(--color-gold);
-    outline-offset: 2px;
+    outline: 2px solid rgba(255, 226, 168, 0.95);
+    outline-offset: 3px;
   }
 }
 
-/* «Призрак» текущего тайла поверх выбранной клетки:
-   без полупрозрачности, только золотое пульсирующее свечение */
+/* «Призрак» текущего тайла поверх выбранной клетки: плитка чуть приглушена,
+   чтобы её нельзя было спутать с уже выложенной, и мягко светится */
 @utility tile-ghost-placed {
-  animation: var(
-    --animate-tile-ghost-placed,
-    tile-ghost-placed 1.6s infinite ease-in-out
-  );
+  opacity: 0.92;
+  box-shadow: 0 0 18px -2px rgba(201, 153, 63, 0.5);
 }
 
 /* Warm parchment panel with a double "gilded" frame */
