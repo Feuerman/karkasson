@@ -44,6 +44,13 @@ const rotateSides = (
   }
 }
 
+/**
+ * Поворот тайла для предпросмотра в интерфейсе.
+ *
+ * Это только изображение: поворот, который учитывается в правилах, считает
+ * сервер — при постановке тайла он заново выводит стороны и группы из
+ * каталога по присланному углу.
+ */
 export const rotateTile = (tile: Tile, direction: RotationDirection): Tile => ({
   ...tile,
   rotation: normalizeRotation(

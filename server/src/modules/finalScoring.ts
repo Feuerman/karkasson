@@ -1,130 +1,131 @@
-п»ї/**
- * Р¤РёРЅР°Р»СЊРЅС‹Р№ РїРѕРґСЃС‡С‘С‚ РѕС‡РєРѕРІ РїРѕ РЅРµР·Р°РІРµСЂС€С‘РЅРЅС‹Рј РѕР±СЉРµРєС‚Р°Рј.
+/**
+ * Финальный подсчёт очков по незавершённым объектам.
  *
- * Р’С‹Р·С‹РІР°РµС‚СЃСЏ РѕРґРёРЅ СЂР°Р· РІ РєРѕРЅС†Рµ РїР°СЂС‚РёРё, РµСЃР»Рё РІРєР»СЋС‡РµРЅРѕ РїСЂР°РІРёР»Рѕ С„РёРЅР°Р»СЊРЅРѕРіРѕ
- * РїРѕРґСЃС‡С‘С‚Р°. Р”РѕСЂРѕРіРё Рё РіРѕСЂРѕРґР° СЃС‡РёС‚Р°СЋС‚СЃСЏ РЅРµР·Р°РІРµСЂС€С‘РЅРЅС‹РјРё (0 РѕС‡РєРѕРІ Р·Р° РґРѕСЂРѕРіСѓ СЃ
- * С‚Р°РІРµСЂРЅРѕР№ Рё Р·Р° РЅРµР·Р°РІРµСЂС€С‘РЅРЅС‹Р№ РіРѕСЂРѕРґ СЃ СЃРѕР±РѕСЂРѕРј, 1 РѕС‡РєРѕ Р·Р° С‚Р°Р№Р» РІ РѕСЃС‚Р°Р»СЊРЅС‹С…
- * СЃР»СѓС‡Р°СЏС…), РјРѕРЅР°СЃС‚С‹СЂРё Рё СЃР°РґС‹ вЂ” РїРѕ РѕРєСЂСѓР¶Р°СЋС‰РёРј Р·Р°РЅСЏС‚С‹Рј РєР»РµС‚РєР°Рј. РћС‡РєРё
- * РЅР°С‡РёСЃР»СЏСЋС‚СЃСЏ Р»РёРґРµСЂР°Рј РѕР±СЉРµРєС‚Р° Рё Р·Р°РїРёСЃС‹РІР°СЋС‚СЃСЏ РІ РёСЃС‚РѕСЂРёСЋ РѕС‚РґРµР»СЊРЅРѕР№ Р·Р°РїРёСЃСЊСЋ СЃ
- * РѕС‚РјРµС‚РєРѕР№ `isFinalScoring`.
+ * Вызывается один раз в конце партии, если включено правило финального
+ * подсчёта. Дороги и города считаются незавершёнными (0 очков за дорогу с
+ * таверной и за незавершённый город с собором, 1 очко за тайл в остальных
+ * случаях), монастыри и сады — по окружающим занятым клеткам. Очки
+ * начисляются лидерам объекта и записываются в историю отдельной записью с
+ * отметкой `isFinalScoring`.
  */
 
-import type { NewGameAction } from './gameActions'
+import type { ScoringBoard } from './boardState'
 import {
   CENTRAL_OBJECT_NAMES,
   countCenterObjectPoints,
   describeCentralObjectPoints,
   distributeScore,
-  type CentralObjectKind,
 } from './scoring'
 import {
   ActionTypes,
   ObjectTypes,
   type BaseObject,
-  type CompletedObjects,
   type ScoreDetails,
   type ScoreForObject,
-  type Scores,
-  type TemporaryObjects,
-  type TilePlacesStats,
 } from './types'
 
-interface FinalScoringState {
-  temporaryObjects: TemporaryObjects
-  completedObjects: CompletedObjects
-  tilePlacesStats: TilePlacesStats
-  scores: Scores
-  recordAction(action: NewGameAction): void
-  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
-  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
-  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
-  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
-}
+/** Виды объектов, которые считаются при финальном подсчёте. */
+type FinalScoringCollection = 'roads' | 'cities' | 'monasteries' | 'gardens'
 
 /**
- * РќР°С‡РёСЃР»СЏРµС‚ РѕС‡РєРё РїРѕ РЅРµР·Р°РІРµСЂС€С‘РЅРЅС‹Рј РѕР±СЉРµРєС‚Р°Рј Рё РїРµСЂРµРЅРѕСЃРёС‚ РёС… РІ Р·Р°РІРµСЂС€С‘РЅРЅС‹Рµ.
- * РђР±Р±Р°С‚С‹ РЅР° СѓР¶Рµ Р·Р°РІРµСЂС€С‘РЅРЅС‹С… РѕР±СЉРµРєС‚Р°С… СЃС‡РёС‚Р°СЋС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ: РѕРЅРё РѕСЃС‚Р°СЋС‚СЃСЏ РЅР°
- * РїРѕР»Рµ РґРѕ РєРѕРЅС†Р° РїР°СЂС‚РёРё Рё РїРѕР»СѓС‡Р°СЋС‚ РѕС‡РєРё Р·Р° РѕРєСЂСѓР¶РµРЅРёРµ.
+ * Описание вида объекта для финального подсчёта: куда он переносится, каким
+ * типом отмечается в истории и как считаются его очки.
  */
-export function finalizeScoring(state: FinalScoringState): void {
+interface FinalScoringKind {
+  collection: FinalScoringCollection
+  objectType: ObjectTypes
+  /** Очки объекта и их детализация. */
+  count(
+    state: ScoringBoard,
+    object: BaseObject
+  ): { score: ScoreForObject; details: ScoreDetails }
+}
+
+const FINAL_SCORING_KINDS: FinalScoringKind[] = [
+  {
+    collection: 'roads',
+    objectType: ObjectTypes.ROAD,
+    count: (state, object) => ({
+      score: state.calcScoreForRoad(object, false),
+      details: state.describeScoreForRoad(object, false),
+    }),
+  },
+  {
+    collection: 'cities',
+    objectType: ObjectTypes.CITY,
+    count: (state, object) => ({
+      score: state.calcScoreForCity(object, false),
+      details: state.describeScoreForCity(object, false),
+    }),
+  },
+  {
+    collection: 'monasteries',
+    objectType: ObjectTypes.MONASTERY,
+    count: (state, object) => {
+      const points = countCenterObjectPoints(state.tilePlacesStats, object)
+      return {
+        score: distributeScore(points, object.followers, state.scores),
+        details: describeCentralObjectPoints(
+          points,
+          CENTRAL_OBJECT_NAMES[ObjectTypes.MONASTERY]
+        ),
+      }
+    },
+  },
+  {
+    collection: 'gardens',
+    objectType: ObjectTypes.GARDEN,
+    count: (state, object) => {
+      const points = countCenterObjectPoints(state.tilePlacesStats, object)
+      return {
+        score: distributeScore(points, object.followers, state.scores),
+        details: describeCentralObjectPoints(
+          points,
+          CENTRAL_OBJECT_NAMES[ObjectTypes.GARDEN]
+        ),
+      }
+    },
+  },
+]
+
+/**
+ * Начисляет очки по незавершённым объектам и переносит их в завершённые.
+ * Аббаты на уже завершённых объектах считаются отдельно: они остаются на
+ * поле до конца партии и получают очки за окружение.
+ */
+export function finalizeScoring(state: ScoringBoard): void {
   const completedMonasteries = [...state.completedObjects.monasteries]
   const completedGardens = [...state.completedObjects.gardens]
 
-  const unfinishedRoads = state.temporaryObjects.roads
-  const unfinishedCities = state.temporaryObjects.cities
-  const unfinishedMonasteries = state.temporaryObjects.monasteries
-  const unfinishedGardens = state.temporaryObjects.gardens
-  state.temporaryObjects.roads = []
-  state.temporaryObjects.cities = []
-  state.temporaryObjects.monasteries = []
-  state.temporaryObjects.gardens = []
+  for (const kind of FINAL_SCORING_KINDS) {
+    const unfinished = state.temporaryObjects[kind.collection]
+    state.temporaryObjects[kind.collection] = []
 
-  for (const road of unfinishedRoads) {
-    const score = state.calcScoreForRoad(road, false)
-    recordFinalObjectScore(
-      state,
-      road,
-      score,
-      ObjectTypes.ROAD,
-      state.describeScoreForRoad(road, false)
-    )
-    state.completedObjects.roads.push({ ...structuredClone(road), score })
+    for (const object of unfinished) {
+      const { score, details } = kind.count(state, object)
+      recordFinalObjectScore(state, object, score, kind.objectType, details)
+      state.completedObjects[kind.collection].push({
+        ...structuredClone(object),
+        score,
+      })
+    }
   }
-
-  for (const city of unfinishedCities) {
-    const score = state.calcScoreForCity(city, false)
-    recordFinalObjectScore(
-      state,
-      city,
-      score,
-      ObjectTypes.CITY,
-      state.describeScoreForCity(city, false)
-    )
-    state.completedObjects.cities.push({ ...structuredClone(city), score })
-  }
-
-  scoreCentralObjects(state, unfinishedMonasteries, ObjectTypes.MONASTERY)
-  scoreCentralObjects(state, unfinishedGardens, ObjectTypes.GARDEN)
 
   scoreRemainingAbbots(state, completedMonasteries, ObjectTypes.MONASTERY)
   scoreRemainingAbbots(state, completedGardens, ObjectTypes.GARDEN)
 }
 
-function scoreCentralObjects(
-  state: FinalScoringState,
-  objects: BaseObject[],
-  kind: CentralObjectKind
-) {
-  const collection = kind === ObjectTypes.MONASTERY ? 'monasteries' : 'gardens'
-
-  for (const object of objects) {
-    const points = countCenterObjectPoints(state.tilePlacesStats, object, kind)
-    const score = distributeScore(points, object.followers, state.scores)
-    recordFinalObjectScore(
-      state,
-      object,
-      score,
-      kind,
-      describeCentralObjectPoints(points, CENTRAL_OBJECT_NAMES[kind])
-    )
-    state.completedObjects[collection].push({
-      ...structuredClone(object),
-      score,
-    })
-  }
-}
-
-/** РђР±Р±Р°С‚С‹ РЅР° Р·Р°РІРµСЂС€С‘РЅРЅС‹С… РѕР±СЉРµРєС‚Р°С… РїРѕР»СѓС‡Р°СЋС‚ РѕС‡РєРё Р·Р° РѕРєСЂСѓР¶РµРЅРёРµ РѕРґРёРЅ СЂР°Р·. */
+/** Аббаты на завершённых объектах получают очки за окружение один раз. */
 function scoreRemainingAbbots(
-  state: FinalScoringState,
+  state: ScoringBoard,
   objects: BaseObject[],
-  kind: CentralObjectKind
+  kind: ObjectTypes.MONASTERY | ObjectTypes.GARDEN
 ) {
   for (const object of objects) {
     const abbots = object.followers.filter((follower) => follower.isAbbot)
     if (!abbots.length) continue
 
-    const points = countCenterObjectPoints(state.tilePlacesStats, object, kind)
+    const points = countCenterObjectPoints(state.tilePlacesStats, object)
     const score = distributeScore(points, abbots, state.scores)
     object.score = score
     recordFinalObjectScore(
@@ -137,9 +138,9 @@ function scoreRemainingAbbots(
   }
 }
 
-/** Р—Р°РїРёСЃСЊ РІ РёСЃС‚РѕСЂРёСЋ Рѕ С„РёРЅР°Р»СЊРЅРѕРј РЅР°С‡РёСЃР»РµРЅРёРё; РѕР±СЉРµРєС‚С‹ Р±РµР· РїРѕРґРґР°РЅРЅС‹С… РЅРµ РїРёС€СѓС‚СЃСЏ. */
+/** Запись в историю о финальном начислении; объекты без подданных не пишутся. */
 function recordFinalObjectScore(
-  state: FinalScoringState,
+  state: ScoringBoard,
   object: BaseObject,
   score: ScoreForObject,
   objectType: ObjectTypes,

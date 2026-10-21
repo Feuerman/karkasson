@@ -122,7 +122,7 @@ export interface GameStateSnapshot {
   scores: Record<string, number>
   winnerPlayerIds?: Array<PlayerId>
   finalScoringEnabled?: boolean
-  tilesList: unknown[]
+  tilesCount: number
   currentTile?: TileSnapshot | null
   tilePlacesStats: Record<number, Record<number, TileSnapshot>>
   availablePlacesTiles?: Array<{ rowIndex: number; tileIndex: number }>

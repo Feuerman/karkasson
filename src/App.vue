@@ -304,6 +304,7 @@ const createGame = async (options: CreateGameOptions) => {
  */
 const playAgain = async () => {
   const rules = gameState.value.rules
+  const finalScoringEnabled = gameState.value.finalScoringEnabled ?? false
 
   const left = await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
@@ -320,7 +321,7 @@ const playAgain = async () => {
   if (!left) return
 
   await createGame({
-    finalScoringEnabled: rules?.finalScoringEnabled ?? false,
+    finalScoringEnabled,
     innsAndCathedralsEnabled: rules?.expansions?.innsAndCathedrals ?? false,
     riverEnabled: rules?.expansions?.river ?? false,
     princessAndDragonEnabled: rules?.expansions?.princessAndDragon ?? false,

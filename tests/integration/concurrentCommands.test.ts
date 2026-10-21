@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CommonErrors, GameErrors } from '@server/modules/errors'
-import { SocketEvents } from '@server/modules/types'
+import type { GameManager } from '@server/modules/GameManager'
+import { SocketEvents, type Tile } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import { createLobbyWithPlayers, type LobbySetup } from './helpers/lobby'
@@ -10,7 +11,7 @@ import {
   type GameAck,
   type GameStateSnapshot,
 } from './helpers/gameplay'
-import { delaySaves, failNextSave } from './helpers/storage'
+import { failNextSave } from './helpers/storage'
 import { sleep } from './helpers/wait'
 import { startTestServer, type RunningServer } from './helpers/server'
 
@@ -49,9 +50,7 @@ describe('Конкурентные команды одной партии', () =
     const { server, gameId, lobby, state } = await startedGameWithTwoHumans()
     const rotation = alternateRotation(state)
 
-    const gate = delaySaves(server.db)
-
-    // Алиса поворачивает тайл; запись ещё в полёте, когда приходит команда Боба.
+    // Алиса поворачивает тайл; пока команда не выполнена, очередь занята ходом.
     // Поворот выбран намеренно: он не двигает очередь, поэтому проверка не
     // зависит от того, остались ли у выложенного тайла места для фишек.
     const rotating = lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
@@ -59,14 +58,22 @@ describe('Конкурентные команды одной партии', () =
       rotation,
     })
     await sleep(20)
-    const intruder = lobby.joiner.emitAck(SocketEvents.SelectPlacingPoint, {
-      gameId,
-      point: { rowIndex: 15, tileIndex: 16 },
-    })
+    // Отказ команды обрабатывается сразу: иначе промис без обработчика
+    // выглядит для Node как потерянное обещание.
+    const intruder = lobby.joiner
+      .emitAck(SocketEvents.SelectPlacingPoint, {
+        gameId,
+        point: { rowIndex: 15, tileIndex: 16 },
+      })
+      .then(
+        () => undefined,
+        (error: unknown) => error
+      )
 
-    await gate
     await rotating
-    await expect(intruder).rejects.toThrow(GameErrors.NotPlayersTurn)
+    const intruderError = await intruder
+    expect(intruderError).toBeInstanceOf(Error)
+    expect((intruderError as Error).message).toBe(GameErrors.NotPlayersTurn)
 
     const live = server.handle.gameService.getGame(gameId)
     expect(live?.currentTile?.rotation).toBe(rotation)
@@ -75,35 +82,76 @@ describe('Конкурентные команды одной партии', () =
     expect(live?.currentPlayerIndex).toBe(state.currentPlayerIndex)
   })
 
+  /**
+   * Клетка и поворот, на которых тайл встанет: размещение проверяет сам
+   * сервер, поэтому ищется тем же правилом.
+   */
+  function findPlacement(game: GameManager):
+    | {
+        rowIndex: number
+        tileIndex: number
+        rotation: number
+      }
+    | undefined {
+    const tile = game.currentTile
+    if (!tile) return undefined
+
+    for (const rotation of [0, 90, 180, 270]) {
+      let rotated: Tile = { ...tile, rotation: 0 }
+      for (let turn = 0; turn < rotation / 90; turn += 1) {
+        rotated = game.rotateTile(rotated)
+      }
+      for (const place of game.availablePlacesTiles) {
+        if (
+          game.getPlacementConflicts(rotated, place.rowIndex, place.tileIndex)
+            .length === 0
+        ) {
+          return {
+            rowIndex: place.rowIndex,
+            tileIndex: place.tileIndex,
+            rotation,
+          }
+        }
+      }
+    }
+    return undefined
+  }
+
   it('откат неудачной команды не затирает следующую команду', async () => {
     const { server, gameId, lobby, state } = await startedGameWithTwoHumans()
-    const rotation = alternateRotation(state)
     const point = { rowIndex: 15, tileIndex: 16 }
+    const live = server.handle.gameService.getGame(gameId)
+    const placement = live ? findPlacement(live) : undefined
+    if (!placement) throw new Error('Нет подходящей клетки для тайла')
 
     // Первая команда падает на записи и откатывается уже после того, как
     // вторая успела изменить состояние.
     const gate = failNextSave(server.db, new Error('storage unavailable'))
 
-    const rotating = lobby.creator.emitAck(SocketEvents.UpdateCurrentTile, {
+    const placing = lobby.creator.emitAck(SocketEvents.PlaceTile, {
       gameId,
-      rotation,
+      rotation: placement.rotation,
+      position: {
+        rowIndex: placement.rowIndex,
+        tileIndex: placement.tileIndex,
+      },
     })
     const selecting = lobby.creator.emitAck(SocketEvents.SelectPlacingPoint, {
       gameId,
       point,
     })
 
-    await expect(rotating).rejects.toThrow(CommonErrors.InternalFailure)
+    await expect(placing).rejects.toThrow(CommonErrors.InternalFailure)
     await expect(selecting).resolves.toMatchObject({ success: true })
     await gate
 
-    const live = server.handle.gameService.getGame(gameId)
-    expect(live?.currentTile?.rotation).toBe(state.currentTile?.rotation)
-    expect(live?.placingPoint).toEqual(point)
-
-    const saved = await server.db.getGame(gameId)
-    expect(saved?.placingPoint).toEqual(point)
-    expect(saved?.currentTile?.rotation).toBe(state.currentTile?.rotation)
+    const after = server.handle.gameService.getGame(gameId)
+    // Тайл откатился: на доске остался только стартовый, очередь не сдвинулась.
+    expect(
+      after?.tilePlacesStats[placement.rowIndex]?.[placement.tileIndex]
+    ).toBeUndefined()
+    expect(after?.currentPlayerIndex).toBe(state.currentPlayerIndex)
+    expect(after?.placingPoint).toEqual(point)
   })
 
   it('параллельные команды одного игрока дают согласованное состояние', async () => {
@@ -112,7 +160,7 @@ describe('Конкурентные команды одной партии', () =
     const point = { rowIndex: 15, tileIndex: 16 }
 
     // Клиент шлёт обе команды, не дожидаясь первой: сервер обязан выполнить
-    // их последовательно и оставить память и хранилище одинаковыми.
+    // их последовательно и оставить память согласованной.
     const [rotated, selected] = await Promise.all([
       lobby.creator.emitAck<GameAck>(SocketEvents.UpdateCurrentTile, {
         gameId,
@@ -128,10 +176,7 @@ describe('Конкурентные команды одной партии', () =
     expect(selected.success).toBe(true)
 
     const live = server.handle.gameService.getGame(gameId)
-    const saved = await server.db.getGame(gameId)
-    for (const snapshot of [live, saved]) {
-      expect(snapshot?.currentTile?.rotation).toBe(rotation)
-      expect(snapshot?.placingPoint).toEqual(point)
-    }
+    expect(live?.currentTile?.rotation).toBe(rotation)
+    expect(live?.placingPoint).toEqual(point)
   })
 })

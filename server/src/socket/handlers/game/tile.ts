@@ -1,14 +1,10 @@
 import type { PlacementConflict, Tile } from '../../../modules/types'
 import { describePlacementFailure } from '../placementErrors'
-import {
-  rotateTileGroups,
-  rotateTileSides,
-} from '../../../modules/tileRotation'
-import { findTileDefinitionById } from '../../../data/tileDefinitions'
-import { maybeContinueWithComputerMove } from '../../../services/computerPlayer'
+import { applyQuarterTurns } from '../../../modules/tileRotation'
+import { findTileDefinition } from '../../../data/tileCatalog'
 import { SocketEvents, TILE_ROTATIONS } from '../../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../../types'
-import type { IGameBoard } from '../../../modules/GameManager'
+import type { GameManager } from '../../../modules/GameManager'
 import { GameErrors } from '../../../modules/errors'
 import { GameCommandError, runGameCommand } from '../gameCommand'
 
@@ -28,7 +24,14 @@ class TilePlacementError extends GameCommandError {
   }
 }
 
-function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
+/**
+ * Поворачивает текущий тайл на указанный угол.
+ *
+ * Форму берём из каталога, а поворот считает общий поворот тайла: стороны и
+ * группы соединений поворачиваются вместе, иначе объект на доске перестал бы
+ * совпадать с рисунком тайла.
+ */
+function setCurrentTileRotation(game: GameManager, rotation: number): boolean {
   const currentTile = game.currentTile
   if (
     !currentTile ||
@@ -37,32 +40,24 @@ function setCurrentTileRotation(game: IGameBoard, rotation: number): boolean {
     return false
   }
 
-  const definition = findTileDefinitionById(currentTile.id, game.rules)
+  const definition = findTileDefinition(currentTile.id, game.rules)
   if (!definition) return false
 
-  const quarterTurns = rotation / 90
-  const sides = rotateTileSides(definition.sides, quarterTurns)
-
-  const rotatedTile: Tile = {
+  const rotated = applyQuarterTurns(
+    { ...definition, rotation: 0 },
+    rotation / 90
+  )
+  game.currentTile = {
     ...currentTile,
-    ...definition,
+    ...rotated,
     rotation,
-    sides,
-    roadGroups: rotateTileGroups(definition.roadGroups, quarterTurns),
-    cityGroups: rotateTileGroups(definition.cityGroups, quarterTurns),
-    cityShieldGroups: rotateTileGroups(
-      definition.cityShieldGroups,
-      quarterTurns
-    ),
-    riverGroups: rotateTileGroups(definition.riverGroups, quarterTurns),
     hasGarden: currentTile.hasGarden,
   }
-  game.currentTile = { ...currentTile, ...rotatedTile }
   return true
 }
 
 export function registerTileHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(
     SocketEvents.SelectPlacingPoint,
@@ -77,7 +72,8 @@ export function registerTileHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.SelectPlacingPoint,
         callback,
-        execute: async ({ game, save, ack }) => {
+        transient: true,
+        execute: async ({ game }) => {
           if (!point || !isValidPosition(point)) {
             throw new Error(GameErrors.InvalidTilePosition)
           }
@@ -85,8 +81,6 @@ export function registerTileHandlers(context: SocketHandlerContext) {
             rowIndex: point.rowIndex,
             tileIndex: point.tileIndex,
           }
-          await save()
-          ack()
         },
       })
     }
@@ -106,9 +100,10 @@ export function registerTileHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.UpdateCurrentTile,
         callback,
-        execute: async ({ game, save, ack }) => {
-          // Снимок берём до поворота: setCurrentTileRotation меняет
-          // currentTile, и откат должен вернуть состояние до запроса.
+        transient: true,
+        execute: async ({ game }) => {
+          // Поворот меняет только предпросмотр: на правила он не влияет, и
+          // сервер пересчитает стороны по присланному углу при постановке.
           const requestedRotation = rotation ?? tile?.rotation
           if (
             game.isPlacingFollower ||
@@ -119,8 +114,6 @@ export function registerTileHandlers(context: SocketHandlerContext) {
           ) {
             throw new Error(GameErrors.InvalidTileRotation)
           }
-          await save()
-          ack()
         },
       })
     }
@@ -144,7 +137,7 @@ export function registerTileHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.PlaceTile,
         callback,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (
             game.isPlacingFollower ||
             game.princessChoice ||
@@ -180,10 +173,9 @@ export function registerTileHandlers(context: SocketHandlerContext) {
                 : []
             )
           }
-
-          await save()
-          ack()
-          maybeContinueWithComputerMove(events, service, game, gameId)
+        },
+        afterSave: (game) => {
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }

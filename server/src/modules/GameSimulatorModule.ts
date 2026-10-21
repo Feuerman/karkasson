@@ -1,15 +1,22 @@
-import type { IGameBoard } from './GameManager'
+import type { IGameState } from './gameState'
+import { applyQuarterTurns } from './tileRotation'
 import type {
   AvailableFollowerPlace,
+  AvailablePlace,
   BaseObject,
   CompletedObjects,
   FollowerCount,
   FollowerType,
+  GameRules,
   ObjectFollower,
+  Player,
   PlayerId,
+  PlacedFollower,
+  Scores,
+  TemporaryObjects,
   Tile,
+  TilePlacesStats,
 } from './types'
-import { rotateTileGroups, rotateTileSides } from './tileRotation'
 
 export interface SimulationMove {
   tile: Tile
@@ -23,6 +30,34 @@ export interface SimulationMove {
 export interface SimulationResult {
   score: number
   moves: SimulationMove[]
+}
+
+/**
+ * Часть доски, которой пользуется симулятор.
+ *
+ * Симулятору нужны пробные ходы, копия состояния и несколько полей для оценки
+ * — не вся доска целиком. Описание здесь узкое, поэтому симулятор не зависит
+ * от класса партии.
+ */
+export interface SimulationBoard {
+  availablePlacesTiles: AvailablePlace[]
+  availableFollowersPlaces: AvailableFollowerPlace[]
+  completedObjects: CompletedObjects
+  currentPlayer: Player | null
+  placedFollowers: PlacedFollower[]
+  playersFollowers: Record<PlayerId, FollowerCount>
+  rules: GameRules
+  scores: Scores
+  temporaryObjects: TemporaryObjects
+  tilePlacesStats: TilePlacesStats
+  actionsHistory: IGameState['actionsHistory']
+  cloneForSimulation(): SimulationBoard
+  simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
+  simulatePlaceFollower(
+    place: AvailableFollowerPlace,
+    followerType?: FollowerType
+  ): boolean
+  getAvailableFollowerTypes(place: AvailableFollowerPlace): FollowerType[]
 }
 
 /** Снимок одной коллекции объектов доски для отката пробного хода. */
@@ -41,21 +76,21 @@ interface ObjectCollectionSnapshot {
 interface TileSimulationSnapshot {
   temporaryCollections: ObjectCollectionSnapshot[]
   completedCollections: ObjectCollectionSnapshot[]
-  scores: IGameBoard['scores']
-  scoreState: IGameBoard['scores']
-  placedFollowers: IGameBoard['placedFollowers']
-  placedFollowerState: IGameBoard['placedFollowers']
-  playersFollowers: IGameBoard['playersFollowers']
-  followerPoolState: IGameBoard['playersFollowers']
-  availableFollowersPlaces: IGameBoard['availableFollowersPlaces']
-  availableFollowerState: IGameBoard['availableFollowersPlaces']
+  scores: IGameState['scores']
+  scoreState: IGameState['scores']
+  placedFollowers: IGameState['placedFollowers']
+  placedFollowerState: IGameState['placedFollowers']
+  playersFollowers: IGameState['playersFollowers']
+  followerPoolState: IGameState['playersFollowers']
+  availableFollowersPlaces: IGameState['availableFollowersPlaces']
+  availableFollowerState: IGameState['availableFollowersPlaces']
   actionsHistoryLength: number
-  placedTile?: IGameBoard['tilePlacesStats'][number][number]
+  placedTile?: IGameState['tilePlacesStats'][number][number]
   hadRow: boolean
 }
 
 type HeuristicGameState = Pick<
-  IGameBoard,
+  IGameState,
   'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'
 >
 
@@ -76,14 +111,14 @@ const OBJECT_WEIGHTS = {
  */
 const MAX_FOLLOWER_GAIN = Math.max(...Object.values(OBJECT_WEIGHTS)) * 2
 
+/**
+ * Поворот тайла для перебора: стороны и группы соединений поворачиваются
+ * вместе, поэтому используется общий поворот тайла, а не свой набор правил.
+ */
 function rotateTile(tile: Tile, turns: number): Tile {
   return {
-    ...tile,
+    ...applyQuarterTurns(tile, turns),
     rotation: (tile.rotation + turns * 90) % 360,
-    sides: rotateTileSides(tile.sides, turns),
-    roadGroups: rotateTileGroups(tile.roadGroups, turns),
-    cityGroups: rotateTileGroups(tile.cityGroups, turns),
-    cityShieldGroups: rotateTileGroups(tile.cityShieldGroups, turns),
   }
 }
 
@@ -109,7 +144,7 @@ function copyObject(object: BaseObject): BaseObject {
 
 /** Запасы подданных — плоские числа, их достаточно скопировать поверхностно. */
 function copyFollowerPools(
-  pools: IGameBoard['playersFollowers']
+  pools: IGameState['playersFollowers']
 ): Record<PlayerId, FollowerCount> {
   const copies: Record<PlayerId, FollowerCount> = {}
   for (const playerId of Object.keys(pools) as PlayerId[]) {
@@ -168,9 +203,9 @@ export function calculateHeuristicScore(gameState: HeuristicGameState): number {
 }
 
 export class GameSimulatorModule {
-  private gameState: IGameBoard
+  private gameState: SimulationBoard
 
-  constructor(gameBoard: IGameBoard) {
+  constructor(gameBoard: SimulationBoard) {
     this.gameState = gameBoard.cloneForSimulation()
   }
 

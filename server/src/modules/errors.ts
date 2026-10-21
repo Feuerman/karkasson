@@ -37,11 +37,6 @@ export const GameErrors = {
   InvalidTilePosition: 'Недопустимая позиция тайла',
   NotPlacingFollower: 'Сейчас нельзя выставлять подданных',
   InvalidFollowerPlacement: 'Недопустимое место для подданного',
-  AbbotRequiresMonasteryOrGarden:
-    'Аббата можно выставить только на монастырь или сад',
-  BigFollowerExpansionDisabled:
-    'Дополнение «Большой подданный» не включено в этой партии',
-  FollowerNotAllowedOnGarden: 'Подданного нельзя выставлять на сад',
   FollowerPlacementUnavailable: 'Выставление подданных больше недоступно',
   NoAbbotOnBoard: 'У игрока нет аббата на доске',
   InvalidDragonTurn: 'Сейчас нельзя перемещать дракона',
@@ -57,3 +52,30 @@ export const SaveErrors = {
   SaveInvalidTile: 'Game save contains an invalid tile',
   SaveInvalidFollowerPool: 'Game save contains an invalid follower pool',
 } as const
+
+/**
+ * Ошибка записи партии в хранилище, отличная от сбоя самой логики хода.
+ *
+ * Различие важно при разборе последствий: при недоступном хранилище партию
+ * удалять нельзя — она переживёт восстановление связи, — а сбой логики хода
+ * оставляет партию в нерабочем состоянии.
+ */
+export class GameSaveError extends Error {
+  constructor(gameId: string, cause: unknown) {
+    super(`Failed to save game ${gameId}`, { cause })
+    this.name = 'GameSaveError'
+  }
+}
+
+/**
+ * Отмена изменения партии: состояние откатывается и не сохраняется.
+ *
+ * Нужна, когда ход нельзя доиграть: например, компьютер начал ход, но игрок
+ * отключился — тогда правка отменяется целиком.
+ */
+export class MutationCancelled extends Error {
+  constructor(reason: string) {
+    super(reason)
+    this.name = 'MutationCancelled'
+  }
+}

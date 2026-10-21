@@ -1,6 +1,6 @@
-import type { IGameBoard } from '../../modules/GameManager'
-import type { GameService } from '../../services/GameService'
+import type { GameManager } from '../../modules/GameManager'
 import type { GameEventsPublisher } from '../../services/gameEvents'
+import { formatGameData } from '../../services/gameView'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback } from '../types'
 import { toPlayerErrorMessage } from './playerErrors'
@@ -10,12 +10,11 @@ const logger = createLogger('socket')
 /** Форматирует состояние один раз, публикует gameUpdated и подтверждает ack. */
 export function ackGameUpdated(
   events: GameEventsPublisher,
-  service: GameService,
   gameId: string,
-  game: IGameBoard,
+  game: GameManager,
   callback?: SocketCallback
 ): void {
-  const gameData = service.formatGameData(game)
+  const gameData = formatGameData(game)
   events.publishGameUpdated(gameId, gameData)
   callback?.({ success: true, game: gameData })
 }

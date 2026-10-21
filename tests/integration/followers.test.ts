@@ -14,6 +14,7 @@ import {
 import { createLobbyWithSingleHuman } from './helpers/lobby'
 import { startTestServer, type RunningServer } from './helpers/server'
 import { monasteryTile } from '../helpers/tiles'
+import { formatGameData } from '@server/services/gameView'
 import {
   FollowerType,
   PointDirection,
@@ -203,10 +204,7 @@ describe('Размещение фишек', () => {
     liveGame.currentTile = { ...monasteryTile(), x: 15, y: 16 }
     running.handle.io
       .to(gameId)
-      .emit(
-        SocketEvents.GameUpdated,
-        running.handle.gameService.formatGameData(liveGame)
-      )
+      .emit(SocketEvents.GameUpdated, formatGameData(liveGame))
 
     state = await waitForHumanTurnOrEnd(creator, aliceId, {
       initialState: state,

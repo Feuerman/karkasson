@@ -5,7 +5,7 @@ import {
   type CreateGameOptions,
 } from '@/modules/GameService'
 import type { GameData } from '@server/services/GameService'
-import type { IGameBoard } from '@server/modules/GameManager'
+import type { GameManager } from '@server/modules/GameManager'
 import { GameErrors } from '@server/modules/errors'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
@@ -111,7 +111,7 @@ async function createStartedGame(
 }
 
 /** Доска партии на сервере: состояние проверяется там же, где оно менялось. */
-function serverBoard(server: RunningServer, game: GameData): IGameBoard {
+function serverBoard(server: RunningServer, game: GameData): GameManager {
   const board = server.handle.gameService.getGame(game.id ?? '')
   if (!board) throw new Error('Партия не найдена на сервере')
   return board
@@ -163,7 +163,7 @@ describe('Клиентское приложение (GameService)', () => {
       princessAndDragon: true,
     })
     expect(created.playersFollowers[1]?.bigFollowers).toBe(1)
-    expect(created.tilesList).toHaveLength(131)
+    expect(created.tilesCount).toBe(131)
 
     await addPlayers(alice, ['Alice'])
 
@@ -222,16 +222,19 @@ describe('Клиентское приложение (GameService)', () => {
 
     const created = await client.createGame({ princessAndDragonEnabled: true })
     expect(created.rules.expansions.princessAndDragon).toBe(true)
-    expect(created.tilesList).toHaveLength(101)
-    expect(created.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
+    expect(created.tilesCount).toBe(101)
+    // Состав колоды клиенту не отправляется: он нужен только серверу.
+    const createdBoard = serverBoard(server!, created)
+    expect(createdBoard.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
 
     await addPlayers(client, ['Alice', null])
     const started = await client.startGame()
     expect(started.rules.expansions.princessAndDragon).toBe(true)
     // Стартовый и вытянутый тайлы уже вынуты из колоды.
-    expect(started.tilesList).toHaveLength(created.tilesList.length - 2)
+    expect(started.tilesCount).toBe(created.tilesCount - 2)
+    const startedBoard = serverBoard(server!, started)
     const drawnAndDeckIds = [
-      ...started.tilesList.map(({ id }) => id),
+      ...startedBoard.tilesList.map(({ id }) => id),
       ...(started.currentTile ? [started.currentTile.id] : []),
     ]
     expect(drawnAndDeckIds.some((id) => id.startsWith('PAD_'))).toBe(true)

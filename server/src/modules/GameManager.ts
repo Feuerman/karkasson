@@ -1,5 +1,10 @@
 import { GameSimulatorModule } from './GameSimulatorModule'
-import { cloneGameState, pickGameState } from './gameState'
+import {
+  cloneGameState,
+  cloneRollbackState,
+  pickGameState,
+  pickRollbackState,
+} from './gameState'
 import {
   boardCenterCoordinates,
   findTileSideConflicts,
@@ -9,6 +14,10 @@ import {
   NEIGHBOR_SIDES,
 } from './gameGeometry'
 import { applyQuarterTurns } from './tileRotation'
+import {
+  resolvePlacementTile,
+  type TilePlacementContext,
+} from './tilePlacement'
 import { resolveTileFeatureGroups } from './tileFeatureGroups'
 import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager } from './FollowerManager'
@@ -39,8 +48,9 @@ import {
   type CompletedObjects,
   type FollowerCount,
   type FollowerType,
-  type GridTile,
+  type GameOptions,
   type GameRules,
+  type GridTile,
   type DragonMoveState,
   type PrincessChoiceState,
   type DragonPosition,
@@ -58,89 +68,47 @@ import {
   type Tile,
   type TilePlacesStats,
 } from './types'
+import { rulesFromOptions } from './types'
 
 export type { AvailableFollowerPlace, RotationDirection } from './types'
 
 import type { GameAction, NewGameAction } from './gameActions'
 
-/**
- * Контракты игровой доски: сохранённое состояние (`IGameState`) плюс команды,
- * которыми пользуются транспорт, лобби и симулятор ИИ.
- *
- * Сами правила живут в классе `GameManager` и его помощниках
- * (`GameObjectManager`, `FollowerManager`, `GameTileManager`,
- * `DragonPrincessManager`), а чистые расчёты — в `scoring.ts`.
- *
- * Методы определены в интерфейсе, потому что состояние уходит в сохранения и в
- * клиент через Socket.IO: восстановленная из сохранения партия должна вести
- * себя так же, как живая.
- */
-
-/** Команды транспортного слоя: изменяют состояние партии. */
-export interface IGameCommands {
-  moveDragon(rowIndex: number, tileIndex: number): boolean
-  choosePrincessFollower(cityId: string, point: Point): boolean
-  startGame(): void
-  placeFollower(
-    availablePlace: AvailableFollowerPlace,
-    followerType?: FollowerType
-  ): void
-  skipFollower(): void
-  recallAbbot(): boolean
-  placeTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
+/** Ключ клетки доски: координаты в виде строки. */
+function placeKey(rowIndex: number, tileIndex: number): string {
+  return `${rowIndex}:${tileIndex}`
 }
 
-/** API симулятора ИИ: пробные ходы и копии состояния. */
-export interface IGameSimulationApi {
-  autoPlaceTile(): Promise<void>
-  cloneForSimulation(): IGameBoard
-  simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
-  simulatePlaceFollower(
-    place: AvailableFollowerPlace,
-    followerType?: FollowerType
-  ): boolean
-  getTileFeatureGroups(
-    tile: Tile,
-    feature: typeof TileSideType.City | typeof TileSideType.Road
-  ): SideName[][]
+/** Ключ точки объекта доски: координаты и сторона. */
+function objectKey(
+  x: number,
+  y: number,
+  direction: PointDirection | undefined
+): string {
+  return `${x}:${y}:${direction ?? ''}`
 }
 
-/** Структурированные причины отказа размещения, без пользовательских текстов. */
-export interface IGamePlacementDiagnostics {
-  getPlacementConflicts(
-    tile: Tile,
-    rowIndex: number,
-    tileIndex: number
-  ): PlacementConflict[]
+/** Созданные один раз помощники партии. */
+interface ManagerCache {
+  objectManager?: GameObjectManager
+  followerManager?: FollowerManager
+  tileManager?: GameTileManager
+  dragonManager?: DragonPrincessManager
 }
 
 /**
- * Сведения о вариантах действий текущего игрока: какие фишки можно поставить
- * в доступное место и что даст отзыв аббата. Считаются из состояния партии,
- * чтобы клиент и симулятор не решали правила повторно.
+ * Партия: сохранённое состояние (`IGameState`) плюс команды, которыми
+ * пользуются транспорт, лобби и симулятор ИИ.
+ *
+ * Сами правила живут в классе и его помощниках (`GameObjectManager`,
+ * `FollowerManager`, `GameTileManager`, `DragonPrincessManager`), а чистые
+ * расчёты — в `scoring.ts`.
+ *
+ * Класс — единственный контракт слоя: состояние уходит в сохранения и в
+ * клиент через Socket.IO, поэтому восстановленная из сохранения партия должна
+ * вести себя так же, как живая.
  */
-export interface IGamePlayerChoices {
-  getAvailableFollowerTypes(place: AvailableFollowerPlace): FollowerType[]
-  getAbbotRecallInfo(): AbbotRecallInfo | null
-}
-
-export interface IGameBoard
-  extends
-    IGameState,
-    IGameCommands,
-    IGameSimulationApi,
-    IGamePlacementDiagnostics,
-    IGamePlayerChoices {
-  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
-  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
-  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
-  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
-  getNextPlayer(currentPlayerId: PlayerId | undefined): Player
-  clone(): IGameBoard
-  copyStateFrom(source: IGameState): void
-}
-
-export class GameManager implements IGameBoard {
+export class GameManager implements IGameState {
   id?: string
   roomCode?: string
   gridSize: number[] = [...BOARD_GRID_SIZE]
@@ -175,30 +143,28 @@ export class GameManager implements IGameBoard {
   dragonPosition?: DragonPosition
   pendingDragonMovement = false
   private isPlacingStartTile = false
+  /**
+   * Клетки, которые можно занять следующим тайлом. Хранятся рядом со списком
+   * клеток, чтобы проверка «уже запланировано» не перебирала весь список.
+   */
+  private availablePlacesKeys = new Set<string>()
 
   constructor(
     params: {
       players?: Player[]
       startImmediately?: boolean
-      finalScoringEnabled?: boolean
-      innsAndCathedralsEnabled?: boolean
-      riverEnabled?: boolean
-      princessAndDragonEnabled?: boolean
-    } = {}
+    } & GameOptions = {}
   ) {
     const players = params.players ?? []
 
+    // Помощники ссылаются на партию, поэтому их кэш не перечисляется: иначе
+    // состояние перестало бы быть обычным JSON.
+    Object.defineProperty(this, 'managers', { enumerable: false })
+
     this.gameIsStarted = false
     this.gameIsEnded = false
+    this.rules = rulesFromOptions(params)
     this.finalScoringEnabled = params.finalScoringEnabled ?? false
-    this.rules = {
-      finalScoringEnabled: params.finalScoringEnabled ?? false,
-      expansions: {
-        innsAndCathedrals: params.innsAndCathedralsEnabled ?? false,
-        river: params.riverEnabled ?? false,
-        princessAndDragon: params.princessAndDragonEnabled ?? false,
-      },
-    }
     this.tilesList = []
     this.currentTile = null
     this.players = []
@@ -235,24 +201,44 @@ export class GameManager implements IGameBoard {
     if (params.startImmediately !== false) this.startGame()
   }
 
+  /**
+   * Помощники создаются один раз и держатся в скрытом поле: раньше они
+   * создавались заново на каждое обращение, хотя состояние доски у них одно
+   * и то же. Поле не перечисляется — помощники ссылаются на партию, и без
+   * этого состояние перестало бы быть обычным JSON.
+   */
+  private readonly managers: ManagerCache = {}
+
   private get objectManager(): GameObjectManager {
-    return new GameObjectManager(this)
+    if (!this.managers.objectManager) {
+      this.managers.objectManager = new GameObjectManager(this)
+    }
+    return this.managers.objectManager
   }
 
   private get followerManager(): FollowerManager {
-    return new FollowerManager(this)
+    if (!this.managers.followerManager) {
+      this.managers.followerManager = new FollowerManager(this)
+    }
+    return this.managers.followerManager
   }
 
   private get tileManager(): GameTileManager {
-    return new GameTileManager(
-      this,
-      () => this.finishGame(),
-      () => this.isPlacingStartTile
-    )
+    if (!this.managers.tileManager) {
+      this.managers.tileManager = new GameTileManager(
+        this,
+        () => this.finishGame(),
+        () => this.isPlacingStartTile
+      )
+    }
+    return this.managers.tileManager
   }
 
   private get dragonManager(): DragonPrincessManager {
-    return new DragonPrincessManager(this)
+    if (!this.managers.dragonManager) {
+      this.managers.dragonManager = new DragonPrincessManager(this)
+    }
+    return this.managers.dragonManager
   }
 
   initTilesList() {
@@ -331,10 +317,7 @@ export class GameManager implements IGameBoard {
   endTurn() {
     const currentPlayer = this.currentPlayer
 
-    if (
-      this.players.findIndex((player) => player.id === currentPlayer?.id) ===
-      this.players.length - 1
-    ) {
+    if (this.indexOfPlayer(currentPlayer?.id) === this.players.length - 1) {
       this.moveCounter = this.moveCounter + 1
     }
     this.isPlacingFollower = false
@@ -344,9 +327,11 @@ export class GameManager implements IGameBoard {
     const nextPlayer = this.getNextPlayer(currentPlayer?.id)
 
     this.currentPlayer = nextPlayer
-    this.currentPlayerIndex = this.players.findIndex(
-      (player) => player.id === nextPlayer.id
-    )
+    // В партии без игроков следующего игрока нет: индекс остаётся пустым,
+    // как и раньше, когда поиск по пустому списку ничего не вычислял.
+    this.currentPlayerIndex = nextPlayer
+      ? this.indexOfPlayer(nextPlayer.id)
+      : -1
 
     if (this.pendingDragonMovement) {
       this.pendingDragonMovement = false
@@ -356,20 +341,28 @@ export class GameManager implements IGameBoard {
     }
   }
 
+  /** Индекс игрока в списке партии; `-1`, если игрока нет. */
+  private indexOfPlayer(playerId: PlayerId | undefined): number {
+    return this.players.findIndex((player) => player.id === playerId)
+  }
+
+  /** Игрок по индексу в списке партии. */
+  private playerAt(index: number): Player {
+    return this.players[index]
+  }
+
   getNextPlayer(currentPlayerId: PlayerId | undefined): Player {
-    const currentPlayerIndex = this.players.findIndex(
-      (player) => player.id === currentPlayerId
-    )
+    const currentPlayerIndex = this.indexOfPlayer(currentPlayerId)
 
     if (currentPlayerIndex === -1) {
-      return this.players[0]
+      return this.playerAt(0)
     }
 
-    return this.players[
+    return this.playerAt(
       currentPlayerIndex === this.players.length - 1
         ? 0
         : currentPlayerIndex + 1
-    ]
+    )
   }
 
   checkAvailableFollowers() {
@@ -390,74 +383,16 @@ export class GameManager implements IGameBoard {
     tile: Tile,
     options: { simulation?: boolean } = {}
   ): Tile | undefined {
-    if (this.gameIsEnded) return undefined
-    const tileDefinition = this.tileManager.findTileDefinition(tile.id)
-    if (options.simulation && !tileDefinition && !tile.id.startsWith('test')) {
-      return undefined
-    }
-    const authoritativeTile: Tile = tileDefinition
-      ? { ...tileDefinition, rotation: 0 }
-      : { ...tile }
-    if (!this.isExpansionTileAllowed(authoritativeTile)) return undefined
-    if (this.isRiverTileRequiredAndMissing(authoritativeTile)) return undefined
-    return this.applyRequestedRotation(
-      tile,
-      authoritativeTile,
-      Boolean(tileDefinition)
-    )
+    return resolvePlacementTile(tile, this.placementContext(), options)
   }
 
-  /** Расширение тайла должно быть включено в правила партии. */
-  private isExpansionTileAllowed(tile: Tile): boolean {
-    if (
-      tile.expansion === ExpansionName.InnsAndCathedrals &&
-      !this.rules.expansions.innsAndCathedrals
-    ) {
-      return false
-    }
-    return !(
-      tile.expansion === ExpansionName.River && !this.rules.expansions.river
-    )
-  }
-
-  /**
-   * В партии с River, пока русло не закрыто, ход обязан продолжать реку.
-   * Стартовый тайл правило не распространяется: русло начинается на нём.
-   */
-  private isRiverTileRequiredAndMissing(tile: Tile): boolean {
-    if (!this.rules.expansions.river) return false
-    if (this.isPlacingStartTile) return false
-    return !tile.riverGroups?.length && !this.tileManager.hasRiverEnd()
-  }
-
-  /**
-   * Поворачивает каталожный тайл на запрошенный угол. Для тайла из колоды
-   * поворот применяется к определению, а для тестовых тайлов (`test*`), у
-   * которых определения нет, стороны остаются как есть.
-   */
-  private applyRequestedRotation(
-    tile: Tile,
-    authoritativeTile: Tile,
-    hasDefinition: boolean
-  ): Tile {
-    if (!hasDefinition) {
-      // Тестовый тайл приходит целиком с клиента: каталога для него нет.
-      return {
-        ...authoritativeTile,
-        hasGarden: tile.hasGarden ?? authoritativeTile.hasGarden,
-      }
-    }
-
-    // Угол из клиента не доверяем: округляем до четверти оборота.
-    const turnCount = 360 / 90
-    const turns =
-      ((Math.round(tile.rotation / 90) % turnCount) + turnCount) % turnCount
-
+  /** Сведения о партии, нужные для разрешения тайла. */
+  private placementContext(): TilePlacementContext {
     return {
-      ...applyQuarterTurns(authoritativeTile, turns),
-      hasGarden: tile.hasGarden ?? authoritativeTile.hasGarden,
-      // Угол сохраняется для истории и отображения: он уже нормализован.
-      rotation: turns * 90,
+      rules: this.rules,
+      gameIsEnded: this.gameIsEnded,
+      isPlacingStartTile: this.isPlacingStartTile,
+      hasRiverEnd: this.tileManager.hasRiverEnd(),
     }
   }
 
@@ -513,16 +448,43 @@ export class GameManager implements IGameBoard {
 
     const isStartTile = this.isPlacingStartTile
 
+    this.applyResolvedTile(resolvedTile, rowIndex, tileIndex, isStartTile)
+    this.registerTilePlacement(resolvedTile, rowIndex, tileIndex)
+
+    if (
+      this.applyExpansionEffects(resolvedTile, rowIndex, tileIndex, isStartTile)
+    ) {
+      return true
+    }
+
+    this.advanceTurn(isStartTile)
+    return true
+  }
+
+  /** Запоминает, на какой клетке выложен текущий тайл. */
+  private applyResolvedTile(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number,
+    isStartTile: boolean
+  ): void {
     if (this.currentTile && !isStartTile) {
       this.currentTile.x = tileIndex
       this.currentTile.y = rowIndex
     }
+  }
 
+  /** Записывает тайл на доску, в историю и пересчитывает доступные клетки. */
+  private registerTilePlacement(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number
+  ): void {
     if (!this.tilePlacesStats[rowIndex]) {
       this.tilePlacesStats[rowIndex] = {}
     }
     this.tilePlacesStats[rowIndex][tileIndex] = {
-      ...resolvedTile,
+      ...tile,
       rowIndex,
       tileIndex,
       x: tileIndex,
@@ -532,28 +494,44 @@ export class GameManager implements IGameBoard {
 
     this.recordAction({
       actionType: ActionTypes.PLACE_TILE,
-      actionData: { tile: resolvedTile, rowIndex, tileIndex },
+      actionData: { tile, rowIndex, tileIndex },
       initiator: this.currentPlayer,
     })
 
     this.setAvailablePlacesTiles({ rowIndex, tileIndex })
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
+  }
 
+  /**
+   * Эффекты дополнений: принцесса выбирает подданного, вулкан будит дракона.
+   * Возвращает `true`, если ход уже закончен вулканом.
+   */
+  private applyExpansionEffects(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number,
+    isStartTile: boolean
+  ): boolean {
     const expansionEnabled = this.rules.expansions.princessAndDragon
     if (!isStartTile && expansionEnabled) {
-      this.dragonManager.applyTileEffects(resolvedTile, rowIndex, tileIndex)
+      this.dragonManager.applyTileEffects(tile, rowIndex, tileIndex)
       this.dragonManager.choosePrincessFollowerForComputer()
     }
 
     // Вулкан будит дракона: ход заканчивается без выставления подданного,
     // а сам дракон начнёт ходить в конце хода.
-    if (!isStartTile && expansionEnabled && resolvedTile.hasVolcano) {
+    if (!isStartTile && expansionEnabled && tile.hasVolcano) {
       this.dragonManager.handleVolcanoPlacement(rowIndex, tileIndex)
       this.currentTile = null
       this.endTurn()
       return true
     }
 
+    return false
+  }
+
+  /** Передаёт ход дальше: сначала предлагает фишку, затем завершает ход. */
+  private advanceTurn(isStartTile: boolean): void {
     // Пока принцесса не выбрала подданного, ход не переходит дальше.
     if (!isStartTile && !this.princessChoice) {
       this.checkAvailableFollowers()
@@ -562,8 +540,6 @@ export class GameManager implements IGameBoard {
     if (!this.currentPlayer && !isStartTile) {
       this.endTurn()
     }
-
-    return true
   }
 
   /**
@@ -579,18 +555,17 @@ export class GameManager implements IGameBoard {
     rowIndex: number
     tileIndex: number
   }) {
+    const objectIndex = this.buildNearbyObjectIndex(rowIndex, tileIndex)
+
     for (const neighbor of NEIGHBOR_SIDES) {
       const coordinates = neighborCoordinates(rowIndex, tileIndex, neighbor)
       const alreadyOccupied = Boolean(
         this.tilePlacesStats[coordinates.rowIndex]?.[coordinates.tileIndex]
       )
-      const alreadyPlanned = this.availablePlacesTiles.some(
-        (place) =>
-          place.rowIndex === coordinates.rowIndex &&
-          place.tileIndex === coordinates.tileIndex
-      )
-      if (alreadyOccupied || alreadyPlanned) continue
+      const key = placeKey(coordinates.rowIndex, coordinates.tileIndex)
+      if (alreadyOccupied || this.availablePlacesKeys.has(key)) continue
 
+      this.availablePlacesKeys.add(key)
       this.availablePlacesTiles.push({
         ...coordinates,
         objects: NEIGHBOR_SIDES.map((side) => {
@@ -603,20 +578,55 @@ export class GameManager implements IGameBoard {
             return null
           }
           return (
-            this.findObjectByPoint(
-              this.temporaryObjects,
-              adjacent.tileIndex,
-              adjacent.rowIndex,
-              side.oppositeSide
+            objectIndex.get(
+              objectKey(
+                adjacent.tileIndex,
+                adjacent.rowIndex,
+                side.oppositeSide
+              )
             ) ?? null
           )
         }),
       })
     }
 
+    this.availablePlacesKeys.delete(placeKey(rowIndex, tileIndex))
     this.availablePlacesTiles = this.availablePlacesTiles.filter(
       (place) => place.rowIndex !== rowIndex || place.tileIndex !== tileIndex
     )
+  }
+
+  /**
+   * Индекс объектов доски по окрестности 3×3 вокруг поставленного тайла:
+   * примыкающие объекты нужны только оттуда, а искать их перебором всех
+   * объектов доски для каждой соседней клетки было слишком дорого.
+   */
+  private buildNearbyObjectIndex(
+    rowIndex: number,
+    tileIndex: number
+  ): Map<string, BaseObject> {
+    const index = new Map<string, BaseObject>()
+    const collections = [
+      this.temporaryObjects.cities,
+      this.temporaryObjects.roads,
+      this.temporaryObjects.monasteries,
+      this.temporaryObjects.gardens,
+    ]
+    for (const collection of collections) {
+      for (const object of collection) {
+        for (const point of object.points) {
+          if (
+            Math.abs(point.x - tileIndex) > 1 ||
+            Math.abs(point.y - rowIndex) > 1
+          ) {
+            continue
+          }
+          const key = objectKey(point.x, point.y, point.direction)
+          if (!index.has(key)) index.set(key, object)
+        }
+      }
+    }
+    return index
   }
 
   placeFollower(
@@ -661,7 +671,7 @@ export class GameManager implements IGameBoard {
   }
 
   /**
-   * Что даст отзыв аббата текущим игроком, либо `null`, если отзывать нечего.
+   * Что даст отзыв аббата текущему игроку, либо `null`, если отзывать нечего.
    */
   getAbbotRecallInfo(): AbbotRecallInfo | null {
     return this.followerManager.getAbbotRecallInfo()
@@ -793,10 +803,6 @@ export class GameManager implements IGameBoard {
   // тестам, которые проверяют объекты и их подсчёт в изоляции от ходов.
   // ---------------------------------------------------------------------------
 
-  checkAvailablePlacesForTile(tile: Tile): boolean {
-    return this.tileManager.checkAvailablePlacesForTile(tile)
-  }
-
   updateTileHistory(tile: Tile) {
     this.tileHistory.push(structuredClone(tile))
   }
@@ -907,7 +913,7 @@ export class GameManager implements IGameBoard {
     return this.lastPlacement.rowIndex === undefined
   }
 
-  clone(): IGameBoard {
+  clone(): GameManager {
     return GameManager.restore(this)
   }
 
@@ -915,7 +921,7 @@ export class GameManager implements IGameBoard {
    * Копия для пробного хода симулятора. Колода и история в ней пустые: они не
    * влияют на оценку хода, но заметно удорожали бы копирование доски.
    */
-  cloneForSimulation(): IGameBoard {
+  cloneForSimulation(): GameManager {
     const simulationState = pickGameState(this)
     // Колода и история в копии пустые: они не влияют на оценку хода, поэтому
     // отбрасываются до копирования, а не после.
@@ -929,13 +935,13 @@ export class GameManager implements IGameBoard {
       gardens: [],
     }
     const game = new GameManager({ startImmediately: false })
-    Object.assign(game, cloneGameState(simulationState))
+    game.applyState(simulationState)
     return game
   }
 
   static restore(savedGame: IGameState): GameManager {
     const game = new GameManager({ startImmediately: false })
-    Object.assign(game, cloneGameState(pickGameState(savedGame)))
+    game.applyState(savedGame)
     return game
   }
 
@@ -944,7 +950,47 @@ export class GameManager implements IGameBoard {
    * попадают: между снятием снимка и откатом они не меняются.
    */
   copyStateFrom(source: IGameState): void {
+    this.applyState(source)
+  }
+
+  /**
+   * Единственная точка переноса состояния в партию: снимаются только
+   * сериализуемые поля, остальное остаётся runtime-состоянием класса.
+   */
+  private applyState(source: IGameState): void {
     Object.assign(this, cloneGameState(pickGameState(source)))
+    this.syncAvailablePlacesKeys()
+  }
+
+  /**
+   * Снимок для отката: изменяемая часть состояния. Колода и история тайлов
+   * в снимок не входят — ход их не меняет, а копировать дороже всего.
+   */
+  captureRollbackState(): Partial<IGameState> {
+    return cloneRollbackState(pickRollbackState(this))
+  }
+
+  /**
+   * Откат к снимку, снятому до хода. Колода и история тайлов остаются как
+   * были: ход их не менял.
+   */
+  restoreRollbackState(state: Partial<IGameState>): void {
+    Object.assign(this, state)
+    // Текущий игрок — тот же объект, что и в списке игроков: после отката
+    // связь восстанавливается, иначе изменения игрока не попадут в список.
+    const currentPlayerId = state.currentPlayer?.id
+    this.currentPlayer =
+      this.players.find((player) => player.id === currentPlayerId) ?? null
+    this.syncAvailablePlacesKeys()
+  }
+
+  /** Пересобирает множество занятых клеток по списку доступных клеток. */
+  private syncAvailablePlacesKeys(): void {
+    this.availablePlacesKeys = new Set(
+      this.availablePlacesTiles.map((place) =>
+        placeKey(place.rowIndex, place.tileIndex)
+      )
+    )
   }
 
   /**

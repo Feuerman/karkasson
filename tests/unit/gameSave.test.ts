@@ -330,6 +330,39 @@ describe('Схема сохранения игры', () => {
     expect(restored.rules.expansions.innsAndCathedrals).toBe(false)
   })
 
+  it('читает сохранение версии 6: флаг финального подсчёта берётся из правил', () => {
+    const game = new GameManager({ players: [], finalScoringEnabled: true })
+    game.id = 'version-six-game'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    // В версии 6 флаг хранился и в корне состояния, и в правилах.
+    delete legacyState.finalScoringEnabled
+    legacyState.rules = {
+      finalScoringEnabled: true,
+      expansions: {
+        innsAndCathedrals: false,
+        river: false,
+        princessAndDragon: false,
+      },
+    }
+
+    const restored = deserializeGameState({
+      schemaVersion: 6,
+      state: legacyState,
+    })
+
+    expect(restored.finalScoringEnabled).toBe(true)
+    expect(restored.rules).toEqual({
+      expansions: {
+        innsAndCathedrals: false,
+        river: false,
+        princessAndDragon: false,
+      },
+    })
+  })
+
   it('восстанавливает legacy-лобби, сохранённое до появления полного состояния', () => {
     const player = {
       id: 1,

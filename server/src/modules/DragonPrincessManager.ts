@@ -13,77 +13,29 @@
  */
 
 import { neighborCoordinates, NEIGHBOR_SIDES } from './gameGeometry'
-import type { NewGameAction } from './gameActions'
-import { isSameFollowerPoint } from './followerMatching'
+import {
+  followerTypeOf,
+  removeFollowerFromObject,
+  returnFollower,
+} from './followerPool'
+import type { DragonBoard } from './boardState'
 import {
   ActionTypes,
   DRAGON_TOTAL_STEPS,
-  ObjectTypes,
   PointDirection as PointDirections,
   TileSideType,
-  type AvailableFollowerPlace,
-  type DragonMoveState,
   type DragonPosition,
-  type FollowerCount,
-  type GridTile,
-  type Player,
-  type PlayerId,
   type PlacedFollower,
   type Point,
   type PointDirection,
-  type PrincessChoiceState,
   type ReturnedFollower,
   type SideName,
-  type TemporaryObjects,
   type Tile,
-  type TilePlacesStats,
 } from './types'
-
-interface DragonState {
-  players: Player[]
-  currentPlayer: Player | null
-  currentPlayerIndex: number
-  currentTile: GridTile | null
-  temporaryObjects: TemporaryObjects
-  completedObjects: TemporaryObjects
-  playersFollowers: Record<PlayerId, FollowerCount>
-  placedFollowers: PlacedFollower[]
-  tilePlacesStats: TilePlacesStats
-  availableFollowersPlaces: AvailableFollowerPlace[]
-  isPlacingFollower: boolean
-  dragonMove?: DragonMoveState
-  dragonPosition?: DragonPosition
-  princessChoice?: PrincessChoiceState
-  /**
-   * Штраф принцессы: способность сработала, поэтому на тайл, где она стоит,
-   * подданного выставлять нельзя. Живёт до конца хода, значит переживает
-   * сохранение вместе с остальным состоянием.
-   */
-  princessFollowerPenalty?: boolean
-  /** Флаг перехода: вулкан поставлен, дракон начнёт ход в конце хода игрока. */
-  pendingDragonMovement: boolean
-  recordAction(action: NewGameAction): void
-  checkAvailableFollowers(): void
-  getRandomTileFromList(): void
-  getTileFeatureGroups(
-    tile: Tile,
-    feature: typeof TileSideType.City | typeof TileSideType.Road
-  ): SideName[][]
-}
-
-/** Пары «коллекция объектов — тип объекта» для снятия подданного с поля. */
-const FOLLOWER_COLLECTIONS: ReadonlyArray<
-  readonly [keyof TemporaryObjects, ObjectTypes]
-> = [
-  ['cities', ObjectTypes.CITY],
-  ['roads', ObjectTypes.ROAD],
-  ['monasteries', ObjectTypes.MONASTERY],
-  ['gardens', ObjectTypes.GARDEN],
-]
 
 /** Owns dragon movement, princess choice and removal of followers they take. */
 export class DragonPrincessManager {
-  constructor(private readonly state: DragonState) {}
+  constructor(private readonly state: DragonBoard) {}
 
   /**
    * Эффекты тайла расширения: принцесса готовит выбор подданного, дракон —
@@ -447,31 +399,12 @@ export class DragonPrincessManager {
   ): ReturnedFollower | undefined {
     if (!follower) return undefined
 
-    let objectType: ObjectTypes | undefined
-    for (const [collection, type] of FOLLOWER_COLLECTIONS) {
-      for (const objects of [
-        this.state.temporaryObjects[collection],
-        this.state.completedObjects[collection],
-      ]) {
-        const object = objects.find(({ id }) => id === follower.objectId)
-        if (!object) continue
-        objectType ??= type
-        object.followers = object.followers.filter(
-          (placed) => !isSameFollowerPoint(placed, follower)
-        )
-      }
-    }
+    const objectType = removeFollowerFromObject(this.state, follower)
 
     const pool = this.state.playersFollowers[follower.playerId]
     if (pool) {
-      if (follower.isAbbot) pool.monks += 1
-      else if (follower.isBigFollower) {
-        pool.bigFollowers = (pool.bigFollowers ?? 0) + 1
-      } else pool.ordinaryFollowers += 1
+      returnFollower(pool, followerTypeOf(follower))
     }
-    this.state.placedFollowers = this.state.placedFollowers.filter(
-      (placed) => placed !== follower
-    )
 
     return {
       playerId: follower.playerId,

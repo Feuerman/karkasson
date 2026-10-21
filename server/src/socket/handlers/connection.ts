@@ -1,6 +1,5 @@
 import type { SocketCallback, SocketHandlerContext } from '../types'
-import type { IGameBoard } from '../../modules/GameManager'
-import { continueComputerGame } from '../../services/computerPlayer'
+import type { GameManager } from '../../modules/GameManager'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
 import { createLogger } from '../../utils/logger'
@@ -22,7 +21,9 @@ async function saveGameOnDisconnect(
   gameId: string
 ): Promise<void> {
   try {
-    await service.saveGame(gameId)
+    await service.saveWithRollback(gameId, () => {
+      // Отключение не откатывается: слот уже освобождён.
+    })
   } catch (error: unknown) {
     logger.error('Failed to save game after disconnect:', error)
   }
@@ -31,11 +32,11 @@ async function saveGameOnDisconnect(
 /** Освобождает сокет игрока в одной партии и приводит её к устойчивому виду. */
 async function releaseGameAfterDisconnect(
   context: SocketHandlerContext,
-  game: IGameBoard,
+  game: GameManager,
   deviceId: string | undefined,
   reason: string
 ): Promise<void> {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
   const gameId = game.id
   if (!gameId) return
 
@@ -47,31 +48,31 @@ async function releaseGameAfterDisconnect(
     })
 
     if (game.gameIsStarted) {
-      service.releasePlayerToDevice(gameId, socket.id, deviceId)
+      service.releasePlayer(gameId, socket.id, deviceId ?? null)
       // Сохраняем до рассылки: игроки не должны увидеть состояние,
       // которого нет в хранилище.
       await saveGameOnDisconnect(service, gameId)
-      continueComputerGame(events, service, gameId)
+      scheduler.continueGame(events, service, gameId)
     } else {
-      service.releasePlayerSlot(gameId, socket.id)
+      service.releasePlayer(gameId, socket.id, null)
     }
 
-    ackGameUpdated(events, service, gameId, game)
+    ackGameUpdated(events, gameId, game)
     return
   }
 
   if (game.gameIsStarted) {
-    service.clearPlayerSocket(gameId, socket.id)
+    service.releasePlayer(gameId, socket.id)
     await saveGameOnDisconnect(service, gameId)
-    continueComputerGame(events, service, gameId)
-    ackGameUpdated(events, service, gameId, game)
+    scheduler.continueGame(events, service, gameId)
+    ackGameUpdated(events, gameId, game)
     return
   }
 
   if (service.hasOtherConnectedPlayers(game, socket.id)) {
-    service.releasePlayerSlot(gameId, socket.id)
+    service.releasePlayer(gameId, socket.id, null)
     await saveGameOnDisconnect(service, gameId)
-    ackGameUpdated(events, service, gameId, game)
+    ackGameUpdated(events, gameId, game)
     return
   }
 
@@ -107,7 +108,7 @@ async function handleDisconnect(
 }
 
 export function registerConnectionHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(
     SocketEvents.RegisterDevice,
@@ -149,14 +150,14 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
         const { game, players } = result
         if (players.length > 0) {
           await socket.join(gameId)
-          ackGameUpdated(context.events, service, gameId, game, callback)
+          ackGameUpdated(context.events, gameId, game, callback)
         } else {
           socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
           callback?.({ error: CommonErrors.PlayerNotFoundInGame })
           return
         }
 
-        if (game.gameIsStarted) continueComputerGame(events, service, gameId)
+        if (game.gameIsStarted) scheduler.continueGame(events, service, gameId)
       })
     }
   )

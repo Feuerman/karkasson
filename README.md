@@ -139,8 +139,7 @@
 
 Все правила исполняются **на сервере**. Обработчики `server/src/socket/handlers/game.ts`
 проверяют `isPlayersTurn` перед каждым действием, затем вызывают
-`GameManager` (`server/src/modules/GameManager.ts`) — машину состояний
-`IGameBoard`:
+`GameManager` (`server/src/modules/GameManager.ts`) — машину состояний партии:
 
 - `placeTile(tile, row, col)` — валидирует соседство и повороты
   (`isCorrectTilePosition`, `checkAvailablePlacesForTile`);

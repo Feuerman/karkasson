@@ -5,7 +5,6 @@ import { instrument } from '@socket.io/admin-ui'
 import { ADMIN_UI_ORIGIN, getSocketAdminUIOptions } from './config'
 import type { IGameDatabase } from './modules/Database'
 import { GameService } from './services/GameService'
-import { cancelAllComputerMoves } from './services/computerPlayer'
 import { registerSocketHandlers } from './socket/router'
 import { createGameEventsPublisher } from './socket/publisher'
 import type { GameEventsPublisher } from './services/gameEvents'
@@ -61,8 +60,9 @@ export function createGameServer(
   }
 
   const gameService = new GameService(db)
+  const events = createGameEventsPublisher(io)
 
-  registerSocketHandlers(io, gameService)
+  registerSocketHandlers(io, gameService, events)
 
   /**
    * Состояние сервера для внешнего наблюдения.
@@ -87,7 +87,7 @@ export function createGameServer(
    */
   const close = async () => {
     await io.close()
-    cancelAllComputerMoves(
+    gameService.computerMoves.cancelAll(
       gameService.allGames().flatMap((game) => game.id ?? [])
     )
     try {
@@ -104,7 +104,7 @@ export function createGameServer(
     app,
     server,
     io,
-    events: createGameEventsPublisher(io),
+    events,
     gameService,
     db,
     close,

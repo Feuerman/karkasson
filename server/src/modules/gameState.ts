@@ -144,6 +144,61 @@ export function pickGameState(
 }
 
 /**
+ * Поля состояния, которые меняет ход.
+ *
+ * Снимок для отката берётся перед каждой изменяющей командой, поэтому в нём
+ * нет колоды и истории тайлов: ход их не меняет, а копировать их дороже всего.
+ * Остальное состояние меняется и должно вернуться к прежнему виду.
+ */
+export const ROLLBACK_GAME_FIELDS = [
+  'gameIsEnded',
+  'currentTile',
+  'playersFollowers',
+  'temporaryObjects',
+  'completedObjects',
+  'scores',
+  'winnerPlayerIds',
+  'availableFollowersPlaces',
+  'isPlacingFollower',
+  'placedFollowers',
+  'tilePlacesStats',
+  'lastPlacement',
+  'availablePlacesTiles',
+  'actionsHistory',
+  'moveCounter',
+  'currentPlayer',
+  'currentPlayerIndex',
+  'placingPoint',
+  'dragonMove',
+  'princessChoice',
+  'princessFollowerPenalty',
+  'dragonPosition',
+  'pendingDragonMovement',
+] as const satisfies readonly (keyof IGameState)[]
+
+/**
+ * Снимок состояния для отката: только те поля, которые меняет ход.
+ */
+export function pickRollbackState(
+  source: IGameState | Record<string, unknown>
+): Partial<IGameState> {
+  const state: Partial<IGameState> = {}
+  for (const field of ROLLBACK_GAME_FIELDS) {
+    Object.assign(state, { [field]: source[field] })
+  }
+  return state
+}
+
+/**
+ * Глубокая копия снимка для отката.
+ */
+export function cloneRollbackState(
+  state: Partial<IGameState>
+): Partial<IGameState> {
+  return structuredClone(state)
+}
+
+/**
  * Глубокая копия состояния партии.
  *
  * `structuredClone` копирует всё, включая ссылки между полями, поэтому

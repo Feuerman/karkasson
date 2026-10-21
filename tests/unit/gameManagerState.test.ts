@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GameManager, type IGameBoard } from '@server/modules/GameManager'
+import { GameManager } from '@server/modules/GameManager'
 import { serializeGameState } from '@server/modules/gameSave'
 import {
   ActionTypes,
@@ -20,8 +20,8 @@ function createGame(): GameManager {
 }
 
 function expectEquivalentIndependentState(
-  source: IGameBoard,
-  copy: IGameBoard
+  source: GameManager,
+  copy: GameManager
 ): void {
   expect(serializeGameState(copy)).toBe(serializeGameState(source))
   const savedSourceBeforeMutation = serializeGameState(source)
@@ -71,7 +71,7 @@ describe('Копирование состояния GameManager', () => {
   it('restore гидратирует экземпляр и отделяет его от состояния сохранения', () => {
     const game = createGame()
     const savedState = JSON.parse(serializeGameState(game)) as {
-      state: IGameBoard
+      state: GameManager
     }
     const restored = GameManager.restore(savedState.state)
 
