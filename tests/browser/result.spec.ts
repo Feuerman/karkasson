@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
 import { createRequire } from 'node:module'
 import { TEST_IDS } from '@/data/testIds'
-import { formatGameData } from '@server/services/gameView'
 import {
   startTestFrontend,
   type RunningFrontend,
@@ -11,6 +10,11 @@ import {
 const require = createRequire(import.meta.url)
 const { createGameServer } =
   require('../../server/dist/app.js') as typeof import('../../server/src/app')
+// Серверный код лежит в CommonJS-пакете: Playwright не умеет импортировать
+// его исходники как ES-модуль с именованными экспортами, поэтому берём
+// серверные модули из сборки `server/dist`.
+const { formatGameData } =
+  require('../../server/dist/services/gameView.js') as typeof import('../../server/src/services/gameView')
 const { InMemoryDatabase } =
   require('../integration/helpers/inMemoryDatabase') as typeof import('../integration/helpers/inMemoryDatabase')
 
