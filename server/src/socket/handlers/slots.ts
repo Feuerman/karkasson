@@ -11,10 +11,41 @@ function snapshotPlayers<T>(players: T[]): T[] {
 /**
  * Правка состава лобби: игроки занимают и освобождают слоты. Обе команды
  * меняют только список игроков, поэтому откат после неудачного сохранения
- * одинаков.
+ * одинаков и делается одним способом.
  */
 export function registerSlotHandlers(context: SocketHandlerContext) {
   const { events, service, socket } = context
+
+  /**
+   * Общая часть правки слота: проверка права, изменение, сохранение и откат
+   * к прежнему списку игроков, если запись не удалась.
+   */
+  const editSlot = async (
+    gameId: string,
+    index: number,
+    callback: SocketCallback,
+    change: () => void
+  ) => {
+    const currentGame = service.getGame(gameId)
+    if (!currentGame || !service.canEditLobbySlot(gameId, socket.id, index)) {
+      callback?.({ error: LobbyErrors.SlotEditForbidden })
+      return
+    }
+
+    const previousPlayers = snapshotPlayers(currentGame.players)
+    change()
+
+    try {
+      await service.saveWithRollback(gameId, () => {
+        currentGame.players = previousPlayers
+      })
+    } catch (error) {
+      callback?.({ error: CommonErrors.SaveFailed })
+      return
+    }
+
+    ackGameUpdated(events, gameId, currentGame, callback)
+  }
 
   socket.on(
     SocketEvents.AddPlayer,
@@ -28,32 +59,13 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
     ) => {
       await runLobbyCommand(callback, async () => {
         const deviceId = service.getDeviceBySocketId(socket.id)
-        if (!service.canEditLobbySlot(gameId, socket.id, index)) {
-          callback?.({ error: LobbyErrors.SlotEditForbidden })
-          return
-        }
-        const currentGame = service.getGame(gameId)
-        if (!currentGame) {
-          callback?.({ error: CommonErrors.GameNotFound })
-          return
-        }
-        const previousPlayers = snapshotPlayers(currentGame.players)
-        service.addPlayer(gameId, index, {
-          name,
-          socketId: socket.id,
-          deviceId,
-        })
-
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          currentGame.players = previousPlayers
-          callback?.({
-            error: CommonErrors.SaveFailed,
+        await editSlot(gameId, index, callback, () => {
+          service.addPlayer(gameId, index, {
+            name,
+            socketId: socket.id,
+            deviceId,
           })
-          return
-        }
-        ackGameUpdated(events, service, gameId, currentGame, callback)
+        })
       })
     }
   )
@@ -69,28 +81,13 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
       callback: SocketCallback
     ) => {
       await runLobbyCommand(callback, async () => {
-        const currentGame = service.getGame(gameId)
-        if (
-          !currentGame ||
-          !service.canEditLobbySlot(gameId, socket.id, index) ||
-          typeof keepAsComputer !== 'boolean'
-        ) {
+        if (typeof keepAsComputer !== 'boolean') {
           callback?.({ error: LobbyErrors.SlotEditForbidden })
           return
         }
-        const previousPlayers = snapshotPlayers(currentGame.players)
-        service.removePlayer(gameId, index, keepAsComputer)
-
-        try {
-          await service.saveGame(gameId)
-        } catch (error) {
-          currentGame.players = previousPlayers
-          callback?.({
-            error: CommonErrors.SaveFailed,
-          })
-          return
-        }
-        ackGameUpdated(events, service, gameId, currentGame, callback)
+        await editSlot(gameId, index, callback, () => {
+          service.removePlayer(gameId, index, keepAsComputer)
+        })
       })
     }
   )

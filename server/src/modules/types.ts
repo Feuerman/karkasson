@@ -87,13 +87,6 @@ export const TileId = {
 
 export type TileId = (typeof TileId)[keyof typeof TileId]
 
-export function isTileId(value: unknown): value is TileId {
-  return (
-    typeof value === 'string' &&
-    Object.values(TileId).some((tileId) => tileId === value)
-  )
-}
-
 export const SideName = {
   North: 'north',
   West: 'west',
@@ -161,7 +154,6 @@ export const TILE_ROTATIONS = [0, 90, 180, 270] as const
 export const RotationTurns = {
   Quarter: 1,
   ThreeQuarter: 3,
-  Full: 4,
 } as const
 
 export interface Player {
@@ -232,11 +224,65 @@ export const SocketEvents = {
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]
 
 export interface GameRules {
-  finalScoringEnabled: boolean
   expansions: {
     innsAndCathedrals: boolean
     river: boolean
     princessAndDragon: boolean
+  }
+}
+
+/**
+ * Правила по умолчанию: партия без дополнений. Флага финального подсчёта
+ * среди правил нет — он хранится один раз, в корне состояния партии.
+ */
+export const DEFAULT_GAME_RULES: GameRules = {
+  expansions: {
+    innsAndCathedrals: false,
+    river: false,
+    princessAndDragon: false,
+  },
+}
+
+/**
+ * Настройки партии, которые задаёт игрок: правила в том виде, в котором их
+ * удобно передавать из интерфейса и хранить в лобби.
+ */
+export interface GameOptions {
+  finalScoringEnabled?: boolean
+  innsAndCathedralsEnabled?: boolean
+  riverEnabled?: boolean
+  princessAndDragonEnabled?: boolean
+}
+
+/** Настройки дополнений партии. */
+export type ExpansionOptions = Required<
+  Pick<
+    GameOptions,
+    'innsAndCathedralsEnabled' | 'riverEnabled' | 'princessAndDragonEnabled'
+  >
+>
+
+/** Настройки партии → правила партии. */
+export function rulesFromOptions(options: GameOptions = {}): GameRules {
+  return {
+    expansions: {
+      innsAndCathedrals:
+        options.innsAndCathedralsEnabled ??
+        DEFAULT_GAME_RULES.expansions.innsAndCathedrals,
+      river: options.riverEnabled ?? DEFAULT_GAME_RULES.expansions.river,
+      princessAndDragon:
+        options.princessAndDragonEnabled ??
+        DEFAULT_GAME_RULES.expansions.princessAndDragon,
+    },
+  }
+}
+
+/** Правила партии → настройки дополнений: обратное преобразование. */
+export function expansionOptionsFromRules(rules: GameRules): ExpansionOptions {
+  return {
+    innsAndCathedralsEnabled: rules.expansions.innsAndCathedrals,
+    riverEnabled: rules.expansions.river,
+    princessAndDragonEnabled: rules.expansions.princessAndDragon,
   }
 }
 

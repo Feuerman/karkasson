@@ -1,8 +1,8 @@
-import tiles from '../data/tiles'
-import { innsAndCathedralsTiles } from '../data/innsAndCathedralsTiles'
-import { riverTiles } from '../data/riverTiles'
-import { princessAndDragonTiles } from '../data/princessAndDragonTiles'
-import { findTileDefinitionById } from '../data/tileDefinitions'
+import {
+  EXPANSION_TILE_SETS,
+  findTileDefinition,
+  tilesForRules,
+} from '../data/tileCatalog'
 import type { TileDefinition } from '../data/tiles'
 import {
   boardCenterCoordinates,
@@ -10,16 +10,16 @@ import {
   neighborCoordinates,
   NEIGHBOR_SIDES,
 } from './gameGeometry'
+import type { TileBoard } from './boardState'
 import {
   ExpansionName,
   OPPOSITE_SIDE,
   SideName,
   TileId,
-  type GameRules,
   type GridTile,
   type RiverPlacementConflict,
   type Tile,
-  type TilePlacesStats,
+  type TileSideType,
 } from './types'
 
 /** Сторона уже стоящего тайла, у которой русло осталось открытым. */
@@ -29,17 +29,32 @@ interface RiverOpenEnd {
   side: SideName
 }
 
-interface GameTileState {
-  gameIsEnded: boolean
-  rules: GameRules
-  gridSize: number[]
-  tilesList: Tile[]
-  currentTile: GridTile | null
-  tilePlacesStats: TilePlacesStats
-  availablePlacesTiles: Array<{ rowIndex: number; tileIndex: number }>
-  isEmptyGrid(): boolean
-  rotateTile(tile: Tile): Tile
-  updateTileHistory(tile: Tile): void
+/**
+ * Требования клетки к сторонам тайла.
+ *
+ * Клетка требует от тайла ровно одного: чтобы каждая его сторона совпадала
+ * с той стороной соседа, к которой примыкает. Требования считаются один раз
+ * на розыгрыш: раньше соседи перебирались заново для каждого тайла колоды и
+ * каждого поворота, а это десятки тысяч проверок на ход.
+ */
+interface PlacementCell {
+  rowIndex: number
+  tileIndex: number
+  /** Требуемая сторона тайла по направлениям; соседа нет — требования нет. */
+  required: Partial<Record<SideName, TileSideType>>
+}
+
+/**
+ * Состояние русла на момент розыгрыша: считается один раз, а не заново для
+ * каждого тайла и каждой клетки.
+ */
+interface RiverState {
+  /** На доске есть тайл, закрывающий русло. */
+  hasRiverEnd: boolean
+  /** Открытые концы русла среди стоящих тайлов. */
+  openEnds: RiverOpenEnd[]
+  /** Сколько тайлов с руслом уже стоит на доске. */
+  placedRiverTiles: number
 }
 
 function shuffleTiles(tilesToShuffle: Tile[]): Tile[] {
@@ -74,13 +89,13 @@ function toRiverConflict(
 /** Owns deck construction, drawing, and tile placement validation. */
 export class GameTileManager {
   constructor(
-    private readonly state: GameTileState,
+    private readonly state: TileBoard,
     private readonly finishGame: () => void,
     private readonly isPlacingStartTile: () => boolean
   ) {}
 
   findTileDefinition(tileId: string): TileDefinition | undefined {
-    return findTileDefinitionById(tileId, this.state.rules)
+    return findTileDefinition(tileId, this.state.rules)
   }
 
   /**
@@ -98,7 +113,7 @@ export class GameTileManager {
    */
   takeStartTile(): Tile {
     const startTileId = this.startTileId
-    const definition = findTileDefinitionById(startTileId, this.state.rules)
+    const definition = findTileDefinition(startTileId, this.state.rules)
     if (!definition) throw new Error('Game has no starting tile')
 
     // В колоде партии лежит ровно одна копия стартового тайла. Если её там нет
@@ -112,26 +127,28 @@ export class GameTileManager {
   }
 
   initializeDeck() {
-    const standardDefinitions = [
-      ...tiles,
-      ...(this.state.rules.expansions.innsAndCathedrals
-        ? innsAndCathedralsTiles
-        : []),
-      ...(this.state.rules.expansions.princessAndDragon
-        ? princessAndDragonTiles
-        : []),
-    ]
+    const rules = this.state.rules
+    // Состав колоды берётся из каталога: перечень тайлов по дополнениям живёт
+    // в одном месте. Речные тайлы в ordinary-часть не входят — они раздаются
+    // первыми.
+    const standardDefinitions = tilesForRules({
+      ...rules,
+      expansions: { ...rules.expansions, river: false },
+    })
     const standardTiles = shuffleTiles(createTileCopies(standardDefinitions))
 
-    if (!this.state.rules.expansions.river) {
+    if (!rules.expansions.river) {
       this.state.tilesList = standardTiles
       return
     }
 
+    const riverDefinitions = EXPANSION_TILE_SETS[ExpansionName.River]
     const middleRiverTiles = shuffleTiles(
-      createTileCopies(riverTiles.filter((tile) => tile.id !== TileId.RIVER_L))
+      createTileCopies(
+        riverDefinitions.filter((tile) => tile.id !== TileId.RIVER_L)
+      )
     )
-    const riverEnd = riverTiles.find(({ id }) => id === TileId.RIVER_L)
+    const riverEnd = riverDefinitions.find(({ id }) => id === TileId.RIVER_L)
     if (!riverEnd) throw new Error('River expansion has no ending tile')
 
     this.state.tilesList = [
@@ -178,12 +195,17 @@ export class GameTileManager {
     const rejectedTiles: Tile[] = []
     const rejectedDragonTiles: Tile[] = []
 
+    // Требования клеток и состояние русла считаются один раз на розыгрыш:
+    // дальше каждый тайл колоды проверяется по ним без перебора соседей.
+    const cells = this.collectPlacementCells()
+    const river = this.collectRiverState()
+
     for (let index = 0; index < tilesToCheck; index += 1) {
       const tile = this.state.tilesList[index]
       if (!tile) continue
       if (
         (dragonAwake || !tile.hasDragon) &&
-        this.checkAvailablePlacesForTile({ ...tile, rotation: 0 })
+        this.checkAvailablePlacesForTile({ ...tile, rotation: 0 }, cells, river)
       ) {
         const remainingTiles = [
           tile,
@@ -227,8 +249,12 @@ export class GameTileManager {
     return this.hasPlacedTile((placedTile) => placedTile.id === TileId.RIVER_L)
   }
 
-  checkAvailablePlacesForTile(tile: Tile): boolean {
-    return Boolean(this.getValidTileRotation(tile))
+  checkAvailablePlacesForTile(
+    tile: Tile,
+    cells: PlacementCell[],
+    river: RiverState
+  ): boolean {
+    return Boolean(this.getValidTileRotation(tile, cells, river))
   }
 
   isValidTilePlacement(
@@ -275,23 +301,125 @@ export class GameTileManager {
     )
   }
 
-  private getValidTileRotation(tile: Tile): Tile | undefined {
+  /**
+   * Требования свободных клеток к сторонам тайла.
+   *
+   * Клетка без соседей не годится: тайл рядом с путём не поставить. На
+   * пустой доске требований нет вовсе — там годится любая клетка.
+   */
+  private collectPlacementCells(): PlacementCell[] {
+    const isGridEmpty = this.state.isEmptyGrid()
+    const cells: PlacementCell[] = []
+
     for (const place of this.state.availablePlacesTiles) {
+      if (this.state.tilePlacesStats[place.rowIndex]?.[place.tileIndex]) {
+        continue
+      }
+
+      const required: Partial<Record<SideName, TileSideType>> = {}
+      let hasNeighbor = false
+      for (const neighbor of NEIGHBOR_SIDES) {
+        const coordinates = neighborCoordinates(
+          place.rowIndex,
+          place.tileIndex,
+          neighbor
+        )
+        const adjacent =
+          this.state.tilePlacesStats[coordinates.rowIndex]?.[
+            coordinates.tileIndex
+          ]?.sides[neighbor.oppositeSide]
+        if (!adjacent) continue
+        required[neighbor.side] = adjacent
+        hasNeighbor = true
+      }
+
+      if (!isGridEmpty && !hasNeighbor) continue
+      cells.push({
+        rowIndex: place.rowIndex,
+        tileIndex: place.tileIndex,
+        required,
+      })
+    }
+
+    return cells
+  }
+
+  /** Состояние русла на момент розыгрыша: считается один раз. */
+  private collectRiverState(): RiverState {
+    const placedRiverTiles = Object.values(this.state.tilePlacesStats).reduce(
+      (count, row) =>
+        count +
+        Object.values(row).filter(
+          (placedTile) => placedTile.riverGroups?.length
+        ).length,
+      0
+    )
+    return {
+      hasRiverEnd: this.hasRiverEnd(),
+      openEnds: this.findOpenRiverEnds(),
+      placedRiverTiles,
+    }
+  }
+
+  /** Тайл подходит клетке, если каждая его сторона совпадает с требованием. */
+  private matchesCell(tile: Tile, cell: PlacementCell): boolean {
+    return NEIGHBOR_SIDES.every((neighbor) => {
+      const required = cell.required[neighbor.side]
+      return required === undefined || required === tile.sides[neighbor.side]
+    })
+  }
+
+  /**
+   * Проверка размещения по посчитанным требованиям: стороны тайла должны
+   * совпасть с соседями, а правила реки — выполняться.
+   */
+  private isTilePlacementValid(
+    tile: Tile,
+    cell: PlacementCell,
+    river: RiverState
+  ): boolean {
+    const riverEnabled = this.state.rules.expansions.river
+
+    if (riverEnabled && tile.expansion === ExpansionName.River) {
+      // Речной тайл ставится по правилам русла: стороны соседей его не касаются.
+      return this.checkRiverPlacementWithState(
+        tile,
+        cell.rowIndex,
+        cell.tileIndex,
+        river
+      )
+    }
+
+    if (
+      riverEnabled &&
+      !this.checkRiverPlacementWithState(
+        tile,
+        cell.rowIndex,
+        cell.tileIndex,
+        river
+      )
+    ) {
+      return false
+    }
+
+    return this.matchesCell(tile, cell)
+  }
+
+  private getValidTileRotation(
+    tile: Tile,
+    cells: PlacementCell[],
+    river: RiverState
+  ): Tile | undefined {
+    for (const cell of cells) {
       for (const rotationCount of [0, 1, 2, 3]) {
         let processedTile: Tile = { ...tile }
         for (let index = 0; index < rotationCount; index += 1) {
           processedTile = this.state.rotateTile(processedTile)
         }
 
-        if (
-          this.isValidTilePlacement(
-            processedTile,
-            place.rowIndex,
-            place.tileIndex
-          )
-        ) {
-          return processedTile
-        }
+        if (!this.isTilePlacementValid(processedTile, cell, river)) continue
+
+        return processedTile
       }
     }
     return undefined
@@ -336,6 +464,68 @@ export class GameTileManager {
       }
     }
     return openEnds
+  }
+
+  /**
+   * Проверка правил реки по заранее посчитанному состоянию русла: открытые
+   * концы и стоящие речные тайлы не пересчитываются для каждой проверки.
+   */
+  private checkRiverPlacementWithState(
+    tile: Tile,
+    rowIndex: number,
+    tileIndex: number,
+    river: RiverState
+  ): boolean {
+    if (this.isPlacingStartTile()) {
+      const center = boardCenterCoordinates(this.state.gridSize)
+      return (
+        tile.id === TileId.RIVER_A &&
+        rowIndex === center.rowIndex &&
+        tileIndex === center.tileIndex
+      )
+    }
+    if (tile.id === TileId.RIVER_A) return false
+    if (river.hasRiverEnd) return !tile.riverGroups?.length
+    if (!tile.riverGroups?.length) return false
+
+    const riverSides = tile.riverGroups.flat()
+    if (tile.riverGroups.length !== 1) return false
+    if (!river.placedRiverTiles) return false
+    if (riverSides.length < 1 || riverSides.length > 2) return false
+
+    // Русло должно продолжить ровно один открытый конец среди уже стоящих
+    // тайлов и не открывать новых: у открытого конца и у выхода нового тайла
+    // должны совпасть клетка и сторона.
+    const openEnd = river.openEnds[0]
+    if (river.openEnds.length !== 1 || !openEnd) return false
+
+    const connections = NEIGHBOR_SIDES.flatMap((side) => {
+      const adjacent = neighborCoordinates(rowIndex, tileIndex, side)
+      const neighbor =
+        this.state.tilePlacesStats[adjacent.rowIndex]?.[adjacent.tileIndex]
+      return neighbor?.riverGroups?.some((group) =>
+        group.includes(side.oppositeSide)
+      )
+        ? [{ side: side.side, ...adjacent }]
+        : []
+    })
+    const connection = connections[0]
+    if (
+      connections.length !== 1 ||
+      !connection ||
+      connection.rowIndex !== openEnd.rowIndex ||
+      connection.tileIndex !== openEnd.tileIndex ||
+      openEnd.side !== OPPOSITE_SIDE[connection.side]
+    ) {
+      return false
+    }
+    if (!riverSides.includes(connection.side)) return false
+    const exitSide = riverSides.find((side) => side !== connection.side)
+    if (exitSide === SideName.North) return false
+
+    return tile.id === TileId.RIVER_L
+      ? riverSides.length === 1
+      : riverSides.length === 2
   }
 
   private checkRiverPlacement(

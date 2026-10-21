@@ -1,4 +1,5 @@
-import type { GameAction, NewGameAction } from './gameActions'
+import { takeFollower } from './followerPool'
+import type { FollowerBoard } from './boardState'
 import {
   CENTRAL_OBJECT_NAMES,
   countCenterObjectPoints,
@@ -18,56 +19,16 @@ import {
   type FollowerType,
   type GridTile,
   type ObjectFollower,
-  type Player,
   type PlayerId,
-  type PlacedFollower,
   type Point,
   type PointDirection,
   type SideName,
-  type Scores,
-  type TemporaryObjects,
-  type TilePlacesStats,
 } from './types'
-
-type LinearFeatureKind = typeof TileSideType.City | typeof TileSideType.Road
 
 /** Кандидат на место подданного до проверки допустимости. */
 interface FollowerPlaceCandidate {
   point: Point
   temporaryObject: BaseObject | undefined
-}
-
-interface FollowerState {
-  gameIsEnded: boolean
-  currentTile: GridTile | null
-  currentPlayer: Player | null
-  playersFollowers: Record<PlayerId, FollowerCount>
-  rules: {
-    expansions: {
-      innsAndCathedrals: boolean
-    }
-  }
-  temporaryObjects: TemporaryObjects
-  completedObjects: TemporaryObjects
-  tilePlacesStats: TilePlacesStats
-  availableFollowersPlaces: AvailableFollowerPlace[]
-  isPlacingFollower: boolean
-  princessFollowerPenalty?: boolean
-  placedFollowers: PlacedFollower[]
-  scores: Scores
-  actionsHistory: GameAction[]
-  recordAction(action: NewGameAction): void
-  getTileFeatureGroups(
-    tile: GridTile,
-    feature: LinearFeatureKind
-  ): Array<Array<(typeof SIDE_NAMES)[number]>>
-  endTurn(): void
-  findObjectByPoint(
-    objects: TemporaryObjects,
-    x: number,
-    y: number,
-    direction?: PointDirection
-  ): BaseObject | undefined
 }
 
 /** Центральный объект текущего игрока, с которого можно отозвать аббата. */
@@ -81,7 +42,7 @@ interface RecallableAbbot {
 
 /** Owns legal follower positions, placement, skipping and abbot recall. */
 export class FollowerManager {
-  constructor(private readonly state: FollowerState) {}
+  constructor(private readonly state: FollowerBoard) {}
 
   checkAvailableFollowers() {
     if (!this.state.currentTile) return
@@ -398,11 +359,7 @@ export class FollowerManager {
       ...found,
       objectType,
       playerId: currentPlayer.id,
-      points: countCenterObjectPoints(
-        this.state.tilePlacesStats,
-        found.object,
-        objectType
-      ),
+      points: countCenterObjectPoints(this.state.tilePlacesStats, found.object),
     }
   }
 
@@ -539,13 +496,8 @@ export class FollowerManager {
   }
 
   private consumeFollower(playerId: PlayerId, followerType: FollowerType) {
-    if (followerType === FollowerTypes.Abbot) {
-      this.state.playersFollowers[playerId].monks -= 1
-    } else if (followerType === FollowerTypes.BigFollower) {
-      const pool = this.state.playersFollowers[playerId]
-      if (pool.bigFollowers !== undefined) pool.bigFollowers -= 1
-    } else {
-      this.state.playersFollowers[playerId].ordinaryFollowers -= 1
-    }
+    const pool = this.state.playersFollowers[playerId]
+    if (!pool) return
+    takeFollower(pool, followerType)
   }
 }

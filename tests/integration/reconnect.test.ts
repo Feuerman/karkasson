@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { continueComputerGame } from '@server/services/computerPlayer'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
@@ -240,7 +239,7 @@ describe('Отключение и переподключение игроков'
       disconnected.players.find((player) => player.name === 'Bob')?.deviceId
     ).toBe(lobby.joiner.deviceId)
 
-    continueComputerGame(
+    server.handle.gameService.computerMoves.continueGame(
       server.handle.events,
       server.handle.gameService,
       lobby.gameId
@@ -290,7 +289,7 @@ describe('Отключение и переподключение игроков'
         state.players.find((player) => player.name === 'Bob')?.socketId === null
     )
 
-    continueComputerGame(
+    server.handle.gameService.computerMoves.continueGame(
       server.handle.events,
       server.handle.gameService,
       lobby.gameId,

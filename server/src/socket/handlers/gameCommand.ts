@@ -1,5 +1,4 @@
-import type { IGameBoard } from '../../modules/GameManager'
-import type { GameService } from '../../services/GameService'
+import type { GameManager } from '../../modules/GameManager'
 import { CommonErrors, GameErrors } from '../../modules/errors'
 import type { SocketEvent } from '../../modules/types'
 import { createLogger } from '../../utils/logger'
@@ -16,16 +15,12 @@ type GameErrorMessage = (typeof GameErrors)[keyof typeof GameErrors]
  * Возвращает текст ошибки или `undefined`, если команду можно выполнять.
  */
 export type GameCommandGuard = (
-  game: IGameBoard,
+  game: GameManager,
   socketId: string
 ) => GameErrorMessage | undefined
 
 export interface GameCommandContext {
-  readonly game: IGameBoard
-  /** Сохраняет партию; при ошибке откатывает состояние к снимку. */
-  save(): Promise<void>
-  /** Публикует состояние игрокам и подтверждает команду вызывающему. */
-  ack(): void
+  readonly game: GameManager
 }
 
 export interface GameCommandRequest {
@@ -35,7 +30,19 @@ export interface GameCommandRequest {
   callback?: SocketCallback
   /** По умолчанию — «сейчас ход вызывающего». */
   guard?: GameCommandGuard
+  /**
+   * Изменение партии. Проверки и сама правка — здесь; сохранение, откат и
+   * публикация делает общий исполнитель сервиса.
+   */
   execute(context: GameCommandContext): Promise<void>
+  /** Действия после сохранения и подтверждения: например, передача хода компьютеру. */
+  afterSave?(game: GameManager): void
+  /**
+   * Транзиентная команда: состояние меняется в памяти и расходится игрокам,
+   * но не сохраняется. Так работает предпросмотр — поворот тайла и выбор
+   * клетки: на правила он не влияет и переживать перезапуск сервера не должен.
+   */
+  transient?: boolean
 }
 
 /**
@@ -56,14 +63,14 @@ function commandErrorDetails(error: unknown): Record<string, unknown> {
   return error instanceof GameCommandError ? error.details : {}
 }
 
-function playerIndexesForSocket(game: IGameBoard, socketId: string): number[] {
+function playerIndexesForSocket(game: GameManager, socketId: string): number[] {
   return game.players.reduce<number[]>((acc, player, index) => {
     if (player.socketId === socketId) acc.push(index)
     return acc
   }, [])
 }
 
-export function isPlayersTurn(game: IGameBoard, socketId: string): boolean {
+export function isPlayersTurn(game: GameManager, socketId: string): boolean {
   return playerIndexesForSocket(game, socketId).some(
     (index) => index === game.currentPlayerIndex
   )
@@ -75,7 +82,11 @@ const requirePlayersTurn: GameCommandGuard = (game, socketId) =>
 
 /**
  * Общий преамбул изменяющих игровых команд: мьютекс партии → проверка права и
- * фазы → снимок состояния → мутация → сохранение → публикация и ack.
+ * фазы → изменение → сохранение → публикация и ack.
+ *
+ * Изменение, сохранение и откат выполняет общий исполнитель сервиса: тот же
+ * протокол использует ход компьютера, поэтому расхождение по откату и по
+ * публикации невозможно.
  *
  * Отказ правил, случившийся уже после частичной мутации (поворот тайла,
  * потраченный ход), и ошибка сохранения обрабатываются одинаково: состояние
@@ -89,6 +100,8 @@ export async function runGameCommand(
     callback,
     guard = requirePlayersTurn,
     execute,
+    afterSave,
+    transient = false,
   }: GameCommandRequest
 ): Promise<void> {
   await service.runGameCommand(gameId, async () => {
@@ -104,37 +117,26 @@ export async function runGameCommand(
       return
     }
 
-    const previousState = game.clone()
-    const context: GameCommandContext = {
-      game,
-      save: () => saveGameOrRollback(game, gameId, service, previousState),
-      ack: () => ackGameUpdated(events, service, gameId, game, callback),
-    }
+    const mutate = (currentGame: GameManager) => execute({ game: currentGame })
 
     try {
-      await execute(context)
+      // Транзиентная команда меняет только предпросмотр: она не сохраняется и
+      // не снимает снимок состояния — правка атомарна.
+      if (transient) {
+        await service.mutateWithoutSaving(gameId, mutate)
+      } else {
+        await service.mutateAndSave(gameId, mutate)
+      }
     } catch (error) {
-      game.copyStateFrom(previousState)
       logger.error(`Ошибка команды ${command}:`, error)
       callback?.({
         error: toPlayerErrorMessage(error),
         ...commandErrorDetails(error),
       })
+      return
     }
-  })
-}
 
-/** Сохраняет партию; при ошибке записи откатывает состояние к снимку. */
-async function saveGameOrRollback(
-  game: IGameBoard,
-  gameId: string,
-  service: GameService,
-  previousState: IGameBoard
-): Promise<void> {
-  try {
-    await service.saveGame(gameId)
-  } catch (error) {
-    game.copyStateFrom(previousState)
-    throw error
-  }
+    ackGameUpdated(events, gameId, game, callback)
+    afterSave?.(game)
+  })
 }

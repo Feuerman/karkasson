@@ -1,5 +1,4 @@
 import { SocketEvents } from '../../../modules/types'
-import { maybeContinueWithComputerMove } from '../../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../../types'
 import { GameErrors } from '../../../modules/errors'
 import { runGameCommand, type GameCommandGuard } from '../gameCommand'
@@ -12,7 +11,7 @@ const requireDragonTurn: GameCommandGuard = (game, socketId) =>
     : GameErrors.InvalidDragonTurn
 
 export function registerDragonHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(
     SocketEvents.MoveDragon,
@@ -28,16 +27,16 @@ export function registerDragonHandlers(context: SocketHandlerContext) {
         command: SocketEvents.MoveDragon,
         callback,
         guard: requireDragonTurn,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (
             !position ||
             !game.moveDragon(position.rowIndex, position.tileIndex)
           ) {
             throw new Error(GameErrors.InvalidDragonDestination)
           }
-          await save()
-          ack()
-          maybeContinueWithComputerMove(events, service, game, gameId)
+        },
+        afterSave: (game) => {
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }

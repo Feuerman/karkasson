@@ -1,6 +1,12 @@
-import type { GameAction, NewGameAction } from './gameActions'
 import { CENTRAL_OBJECT_NAMES, describeCompletedCentralObject } from './scoring'
+import {
+  followerTypeOf,
+  removePlacedFollower,
+  returnFollower,
+} from './followerPool'
 import { isSameFollowerPoint } from './followerMatching'
+import { getPrecisionCoordinates, isOppositePoint } from './gameGeometry'
+import type { ObjectBoard } from './boardState'
 import {
   ActionTypes,
   ObjectTypes,
@@ -9,33 +15,51 @@ import {
   SIDE_NAMES,
   TileSideType,
   type BaseObject,
-  type FollowerCount,
   type ObjectFollower,
-  type PlacedFollower,
   type Point,
   type ScoreDetails,
   type ScoreForObject,
-  type Scores,
-  type TemporaryObjects,
-  type CompletedObjects,
-  type TilePlacesStats,
   type GridTile,
   type SideName,
-  type PlayerId,
 } from './types'
 
 type CentralObjectKind = ObjectTypes.MONASTERY | ObjectTypes.GARDEN
 type LinearFeatureKind = typeof TileSideType.Road | typeof TileSideType.City
 
-const LINEAR_FEATURE_COLLECTIONS = {
-  [TileSideType.Road]: 'roads',
-  [TileSideType.City]: 'cities',
-} as const
+/**
+ * Свойства дороги и города одного вида: одинаково находятся на доске,
+ * одинаково сливаются и одинаково считаются.
+ */
+interface LinearFeatureHandlers {
+  /** Коллекция объектов доски этого вида. */
+  collection: 'roads' | 'cities'
+  /** Тип объекта в истории. */
+  objectType: ObjectTypes
+  /** Признаки бонуса расширения на тайле: таверна у дороги, собор у города. */
+  bonusFlags: { hasInn: boolean; hasCathedral: boolean }
+  calcScore(state: ObjectBoard, feature: BaseObject): ScoreForObject
+  describeScore(state: ObjectBoard, feature: BaseObject): ScoreDetails
+}
 
-const LINEAR_FEATURE_TYPES = {
-  [TileSideType.Road]: ObjectTypes.ROAD,
-  [TileSideType.City]: ObjectTypes.CITY,
-} as const
+const LINEAR_FEATURE_HANDLERS: Record<
+  LinearFeatureKind,
+  LinearFeatureHandlers
+> = {
+  [TileSideType.Road]: {
+    collection: 'roads',
+    objectType: ObjectTypes.ROAD,
+    bonusFlags: { hasInn: true, hasCathedral: false },
+    calcScore: (state, feature) => state.calcScoreForRoad(feature),
+    describeScore: (state, feature) => state.describeScoreForRoad(feature),
+  },
+  [TileSideType.City]: {
+    collection: 'cities',
+    objectType: ObjectTypes.CITY,
+    bonusFlags: { hasInn: false, hasCathedral: true },
+    calcScore: (state, feature) => state.calcScoreForCity(feature),
+    describeScore: (state, feature) => state.describeScoreForCity(feature),
+  },
+}
 
 const CENTRAL_OBJECT_NEIGHBORS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
@@ -70,27 +94,9 @@ const CENTRAL_OBJECT_FLAGS: Record<
   [ObjectTypes.GARDEN]: { isGarden: true },
 }
 
-interface GameObjectState {
-  temporaryObjects: TemporaryObjects
-  completedObjects: CompletedObjects
-  tilePlacesStats: TilePlacesStats
-  scores: Scores
-  playersFollowers: Record<PlayerId, FollowerCount>
-  placedFollowers: PlacedFollower[]
-  actionsHistory: GameAction[]
-  recordAction(action: NewGameAction): void
-  getTileFeatureGroups(tile: GridTile, feature: LinearFeatureKind): SideName[][]
-  getPrecisionCoordinates(point: Point): { x: number; y: number }
-  isOppositePoint(point: Point, oppositePoint: Point): boolean
-  calcScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreForObject
-  calcScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreForObject
-  describeScoreForRoad(road: BaseObject, isCompleted?: boolean): ScoreDetails
-  describeScoreForCity(city: BaseObject, isCompleted?: boolean): ScoreDetails
-}
-
 /** Owns feature-object discovery, merging, completion and follower return. */
 export class GameObjectManager {
-  constructor(private readonly state: GameObjectState) {}
+  constructor(private readonly state: ObjectBoard) {}
 
   /**
    * Обрабатывает только что поставленный тайл: находит появившиеся участки
@@ -272,16 +278,12 @@ export class GameObjectManager {
   /** Фишка уходит с поля и возвращается в запас владельца. */
   private returnFollowerToPool(follower: ObjectFollower) {
     const pool = this.state.playersFollowers[follower.playerId]
-    if (follower.isBigFollower) {
-      if (pool.bigFollowers !== undefined) pool.bigFollowers += 1
-    } else {
-      pool.ordinaryFollowers += 1
-    }
-    this.removePlacedFollower(follower)
+    if (pool) returnFollower(pool, followerTypeOf(follower))
+    removePlacedFollower(this.state, follower)
   }
 
   private checkConnectedFeatures(kind: LinearFeatureKind, groups: Point[][]) {
-    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const collection = LINEAR_FEATURE_HANDLERS[kind].collection
 
     for (const group of groups) {
       if (!group.length) continue
@@ -289,9 +291,7 @@ export class GameObjectManager {
       const connectedIds = this.state.temporaryObjects[collection]
         .filter((object) =>
           object.points.some((point) =>
-            group.some((featurePoint) =>
-              this.state.isOppositePoint(point, featurePoint)
-            )
+            group.some((featurePoint) => isOppositePoint(point, featurePoint))
           )
         )
         .map((object) => object.id)
@@ -310,18 +310,20 @@ export class GameObjectManager {
     connectedIds: string[],
     newPoints: Point[]
   ) {
-    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
+    const handlers = LINEAR_FEATURE_HANDLERS[kind]
+    const collection = handlers.collection
     const existingObjects = this.state.temporaryObjects[collection]
     const firstPoint = newPoints[0]
     const placedTile = firstPoint
       ? this.state.tilePlacesStats[firstPoint.y]?.[firstPoint.x]
       : undefined
-    const hasInn = kind === TileSideType.Road && Boolean(placedTile?.hasInn)
+    const bonusFlags = handlers.bonusFlags
+    const hasInn = bonusFlags.hasInn && Boolean(placedTile?.hasInn)
     const hasCathedral =
-      kind === TileSideType.City && Boolean(placedTile?.hasCathedral)
+      bonusFlags.hasCathedral && Boolean(placedTile?.hasCathedral)
     const isExpansionTile = Boolean(
       placedTile?.expansion === ExpansionName.InnsAndCathedrals &&
-      (kind === TileSideType.Road ? placedTile.hasInn : placedTile.hasCathedral)
+      (hasInn || hasCathedral)
     )
 
     if (connectedIds.length === 0) {
@@ -369,14 +371,14 @@ export class GameObjectManager {
       followers: connectedObjects.flatMap(({ followers }) => followers),
       hasInn: Boolean(
         hasInn ||
-        (kind === TileSideType.Road &&
-          connectedObjects.some((object) => object.hasInn))
+        (bonusFlags.hasInn && connectedObjects.some((object) => object.hasInn))
       ),
       hasCathedral: Boolean(
         hasCathedral ||
-        (kind === TileSideType.City &&
+        (bonusFlags.hasCathedral &&
           connectedObjects.some((object) => object.hasCathedral))
       ),
+
       expansion:
         isExpansionTile ||
         connectedObjects.some(
@@ -403,12 +405,10 @@ export class GameObjectManager {
   checkCompleteLinearFeature(kind: LinearFeatureKind, feature: BaseObject) {
     if (!this.isLinearFeatureComplete(feature)) return
 
-    const collection = LINEAR_FEATURE_COLLECTIONS[kind]
-    const objectType = LINEAR_FEATURE_TYPES[kind]
-    const score =
-      kind === TileSideType.Road
-        ? this.state.calcScoreForRoad(feature)
-        : this.state.calcScoreForCity(feature)
+    const handlers = LINEAR_FEATURE_HANDLERS[kind]
+    const collection = handlers.collection
+    const objectType = handlers.objectType
+    const score = handlers.calcScore(this.state, feature)
     this.state.temporaryObjects[collection] = this.state.temporaryObjects[
       collection
     ].filter(({ id }) => id !== feature.id)
@@ -425,9 +425,7 @@ export class GameObjectManager {
         objectType,
         objectData: feature,
         score,
-        ...(kind === TileSideType.Road
-          ? this.state.describeScoreForRoad(feature)
-          : this.state.describeScoreForCity(feature)),
+        ...handlers.describeScore(this.state, feature),
       },
     })
     for (const follower of feature.followers) {
@@ -446,9 +444,9 @@ export class GameObjectManager {
 
   private isLinearFeatureComplete(feature: BaseObject): boolean {
     return feature.points.every((point) => {
-      const coordinates = this.state.getPrecisionCoordinates(point)
+      const coordinates = getPrecisionCoordinates(point)
       return feature.points.some((otherPoint) => {
-        const otherCoordinates = this.state.getPrecisionCoordinates(otherPoint)
+        const otherCoordinates = getPrecisionCoordinates(otherPoint)
         return (
           coordinates.x === otherCoordinates.x &&
           coordinates.y === otherCoordinates.y &&
@@ -456,13 +454,6 @@ export class GameObjectManager {
         )
       })
     })
-  }
-
-  private removePlacedFollower(follower: ObjectFollower) {
-    const index = this.state.placedFollowers.findIndex((placed) =>
-      isSameFollowerPoint(placed, follower)
-    )
-    if (index >= 0) this.state.placedFollowers.splice(index, 1)
   }
 
   /**

@@ -1,16 +1,26 @@
-import {
-  continueComputerGame,
-  isComputerPlayer,
-  scheduleComputerMove,
-} from '../../services/computerPlayer'
-import type { IGameBoard } from '../../modules/GameManager'
+import { isComputerPlayer } from '../../services/computerPlayer'
+import type { GameManager } from '../../modules/GameManager'
+import type { GameOptions } from '../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
 import { ackGameUpdated, runLobbyCommand } from './shared'
+import { formatGameData } from '../../services/gameView'
 
-function isComputerOnlyGame(game: IGameBoard): boolean {
+function isComputerOnlyGame(game: GameManager): boolean {
   return game.players.length > 0 && game.players.every(isComputerPlayer)
+}
+
+/** Опции лобби и текст ошибки для каждой из них. */
+const LOBBY_OPTION_ERRORS: Record<keyof GameOptions, string> = {
+  finalScoringEnabled: LobbyErrors.InvalidFinalScoringOption,
+  innsAndCathedralsEnabled: LobbyErrors.InvalidInnsAndCathedralsOption,
+  riverEnabled: LobbyErrors.InvalidRiverOption,
+  princessAndDragonEnabled: LobbyErrors.InvalidPrincessAndDragonOption,
+}
+
+interface LobbyOptionsPayload {
+  [option: string]: unknown
 }
 
 /**
@@ -18,7 +28,7 @@ function isComputerOnlyGame(game: IGameBoard): boolean {
  * выход. Правка отдельных слотов живёт в `slots.ts`.
  */
 export function registerLobbyHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(SocketEvents.GetGamesList, async (callback: SocketCallback) => {
     await runLobbyCommand(callback, async () => {
@@ -37,40 +47,14 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
             : maybeCallback
         const payload =
           typeof callbackOrPayload === 'object' && callbackOrPayload !== null
-            ? (callbackOrPayload as {
-                finalScoringEnabled?: unknown
-                innsAndCathedralsEnabled?: unknown
-                riverEnabled?: unknown
-                princessAndDragonEnabled?: unknown
-              })
+            ? (callbackOrPayload as LobbyOptionsPayload)
             : undefined
-        if (
-          payload?.finalScoringEnabled !== undefined &&
-          typeof payload.finalScoringEnabled !== 'boolean'
-        ) {
-          callback?.({ error: LobbyErrors.InvalidFinalScoringOption })
-          return
-        }
-        if (
-          payload?.innsAndCathedralsEnabled !== undefined &&
-          typeof payload.innsAndCathedralsEnabled !== 'boolean'
-        ) {
-          callback?.({ error: LobbyErrors.InvalidInnsAndCathedralsOption })
-          return
-        }
-        if (
-          payload?.riverEnabled !== undefined &&
-          typeof payload.riverEnabled !== 'boolean'
-        ) {
-          callback?.({ error: LobbyErrors.InvalidRiverOption })
-          return
-        }
-        if (
-          payload?.princessAndDragonEnabled !== undefined &&
-          typeof payload.princessAndDragonEnabled !== 'boolean'
-        ) {
-          callback?.({ error: LobbyErrors.InvalidPrincessAndDragonOption })
-          return
+        for (const [option, error] of Object.entries(LOBBY_OPTION_ERRORS)) {
+          const value = payload?.[option]
+          if (value !== undefined && typeof value !== 'boolean') {
+            callback?.({ error })
+            return
+          }
         }
         const game = service.createLobby(socket.id, {
           finalScoringEnabled: payload?.finalScoringEnabled === true,
@@ -79,9 +63,10 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           princessAndDragonEnabled: payload?.princessAndDragonEnabled === true,
         })
         try {
-          await service.saveGame(game.id)
+          await service.saveWithRollback(game.id, () =>
+            service.deleteGame(game.id)
+          )
         } catch (error) {
-          await service.deleteGame(game.id)
           callback?.({
             error: CommonErrors.SaveFailed,
           })
@@ -90,12 +75,12 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         await socket.join(game.id)
         socket.emit(SocketEvents.GameCreated, {
           gameId: game.id,
-          game: service.formatGameData(game),
+          game: formatGameData(game),
         })
         callback?.({
           success: true,
           gameId: game.id,
-          game: service.formatGameData(game),
+          game: formatGameData(game),
         })
         events.publishGamesList(service.formatGamesList())
       })
@@ -119,7 +104,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           (existingGame.gameIsStarted && isComputerOnlyGame(existingGame))
         ) {
           await socket.join(resolvedGameId)
-          const game = service.formatGameData(existingGame)
+          const game = formatGameData(existingGame)
           socket.emit(SocketEvents.GameUpdated, game)
           callback?.({ success: true, game })
           return
@@ -140,16 +125,17 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
 
         await socket.join(resolvedGameId)
         try {
-          await service.saveGame(resolvedGameId)
+          await service.saveWithRollback(resolvedGameId, () => {
+            service.releasePlayer(resolvedGameId, socket.id, null)
+          })
         } catch (error) {
-          service.releasePlayerSlot(resolvedGameId, socket.id)
           await socket.leave(resolvedGameId)
           callback?.({
             error: CommonErrors.SaveFailed,
           })
           return
         }
-        ackGameUpdated(events, service, resolvedGameId, result.game, callback)
+        ackGameUpdated(events, resolvedGameId, result.game, callback)
       })
     }
   )
@@ -178,19 +164,20 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         }
 
         try {
-          await service.saveGame(gameId)
+          await service.saveWithRollback(gameId, () => {
+            service.restoreGame(gameId, previousGame)
+          })
         } catch (error) {
-          service.restoreGame(gameId, previousGame)
           callback?.({
             error: CommonErrors.SaveFailed,
           })
           return
         }
 
-        ackGameUpdated(events, service, gameId, newGame, callback)
+        ackGameUpdated(events, gameId, newGame, callback)
 
         if (newGame.players.every((p) => !p.socketId && !p.deviceId)) {
-          scheduleComputerMove(events, service, gameId)
+          scheduler.scheduleMove(events, service, gameId)
         }
       })
     }
@@ -208,7 +195,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         }
 
         if (!game.gameIsStarted) {
-          service.releasePlayerSlot(gameId, socket.id)
+          service.releasePlayer(gameId, socket.id, null)
           if (game.players.every((p) => !p.socketId && !p.deviceId)) {
             try {
               await service.deleteGame(gameId)
@@ -222,12 +209,12 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
             events.publishGamesList(service.formatGamesList())
           }
         } else if (!game.gameIsEnded) {
-          service.clearPlayerSocket(gameId, socket.id)
-          continueComputerGame(events, service, gameId)
+          service.releasePlayer(gameId, socket.id)
+          scheduler.continueGame(events, service, gameId)
         }
 
         await socket.leave(gameId)
-        ackGameUpdated(events, service, gameId, game, callback)
+        ackGameUpdated(events, gameId, game, callback)
       })
     }
   )

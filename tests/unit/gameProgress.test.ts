@@ -95,7 +95,7 @@ describe('buildGameProgress', () => {
   it('считает плитки на доске, в колоде и на руках', () => {
     const progress = buildGameProgress({
       tilePlacesStats: placedTiles(),
-      tilesList: [tile('A'), tile('B')],
+      tilesCount: 2,
       currentTile,
     })
 
@@ -139,7 +139,7 @@ describe('progressPercent', () => {
   it('показывает долю выложенных плиток', () => {
     const progress = buildGameProgress({
       tilePlacesStats: placedTiles(),
-      tilesList: Array.from({ length: 5 }, () => tile('A')),
+      tilesCount: 5,
       currentTile,
     })
 

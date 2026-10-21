@@ -61,7 +61,7 @@ export const buildGameProgress = (
   gameBoard: Partial<IGameBoard>
 ): GameProgress => {
   const placedTiles = countPlacedTiles(gameBoard.tilePlacesStats)
-  const remainingTiles = gameBoard.tilesList?.length ?? 0
+  const remainingTiles = gameBoard.tilesCount ?? 0
   const heldTile = gameBoard.currentTile ? 1 : 0
   const temporaryObjects = countObjects(gameBoard.temporaryObjects)
   const completedObjects = countObjects(gameBoard.completedObjects)

@@ -300,7 +300,7 @@ export function describeCityScore(
 /**
  * Описание расчёта очков монастыря и сада: 1 очко за сам тайл и по 1 очку
  * за каждую занятую клетку в окрестности 3×3. Значение совпадает с
- * calcMonasteryPoints/calcGardenPoints.
+ * countCenterObjectPoints.
  */
 export function describeCentralObjectPoints(
   points: number,
@@ -347,54 +347,28 @@ export function describeCompletedCentralObject(
 }
 
 /**
- * Очки «незавершённого» монастыря: 1 очко за сам монастырь и по 1 очку
- * за каждую занятую клетку в окрестности 3×3. Используется для отзыва
- * аббата (в этой версии финального подсчёта незавершённых объектов нет).
+ * Очки вокруг центрального объекта: сам тайл и занятые клетки в окрестности
+ * 3×3. Считается и при отзыве аббата, и при финальном подсчёте, поэтому живёт
+ * здесь, а не дублируется в обоих местах.
+ *
+ * Монастырь и сад считаются одинаково, поэтому вид объекта на расчёт не
+ * влияет: вид нужен только для названий в детализации очков.
  */
-export function calcMonasteryPoints(
+export function countCenterObjectPoints(
   tilePlacesStats: TilePlacesStats,
-  monastery: BaseObject
+  object: BaseObject
 ): number {
-  const monasteryPoint = monastery.points[0]
-  if (!monasteryPoint) return 0
+  const centerPoint = object.points[0]
+  if (!centerPoint) return 0
 
   let count = 0
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      if (tilePlacesStats[monasteryPoint.y + dy]?.[monasteryPoint.x + dx]) {
+      if (tilePlacesStats[centerPoint.y + dy]?.[centerPoint.x + dx]) {
         count++
       }
     }
   }
 
   return count
-}
-
-/**
- * Очки «незавершённого» сада: сад считается так же, как монастырь —
- * 1 очко за сам тайл и по 1 очку за каждую занятую клетку в окрестности 3×3.
- */
-export function calcGardenPoints(
-  tilePlacesStats: TilePlacesStats,
-  garden: BaseObject
-): number {
-  return calcMonasteryPoints(tilePlacesStats, garden)
-}
-
-/** Виды центральных объектов, у которых очки считаются по окружающим клеткам. */
-export type CentralObjectKind = ObjectTypes.MONASTERY | ObjectTypes.GARDEN
-
-/**
- * Очки вокруг центрального объекта: сам тайл и занятые клетки в окрестности
- * 3×3. Считается и при отзыве аббата, и при финальном подсчёте, поэтому живёт
- * здесь, а не дублируется в обоих местах.
- */
-export function countCenterObjectPoints(
-  tilePlacesStats: TilePlacesStats,
-  object: BaseObject,
-  kind: CentralObjectKind
-): number {
-  return kind === ObjectTypes.GARDEN
-    ? calcGardenPoints(tilePlacesStats, object)
-    : calcMonasteryPoints(tilePlacesStats, object)
 }

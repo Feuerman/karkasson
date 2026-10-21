@@ -31,6 +31,7 @@ export interface GameSummaryRecord {
   gameIsStarted?: boolean
   lastUpdate?: number
   rules?: IGameState['rules']
+  finalScoringEnabled?: boolean
 }
 
 /**

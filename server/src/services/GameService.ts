@@ -1,91 +1,42 @@
-import { GameManager, type IGameBoard } from '../modules/GameManager'
-import type { IGameState } from '../modules/gameState'
+import { GameManager } from '../modules/GameManager'
 import { deserializeGameState, serializeGameState } from '../modules/gameSave'
 import type { GameSavePayload, IGameDatabase } from '../modules/Database'
-import { CommonErrors, LobbyErrors, SaveErrors } from '../modules/errors'
+import {
+  CommonErrors,
+  GameSaveError,
+  LobbyErrors,
+  SaveErrors,
+} from '../modules/errors'
 import { randomInt } from 'node:crypto'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
+import { ComputerMoveScheduler } from './computerPlayer'
+import {
+  sortGameSummaries,
+  toGameSummary,
+  type GameSummary,
+} from './gameSummary'
 import {
   playerColorForIndex,
   playerNameForIndex,
-  type AbbotRecallInfo,
-  type FollowerType,
+  expansionOptionsFromRules,
+  type GameOptions,
   type Player,
-  type PlayerId,
-  type GameRules,
-  type Scores,
 } from '../modules/types'
 
+export type { GameData } from './gameView'
+export type { GameSummary, GameSummaryPlayer } from './gameSummary'
+
 const logger = createLogger('GameService')
-
-export interface GameSummaryPlayer {
-  id: PlayerId
-  name: string | null
-  color: string | null
-  socketId: string | null
-  deviceId: string | null
-}
-
-export interface GameSummary {
-  id: string | undefined
-  roomCode: string
-  players: GameSummaryPlayer[]
-  currentPlayer: PlayerId | null
-  gameIsEnded: boolean
-  moveCounter: number
-  scores: Scores
-  gameIsStarted: boolean
-  lastUpdate: number
-  rules: GameRules
-}
-
-export interface GameData {
-  placingPoint?: IGameBoard['placingPoint']
-  tilePlacesStats: IGameBoard['tilePlacesStats']
-  tilesList: IGameBoard['tilesList']
-  dragonMove?: IGameBoard['dragonMove']
-  princessChoice?: IGameBoard['princessChoice']
-  princessFollowerPenalty?: IGameBoard['princessFollowerPenalty']
-  dragonPosition?: IGameBoard['dragonPosition']
-  currentTile: IGameBoard['currentTile']
-  players: Player[]
-  currentPlayerIndex: number
-  availableFollowersPlaces: IGameBoard['availableFollowersPlaces']
-  /** Типы фишек, доступные в каждом месте, по id объекта. */
-  availableFollowerTypes: Record<string, FollowerType[]>
-  /** Что даст отзыв аббата текущему игроку, либо `null`. */
-  abbotRecall: AbbotRecallInfo | null
-  gameIsEnded: boolean
-  finalScoringEnabled: boolean
-  rules: GameRules
-  moveCounter: number
-  id: string | undefined
-  roomCode?: string
-  isPlacingFollower: boolean
-  scores: Scores
-  gameIsStarted: boolean
-  gridSize: number[]
-  completedObjects: IGameBoard['completedObjects']
-  temporaryObjects: IGameBoard['temporaryObjects']
-  lastPlacement: IGameBoard['lastPlacement']
-  availablePlacesTiles: IGameBoard['availablePlacesTiles']
-  playersFollowers: IGameBoard['playersFollowers']
-  actionsHistory: IGameBoard['actionsHistory']
-  currentPlayer: Player | null
-  placedFollowers: IGameBoard['placedFollowers']
-  winnerPlayerIds: IGameBoard['winnerPlayerIds']
-  lastUpdate: number
-}
 
 export interface JoinResult {
   error: string
 }
 
 /**
- * Наблюдаемое состояние хранилища: сколько партий в памяти, что ещё не
- * записано и сколько сохранений не удалось прочитать. Позволяет отличить
- * «сервер жив» от «сервер не может работать с хранилищем».
+ * ����������� ��������� ���������: ������� ������ � ������, ��� ��� ��
+ * �������� � ������� ���������� �� ������� ���������. ��������� ��������
+ * ������� ��� �� ������� �� ����� �������� � ����������.
  */
 export interface StorageStatus {
   games: number
@@ -94,76 +45,26 @@ export interface StorageStatus {
   unreadableSaves: number
 }
 
-/** Сколько раз сброс может повторить ожидание очереди сохранений. */
+/** ������� ��� ����� ����� ��������� �������� ������� ����������. */
 const FLUSH_MAX_ROUNDS = 8
 
 function ignoreResult(): void {}
-
-/**
- * Источник сведений о партии для списка лобби: живая партия либо сводка,
- * прочитанная из хранилища без полного разбора.
- */
-type GameSummarySource = Partial<
-  Pick<
-    IGameState,
-    | 'roomCode'
-    | 'players'
-    | 'currentPlayer'
-    | 'gameIsEnded'
-    | 'moveCounter'
-    | 'scores'
-    | 'gameIsStarted'
-    | 'lastUpdate'
-    | 'rules'
-  >
-> & { id?: string }
-
-function toGameSummary(game: GameSummarySource): GameSummary {
-  return {
-    id: game.id,
-    roomCode: game.roomCode ?? '',
-    players: (game.players ?? []).map((player) => ({
-      id: player.id,
-      name: player.name,
-      color: player.color,
-      socketId: player.socketId,
-      deviceId: player.deviceId,
-    })),
-    currentPlayer: game.currentPlayer?.id ?? null,
-    gameIsEnded: game.gameIsEnded ?? false,
-    moveCounter: game.moveCounter ?? 0,
-    scores: game.scores ?? {},
-    gameIsStarted: game.gameIsStarted ?? false,
-    lastUpdate: game.lastUpdate ?? 0,
-    rules: game.rules ?? {
-      finalScoringEnabled: false,
-      expansions: {
-        innsAndCathedrals: false,
-        river: false,
-        princessAndDragon: false,
-      },
-    },
-  }
-}
-
-/** Завершённые партии вперёд, среди них — самые свежие. */
-function sortGameSummaries(games: GameSummary[]): GameSummary[] {
-  return [...games].sort((left, right) => {
-    if (left.gameIsEnded !== right.gameIsEnded) {
-      return left.gameIsEnded ? -1 : 1
-    }
-    if (left.gameIsEnded) return right.lastUpdate - left.lastUpdate
-    return 0
-  })
-}
 
 /**
  * Хранит игры в памяти и содержит всю логику лобби/жизненного цикла игры.
  * Не знает про socket.io — рассылку событий делают обработчики сокетов.
  */
 export class GameService {
-  private games: Record<string, IGameBoard> = {}
+  /**
+   * Планировщик ходов компьютера. Таймеры и цепочки ходов живут в экземпляре
+   * планировщика, а не в модуле: так сервер можно поднять в нескольких
+   * экземплярах, а состояние планировщика — изолировать в тестах.
+   */
+  readonly computerMoves = new ComputerMoveScheduler()
+  private games: Record<string, GameManager> = {}
   private deviceToSocketMap: Record<string, string> = {}
+  /** Обратная карта: сокет → устройство. Заполняется при регистрации. */
+  private socketToDeviceMap: Record<string, string> = {}
   private lobbyOwners: Record<string, string> = {}
   private readonly pendingSaves = new Map<string, Promise<void>>()
   private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
@@ -172,7 +73,7 @@ export class GameService {
 
   constructor(private readonly db: IGameDatabase) {}
 
-  restoreGame(gameId: string, game: IGameBoard): void {
+  restoreGame(gameId: string, game: GameManager): void {
     this.games[gameId] = game
   }
 
@@ -208,6 +109,79 @@ export class GameService {
   }
 
   /**
+   * Изменение партии с откатом и сохранением — общий протокол для ходов
+   * человека и ходов компьютера.
+   *
+   * Порядок один: снимок состояния → изменение → сохранение → публикация.
+   * При ошибке изменения или записи состояние возвращается к снимку, поэтому
+   * несохранённая правка не остаётся в партии и не расходится игрокам.
+   *
+   * Изменение может быть отменено ошибкой `MutationCancelled`: тогда
+   * состояние откатывается и не сохраняется.
+   */
+  async mutateAndSave<T>(
+    gameId: string,
+    mutate: (game: GameManager) => Promise<T>,
+    publish?: (game: GameManager, result: T) => void
+  ): Promise<T> {
+    const game = this.games[gameId]
+    if (!game) throw new Error(CommonErrors.GameNotFound)
+
+    const previousState = game.captureRollbackState()
+    try {
+      const result = await mutate(game)
+      try {
+        await this.saveGame(gameId)
+      } catch (error) {
+        throw new GameSaveError(gameId, error)
+      }
+      publish?.(game, result)
+      return result
+    } catch (error) {
+      game.restoreRollbackState(previousState)
+      throw error
+    }
+  }
+
+  /**
+   * Транзиентное изменение партии: состояние меняется в памяти и расходится
+   * игрокам, но не сохраняется.
+   *
+   * Так меняется предпросмотр — поворот тайла и выбор клетки. На правила он не
+   * влияет, поэтому переживать перезапуск сервера ему не нужно. Снимок
+   * состояния не снимается: правка состоит из одной проверки и одного
+   * присваивания, поэтому частичного изменения не бывает.
+   */
+  async mutateWithoutSaving<T>(
+    gameId: string,
+    mutate: (game: GameManager) => Promise<T>
+  ): Promise<T> {
+    const game = this.games[gameId]
+    if (!game) throw new Error(CommonErrors.GameNotFound)
+
+    return mutate(game)
+  }
+
+  /**
+   * Сохранение партии с откатом: если запись не удалась, `restore` возвращает
+   * состояние к прежнему виду, а ошибка поднимается дальше.
+   *
+   * Откатывается ровно то, что меняла команда: освобождение слота в лобби,
+   * замену партии после старта или состояние хода.
+   */
+  async saveWithRollback(
+    gameId: string,
+    restore: () => void | Promise<void>
+  ): Promise<void> {
+    try {
+      await this.saveGame(gameId)
+    } catch (error) {
+      await restore()
+      throw error
+    }
+  }
+
+  /**
    * Сбрасывает на диск всё, что ещё не записано.
    *
    * Новые сохранения могут начаться, пока идёт сброс: ход компьютера или
@@ -233,25 +207,28 @@ export class GameService {
 
   registerDevice(deviceId: string, socketId: string) {
     this.deviceToSocketMap[deviceId] = socketId
+    // Первый зарегистрированный сокет для устройства остаётся и в обратной
+    // карте: так поиск по сокету ведёт себя так же, как поиск перебором.
+    if (!this.socketToDeviceMap[socketId]) {
+      this.socketToDeviceMap[socketId] = deviceId
+    }
   }
 
   getDeviceBySocketId(socketId: string): string | undefined {
-    return Object.entries(this.deviceToSocketMap).find(
-      ([, sid]) => sid === socketId
-    )?.[0]
+    return this.socketToDeviceMap[socketId]
   }
 
   // ------------------------------------------------------------------ registry
 
-  allGames(): IGameBoard[] {
+  allGames(): GameManager[] {
     return Object.values(this.games)
   }
 
-  getGame(gameId: string): IGameBoard | undefined {
+  getGame(gameId: string): GameManager | undefined {
     return this.games[gameId]
   }
 
-  getGameByIdentifier(identifier: string): IGameBoard | undefined {
+  getGameByIdentifier(identifier: string): GameManager | undefined {
     const normalizedIdentifier = identifier.trim().toUpperCase()
     return (
       this.games[identifier] ??
@@ -261,7 +238,7 @@ export class GameService {
     )
   }
 
-  findPlayerGamesForSocket(socketId: string): IGameBoard[] {
+  findPlayerGamesForSocket(socketId: string): GameManager[] {
     return this.allGames().filter((game) =>
       game.players.some((p) => p.socketId === socketId)
     )
@@ -317,13 +294,8 @@ export class GameService {
 
   createLobby(
     socketId: string,
-    options: {
-      finalScoringEnabled?: boolean
-      innsAndCathedralsEnabled?: boolean
-      riverEnabled?: boolean
-      princessAndDragonEnabled?: boolean
-    } = {}
-  ): IGameBoard & { id: string } {
+    options: GameOptions = {}
+  ): GameManager & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
     const deviceId = this.getDeviceBySocketId(socketId)
 
@@ -339,16 +311,13 @@ export class GameService {
     const game = new GameManager({
       players,
       startImmediately: false,
-      finalScoringEnabled: options.finalScoringEnabled,
-      innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
-      riverEnabled: options.riverEnabled,
-      princessAndDragonEnabled: options.princessAndDragonEnabled,
+      ...options,
     })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
     this.games[gameId] = game
     this.lobbyOwners[gameId] = deviceId ?? socketId
-    return game as IGameBoard & { id: string }
+    return game as GameManager & { id: string }
   }
 
   // ------------------------------------------------------------------ players
@@ -411,7 +380,7 @@ export class GameService {
     gameId: string,
     socketId: string,
     deviceId?: string
-  ): JoinResult | { game: IGameBoard; playerIndex: number } {
+  ): JoinResult | { game: GameManager; playerIndex: number } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
     if (game.gameIsStarted) return { error: LobbyErrors.GameAlreadyStarted }
@@ -437,7 +406,7 @@ export class GameService {
     return { game, playerIndex }
   }
 
-  startGame(gameId: string): IGameBoard | undefined {
+  startGame(gameId: string): GameManager | undefined {
     const game = this.games[gameId]
     if (!game) return undefined
 
@@ -445,11 +414,7 @@ export class GameService {
     const newGame = new GameManager({
       players: activePlayers,
       finalScoringEnabled: game.finalScoringEnabled,
-      innsAndCathedralsEnabled:
-        game.rules?.expansions?.innsAndCathedrals ?? false,
-      riverEnabled: game.rules?.expansions?.river ?? false,
-      princessAndDragonEnabled:
-        game.rules?.expansions?.princessAndDragon ?? false,
+      ...expansionOptionsFromRules(game.rules),
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
@@ -459,45 +424,27 @@ export class GameService {
 
   // ------------------------------------------------------------------ disconnect
 
-  hasOtherConnectedPlayers(game: IGameBoard, socketId: string): boolean {
+  hasOtherConnectedPlayers(game: GameManager, socketId: string): boolean {
     return game.players.some((p) => p.socketId && p.socketId !== socketId)
   }
 
-  /** Игрок отключился временно: слот освобождается, но помним его deviceId */
-  releasePlayerToDevice(gameId: string, socketId: string, deviceId?: string) {
+  /**
+   * Освобождает сокет игрока в партии.
+   *
+   * Что делать с устройством игрока, задаёт `deviceId`:
+   * `undefined` — оставить устройство как есть (забыт только сокет),
+   * `null` — забыть устройство (слот освобождён целиком),
+   * строка — запомнить указанное устройство.
+   */
+  releasePlayer(gameId: string, socketId: string, deviceId?: string | null) {
     const game = this.games[gameId]
     if (!game) return
 
-    game.players = game.players.map((p) => {
-      if (p.socketId !== socketId) return p
-      p.socketId = null
-      p.deviceId = deviceId ?? null
-      return p
-    })
-  }
-
-  /** Полностью освободить слот лобби (и socket, и device) */
-  releasePlayerSlot(gameId: string, socketId: string) {
-    const game = this.games[gameId]
-    if (!game) return
-
-    game.players = game.players.map((p) => {
-      if (p.socketId !== socketId) return p
-      p.socketId = null
-      p.deviceId = null
-      return p
-    })
-  }
-
-  /** Явное отключение в начатой игре: забываем только socket, device сохраняем */
-  clearPlayerSocket(gameId: string, socketId: string) {
-    const game = this.games[gameId]
-    if (!game) return
-
-    game.players = game.players.map((p) => {
-      if (p.socketId !== socketId) return p
-      p.socketId = null
-      return p
+    game.players = game.players.map((player) => {
+      if (player.socketId !== socketId) return player
+      player.socketId = null
+      if (deviceId !== undefined) player.deviceId = deviceId
+      return player
     })
   }
 
@@ -505,7 +452,7 @@ export class GameService {
     gameId: string,
     deviceId: string,
     socketId: string
-  ): { game: IGameBoard; players: Player[] } | null {
+  ): { game: GameManager; players: Player[] } | null {
     const game = this.games[gameId]
     if (!game) return null
 
@@ -541,6 +488,13 @@ export class GameService {
     const rawSaves = await this.db.getAllGameSaves()
     const updatedGameIds: string[] = []
     const failures: Array<{ reason: string }> = []
+    // Коды комнат собираются один раз: пересборка на каждую партию делала
+    // загрузку сохранений квадратичной.
+    const roomCodes = new Set(
+      this.allGames()
+        .map((game) => game.roomCode)
+        .filter((code): code is string => Boolean(code))
+    )
 
     rawSaves.forEach((rawSave) => {
       try {
@@ -549,16 +503,11 @@ export class GameService {
         if (!gameId) return
 
         const game = GameManager.restore(savedGame)
-        if (
-          !game.roomCode ||
-          this.allGames().some(
-            (existing) =>
-              existing.id !== gameId && existing.roomCode === game.roomCode
-          )
-        ) {
-          game.roomCode = this.createUniqueRoomCode()
+        if (!game.roomCode || roomCodes.has(game.roomCode)) {
+          game.roomCode = this.createUniqueRoomCode(roomCodes)
           updatedGameIds.push(gameId)
         }
+        if (game.roomCode) roomCodes.add(game.roomCode)
         const owner = game.players.find((player) => player.socketId)
         if (owner?.socketId) {
           this.lobbyOwners[gameId] = owner.deviceId ?? owner.socketId
@@ -584,16 +533,19 @@ export class GameService {
     await Promise.all(updatedGameIds.map((gameId) => this.saveGame(gameId)))
   }
 
-  private createUniqueRoomCode(): string {
-    const existingCodes = new Set(
-      this.allGames()
-        .map((game) => game.roomCode)
-        .filter(Boolean)
-    )
+  private createUniqueRoomCode(existingCodes?: Set<string>): string {
+    const codes =
+      existingCodes ??
+      new Set(
+        this.allGames()
+          .map((game) => game.roomCode)
+          .filter((code): code is string => Boolean(code))
+      )
     let roomCode: string
     do {
       roomCode = String(randomInt(100_000, 1_000_000))
-    } while (existingCodes.has(roomCode))
+    } while (codes.has(roomCode))
+    codes.add(roomCode)
     return roomCode
   }
 
@@ -617,70 +569,7 @@ export class GameService {
     return deletedGameIds
   }
 
-  // ------------------------------------------------------------------ formatting
-
-  /**
-   * Состояние для клиента.
-   *
-   * `tileHistory` сюда не входит: клиент его нигде не читает, а список растёт
-   * с каждым ходом и раздувал бы каждое широковещательное сообщение. История
-   * тайлов остаётся в сохранении, где она и нужна.
-   */
-  formatGameData(game: IGameBoard): GameData {
-    return {
-      placingPoint: game.placingPoint,
-      tilePlacesStats: game.tilePlacesStats,
-      tilesList: game.tilesList,
-      dragonMove: game.dragonMove,
-      princessChoice: game.princessChoice,
-      princessFollowerPenalty: game.princessFollowerPenalty,
-      dragonPosition: game.dragonPosition,
-      currentTile: game.currentTile,
-      players: game.players,
-      currentPlayerIndex: game.currentPlayerIndex,
-      availableFollowersPlaces: game.availableFollowersPlaces,
-      availableFollowerTypes: this.collectAvailableFollowerTypes(game),
-      abbotRecall: game.getAbbotRecallInfo(),
-      gameIsEnded: game.gameIsEnded,
-      finalScoringEnabled: game.finalScoringEnabled,
-      rules: game.rules,
-      moveCounter: game.moveCounter,
-      id: game.id,
-      roomCode: game.roomCode,
-      isPlacingFollower: game.isPlacingFollower,
-      scores: game.scores,
-      gameIsStarted: game.gameIsStarted,
-      gridSize: game.gridSize,
-      completedObjects: game.completedObjects,
-      temporaryObjects: game.temporaryObjects,
-      lastPlacement: game.lastPlacement,
-      availablePlacesTiles: game.availablePlacesTiles,
-      playersFollowers: game.playersFollowers,
-      actionsHistory: game.actionsHistory,
-      currentPlayer: game.currentPlayer,
-      placedFollowers: game.placedFollowers,
-      winnerPlayerIds: game.winnerPlayerIds,
-      lastUpdate: game.lastUpdate,
-    }
-  }
-
-  /**
-   * Допустимые типы фишек по каждому доступному месту. Ключ — id объекта:
-   * место и объект однозначно совпадают, а сами места уже передаются отдельным
-   * полем, поэтому клиенту достаточно посмотреть список по своему объекту.
-   */
-  private collectAvailableFollowerTypes(
-    game: IGameBoard
-  ): Record<string, FollowerType[]> {
-    return Object.fromEntries(
-      game.availableFollowersPlaces.map((place) => [
-        place.temporaryObject.id,
-        game.getAvailableFollowerTypes(place),
-      ])
-    )
-  }
-
-  formatGamesList(games: IGameBoard[] = this.allGames()): GameSummary[] {
+  formatGamesList(games: GameManager[] = this.allGames()): GameSummary[] {
     return sortGameSummaries(games.map((game) => toGameSummary(game)))
   }
 

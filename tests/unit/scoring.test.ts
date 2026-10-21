@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import {
   calcCityScore,
-  calcGardenPoints,
-  calcMonasteryPoints,
   calcRoadScore,
+  countCenterObjectPoints,
 } from '@server/modules/scoring'
 import { SideName, TileId, TileSideType } from '@server/modules/types'
 import type { BaseObject, GridTile } from '@server/modules/types'
@@ -371,9 +370,9 @@ describe('calcCityScore', () => {
  * занятую клетку окрестности 3×3, поэтому проверяются одним набором сценариев.
  */
 describe.each([
-  ['сада', 'isGarden', calcGardenPoints],
-  ['монастыря', 'isMonastery', calcMonasteryPoints],
-] as const)('Центральный объект (%s)', (_name, flag, calcPoints) => {
+  ['сада', 'isGarden'],
+  ['монастыря', 'isMonastery'],
+] as const)('Центральный объект (%s)', (_name, flag) => {
   const centralObject = (points: BaseObject['points']): BaseObject => ({
     id: 'central-object',
     points,
@@ -382,9 +381,12 @@ describe.each([
   })
 
   it('изолированный объект даёт 1 очко (только сам тайл)', () => {
-    expect(calcPoints(boardOf([[0, 0]]), centralObject([{ x: 0, y: 0 }]))).toBe(
-      1
-    )
+    expect(
+      countCenterObjectPoints(
+        boardOf([[0, 0]]),
+        centralObject([{ x: 0, y: 0 }])
+      )
+    ).toBe(1)
   })
 
   it('объект в окружении 3×3 даёт 9 очков', () => {
@@ -400,7 +402,9 @@ describe.each([
       [2, 2],
     ])
 
-    expect(calcPoints(board, centralObject([{ x: 1, y: 1 }]))).toBe(9)
+    expect(
+      countCenterObjectPoints(board, centralObject([{ x: 1, y: 1 }]))
+    ).toBe(9)
   })
 
   it('пропуски в окрестности учитываются: 4 из 9 клеток заняты', () => {
@@ -412,10 +416,12 @@ describe.each([
     ])
 
     // заняты: (0,1), (1,0), (1,1), (2,2) — ровно 4
-    expect(calcPoints(board, centralObject([{ x: 1, y: 1 }]))).toBe(4)
+    expect(
+      countCenterObjectPoints(board, centralObject([{ x: 1, y: 1 }]))
+    ).toBe(4)
   })
 
   it('объект без точки не даёт очков', () => {
-    expect(calcPoints({}, centralObject([]))).toBe(0)
+    expect(countCenterObjectPoints({}, centralObject([]))).toBe(0)
   })
 })

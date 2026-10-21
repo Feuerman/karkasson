@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { GameManager } from '@server/modules/GameManager'
-import { resumeComputerGames } from '@server/services/computerPlayer'
 import { SocketEvents, type Player } from '@server/modules/types'
 import { serializeGameState } from '@server/modules/gameSave'
 import { TestClient } from './helpers/client'
@@ -24,6 +23,7 @@ import {
   storeGame,
   type InMemoryStore,
 } from './helpers/inMemoryDatabase'
+import { formatGameData } from '@server/services/gameView'
 import {
   startTestServer,
   stopTestServer,
@@ -223,14 +223,18 @@ describe('Сохранение данных лобби', () => {
     await server.handle.gameService.saveGame(game.id)
 
     const beforeRestart = countPlacedTiles(
-      server.handle.gameService.formatGameData(game)
+      formatGameData(game)
         .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
     )
     const snapshot = JSON.parse(JSON.stringify(store)) as InMemoryStore
     await stopTestServer(server)
     server = await startTestServer(snapshot)
     await server.handle.gameService.loadSavedGames()
-    resumeComputerGames(server.handle.events, server.handle.gameService, 5_000)
+    server.handle.gameService.computerMoves.resumeAll(
+      server.handle.events,
+      server.handle.gameService,
+      5_000
+    )
 
     const restored = server.handle.gameService.getGame('mixed-game')
     if (!restored) throw new Error('Смешанная партия не восстановлена')
@@ -239,7 +243,7 @@ describe('Сохранение данных лобби', () => {
 
     expect(
       countPlacedTiles(
-        server.handle.gameService.formatGameData(restored)
+        formatGameData(restored)
           .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
       )
     ).toBe(beforeRestart)
@@ -264,9 +268,8 @@ describe('Сохранение данных лобби', () => {
     await waitForCondition(
       () =>
         countPlacedTiles(
-          server!.handle.gameService.formatGameData(
-            server!.handle.gameService.getGame('mixed-game')!
-          ).tilePlacesStats as GameStateSnapshot['tilePlacesStats']
+          formatGameData(server!.handle.gameService.getGame('mixed-game')!)
+            .tilePlacesStats as GameStateSnapshot['tilePlacesStats']
         ) > beforeRestart,
       'ходы ИИ после возвращения людей'
     )
@@ -278,7 +281,10 @@ describe('Сохранение данных лобби', () => {
     expect(restored?.gameIsStarted).toBe(true)
     expect(restored?.gameIsEnded).toBe(false)
 
-    resumeComputerGames(server.handle.events, server.handle.gameService)
+    server.handle.gameService.computerMoves.resumeAll(
+      server.handle.events,
+      server.handle.gameService
+    )
 
     await waitForCondition(
       () =>
@@ -298,7 +304,10 @@ describe('Сохранение данных лобби', () => {
       throw new Error('simulated computer move failure')
     }
 
-    resumeComputerGames(server.handle.events, server.handle.gameService)
+    server.handle.gameService.computerMoves.resumeAll(
+      server.handle.events,
+      server.handle.gameService
+    )
 
     await waitForCondition(
       () => server?.handle.gameService.getGame('computer-game') === undefined,

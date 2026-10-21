@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { IGameBoard } from '@server/modules/GameManager'
 import { GameManager } from '@server/modules/GameManager'
 import {
   calculateHeuristicScore,
@@ -23,14 +22,16 @@ function follower(playerId: number, objectId: string): ObjectFollower {
 
 function gameState(
   overrides: Partial<
-    Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'>
+    Pick<GameManager, 'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'>
   > = {}
-): Pick<IGameBoard, 'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'> {
+): Pick<
+  GameManager,
+  'scores' | 'currentPlayer' | 'temporaryObjects' | 'rules'
+> {
   return {
     scores: { 1: 4, 2: 6 },
     currentPlayer,
     rules: {
-      finalScoringEnabled: false,
       expansions: {
         innsAndCathedrals: false,
         river: false,

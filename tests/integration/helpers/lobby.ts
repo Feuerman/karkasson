@@ -43,7 +43,6 @@ export interface TestGameData {
   gridSize?: number[]
   finalScoringEnabled: boolean
   rules?: {
-    finalScoringEnabled: boolean
     expansions: {
       innsAndCathedrals: boolean
       river: boolean
@@ -52,7 +51,7 @@ export interface TestGameData {
   }
   moveCounter: number
   scores: Record<string, number>
-  tilesList: unknown[]
+  tilesCount: number
   currentTile?: TileSnapshot | null
   tilePlacesStats: Record<number, Record<number, TileSnapshot>>
   availablePlacesTiles?: Array<{

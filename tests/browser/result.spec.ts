@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AddressInfo } from 'node:net'
 import { createRequire } from 'node:module'
 import { TEST_IDS } from '@/data/testIds'
+import { formatGameData } from '@server/services/gameView'
 import {
   startTestFrontend,
   type RunningFrontend,
@@ -56,10 +57,7 @@ test('итоги партии показывают таблицу очков и 
     game.scores[computer.id] = 18
     game.gameIsEnded = true
     game.winnerPlayerIds = [human.id]
-    gameServer.events.publishGameUpdated(
-      game.id,
-      gameServer.gameService.formatGameData(game)
-    )
+    gameServer.events.publishGameUpdated(game.id, formatGameData(game))
 
     const overlay = page.getByTestId(TEST_IDS.gameResultOverlay)
     await expect(overlay).toBeVisible()
@@ -99,10 +97,7 @@ test('кнопка «Сыграть ещё» начинает новую пар�
     if (!game?.id) throw new Error('Партия не создана')
     game.gameIsEnded = true
     game.winnerPlayerIds = [game.players[0].id]
-    gameServer.events.publishGameUpdated(
-      game.id,
-      gameServer.gameService.formatGameData(game)
-    )
+    gameServer.events.publishGameUpdated(game.id, formatGameData(game))
 
     await expect(page.getByTestId(TEST_IDS.gameResultOverlay)).toBeVisible()
     await page.getByTestId(TEST_IDS.gameResultPlayAgain).click()

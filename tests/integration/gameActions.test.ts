@@ -316,7 +316,7 @@ describe('Действия в игре: валидация ходов', () => {
       (g: TestGameData) => g.currentPlayer?.name === 'Alice'
     )
     expect(after.currentPlayerIndex).toBe(state.currentPlayerIndex)
-    expect(after.tilesList.length).toBe(state.tilesList.length)
+    expect(after.tilesCount).toBe(state.tilesCount)
   })
 
   it('неудачное размещение тайла не оставляет поворот клиента в состоянии', async () => {
@@ -344,7 +344,7 @@ describe('Действия в игре: валидация ходов', () => {
     expect(saved?.currentTile?.rotation).toBe(rotationBefore)
   })
 
-  it('выбор клетки и поворот тайла фиксируются в хранилище', async () => {
+  it('выбор клетки и поворот тайла не фиксируются в хранилище', async () => {
     const { server: running, creator, gameId } = await startLobby()
     const state = await startGame(creator, gameId)
 
@@ -353,44 +353,40 @@ describe('Действия в игре: валидация ходов', () => {
       point: { rowIndex: 15, tileIndex: 16 },
     })
     const afterPoint = await running.db.getGame(gameId)
-    expect(afterPoint?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
+    expect(afterPoint?.placingPoint).toBeUndefined()
 
     await creator.emitAck(SocketEvents.UpdateCurrentTile, {
       gameId,
       rotation: 180,
     })
     const afterRotation = await running.db.getGame(gameId)
-    expect(afterRotation?.currentTile?.rotation).toBe(180)
+    expect(afterRotation?.currentTile?.rotation).not.toBe(180)
+
+    // В памяти партии предпросмотр остаётся: игрок видит его сразу.
+    const live = running.handle.gameService.getGame(gameId)
+    expect(live?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
+    expect(live?.currentTile?.rotation).toBe(180)
 
     expect(state.gameIsStarted).toBe(true)
   })
 
-  it('ошибка записи откатывает выбор клетки и поворот тайла', async () => {
+  it('предпросмотр работает и при недоступном хранилище', async () => {
     const { server: running, creator, gameId } = await startLobby()
     await startGame(creator, gameId)
 
-    const game = running.handle.gameService.getGame(gameId)
-    const rotationBefore = game?.currentTile?.rotation
-    const pointBefore = game?.placingPoint
-
     running.db.saveError = new Error('storage unavailable')
 
-    await expect(
-      creator.emitAck(SocketEvents.SelectPlacingPoint, {
-        gameId,
-        point: { rowIndex: 15, tileIndex: 16 },
-      })
-    ).rejects.toThrow(CommonErrors.InternalFailure)
-
-    await expect(
-      creator.emitAck(SocketEvents.UpdateCurrentTile, {
-        gameId,
-        rotation: 180,
-      })
-    ).rejects.toThrow(CommonErrors.InternalFailure)
+    await creator.emitAck(SocketEvents.SelectPlacingPoint, {
+      gameId,
+      point: { rowIndex: 15, tileIndex: 16 },
+    })
+    await creator.emitAck(SocketEvents.UpdateCurrentTile, {
+      gameId,
+      rotation: 180,
+    })
 
     const after = running.handle.gameService.getGame(gameId)
-    expect(after?.currentTile?.rotation).toBe(rotationBefore)
-    expect(after?.placingPoint).toEqual(pointBefore)
+    expect(after?.placingPoint).toEqual({ rowIndex: 15, tileIndex: 16 })
+    expect(after?.currentTile?.rotation).toBe(180)
   })
 })

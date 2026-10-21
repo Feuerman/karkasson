@@ -1,12 +1,11 @@
 import type { Point } from '../../../modules/types'
 import { SocketEvents } from '../../../modules/types'
-import { maybeContinueWithComputerMove } from '../../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../../types'
 import { GameErrors } from '../../../modules/errors'
 import { runGameCommand } from '../gameCommand'
 
 export function registerPrincessHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(
     SocketEvents.ChoosePrincess,
@@ -22,7 +21,7 @@ export function registerPrincessHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.ChoosePrincess,
         callback,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (!game.princessChoice) {
             throw new Error(GameErrors.PrincessChoiceNotPending)
           }
@@ -33,9 +32,9 @@ export function registerPrincessHandlers(context: SocketHandlerContext) {
           ) {
             throw new Error(GameErrors.InvalidPrincessCity)
           }
-          await save()
-          ack()
-          maybeContinueWithComputerMove(events, service, game, gameId)
+        },
+        afterSave: (game) => {
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }

@@ -6,13 +6,12 @@ import {
   FollowerType as FollowerTypes,
   SocketEvents,
 } from '../../../modules/types'
-import { maybeContinueWithComputerMove } from '../../../services/computerPlayer'
 import type { SocketCallback, SocketHandlerContext } from '../../types'
 import { GameErrors } from '../../../modules/errors'
 import { runGameCommand } from '../gameCommand'
 
 export function registerFollowerHandlers(context: SocketHandlerContext) {
-  const { events, service, socket } = context
+  const { events, service, scheduler, socket } = context
 
   socket.on(
     SocketEvents.PlaceFollower,
@@ -32,7 +31,7 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.PlaceFollower,
         callback,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (game.princessChoice || game.dragonMove) {
             throw new Error(GameErrors.ResolveExpansionActionFirst)
           }
@@ -45,43 +44,20 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
               candidate.point.direction === place?.point?.direction &&
               candidate.point.pointType === place?.point?.pointType
           )
-          if (
-            !availablePlace ||
-            !Object.values(FollowerTypes).includes(followerType)
-          ) {
+          if (!availablePlace) {
             throw new Error(GameErrors.InvalidFollowerPlacement)
           }
-          if (
-            followerType === FollowerTypes.Abbot &&
-            !(
-              availablePlace.temporaryObject.isMonastery ||
-              availablePlace.temporaryObject.isGarden
-            )
-          ) {
-            throw new Error(GameErrors.AbbotRequiresMonasteryOrGarden)
-          }
-          if (
-            followerType === FollowerTypes.BigFollower &&
-            !game.rules.expansions.innsAndCathedrals
-          ) {
-            throw new Error(GameErrors.BigFollowerExpansionDisabled)
-          }
-          if (
-            followerType === FollowerTypes.Follower &&
-            availablePlace.temporaryObject.isGarden
-          ) {
-            throw new Error(GameErrors.FollowerNotAllowedOnGarden)
-          }
+          // Допустимость типа фишки решает домен: сервер заново проверяет
+          // правила по состоянию партии, транспорт их не дублирует.
 
           const followersBefore = game.placedFollowers.length
           game.placeFollower(availablePlace, followerType)
           if (game.placedFollowers.length !== followersBefore + 1) {
             throw new Error(GameErrors.FollowerPlacementUnavailable)
           }
-
-          await save()
-          ack()
-          maybeContinueWithComputerMove(events, service, game, gameId)
+        },
+        afterSave: (game) => {
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }
@@ -94,14 +70,14 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.RecallAbbot,
         callback,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (!game.recallAbbot()) {
             throw new Error(GameErrors.NoAbbotOnBoard)
           }
-          await save()
-          ack()
+        },
+        afterSave: (game) => {
           // Отзыв не расходует ход, но очередь могла уже перейти к компьютеру
-          maybeContinueWithComputerMove(events, service, game, gameId)
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }
@@ -114,7 +90,7 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         gameId,
         command: SocketEvents.SkipFollower,
         callback,
-        execute: async ({ game, save, ack }) => {
+        execute: async ({ game }) => {
           if (game.princessChoice || game.dragonMove) {
             throw new Error(GameErrors.ResolveExpansionActionFirst)
           }
@@ -125,9 +101,9 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
           }
 
           game.skipFollower()
-          await save()
-          ack()
-          maybeContinueWithComputerMove(events, service, game, gameId)
+        },
+        afterSave: (game) => {
+          scheduler.maybeContinue(events, service, game, gameId)
         },
       })
     }

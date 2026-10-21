@@ -8,7 +8,6 @@ import {
   createProductionGameDatabase,
   InMemoryGameDatabase,
 } from './modules/Database'
-import { resumeComputerGames } from './services/computerPlayer'
 import { createLogger } from './utils/logger'
 
 const logger = createLogger('server')
@@ -70,7 +69,7 @@ async function startServer() {
   try {
     await gameService.loadSavedGames()
     logger.info(`Loaded ${gameService.allGames().length} saved game(s)`)
-    resumeComputerGames(events, gameService)
+    gameService.computerMoves.resumeAll(events, gameService)
   } catch (error: unknown) {
     logger.error('Failed to load saved games:', error)
     await shutdown(1)
