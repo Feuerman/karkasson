@@ -44,7 +44,7 @@
             :aria-label="cellLabel(rowIndex, tileIndex)"
             :aria-pressed="isGhostCell(rowIndex, tileIndex)"
             class="tile-keyboard-focus relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
-            :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
+            :style="cellStyle(rowIndex, tileIndex)"
             :class="[
               gameBoard.tilePlacesStats?.[rowIndex]?.[tileIndex]
                 ? 'border-black/15'
@@ -54,6 +54,7 @@
                 ? 'tile-conflict'
                 : '',
               isAvailableCell(rowIndex, tileIndex) ? 'tile-available' : '',
+              isLastActionCell(rowIndex, tileIndex) ? 'tile-last-action' : '',
             ]"
             @click="handleTileClick(rowIndex, tileIndex)"
           >
@@ -65,6 +66,14 @@
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
+            <span
+              v-if="isLastActionBubbleCell(rowIndex, tileIndex)"
+              :data-testid="TEST_IDS.boardLastActionBubble"
+              class="last-action-bubble pointer-events-none absolute -top-2 -right-2 z-20 rounded-full px-1.5 py-0.5 text-xs font-bold text-black shadow-strong ring-2 ring-white/70"
+              :class="playerBackgroundColorClass(lastActionColor)"
+            >
+              +{{ lastActionBubble?.points }}
+            </span>
             <div
               v-if="isGhostCell(rowIndex, tileIndex)"
               class="tile-selected absolute inset-0 rounded-xl"
@@ -275,14 +284,17 @@ import {
 } from 'vue'
 import type { PlacedFollower } from '@server/modules/types'
 import {
+  ActionTypes,
   BOARD_GRID_SIZE,
   RotationDirection,
   type PlacementConflict,
   type Tile,
 } from '@server/modules/types'
+import type { GameAction } from '@server/modules/gameActions'
 import type { BoardCell, IGameBoard } from '../types/game'
 import GameActionsHistory from './GameActionsHistory'
 import GameAbbotRecall from './GameAbbotRecall.vue'
+import { useBoardZoom } from '@/composables/useBoardZoom'
 import GameControls from './GameControls.vue'
 import GamePlacingFollowers from './GamePlacingFollowers.vue'
 import GamePrincessAndDragon from './GamePrincessAndDragon.vue'
@@ -294,8 +306,14 @@ import { errorMessage, notifyError, throttle } from '../utils/common'
 import notificationService from '../plugins/notification'
 import { boardCellTestId, TEST_IDS } from '../data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from '../utils/tiles'
-import { findTileElement, scrollToTile } from '../utils/board'
+import {
+  cellOfPoint,
+  findTileElement,
+  highlightCells,
+  scrollToTile,
+} from '../utils/board'
 import { boardCellKey, buildAvailableCells } from '../utils/availableCells'
+import { playerBackgroundColorClass, playerColorValue } from '../utils/colors'
 import { useBoardPan } from '../composables/useBoardPan'
 
 const props = defineProps<{
@@ -643,7 +661,148 @@ watch(
 const zoomToTile = ({ rowIndex, tileIndex }: BoardCell = {}) => {
   if (rowIndex === undefined || tileIndex === undefined) return
   scrollToTile(rowIndex, tileIndex)
+  highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS)
 }
+
+const { setZoomHandler } = useBoardZoom()
+setZoomHandler(zoomToTile)
+
+const LAST_ACTION_DURATION_MS = 3200
+const lastActionCell = ref<BoardCell>({})
+const lastActionColor = ref<string | null>(null)
+const lastActionVisible = ref(false)
+let lastActionTimer: ReturnType<typeof setTimeout> | undefined
+
+interface LastActionBubble {
+  rowIndex: number
+  tileIndex: number
+  points: number
+}
+
+const lastActionBubble = ref<LastActionBubble | null>(null)
+
+const clearLastAction = () => {
+  if (lastActionTimer) clearTimeout(lastActionTimer)
+  lastActionTimer = undefined
+  lastActionVisible.value = false
+  lastActionBubble.value = null
+}
+
+const showLastAction = (
+  cell: BoardCell,
+  color: string | null,
+  points?: number
+) => {
+  if (cell.rowIndex === undefined || cell.tileIndex === undefined) return
+
+  clearLastAction()
+  lastActionCell.value = {
+    rowIndex: cell.rowIndex,
+    tileIndex: cell.tileIndex,
+  }
+  lastActionColor.value = color
+  lastActionBubble.value =
+    typeof points === 'number' && points > 0
+      ? {
+          rowIndex: cell.rowIndex,
+          tileIndex: cell.tileIndex,
+          points,
+        }
+      : null
+  lastActionVisible.value = true
+  lastActionTimer = setTimeout(() => {
+    lastActionVisible.value = false
+    lastActionBubble.value = null
+    lastActionTimer = undefined
+  }, LAST_ACTION_DURATION_MS)
+}
+
+const isLastActionCell = (rowIndex: number, tileIndex: number): boolean =>
+  lastActionVisible.value &&
+  lastActionCell.value.rowIndex === rowIndex &&
+  lastActionCell.value.tileIndex === tileIndex
+
+const isLastActionBubbleCell = (rowIndex: number, tileIndex: number): boolean =>
+  lastActionVisible.value &&
+  lastActionBubble.value?.rowIndex === rowIndex &&
+  lastActionBubble.value?.tileIndex === tileIndex
+
+const cellStyle = (rowIndex: number, tileIndex: number) => {
+  const style: Record<string, string> = {
+    width: `${TILE_SIZE}px`,
+    height: `${TILE_SIZE}px`,
+  }
+
+  if (isLastActionCell(rowIndex, tileIndex)) {
+    style['--last-action-color'] =
+      playerColorValue(lastActionColor.value) || '#d4af37'
+  }
+
+  return style
+}
+
+const actionCell = (action: GameAction): BoardCell => {
+  switch (action.actionType) {
+    case ActionTypes.PLACE_TILE:
+      return {
+        rowIndex: action.actionData.rowIndex,
+        tileIndex: action.actionData.tileIndex,
+      }
+    case ActionTypes.PLACE_FOLLOWER:
+      return cellOfPoint(action.actionData.point)
+    case ActionTypes.DRAGON_MOVE:
+      return action.actionData.to
+    default:
+      return {}
+  }
+}
+
+const scorePoints = (action: GameAction): number | undefined => {
+  if (action.actionType !== ActionTypes.ADDING_SCORES) return undefined
+  if (typeof action.actionData.score.total === 'number') {
+    return action.actionData.score.total
+  }
+  return Object.values(action.actionData.score.players ?? {}).reduce<number>(
+    (total, points) => total + (points ?? 0),
+    0
+  )
+}
+
+const showLastActionFor = (action: GameAction) => {
+  const initiatorId = action.initiator?.id
+  const player = (props.gameBoard.players ?? []).find(
+    (candidate) => String(candidate.id) === String(initiatorId)
+  )
+  const cell = actionCell(action)
+
+  if (cell.rowIndex !== undefined && cell.tileIndex !== undefined) {
+    showLastAction(cell, player?.color ?? null, scorePoints(action))
+    return
+  }
+
+  if (action.actionType === ActionTypes.ADDING_SCORES) {
+    showLastAction(
+      props.gameBoard.lastPlacement ?? {},
+      player?.color ?? null,
+      scorePoints(action)
+    )
+  }
+}
+
+watch(
+  () =>
+    [props.gameBoard.id, props.gameBoard.actionsHistory?.length ?? 0] as const,
+  ([gameId, length], previous) => {
+    if (!previous || previous[0] !== gameId || length === 0) {
+      clearLastAction()
+      return
+    }
+
+    const action = props.gameBoard.actionsHistory?.[length - 1]
+    if (action) showLastActionFor(action)
+  },
+  { immediate: true }
+)
 
 const syncLocalTile = (tile?: Tile | null) => {
   if (!tile) return
@@ -751,6 +910,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   updateSelectedPlacingPoint.cancel()
+  clearLastAction()
   document.removeEventListener('keydown', onDocumentKeyDown)
 })
 </script>

@@ -82,16 +82,17 @@ export interface GameActionBase {
   /** Игрок, которому принадлежит действие. Не заполняется для части действий. */
   initiator?: Player | null
   /**
-   * Номер хода (счётчик раундов), на который приходится действие. Группирует
-   * записи истории по ходам в интерфейсе. Не заполняется для сохранений старых
-   * версий, поэтому история таких партий показывается одним блоком.
+   * Номер раунда, на который приходится действие. В старых сохранениях может
+   * отсутствовать; тогда интерфейс группирует записи по раунду и игроку.
    */
   moveNumber?: number
+  /** Номер хода игрока, а не круга. В старых сохранениях может отсутствовать. */
+  turnNumber?: number
 }
 
 /**
- * Действия, снимающие фишку с поля, всегда дополняются записью о возврате
- * подданных владельцам — так история показывает, куда делась фишка.
+ * Действия, снимок которых идёт в игру, всегда формируются внутри домена
+ * партии. Их форма описана `recordAction`, а не клиентом.
  */
 export type GameAction =
   | (GameActionBase & {
@@ -119,8 +120,11 @@ export type GameAction =
       actionData: PrincessTakeFollowerActionData
     })
 
-/** Запись истории до простановки номера хода: `moveNumber` проставляет сервер. */
-export type NewGameAction = DistributiveOmit<GameAction, 'moveNumber'>
+/** Запись истории до простановки номеров: их проставляет сервер. */
+export type NewGameAction = DistributiveOmit<
+  GameAction,
+  'moveNumber' | 'turnNumber'
+>
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>

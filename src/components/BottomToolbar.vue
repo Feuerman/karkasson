@@ -4,6 +4,17 @@
     <UButton
       v-if="!showLobby"
       color="primary"
+      :icon="soundEnabled ? 'i-lucide-volume-2' : 'i-lucide-volume-x'"
+      :aria-pressed="soundEnabled"
+      :aria-label="soundEnabled ? 'Выключить звук' : 'Включить звук'"
+      :title="soundEnabled ? 'Выключить звук' : 'Включить звук'"
+      :data-testid="TEST_IDS.soundToggle"
+      class="btn-primary-action min-h-11 shrink-0 cursor-pointer gap-2 rounded-full px-3 font-semibold shadow-soft sm:px-4"
+      @click="emit('toggleSound')"
+    />
+    <UButton
+      v-if="!showLobby"
+      color="primary"
       :icon="layoutEditMode ? 'i-lucide-check' : 'i-lucide-panels-top-left'"
       :aria-pressed="layoutEditMode"
       :aria-label="
@@ -52,12 +63,14 @@ defineProps<{
   items: GameMenuItem[]
   showLobby: boolean
   layoutEditMode: boolean
+  soundEnabled: boolean
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
   toggleLayoutEdit: []
   resetLayout: []
+  toggleSound: []
   exit: []
 }>()
 </script>

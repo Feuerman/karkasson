@@ -1,0 +1,447 @@
+<template>
+  <div
+    v-if="gameBoard.gameIsStarted"
+    class="pointer-events-none fixed inset-x-0 top-3 z-[1900] flex flex-col items-center px-3"
+  >
+    <section
+      v-if="summaryVisible && summary"
+      :key="summaryVersion"
+      :data-testid="TEST_IDS.turnSummary"
+      class="turn-summary-card pointer-events-auto w-full max-w-[30rem] rounded-2xl border border-gold-dark/45 bg-surface/95 px-3 py-2 text-text shadow-card backdrop-blur"
+      aria-live="polite"
+      @mouseenter="pauseAutoHide"
+      @mouseleave="resumeAutoHide"
+    >
+      <header class="flex items-center gap-2">
+        <span
+          class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/20"
+          :class="playerBackgroundColorClass(summary.color)"
+        ></span>
+        <span
+          class="title-medieval min-w-0 truncate text-[.95rem] leading-none"
+        >
+          {{ summaryTitle }}
+        </span>
+        <span
+          v-if="summary.turnNumber !== null"
+          class="shrink-0 text-[.68rem] font-semibold text-text-muted"
+        >
+          ход {{ summary.turnNumber }}
+        </span>
+        <span
+          v-if="summaryTotal > 0"
+          class="ml-auto shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold tabular-nums text-success-dark"
+        >
+          +{{ summaryTotal }}
+        </span>
+        <button
+          type="button"
+          class="ml-1 cursor-pointer rounded-md p-0.5 text-text-muted transition-colors hover:bg-surface-muted hover:text-text"
+          :data-testid="TEST_IDS.turnSummaryClose"
+          aria-label="Скрыть сводку хода"
+          title="Скрыть"
+          @click="dismiss"
+        >
+          <UIcon name="i-lucide-x" class="h-3.5 w-3.5" />
+        </button>
+      </header>
+
+      <div
+        class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[.82rem] leading-snug"
+      >
+        <span v-if="summary.placedTile" class="flex items-center gap-1">
+          <UIcon
+            name="i-lucide-layout-grid"
+            class="h-3.5 w-3.5 text-gold-dark"
+          />
+          Тайл <strong>{{ summary.placedTile.tile.id }}</strong>
+          <button
+            type="button"
+            class="cursor-pointer text-blue-600 underline underline-offset-2 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
+            :aria-label="`Перейти к клетке ${summary.placedTile.rowIndex + 1}, ${summary.placedTile.tileIndex + 1}`"
+            title="Перейти к плитке на доске"
+            @click.stop="zoomBoardToTile(summary.placedTile)"
+          >
+            {{ summary.placedTile.rowIndex }}·{{ summary.placedTile.tileIndex }}
+          </button>
+        </span>
+        <span v-if="summary.follower" class="flex items-center gap-1">
+          <UIcon
+            name="i-lucide-person-standing"
+            class="h-3.5 w-3.5 text-gold-dark"
+          />
+          Подданный на {{ followerLabel(summary.follower.placeType) }}
+        </span>
+        <span v-if="summary.returnedFollowers" class="flex items-center gap-1">
+          <UIcon
+            name="i-lucide-rotate-ccw"
+            class="h-3.5 w-3.5 text-gold-dark"
+          />
+          Вернулось подданных: {{ summary.returnedFollowers }}
+        </span>
+        <span v-if="summary.dragonMoves" class="flex items-center gap-1">
+          <UIcon name="i-lucide-bird" class="h-3.5 w-3.5 text-gold-dark" />
+          Дракон двигался
+        </span>
+        <span v-if="summary.princessTakes" class="flex items-center gap-1">
+          <UIcon name="i-lucide-crown" class="h-3.5 w-3.5 text-gold-dark" />
+          Принцесса забрала подданного
+        </span>
+      </div>
+
+      <div
+        v-if="summary.scoreEvents.length"
+        class="mt-1.5 flex flex-wrap gap-1.5"
+      >
+        <span
+          v-for="(event, index) in summary.scoreEvents"
+          :key="`${event.objectType}-${index}`"
+          class="rounded-md bg-gold/15 px-1.5 py-0.5 text-[.72rem] font-semibold text-wood-dark"
+          :title="scoreEventTitle(event)"
+        >
+          {{ objectLabel(event.objectType) }}: +{{ event.points }}
+        </span>
+      </div>
+
+      <div
+        v-if="summary.scoreChanges.length"
+        class="mt-1 flex flex-wrap gap-1.5"
+      >
+        <span
+          v-for="change in summary.scoreChanges"
+          :key="String(change.playerId)"
+          class="flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[.72rem] font-semibold"
+          :title="`${change.playerName}: +${change.points}`"
+        >
+          <span
+            class="h-2 w-2 rounded-full ring-1 ring-black/15"
+            :class="playerBackgroundColorClass(change.color)"
+          ></span>
+          <span :class="playerTextColorClass(change.color)">
+            {{ change.isOwn ? 'Вы' : change.playerName }}
+          </span>
+          <span class="tabular-nums text-success-dark"
+            >+{{ change.points }}</span
+          >
+        </span>
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import UIcon from '@nuxt/ui/components/Icon.vue'
+import { ObjectTypes, TileSideType } from '@server/modules/types'
+import type { IGameBoard } from '@/types/game'
+import { TEST_IDS } from '@/data/testIds'
+import GameService from '@/modules/GameService'
+import {
+  playerBackgroundColorClass,
+  playerTextColorClass,
+} from '@/utils/colors'
+import { findOwnPlayer } from '@/utils/players'
+import { OBJECT_TYPE_NAMES } from '@/utils/labels'
+import type { FollowerPlaceType } from '@/utils/followerPlaces'
+import { useBoardZoom } from '@/composables/useBoardZoom'
+import {
+  actionTurnKey,
+  buildTurnSummary,
+  type TurnScoreEvent,
+  type TurnSummary,
+} from '@/utils/turnSummary'
+
+const props = defineProps<{
+  gameBoard: IGameBoard
+  soundEnabled: boolean
+}>()
+
+type SoundName = 'turn' | 'score' | 'end'
+
+const SUMMARY_DURATION_MS = 8000
+const SOUND_INTERVAL_MS = 250
+const lastSoundAt: Record<SoundName, number> = {
+  turn: 0,
+  score: 0,
+  end: 0,
+}
+
+let audioContext: AudioContext | null = null
+let audioUnlocked = false
+let hideTimer: ReturnType<typeof setTimeout> | undefined
+let previousGameId: string | undefined
+let previousIsMyTurn: boolean | null = null
+let previousWasEnded: boolean | null = null
+
+const summary = ref<TurnSummary | null>(null)
+const summaryVisible = ref(false)
+const summaryVersion = ref(0)
+const processedActions = ref<number | null>(null)
+
+const ownPlayer = computed(() =>
+  findOwnPlayer(props.gameBoard.players ?? [], {
+    socketId: GameService.socketId.value,
+    deviceId: GameService.deviceId,
+  })
+)
+
+const { zoomToTile: zoomBoardToTile } = useBoardZoom()
+
+const summaryTitle = computed(() => {
+  if (!summary.value) return ''
+  if (summary.value.isFinalScoring) return 'Финальный подсчёт'
+  if (summary.value.isOwn) return 'Ваш ход'
+  return summary.value.playerName
+})
+
+const summaryTotal = computed(() =>
+  (summary.value?.scoreChanges ?? []).reduce(
+    (total, change) => total + change.points,
+    0
+  )
+)
+
+const objectLabel = (objectType: ObjectTypes): string =>
+  OBJECT_TYPE_NAMES[objectType] ?? 'Объект'
+
+const followerLabel = (placeType: FollowerPlaceType): string => {
+  switch (placeType) {
+    case ObjectTypes.GARDEN:
+      return 'сад'
+    case ObjectTypes.MONASTERY:
+      return 'монастырь'
+    case TileSideType.City:
+      return 'город'
+    case TileSideType.Road:
+      return 'дорога'
+    case TileSideType.Field:
+      return 'поле'
+    default:
+      return 'объект'
+  }
+}
+
+const scoreEventTitle = (event: TurnScoreEvent): string => {
+  const lines = (event.details ?? []).map(
+    (line) =>
+      `${line.label}: ${line.count} × ${line.pointsPerUnit} = ${line.total}`
+  )
+  const parts = [...lines, ...(event.modifiers ?? [])]
+  return parts.length ? parts.join('\n') : `Начислено очков: ${event.points}`
+}
+
+const clearHideTimer = () => {
+  if (hideTimer !== undefined) {
+    clearTimeout(hideTimer)
+    hideTimer = undefined
+  }
+}
+
+const scheduleHide = () => {
+  clearHideTimer()
+  hideTimer = setTimeout(() => {
+    summaryVisible.value = false
+    hideTimer = undefined
+  }, SUMMARY_DURATION_MS)
+}
+
+const dismiss = () => {
+  summaryVisible.value = false
+  clearHideTimer()
+}
+
+const pauseAutoHide = () => {
+  clearHideTimer()
+}
+
+const resumeAutoHide = () => {
+  if (summaryVisible.value) scheduleHide()
+}
+
+const audioContextClass = (): typeof AudioContext | undefined => {
+  if (typeof window === 'undefined') return undefined
+  return window.AudioContext
+}
+
+const getAudioContext = (): AudioContext | null => {
+  const AudioContextClass = audioContextClass()
+  if (!AudioContextClass) return null
+
+  if (!audioContext) {
+    try {
+      audioContext = new AudioContextClass()
+    } catch {
+      return null
+    }
+  }
+
+  if (audioContext.state === 'suspended') {
+    void audioContext.resume().catch(() => undefined)
+  }
+  return audioContext
+}
+
+const unlockAudio = () => {
+  audioUnlocked = true
+  void getAudioContext()
+    ?.resume()
+    .catch(() => undefined)
+}
+
+const closeAudioContext = () => {
+  if (!audioContext) return
+  void audioContext.close().catch(() => undefined)
+  audioContext = null
+}
+
+type Waveform = 'sine' | 'square' | 'sawtooth' | 'triangle'
+
+const playTone = (
+  context: AudioContext,
+  frequency: number,
+  delay: number,
+  duration: number,
+  volume: number,
+  type: Waveform
+) => {
+  const startAt = context.currentTime + delay
+  const oscillator = context.createOscillator()
+  const gain = context.createGain()
+
+  oscillator.type = type
+  oscillator.frequency.setValueAtTime(frequency, startAt)
+  gain.gain.setValueAtTime(0, startAt)
+  gain.gain.linearRampToValueAtTime(volume, startAt + 0.012)
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration)
+
+  oscillator.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(startAt)
+  oscillator.stop(startAt + duration + 0.03)
+}
+
+const playSound = (name: SoundName) => {
+  if (!props.soundEnabled || !audioUnlocked) return
+
+  const now = Date.now()
+  if (now - lastSoundAt[name] < SOUND_INTERVAL_MS) return
+  lastSoundAt[name] = now
+
+  const context = getAudioContext()
+  if (!context) return
+
+  if (name === 'turn') {
+    playTone(context, 660, 0, 0.12, 0.05, 'sine')
+    playTone(context, 880, 0.09, 0.16, 0.045, 'sine')
+    return
+  }
+
+  if (name === 'score') {
+    playTone(context, 523.25, 0, 0.1, 0.045, 'triangle')
+    playTone(context, 659.25, 0.08, 0.12, 0.045, 'triangle')
+    playTone(context, 783.99, 0.17, 0.18, 0.04, 'triangle')
+    return
+  }
+
+  playTone(context, 523.25, 0, 0.14, 0.05, 'triangle')
+  playTone(context, 659.25, 0.12, 0.14, 0.05, 'triangle')
+  playTone(context, 783.99, 0.24, 0.16, 0.05, 'triangle')
+  playTone(context, 1046.5, 0.38, 0.3, 0.045, 'triangle')
+}
+
+watch(
+  () =>
+    [props.gameBoard.id, props.gameBoard.actionsHistory?.length ?? 0] as const,
+  ([gameId, length]) => {
+    const previousId = previousGameId
+    previousGameId = gameId
+    const processed = processedActions.value
+
+    if (processed === null || gameId !== previousId) {
+      processedActions.value = length
+      summary.value = null
+      summaryVisible.value = false
+      clearHideTimer()
+      return
+    }
+
+    if (length <= processed) {
+      processedActions.value = length
+      if (length === 0) {
+        summary.value = null
+        summaryVisible.value = false
+        clearHideTimer()
+      }
+      return
+    }
+
+    const history = props.gameBoard.actionsHistory ?? []
+    const newActions = history.slice(processed)
+    processedActions.value = length
+
+    if (props.gameBoard.gameIsEnded) {
+      summaryVisible.value = false
+      return
+    }
+
+    const lastAction = newActions[newActions.length - 1]
+    if (!lastAction) return
+
+    const key = actionTurnKey(lastAction)
+    const turnActions = history.filter(
+      (action) => actionTurnKey(action) === key
+    )
+    const nextSummary = buildTurnSummary(
+      turnActions,
+      props.gameBoard.players ?? [],
+      ownPlayer.value?.id
+    )
+    if (!nextSummary) return
+
+    summary.value = nextSummary
+    summaryVersion.value += 1
+    summaryVisible.value = true
+
+    if (nextSummary.scoreChanges.length > 0) playSound('score')
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.gameBoard.isMyTurn,
+  (isMyTurnNow) => {
+    const previous = previousIsMyTurn
+    previousIsMyTurn = isMyTurnNow
+    if (previous === null) return
+    if (isMyTurnNow && !previous) playSound('turn')
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.gameBoard.gameIsEnded,
+  (isEnded) => {
+    const previous = previousWasEnded
+    previousWasEnded = isEnded
+    if (isEnded) {
+      summaryVisible.value = false
+      clearHideTimer()
+    }
+    if (previous === null) return
+    if (isEnded && !previous) playSound('end')
+  },
+  { immediate: true }
+)
+
+onMounted(() => {
+  document.addEventListener('pointerdown', unlockAudio, { once: true })
+  document.addEventListener('keydown', unlockAudio, { once: true })
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', unlockAudio)
+  document.removeEventListener('keydown', unlockAudio)
+  clearHideTimer()
+  closeAudioContext()
+})
+</script>

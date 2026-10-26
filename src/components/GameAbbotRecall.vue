@@ -3,7 +3,7 @@
     v-if="showRecall"
     draggable-id="abbot-recall"
     :initial-x="initialX"
-    :initial-y="16"
+    :initial-y="initialY"
     :drag-enabled="dragEnabled"
     :collapsed="collapsed"
     icon="i-lucide-church"
@@ -29,13 +29,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { OBJECT_TYPE_GENITIVES } from '@/utils/labels'
 import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 import { notifyError, pluralForm } from '@/utils/common'
+import { TEST_IDS } from '@/data/testIds'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
 
 const props = defineProps({
@@ -50,6 +51,9 @@ const props = defineProps({
 })
 
 const ABBOT_RECALL_PANEL_WIDTH = 260
+/** Окно отзыва всегда сразу под сводкой хода с фиксированным отступом. */
+const ABBOT_RECALL_PANEL_DEFAULT_TOP = 16
+const ABBOT_RECALL_PANEL_GAP = 16
 
 /** Окно можно свернуть, чтобы не закрывать доску. */
 const { collapsed, toggle } = usePanelCollapse('abbot-recall')
@@ -57,12 +61,61 @@ const { collapsed, toggle } = usePanelCollapse('abbot-recall')
 // Ширина окна известна только после монтирования, поэтому панель центрируется
 // в `onMounted`, а не в момент создания компонента.
 const initialX = ref(0)
+const summaryBottom = ref(0)
+
+let summaryResizeObserver: ResizeObserver | null = null
+
+const observeSummary = (el: HTMLElement | null) => {
+  summaryResizeObserver?.disconnect()
+  summaryResizeObserver = null
+  if (el) {
+    summaryResizeObserver = new ResizeObserver(() => {
+      summaryBottom.value = el.getBoundingClientRect().bottom
+    })
+    summaryResizeObserver.observe(el)
+  }
+}
+
+const refreshSummary = () => {
+  const el = document.querySelector<HTMLElement>(
+    `[data-testid="${TEST_IDS.turnSummary}"]`
+  )
+  summaryBottom.value = el ? el.getBoundingClientRect().bottom : 0
+  observeSummary(el)
+}
 
 onMounted(() => {
   initialX.value = Math.max(
     0,
     (window.innerWidth - ABBOT_RECALL_PANEL_WIDTH) / 2
   )
+  refreshSummary()
+})
+
+/** Позиция считается по высоте сводки: если сводки нет — окно у верхнего края. */
+const initialY = computed(() => {
+  const bottom = summaryBottom.value
+  return bottom
+    ? bottom + ABBOT_RECALL_PANEL_GAP
+    : ABBOT_RECALL_PANEL_DEFAULT_TOP
+})
+
+// При смене сводки пересчитываем позицию, чтобы окно не наезжало на неё.
+watch(
+  summaryBottom,
+  () => {
+    nextTick(() => {
+      initialX.value = Math.max(
+        0,
+        (window.innerWidth - ABBOT_RECALL_PANEL_WIDTH) / 2
+      )
+    })
+  },
+  { flush: 'post' }
+)
+
+onBeforeUnmount(() => {
+  summaryResizeObserver?.disconnect()
 })
 
 const recall = computed(() => props.gameBoard.abbotRecall ?? null)

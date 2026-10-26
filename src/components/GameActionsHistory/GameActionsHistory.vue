@@ -20,9 +20,14 @@
           </span>
         </span>
         <div class="flex items-center gap-1.5">
-          <span class="text-xl font-semibold text-text-muted">
-            {{ gameBoard.moveCounter ?? 0 }}
-            <span class="text-sm">ход</span>
+          <span class="flex flex-col items-end leading-none">
+            <span class="text-xl font-semibold text-text-muted">
+              {{ currentTurnNumber }}
+              <span class="text-sm">ход</span>
+            </span>
+            <span class="mt-0.5 text-[.65rem] text-text-muted/80">
+              раунд {{ gameBoard.moveCounter ?? 0 }}
+            </span>
           </span>
           <PanelCollapseButton
             panel-id="game-actions-history"
@@ -105,6 +110,7 @@ import {
 } from './internal/historyFilter'
 import { groupActionsHistory } from './internal/historyGroups'
 import { HISTORY_PLAYERS_KEY } from './internal/players'
+import { getCurrentTurnNumber } from '@/utils/turnNumber'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
 
 const { gameBoard } = defineProps<{
@@ -130,6 +136,7 @@ const { collapsed, toggle } = usePanelCollapse('game-actions-history', {
 })
 
 const actions = computed(() => gameBoard.actionsHistory ?? [])
+const currentTurnNumber = computed(() => getCurrentTurnNumber(gameBoard))
 const filterCounts = computed(() => countActionsByFilter(actions.value))
 const visibleActions = computed(() =>
   filterActionsHistory(actions.value, activeFilter.value)

@@ -17,16 +17,23 @@
       Финальный подсчёт
     </h3>
     <h3
-      v-else-if="group.moveNumber !== null"
+      v-else-if="group.turnNumber !== null"
       :data-testid="TEST_IDS.historyMoveHeader"
       class="title-medieval mb-1.5 flex items-center gap-1.5 border-b border-gold-dark/20 px-1 pb-1 text-[.8rem] leading-none text-text-muted"
     >
       <UIcon name="i-lucide-hash" class="h-3.5 w-3.5 text-gold-dark" />
-      Ход {{ group.moveNumber }}
+      Ход {{ group.turnNumber }}
+      <span
+        v-if="groupPlayer"
+        class="ml-1 truncate"
+        :class="playerTextColorClass(groupPlayer.color)"
+      >
+        · {{ groupPlayer.name }}
+      </span>
     </h3>
     <div
       v-for="(action, index) in group.actions"
-      :key="`${group.moveNumber ?? 'final'}-${index}`"
+      :key="`${group.turnNumber ?? 'final'}-${index}`"
     >
       <PlaceTileAction
         v-if="action.actionType === ActionTypes.PLACE_TILE"
@@ -64,8 +71,10 @@
 
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
+import { computed } from 'vue'
 import { ActionTypes } from '@server/modules/types'
 import type { TileCoordinates } from '@/utils/board'
+import { playerTextColorClass } from '@/utils/colors'
 import { TEST_IDS } from '@/data/testIds'
 import type { HistoryGroup } from './historyGroups'
 import PlaceTileAction from './actions/PlaceTileAction.vue'
@@ -75,9 +84,13 @@ import BackFollowerAction from './actions/BackFollowerAction.vue'
 import DragonMoveAction from './actions/DragonMoveAction.vue'
 import PrincessTakeFollowerAction from './actions/PrincessTakeFollowerAction.vue'
 
-defineProps<{
+const props = defineProps<{
   group: HistoryGroup
 }>()
+
+const groupPlayer = computed(
+  () => props.group.actions.find((action) => action.initiator)?.initiator
+)
 
 const emit = defineEmits<{
   focus: [cells: TileCoordinates[]]

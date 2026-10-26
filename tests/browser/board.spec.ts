@@ -232,6 +232,48 @@ test('о возврате хода сообщает уведомление', asy
   }
 })
 
+test('показывает ход, сводку действия и управление звуком', async ({
+  page,
+}) => {
+  const gameServer = createGameServer(new InMemoryDatabase(), {
+    adminUI: false,
+  })
+  const serverPort = await listenOnRandomPort(gameServer.server)
+  let frontend: RunningFrontend | undefined
+
+  try {
+    frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+    await startSinglePlayerGame(page, frontend.url)
+
+    const tracker = page.getByTestId(TEST_IDS.turnTracker)
+    await expect(tracker).toBeVisible()
+    await expect(tracker).toContainText('Ваш ход')
+    await expect(page.getByTestId(TEST_IDS.turnPhase)).toContainText(
+      'Поставьте тайл'
+    )
+
+    const soundToggle = page.getByTestId(TEST_IDS.soundToggle)
+    await expect(soundToggle).toHaveAttribute('aria-pressed', 'true')
+    await soundToggle.click()
+    await expect(soundToggle).toHaveAttribute('aria-pressed', 'false')
+    expect(
+      await page.evaluate(() => localStorage.getItem('soundEnabled'))
+    ).toBe('false')
+
+    await placeTileOnBoard(page)
+
+    const summary = page.getByTestId(TEST_IDS.turnSummary)
+    await expect(summary).toBeVisible()
+    await expect(summary).toContainText('Тайл')
+    await page.getByTestId(TEST_IDS.turnSummaryClose).click()
+    await expect(summary).toHaveCount(0)
+    await expect(page.locator('.tile-last-action')).toHaveCount(1)
+  } finally {
+    await frontend?.close()
+    await gameServer.close()
+  }
+})
+
 test('доска управляется с клавиатуры', async ({ page }) => {
   const gameServer = createGameServer(new InMemoryDatabase(), {
     adminUI: false,

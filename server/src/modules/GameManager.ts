@@ -24,6 +24,7 @@ import { FollowerManager } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
 import { DragonPrincessManager } from './DragonPrincessManager'
 import { finalizeScoring } from './finalScoring'
+import { getDragonTurnNumber, getPlayerTurnNumber } from './turnNumber'
 import type { IGameState } from './gameState'
 import {
   calcCityScore,
@@ -304,9 +305,26 @@ export class GameManager implements IGameState {
   /**
    * Единственная точка добавления записи в историю: проставляет номер хода,
    * чтобы группировка по ходам в интерфейсе не расходилась между видами действий.
+   * Шаги дракона относятся к ходу игрока, поставившего вулкан.
    */
   recordAction(action: NewGameAction) {
-    this.actionsHistory.push({ ...action, moveNumber: this.moveCounter })
+    const turnNumber = this.dragonMove
+      ? getDragonTurnNumber(
+          this.moveCounter,
+          this.dragonMove.resumePlayerIndex,
+          this.players.length
+        )
+      : getPlayerTurnNumber(
+          this.moveCounter,
+          this.currentPlayerIndex,
+          this.players.length
+        )
+
+    this.actionsHistory.push({
+      ...action,
+      moveNumber: this.moveCounter,
+      turnNumber,
+    })
   }
 
   /**
