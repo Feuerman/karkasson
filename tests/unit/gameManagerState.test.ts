@@ -108,10 +108,38 @@ describe('Записи истории', () => {
     expect(
       game.actionsHistory.slice(-2).map((action) => action.moveNumber)
     ).toEqual([3, 4])
+    expect(
+      game.actionsHistory.slice(-2).map((action) => action.turnNumber)
+    ).toEqual([5, 7])
     const finalScoring = game.actionsHistory[game.actionsHistory.length - 1]
     if (finalScoring?.actionType !== ActionTypes.ADDING_SCORES) {
       throw new Error('Expected a final scoring entry')
     }
     expect(finalScoring.actionData.isFinalScoring).toBe(true)
+  })
+
+  it('относит шаги дракона к ходу поставившего вулкан', () => {
+    const game = new GameManager({ players })
+    game.moveCounter = 3
+    game.currentPlayerIndex = 1
+    game.dragonMove = {
+      remainingSteps: 5,
+      nextPlayerIndex: 1,
+      resumePlayerIndex: 1,
+      visited: [],
+    }
+
+    game.recordAction({
+      actionType: ActionTypes.DRAGON_MOVE,
+      actionData: {
+        from: { rowIndex: 14, tileIndex: 15 },
+        to: { rowIndex: 14, tileIndex: 16 },
+        eatenFollowers: [],
+        remainingSteps: 4,
+      },
+      initiator: game.currentPlayer,
+    })
+
+    expect(game.actionsHistory.at(-1)?.turnNumber).toBe(5)
   })
 })

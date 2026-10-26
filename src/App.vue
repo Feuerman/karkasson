@@ -26,6 +26,11 @@
         @add-player="addPlayer"
         @remove-player="removePlayer"
       />
+      <GameTurnTracker
+        v-if="gameState.gameIsStarted && !showLobby"
+        :game-board="gameState"
+        :sound-enabled="soundEnabled"
+      />
       <GameBoard
         :game-board="gameState"
         :layout-edit-mode="isLayoutEditMode"
@@ -35,9 +40,11 @@
         :items="menuItems"
         :show-lobby="showLobby"
         :layout-edit-mode="isLayoutEditMode"
+        :sound-enabled="soundEnabled"
         @select="onMenuSelect"
         @toggle-layout-edit="isLayoutEditMode = !isLayoutEditMode"
         @reset-layout="onResetLayout"
+        @toggle-sound="toggleSound"
         @exit="goInLobby"
       />
       <GameResultPanel
@@ -66,6 +73,7 @@ import {
   watch,
 } from 'vue'
 import GameBoard from './components/GameBoard.vue'
+import GameTurnTracker from './components/GameTurnTracker.vue'
 import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
 import GameResultPanel from './components/GameResultPanel.vue'
@@ -116,6 +124,12 @@ watch(
 
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
+const soundEnabled = ref(localStorage.getItem('soundEnabled') !== 'false')
+
+const toggleSound = () => {
+  soundEnabled.value = !soundEnabled.value
+  localStorage.setItem('soundEnabled', String(soundEnabled.value))
+}
 
 /**
  * Показывать комнату, а не список партий.

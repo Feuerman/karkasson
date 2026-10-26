@@ -10,7 +10,7 @@
   </Draggable>
 </template>
 <script setup lang="ts">
-import GameStats from '@/components/GameStats.vue'
+import GameStats from '@/components/GameStats/GameStats.vue'
 import Draggable from '@/components/Draggable.vue'
 import type { IGameBoard } from '@/types/game'
 

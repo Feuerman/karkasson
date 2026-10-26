@@ -299,6 +299,80 @@
   );
 }
 
+/* Всплеск счёта после начисления очков */
+.stats-score-bump {
+  animation: stats-score-bump 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+}
+
+@keyframes stats-score-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Подсветка клетки последнего действия и всплывающие очки */
+.tile-last-action {
+  --last-action-color: #d4af37;
+  border-color: var(--last-action-color);
+  animation: tile-last-action 3.2s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 4;
+}
+
+@keyframes tile-last-action {
+  0% {
+    box-shadow: 0 0 0 2px var(--last-action-color);
+    transform: scale(1.04);
+  }
+  25% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--last-action-color) 55%, transparent),
+      0 0 24px color-mix(in srgb, var(--last-action-color) 65%, transparent);
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+.last-action-bubble {
+  animation: last-action-bubble 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes last-action-bubble {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Появление карточки сводки хода */
+.turn-summary-card {
+  animation: turn-summary-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes turn-summary-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Фокус клетки доски при управлении с клавиатуры */
 @utility tile-keyboard-focus {
   outline: none;

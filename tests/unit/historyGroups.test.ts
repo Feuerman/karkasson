@@ -66,12 +66,12 @@ describe('Группировка истории по ходам', () => {
 
     expect(groups).toEqual([
       {
-        moveNumber: 1,
+        turnNumber: 1,
         isFinalScoring: false,
         actions: [tileAction(1), scoresAction(1)],
       },
       {
-        moveNumber: 2,
+        turnNumber: 2,
         isFinalScoring: false,
         actions: [tileAction(2), tileAction(2)],
       },
@@ -89,17 +89,17 @@ describe('Группировка истории по ходам', () => {
 
     expect(groups).toEqual([
       {
-        moveNumber: 1,
+        turnNumber: 1,
         isFinalScoring: false,
         actions: [tileAction(1), scoresAction(1)],
       },
       {
-        moveNumber: 2,
+        turnNumber: 2,
         isFinalScoring: false,
         actions: [tileAction(2)],
       },
       {
-        moveNumber: null,
+        turnNumber: null,
         isFinalScoring: true,
         actions: [finalScoresAction, finalScoresAction],
       },
@@ -115,7 +115,7 @@ describe('Группировка истории по ходам', () => {
 
     expect(groups).toEqual([
       {
-        moveNumber: null,
+        turnNumber: null,
         isFinalScoring: false,
         actions: [unnumbered, unnumbered],
       },
@@ -131,14 +131,32 @@ describe('Группировка истории по ходам', () => {
 
     expect(groups).toEqual([
       {
-        moveNumber: null,
+        turnNumber: null,
         isFinalScoring: false,
         actions: [unnumbered],
       },
       {
-        moveNumber: 3,
+        turnNumber: 3,
         isFinalScoring: false,
         actions: [tileAction(3)],
+      },
+    ])
+  })
+
+  it('разделяет ходы разных игроков внутри одного раунда', () => {
+    const firstTurn = { ...tileAction(1), turnNumber: 1 }
+    const secondTurn = { ...tileAction(1), turnNumber: 2 }
+
+    expect(groupActionsHistory([firstTurn, secondTurn])).toEqual([
+      {
+        turnNumber: 1,
+        isFinalScoring: false,
+        actions: [firstTurn],
+      },
+      {
+        turnNumber: 2,
+        isFinalScoring: false,
+        actions: [secondTurn],
       },
     ])
   })
