@@ -12,9 +12,7 @@ export interface UseCopyToClipboardOptions {
  * Возвращает флаг `copied` и функцию `copy(text)`. Флаг сбрасывается по
  * таймауту, поэтому компонент может менять иконку/надпись кнопки на время.
  */
-export function useCopyToClipboard(
-  options: UseCopyToClipboardOptions = {}
-) {
+export function useCopyToClipboard(options: UseCopyToClipboardOptions = {}) {
   const { durationMs = 2000 } = options
 
   const copied = ref(false)

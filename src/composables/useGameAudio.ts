@@ -50,7 +50,9 @@ export function useGameAudio({ soundEnabled }: UseGameAudioOptions) {
 
   const unlockAudio = () => {
     audioUnlocked = true
-    void getAudioContext()?.resume().catch(() => undefined)
+    void getAudioContext()
+      ?.resume()
+      .catch(() => undefined)
   }
 
   const closeAudioContext = () => {
