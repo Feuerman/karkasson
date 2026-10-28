@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { ObjectTypes, TileSideType } from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
@@ -144,6 +144,7 @@ import { findOwnPlayer } from '@/utils/players'
 import { OBJECT_TYPE_NAMES } from '@/utils/labels'
 import type { FollowerPlaceType } from '@/utils/followerPlaces'
 import { useBoardZoom } from '@/composables/useBoardZoom'
+import { useGameAudio } from '@/composables/useGameAudio'
 import {
   actionTurnKey,
   buildTurnSummary,
@@ -156,18 +157,7 @@ const props = defineProps<{
   soundEnabled: boolean
 }>()
 
-type SoundName = 'turn' | 'score' | 'end'
-
 const SUMMARY_DURATION_MS = 8000
-const SOUND_INTERVAL_MS = 250
-const lastSoundAt: Record<SoundName, number> = {
-  turn: 0,
-  score: 0,
-  end: 0,
-}
-
-let audioContext: AudioContext | null = null
-let audioUnlocked = false
 let hideTimer: ReturnType<typeof setTimeout> | undefined
 let previousGameId: string | undefined
 let previousIsMyTurn: boolean | null = null
@@ -186,6 +176,7 @@ const ownPlayer = computed(() =>
 )
 
 const { zoomToTile: zoomBoardToTile } = useBoardZoom()
+const { playSound } = useGameAudio({ soundEnabled: props.soundEnabled })
 
 const summaryTitle = computed(() => {
   if (!summary.value) return ''
@@ -256,97 +247,6 @@ const pauseAutoHide = () => {
 
 const resumeAutoHide = () => {
   if (summaryVisible.value) scheduleHide()
-}
-
-const audioContextClass = (): typeof AudioContext | undefined => {
-  if (typeof window === 'undefined') return undefined
-  return window.AudioContext
-}
-
-const getAudioContext = (): AudioContext | null => {
-  const AudioContextClass = audioContextClass()
-  if (!AudioContextClass) return null
-
-  if (!audioContext) {
-    try {
-      audioContext = new AudioContextClass()
-    } catch {
-      return null
-    }
-  }
-
-  if (audioContext.state === 'suspended') {
-    void audioContext.resume().catch(() => undefined)
-  }
-  return audioContext
-}
-
-const unlockAudio = () => {
-  audioUnlocked = true
-  void getAudioContext()
-    ?.resume()
-    .catch(() => undefined)
-}
-
-const closeAudioContext = () => {
-  if (!audioContext) return
-  void audioContext.close().catch(() => undefined)
-  audioContext = null
-}
-
-type Waveform = 'sine' | 'square' | 'sawtooth' | 'triangle'
-
-const playTone = (
-  context: AudioContext,
-  frequency: number,
-  delay: number,
-  duration: number,
-  volume: number,
-  type: Waveform
-) => {
-  const startAt = context.currentTime + delay
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-
-  oscillator.type = type
-  oscillator.frequency.setValueAtTime(frequency, startAt)
-  gain.gain.setValueAtTime(0, startAt)
-  gain.gain.linearRampToValueAtTime(volume, startAt + 0.012)
-  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration)
-
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-  oscillator.start(startAt)
-  oscillator.stop(startAt + duration + 0.03)
-}
-
-const playSound = (name: SoundName) => {
-  if (!props.soundEnabled || !audioUnlocked) return
-
-  const now = Date.now()
-  if (now - lastSoundAt[name] < SOUND_INTERVAL_MS) return
-  lastSoundAt[name] = now
-
-  const context = getAudioContext()
-  if (!context) return
-
-  if (name === 'turn') {
-    playTone(context, 660, 0, 0.12, 0.05, 'sine')
-    playTone(context, 880, 0.09, 0.16, 0.045, 'sine')
-    return
-  }
-
-  if (name === 'score') {
-    playTone(context, 523.25, 0, 0.1, 0.045, 'triangle')
-    playTone(context, 659.25, 0.08, 0.12, 0.045, 'triangle')
-    playTone(context, 783.99, 0.17, 0.18, 0.04, 'triangle')
-    return
-  }
-
-  playTone(context, 523.25, 0, 0.14, 0.05, 'triangle')
-  playTone(context, 659.25, 0.12, 0.14, 0.05, 'triangle')
-  playTone(context, 783.99, 0.24, 0.16, 0.05, 'triangle')
-  playTone(context, 1046.5, 0.38, 0.3, 0.045, 'triangle')
 }
 
 watch(
@@ -433,15 +333,7 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
-  document.addEventListener('pointerdown', unlockAudio, { once: true })
-  document.addEventListener('keydown', unlockAudio, { once: true })
-})
-
 onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', unlockAudio)
-  document.removeEventListener('keydown', unlockAudio)
   clearHideTimer()
-  closeAudioContext()
 })
 </script>

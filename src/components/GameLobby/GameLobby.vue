@@ -281,11 +281,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
-import { copyToClipboard } from '@/utils/clipboard'
+import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 import type { IGame, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
@@ -354,29 +354,11 @@ const freeSlots = computed(() =>
   slotsWithIndex.value.filter(({ player }) => !player.name)
 )
 
-/** Номер комнаты только что скопирован. */
-const copied = ref(false)
-
-let copiedTimeout: ReturnType<typeof setTimeout> | undefined
+const { copied, copy: copyToClipboardFn } = useCopyToClipboard()
 
 const copyRoomCode = async () => {
-  const roomCode = props.currentGame?.roomCode ?? ''
-  if (!roomCode) return
-
-  const copiedSuccessfully = await copyToClipboard(roomCode)
-  if (!copiedSuccessfully) return
-
-  copied.value = true
-  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
-  copiedTimeout = setTimeout(() => {
-    copied.value = false
-    copiedTimeout = undefined
-  }, 2000)
+  await copyToClipboardFn(props.currentGame?.roomCode ?? '')
 }
-
-onBeforeUnmount(() => {
-  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
-})
 
 const activeGameRules = computed(() => {
   const game = props.currentGame

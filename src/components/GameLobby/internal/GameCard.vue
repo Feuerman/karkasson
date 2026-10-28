@@ -115,10 +115,10 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { LobbyGame } from '@/types/game'
 import { playerBackgroundColorClass } from '@/utils/colors'
-import { copyToClipboard } from '@/utils/clipboard'
+import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 import { formatRelativeTime } from '@/utils/time'
 import { TEST_IDS } from '@/data/testIds'
 import GameStatus from './GameStatus.vue'
@@ -143,21 +143,10 @@ const updatedText = computed(() =>
   formatRelativeTime(props.game.lastUpdate ?? 0)
 )
 
-/** Номер комнаты только что скопирован. */
-const copied = ref(false)
-
-let copiedTimeout: ReturnType<typeof setTimeout> | undefined
+const { copied, copy: copyToClipboardFn } = useCopyToClipboard()
 
 const copyRoomCode = async () => {
-  const copiedSuccessfully = await copyToClipboard(props.game.roomCode)
-  if (!copiedSuccessfully) return
-
-  copied.value = true
-  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
-  copiedTimeout = setTimeout(() => {
-    copied.value = false
-    copiedTimeout = undefined
-  }, 2000)
+  await copyToClipboardFn(props.game.roomCode)
 }
 
 /**
@@ -179,10 +168,6 @@ const emit = defineEmits<{
   join: [gameId: string]
   rejoin: [gameId: string]
 }>()
-
-onBeforeUnmount(() => {
-  if (copiedTimeout !== undefined) clearTimeout(copiedTimeout)
-})
 
 const onJoin = () => {
   if (!props.game.id || props.pending) return
