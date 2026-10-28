@@ -66,14 +66,11 @@
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
-            <span
-              v-if="isLastActionBubbleCell(rowIndex, tileIndex)"
-              :data-testid="TEST_IDS.boardLastActionBubble"
-              class="last-action-bubble pointer-events-none absolute -top-2 -right-2 z-20 rounded-full px-1.5 py-0.5 text-xs font-bold text-black shadow-strong ring-2 ring-white/70"
-              :class="playerBackgroundColorClass(lastActionColor)"
-            >
-              +{{ lastActionBubble?.points }}
-            </span>
+            <LastActionBubble
+              :is-visible="isLastActionBubbleCell(rowIndex, tileIndex)"
+              :points="lastActionBubble?.points ?? 0"
+              :color="lastActionColor"
+            />
             <div
               v-if="isGhostCell(rowIndex, tileIndex)"
               class="tile-selected absolute inset-0 rounded-xl"
@@ -144,132 +141,23 @@
       </div>
     </div>
   </div>
-  <div
+  <PendingTilePreview
     v-if="canShowPlacementUi"
-    class="fixed bottom-6 left-1/2 z-[3000] flex -translate-x-1/2 flex-col items-center gap-3"
-  >
-    <div
-      v-if="placementError"
-      role="alert"
-      :data-testid="TEST_IDS.placementError"
-      class="max-w-[min(92vw,32rem)] rounded-xl border border-danger/70 bg-danger/15 px-4 py-2 text-sm leading-snug font-medium text-danger-dark shadow-soft backdrop-blur-sm"
-    >
-      <span class="flex items-start gap-2">
-        <UIcon name="i-lucide-alert-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
-        <span>{{ placementError }}</span>
-      </span>
-    </div>
-    <div
-      v-if="!hasSelectedCell"
-      class="flex flex-col items-center gap-2"
-      :data-testid="TEST_IDS.pendingTilePreview"
-    >
-      <div class="relative">
-        <div class="absolute left-[-34px] top-1/2 -translate-y-1/2">
-          <UButton
-            color="primary"
-            icon="i-lucide-rotate-ccw"
-            class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
-            :ui="{ leadingIcon: 'size-4' }"
-            title="Повернуть тайл против часовой стрелки"
-            aria-label="Повернуть тайл против часовой стрелки"
-            :data-testid="TEST_IDS.rotateTileCounterclockwise"
-            @mousedown.stop
-            @click.stop.prevent="
-              rotateLocalTile(
-                localCurrentTile,
-                RotationDirection.Counterclockwise
-              )
-            "
-          />
-        </div>
-        <div
-          class="overflow-hidden rounded-xl shadow-strong ring-1 ring-black/10"
-          :style="{ width: `${TILE_SIZE}px`, height: `${TILE_SIZE}px` }"
-        >
-          <TileView
-            :tile="localCurrentTile"
-            :size="TILE_SIZE"
-            class="h-full w-full"
-          />
-        </div>
-        <div class="absolute right-[-34px] top-1/2 -translate-y-1/2">
-          <UButton
-            color="primary"
-            icon="i-lucide-rotate-cw"
-            class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
-            :ui="{ leadingIcon: 'size-4' }"
-            title="Повернуть тайл по часовой стрелке"
-            aria-label="Повернуть тайл по часовой стрелке"
-            :data-testid="TEST_IDS.rotateTileClockwise"
-            @mousedown.stop
-            @click.stop.prevent="
-              rotateLocalTile(localCurrentTile, RotationDirection.Clockwise)
-            "
-          />
-        </div>
-      </div>
-      <span
-        class="rounded-lg bg-black/50 px-3 py-1 text-sm font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
-      >
-        Выберите клетку на поле
-      </span>
-      <span
-        class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.8rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
-      >
-        Клавиши: R — повернуть, P — разместить, Esc — снять выбор
-      </span>
-    </div>
-    <UButton
-      color="success"
-      icon="i-lucide-map-pin"
-      :disabled="!hasSelectedCell"
-      :title="
-        hasSelectedCell
-          ? 'Разместить тайл на выбранной клетке'
-          : 'Сначала выберите клетку на поле'
-      "
-      class="btn-primary-action min-h-12 cursor-pointer whitespace-nowrap rounded-xl px-6 py-2 text-base font-semibold shadow-strong"
-      :data-testid="TEST_IDS.placeTile"
-      @click="placeTile(localCurrentTile, hoveredTile)"
-    >
-      Разместить
-    </UButton>
-  </div>
-  <div
-    v-if="!showLobby"
-    class="fixed bottom-4 right-4 z-[3000] flex items-center gap-1 rounded-xl border border-gold-dark bg-surface/90 p-1 shadow-strong backdrop-blur"
-  >
-    <UButton
-      color="primary"
-      icon="i-lucide-zoom-out"
-      title="Отдалить"
-      aria-label="Отдалить доску"
-      class="btn-secondary h-8 w-8 cursor-pointer !p-0"
-      :ui="{ leadingIcon: 'size-4' }"
-      :data-testid="TEST_IDS.zoomOut"
-      @click="zoomOut"
-    />
-    <button
-      type="button"
-      title="Сбросить масштаб"
-      class="min-w-[3.25rem] cursor-pointer rounded-md px-1 py-0.5 text-sm font-semibold tabular-nums text-wood-dark transition-colors hover:bg-gold/20"
-      :data-testid="TEST_IDS.zoomValue"
-      @click="resetZoom"
-    >
-      {{ zoomPercent }}%
-    </button>
-    <UButton
-      color="primary"
-      icon="i-lucide-zoom-in"
-      title="Приблизить"
-      aria-label="Приблизить доску"
-      class="btn-secondary h-8 w-8 cursor-pointer !p-0"
-      :ui="{ leadingIcon: 'size-4' }"
-      :data-testid="TEST_IDS.zoomIn"
-      @click="zoomIn"
-    />
-  </div>
+    :placement-error="placementError"
+    :has-selected-cell="hasSelectedCell"
+    :local-current-tile="localCurrentTile"
+    :hovered-tile="hoveredTile"
+    :tile-size="TILE_SIZE"
+    @rotate-tile="(direction) => rotateLocalTile(localCurrentTile, direction)"
+    @place-tile="placeTile"
+  />
+  <ZoomControls
+    :show-lobby="showLobby"
+    :zoom-percent="zoomPercent"
+    :zoom-in="zoomIn"
+    :zoom-out="zoomOut"
+    :reset-zoom="resetZoom"
+  />
 </template>
 
 <script setup lang="ts">
@@ -291,30 +179,32 @@ import {
   type Tile,
 } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { BoardCell, IGameBoard } from '../types/game'
-import GameActionsHistory from './GameActionsHistory'
-import GameAbbotRecall from './GameAbbotRecall.vue'
+import type { BoardCell, IGameBoard } from '../../types/game'
+import GameActionsHistory from '../GameActionsHistory'
+import GameAbbotRecall from '../GameAbbotRecall.vue'
 import { useBoardZoom } from '@/composables/useBoardZoom'
-import GameControls from './GameControls.vue'
-import GamePlacingFollowers from './GamePlacingFollowers.vue'
-import GamePrincessAndDragon from './GamePrincessAndDragon.vue'
-import TileView from './TileView.vue'
+import GameControls from '../GameControls.vue'
+import GamePlacingFollowers from '../GamePlacingFollowers.vue'
+import GamePrincessAndDragon from '../GamePrincessAndDragon.vue'
+import TileView from '../TileView.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
-import UIcon from '@nuxt/ui/components/Icon.vue'
-import GameService, { SocketAckError } from '../modules/GameService'
-import { errorMessage, notifyError, throttle } from '../utils/common'
-import notificationService from '../plugins/notification'
-import { boardCellTestId, TEST_IDS } from '../data/testIds'
-import { rotateTile as rotateTileUtil, TILE_SIZE } from '../utils/tiles'
+import GameService, { SocketAckError } from '../../modules/GameService'
+import { errorMessage, notifyError, throttle } from '../../utils/common'
+import notificationService from '../../plugins/notification'
+import { boardCellTestId, TEST_IDS } from '../../data/testIds'
+import { rotateTile as rotateTileUtil, TILE_SIZE } from '../../utils/tiles'
 import {
   cellOfPoint,
   findTileElement,
   highlightCells,
   scrollToTile,
-} from '../utils/board'
-import { boardCellKey, buildAvailableCells } from '../utils/availableCells'
-import { playerBackgroundColorClass, playerColorValue } from '../utils/colors'
-import { useBoardPan } from '../composables/useBoardPan'
+} from '../../utils/board'
+import { boardCellKey, buildAvailableCells } from '../../utils/availableCells'
+import { playerColorValue } from '../../utils/colors'
+import { useBoardPan } from '../../composables/useBoardPan'
+import LastActionBubble from './internal/LastActionBubble.vue'
+import PendingTilePreview from './internal/PendingTilePreview.vue'
+import ZoomControls from './internal/ZoomControls.vue'
 
 const props = defineProps<{
   gameBoard: IGameBoard
@@ -673,13 +563,13 @@ const lastActionColor = ref<string | null>(null)
 const lastActionVisible = ref(false)
 let lastActionTimer: ReturnType<typeof setTimeout> | undefined
 
-interface LastActionBubble {
+interface LastActionBubbleData {
   rowIndex: number
   tileIndex: number
   points: number
 }
 
-const lastActionBubble = ref<LastActionBubble | null>(null)
+const lastActionBubble = ref<LastActionBubbleData | null>(null)
 
 const clearLastAction = () => {
   if (lastActionTimer) clearTimeout(lastActionTimer)

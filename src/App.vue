@@ -72,7 +72,7 @@ import {
   ref,
   watch,
 } from 'vue'
-import GameBoard from './components/GameBoard.vue'
+import GameBoard from './components/GameBoard'
 import GameTurnTracker from './components/GameTurnTracker.vue'
 import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
