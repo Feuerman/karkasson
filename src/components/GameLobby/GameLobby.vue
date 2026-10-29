@@ -94,74 +94,11 @@
       </div>
     </div>
 
-    <UModal
+    <CreateGameModal
       v-model:open="isCreateGameModalOpen"
-      description="Настройте правила новой партии"
-    >
-      <template #title>
-        <span :data-testid="TEST_IDS.createGameModalTitle">
-          Создание игры
-        </span>
-      </template>
-      <template #body>
-        <div class="space-y-5">
-          <OptionToggle
-            v-model="finalScoringEnabled"
-            label="Финальный подсчёт очков"
-            description="Если включить опцию, в конце партии очки начислятся за незавершённые дороги, города, монастыри и сады."
-            :test-id="TEST_IDS.createGameFinalScoring"
-          />
-
-          <div class="border-t border-gold-dark/30" />
-
-          <section class="space-y-3">
-            <h3
-              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
-            >
-              Дополнения
-            </h3>
-            <OptionToggle
-              v-model="innsAndCathedralsEnabled"
-              label="Таверны и соборы"
-              description="Добавляет 18 тайлов дополнения и большого подданного."
-            />
-            <OptionToggle
-              v-model="riverEnabled"
-              label="Река"
-              description="В начале партии выкладывается река от истока до озера, затем идёт обычная колода."
-            />
-            <OptionToggle
-              v-model="princessAndDragonEnabled"
-              label="Принцесса и дракон"
-              description="Добавляет тайлы с принцессой, драконом и вулканом."
-              :test-id="TEST_IDS.createGamePrincessDragon"
-            />
-          </section>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-3">
-          <UButton
-            color="neutral"
-            variant="outline"
-            class="cursor-pointer"
-            :disabled="isCreateGamePending"
-            @click="isCreateGameModalOpen = false"
-          >
-            Отмена
-          </UButton>
-          <UButton
-            color="primary"
-            :data-testid="TEST_IDS.createGameSubmit"
-            :loading="isCreateGamePending"
-            class="btn-primary-action cursor-pointer"
-            @click="createGame"
-          >
-            Создать игру
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+      :pending="isCreateGamePending"
+      @create="createGame"
+    />
 
     <!-- Лобби: готовность к старту -->
     <div
@@ -176,21 +113,10 @@
         :data-testid="TEST_IDS.lobbyRoomHeading"
       />
 
-      <div class="flex justify-center">
-        <button
-          type="button"
-          class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gold-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-gold/15"
-          :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
-          :data-testid="TEST_IDS.lobbyCopyRoomCode"
-          @click="copyRoomCode"
-        >
-          <UIcon
-            :name="copied ? 'i-lucide-check' : 'i-lucide-copy'"
-            class="h-4 w-4"
-          />
-          {{ copied ? 'Номер скопирован' : 'Скопировать номер' }}
-        </button>
-      </div>
+      <RoomCodeCopy
+        :room-code="props.currentGame?.roomCode"
+        :test-id="TEST_IDS.lobbyCopyRoomCode"
+      />
 
       <div class="mt-3">
         <RuleStatusLine
@@ -209,43 +135,24 @@
 
       <div v-else class="flex flex-col items-center">
         <div class="my-4 mb-6 flex w-full max-w-[500px] flex-col gap-5">
-          <section v-if="occupiedSlots.length" class="flex flex-col gap-3">
-            <h4
-              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
-            >
-              Игроки
-            </h4>
-            <PlayerSlot
-              v-for="slot in occupiedSlots"
-              :key="slot.index"
-              :player="slot.player"
-              :index="slot.index"
-              :device-id="deviceId"
-              :pending="isSlotPending(slot.index)"
-              @toggle-checkbox="toggleCheckbox"
-              @name-input="currentPlayerName = $event"
-              @toggle-button="toggleButton"
-            />
-          </section>
-
-          <section v-if="freeSlots.length" class="flex flex-col gap-3">
-            <h4
-              class="text-sm font-semibold uppercase tracking-wide text-text-muted"
-            >
-              Свободные слоты
-            </h4>
-            <PlayerSlot
-              v-for="slot in freeSlots"
-              :key="slot.index"
-              :player="slot.player"
-              :index="slot.index"
-              :device-id="deviceId"
-              :pending="isSlotPending(slot.index)"
-              @toggle-checkbox="toggleCheckbox"
-              @name-input="currentPlayerName = $event"
-              @toggle-button="toggleButton"
-            />
-          </section>
+          <PlayerSlotsList
+            :slots="occupiedSlots"
+            title="Игроки"
+            :device-id="deviceId"
+            :pending="isSlotPending"
+            @toggle-checkbox="toggleCheckbox"
+            @name-input="currentPlayerName = $event"
+            @toggle-button="toggleButton"
+          />
+          <PlayerSlotsList
+            :slots="freeSlots"
+            title="Свободные слоты"
+            :device-id="deviceId"
+            :pending="isSlotPending"
+            @toggle-checkbox="toggleCheckbox"
+            @name-input="currentPlayerName = $event"
+            @toggle-button="toggleButton"
+          />
         </div>
 
         <div class="mt-2 flex flex-wrap justify-center gap-4">
@@ -281,26 +188,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
-import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 import type { IGame, LobbyGame } from '@/types/game'
 import type { Player } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UEmpty from '@nuxt/ui/components/Empty.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import UModal from '@nuxt/ui/components/Modal.vue'
 import ConnectionBadge from './internal/ConnectionBadge.vue'
 import LobbyHeader from './internal/LobbyHeader.vue'
 import LoadingState from './internal/LoadingState.vue'
-import OptionToggle from './internal/OptionToggle.vue'
 import GameCard from './internal/GameCard.vue'
-import PlayerSlot from './internal/PlayerSlot.vue'
+import PlayerSlotsList from './internal/PlayerSlotsList.vue'
 import RuleStatusLine from './internal/RuleStatusLine.vue'
-import { isRejoinable } from './internal/helpers'
+import CreateGameModal from './internal/CreateGameModal.vue'
+import RoomCodeCopy from './internal/RoomCodeCopy.vue'
+import { buildGameRules, isRejoinable } from './internal/helpers'
 
 const props = withDefaults(
   defineProps<{
@@ -354,47 +260,14 @@ const freeSlots = computed(() =>
   slotsWithIndex.value.filter(({ player }) => !player.name)
 )
 
-const { copied, copy: copyToClipboardFn } = useCopyToClipboard()
-
-const copyRoomCode = async () => {
-  await copyToClipboardFn(props.currentGame?.roomCode ?? '')
-}
-
 const activeGameRules = computed(() => {
   const game = props.currentGame
   if (!game) return []
-  const expansions = game.rules?.expansions
-
-  return [
-    {
-      label: 'Финальный подсчёт очков',
-      enabled: Boolean(game.finalScoringEnabled),
-      testId: undefined,
-    },
-    {
-      label: 'Таверны и соборы',
-      enabled: Boolean(expansions?.innsAndCathedrals),
-      testId: undefined,
-    },
-    {
-      label: 'Река',
-      enabled: Boolean(expansions?.river),
-      testId: undefined,
-    },
-    {
-      label: 'Принцесса и дракон',
-      enabled: Boolean(expansions?.princessAndDragon),
-      testId: TEST_IDS.lobbyPrincessDragonStatus,
-    },
-  ]
+  return buildGameRules(game)
 })
 
 const currentPlayerName = ref('')
 const showEndedGames = ref(false)
-const finalScoringEnabled = ref(false)
-const innsAndCathedralsEnabled = ref(false)
-const riverEnabled = ref(false)
-const princessAndDragonEnabled = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 
@@ -426,12 +299,6 @@ const isRoomCodeJoinPending = computed(() =>
   isPendingAction(pendingActionKeys.joinGame(roomCodeSearch.value.trim()))
 )
 
-// Модалка создания игры закрывается по ответу сервера, а не сразу: пока
-// команда выполняется, окно остаётся открытым с индикатором на кнопке.
-watch(isCreateGamePending, (pending) => {
-  if (!pending) isCreateGameModalOpen.value = false
-})
-
 const computedGamesList = computed<LobbyGame[]>(() =>
   (showEndedGames.value
     ? props.gamesList
@@ -447,14 +314,9 @@ function joinByRoomCode() {
   if (/^\d{6}$/.test(roomCode)) emit('joinGame', roomCode)
 }
 
-function createGame() {
+function createGame(options: CreateGameOptions) {
   if (isCreateGamePending.value) return
-  emit('createGame', {
-    finalScoringEnabled: finalScoringEnabled.value,
-    innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,
-    riverEnabled: riverEnabled.value,
-    princessAndDragonEnabled: princessAndDragonEnabled.value,
-  })
+  emit('createGame', options)
 }
 
 function joinGame(gameId: string | undefined) {
