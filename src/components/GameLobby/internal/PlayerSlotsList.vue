@@ -21,7 +21,7 @@
 import type { Player } from '@server/modules/types'
 import PlayerSlot from './PlayerSlot.vue'
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     slots: { player: Player; index: number }[]
     title: string

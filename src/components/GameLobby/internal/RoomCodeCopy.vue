@@ -17,7 +17,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 

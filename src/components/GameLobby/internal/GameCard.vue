@@ -115,7 +115,7 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { LobbyGame } from '@/types/game'
 import { playerBackgroundColorClass } from '@/utils/colors'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
