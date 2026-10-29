@@ -2,7 +2,7 @@
   <div class="flex justify-center">
     <button
       type="button"
-      class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gold-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-gold/15"
+      class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-secondary-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-secondary/15"
       :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
       :data-testid="testId"
       @click="copy"

@@ -8,7 +8,7 @@
     >
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <h2 class="title-medieval text-xl leading-tight text-wood-dark">
+          <h2 class="title-medieval text-title leading-tight text-tertiary">
             Итоги партии
           </h2>
           <p class="text-sm text-text-muted">{{ summaryText }}</p>
@@ -34,7 +34,7 @@
         >
           <span
             class="w-5 shrink-0 text-center text-sm font-bold tabular-nums"
-            :class="result.isWinner ? 'text-gold-dark' : 'text-text-muted'"
+            :class="result.isWinner ? 'text-secondary-dark' : 'text-text-muted'"
           >
             {{ result.place }}
           </span>
@@ -43,12 +43,12 @@
             :class="playerBackgroundColorClass(result.color)"
           ></span>
           <span class="min-w-0 flex-1">
-            <span class="flex items-center gap-1 text-[1.05rem] font-semibold">
+            <span class="flex items-center gap-1 text-body font-semibold">
               <span class="truncate">{{ result.name }}</span>
               <UIcon
                 v-if="result.isWinner"
                 name="i-lucide-crown"
-                class="h-4 w-4 shrink-0 text-gold-dark"
+                class="h-4 w-4 shrink-0 text-secondary-dark"
                 title="Победитель"
                 aria-label="Победитель"
               />
@@ -68,7 +68,7 @@
               </span>
             </span>
           </span>
-          <span class="text-[1.2rem] font-bold tabular-nums text-text">
+          <span class="text-title font-bold tabular-nums text-text">
             {{ result.total }}
           </span>
         </li>

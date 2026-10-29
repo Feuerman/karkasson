@@ -1,5 +1,9 @@
 <template>
-  <UModal v-model:open="open" description="Настройте правила новой партии">
+  <UModal
+    description="Настройте правила новой партии"
+    :open="open"
+    @update:open="emit('update:open', $event)"
+  >
     <template #title>
       <span :data-testid="TEST_IDS.createGameModalTitle"> Создание игры </span>
     </template>
@@ -12,7 +16,7 @@
           :test-id="TEST_IDS.createGameFinalScoring"
         />
 
-        <div class="border-t border-gold-dark/30" />
+        <div class="border-t border-secondary-dark/30" />
 
         <section class="space-y-3">
           <h3
@@ -82,7 +86,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
+  'update:open': [value: boolean]
   create: [options: CreateGameOptions]
 }>()
 
@@ -91,7 +95,7 @@ const innsAndCathedralsEnabled = ref(false)
 const riverEnabled = ref(false)
 const princessAndDragonEnabled = ref(false)
 
-const close = () => emit('update:modelValue', false)
+const close = () => emit('update:open', false)
 
 const create = () => {
   emit('create', {
@@ -107,7 +111,7 @@ const create = () => {
 watch(
   () => props.pending,
   (pending) => {
-    if (!pending) emit('update:modelValue', false)
+    if (!pending) emit('update:open', false)
   }
 )
 </script>

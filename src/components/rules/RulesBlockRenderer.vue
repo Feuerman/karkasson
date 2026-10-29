@@ -2,7 +2,7 @@
   <div>
     <p
       v-if="block.type === 'paragraph'"
-      class="mb-4 text-[17px] leading-relaxed text-text"
+      class="mb-4 text-body leading-relaxed text-text"
     >
       <span v-if="block.title" class="font-semibold text-text">
         {{ block.title }}.
@@ -14,13 +14,13 @@
       <RulesBlockTitle :title="block.title" />
       <ul
         v-if="block.ordered !== true"
-        class="list-disc space-y-1.5 pl-5 text-[17px] leading-relaxed text-text"
+        class="list-disc space-y-1.5 pl-5 text-body leading-relaxed text-text"
       >
         <li v-for="(item, index) in block.items" :key="index">{{ item }}</li>
       </ul>
       <ol
         v-else
-        class="list-decimal space-y-1.5 pl-5 text-[17px] leading-relaxed text-text"
+        class="list-decimal space-y-1.5 pl-5 text-body leading-relaxed text-text"
       >
         <li v-for="(item, index) in block.items" :key="index">{{ item }}</li>
       </ol>
@@ -34,12 +34,12 @@
       :icon="calloutIcon(block.tone)"
       :title="block.title"
       :description="block.text"
-      :ui="{ title: 'text-[16px] font-semibold', description: 'text-[16px]' }"
+      :ui="{ title: 'text-body font-semibold', description: 'text-body' }"
     />
 
     <div v-else-if="block.type === 'table'" class="mb-4">
       <RulesBlockTitle :title="block.title" spaced="mb-2" />
-      <div class="overflow-x-auto rounded-xl border border-gold-dark/50">
+      <div class="overflow-x-auto rounded-card border border-secondary-dark/50">
         <table class="w-full border-collapse text-left">
           <thead>
             <tr class="bg-surface-muted">
@@ -47,7 +47,7 @@
                 v-for="(head, index) in block.head"
                 :key="index"
                 scope="col"
-                class="border-b-2 border-gold-dark/50 px-4 py-2.5 text-[16px] font-bold text-text"
+                class="border-b-2 border-secondary-dark/50 px-4 py-2.5 text-body font-bold text-text"
               >
                 {{ head }}
               </th>
@@ -62,7 +62,7 @@
               <td
                 v-for="(cell, cellIndex) in row"
                 :key="cellIndex"
-                class="border-t border-border px-4 py-2.5 text-[16px] text-text"
+                class="border-t border-border px-4 py-2.5 text-body text-text"
               >
                 {{ cell }}
               </td>
@@ -89,7 +89,7 @@
           <TileView :tile="tile" :size="88" :followers="[]" />
           <span
             v-if="block.labels?.[index]"
-            class="text-center text-[.8rem] leading-tight text-text-muted"
+            class="text-center text-caption leading-tight text-text-muted"
           >
             {{ block.labels[index] }}
           </span>

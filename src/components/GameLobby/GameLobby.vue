@@ -1,6 +1,6 @@
 <template>
   <div
-    class="absolute inset-0 z-[3000] flex h-full w-full flex-col items-center overflow-y-auto bg-[#241c10]/75 p-6 text-text backdrop-blur-[2px]"
+    class="absolute inset-0 z-[3000] flex h-full w-full flex-col items-center overflow-y-auto bg-overlay/75 p-6 text-text backdrop-blur-[2px]"
   >
     <ConnectionBadge :is-connected="isConnected" />
 
@@ -60,7 +60,7 @@
             inputmode="numeric"
             autocomplete="off"
             placeholder="Например, 482731"
-            class="min-h-11 rounded-lg border border-gold-dark/40 bg-white/80 px-3 text-base text-text outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/30"
+            class="min-h-11 rounded-lg border border-secondary-dark/40 bg-white/80 px-3 text-body text-text outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/30"
             @keydown.enter.prevent="joinByRoomCode"
           />
         </label>

@@ -1,10 +1,10 @@
 <template>
   <div
-    class="group flex cursor-pointer flex-col gap-3 rounded-xl border border-gold-dark/30 bg-gradient-to-br from-wood to-wood-dark p-4 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/70 hover:shadow-card sm:flex-row sm:items-center sm:justify-between"
+    class="group flex cursor-pointer flex-col gap-3 rounded-card border border-secondary-dark/30 bg-gradient-to-br from-tertiary-soft to-tertiary p-4 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-secondary/70 hover:shadow-card sm:flex-row sm:items-center sm:justify-between"
   >
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <div class="flex items-center gap-2 text-[#f3e7c8]">
-        <UIcon name="i-lucide-flag" class="h-[18px] w-[18px] text-gold" />
+      <div class="flex items-center gap-2 text-text-surface-light">
+        <UIcon name="i-lucide-flag" class="h-[18px] w-[18px] text-secondary" />
         <span class="title-medieval text-base tracking-wide">
           Партия «{{ lobbyName }}»
         </span>
@@ -12,7 +12,7 @@
 
       <button
         type="button"
-        class="cursor-pointer rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-sm tracking-widest text-gold transition-colors hover:bg-gold/25"
+        class="cursor-pointer rounded-md border border-secondary/40 bg-secondary/10 px-2 py-0.5 font-mono text-sm tracking-widest text-secondary transition-colors hover:bg-secondary/25"
         :aria-label="`Скопировать номер комнаты ${game.roomCode}`"
         :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
         :data-testid="TEST_IDS.lobbyCardCopyRoomCode"
@@ -23,49 +23,49 @@
 
       <span
         v-if="copied"
-        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+        class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
         Скопировано
       </span>
 
       <span
         v-if="game.isLastGame"
-        class="flex items-center gap-1 rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs uppercase tracking-wide text-gold"
+        class="flex items-center gap-1 rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption uppercase tracking-wide text-secondary"
       >
         <UIcon name="i-lucide-history" class="h-3.5 w-3.5" />
         Последняя
       </span>
 
-      <div class="flex items-center gap-1.5 text-[1.05rem] text-[#d9c9a3]">
-        <UIcon name="i-lucide-users" class="h-[18px] w-[18px] text-gold" />
+      <div class="flex items-center gap-1.5 text-body text-surface">
+        <UIcon name="i-lucide-users" class="h-[18px] w-[18px] text-secondary" />
         {{ game.players?.length }}
       </div>
 
       <span
-        class="flex items-center gap-1.5 text-sm text-[#d9c9a3]"
+        class="flex items-center gap-1.5 text-sm text-text-surface"
         :title="`Обновлено ${updatedText}`"
         data-testid="lobbyCardUpdated"
       >
-        <UIcon name="i-lucide-clock" class="h-4 w-4 text-gold" />
+        <UIcon name="i-lucide-clock" class="h-4 w-4 text-secondary" />
         {{ updatedText }}
       </span>
 
       <GameStatus :game="game" />
       <span
         v-if="game.rules?.expansions.innsAndCathedrals"
-        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+        class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
         Таверны и соборы
       </span>
       <span
         v-if="game.rules?.expansions.river"
-        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+        class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
         Река
       </span>
       <span
         v-if="game.rules?.expansions.princessAndDragon"
-        class="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs text-gold"
+        class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
         data-testid="lobbyCardPrincessDragon"
       >
         Принцесса и дракон
@@ -74,7 +74,7 @@
 
     <div
       v-if="game.gameIsStarted"
-      class="flex flex-wrap gap-x-4 gap-y-0.5 text-[1.05rem] text-[#e8d9b0]"
+      class="flex flex-wrap gap-x-4 gap-y-0.5 text-body text-text-surface-light"
     >
       <span
         v-for="row in scoreRows"
@@ -95,7 +95,7 @@
     </div>
 
     <UButton
-      class="flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-gold-dark/60 bg-gold/15 text-center text-base leading-tight font-semibold text-[#fff2d2] hover:bg-gold/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:w-[180px]"
+      class="flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-2 border border-secondary-dark/60 bg-secondary/15 text-center text-body leading-tight font-semibold text-text-bright hover:bg-secondary/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary sm:w-[180px]"
       color="neutral"
       :loading="pending"
       @click="onJoin"

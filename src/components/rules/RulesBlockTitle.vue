@@ -1,5 +1,5 @@
 <template>
-  <div v-if="title" class="text-[17px] font-semibold text-text" :class="spaced">
+  <div v-if="title" class="text-body font-semibold text-text" :class="spaced">
     {{ title }}
   </div>
 </template>

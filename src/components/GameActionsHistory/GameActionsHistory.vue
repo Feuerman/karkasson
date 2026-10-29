@@ -11,11 +11,14 @@
   >
     <template #header="{ collapsed: isCollapsed, toggle: togglePanel }">
       <div
-        class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gold-dark/30 bg-surface/90 px-3 py-2 backdrop-blur"
+        class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-secondary-dark/30 bg-surface/90 px-3 py-2 backdrop-blur"
       >
         <span class="flex items-center gap-2 text-text">
-          <UIcon name="i-lucide-scroll-text" class="h-4 w-4 text-gold-dark" />
-          <span class="title-medieval text-[.95rem] leading-none">
+          <UIcon
+            name="i-lucide-scroll-text"
+            class="h-4 w-4 text-secondary-dark"
+          />
+          <span class="title-medieval text-label leading-none">
             История ходов
           </span>
         </span>
@@ -25,7 +28,7 @@
               {{ currentTurnNumber }}
               <span class="text-sm">ход</span>
             </span>
-            <span class="mt-0.5 text-[.65rem] text-text-muted/80">
+            <span class="mt-0.5 text-caption text-text-muted/80">
               раунд {{ gameBoard.moveCounter ?? 0 }}
             </span>
           </span>
@@ -42,7 +45,7 @@
 
     <div
       data-no-drag
-      class="border-b border-gold-dark/20 bg-surface/60 px-2 py-1.5"
+      class="border-b border-secondary-dark/20 bg-surface/60 px-2 py-1.5"
     >
       <div
         class="flex flex-wrap gap-1"
@@ -58,7 +61,7 @@
           :icon="item.icon"
           :disabled="!filterCounts[item.value]"
           :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
-          class="h-7 cursor-pointer gap-1.5 px-2 text-[.78rem]"
+          class="h-7 cursor-pointer gap-1.5 px-2 text-caption"
           @click="activeFilter = item.value"
         >
           {{ item.label }}
@@ -75,7 +78,7 @@
     >
       <p
         v-if="!visibleActions.length"
-        class="px-1 py-3 text-center text-[.85rem] text-text-muted"
+        class="px-1 py-3 text-center text-label text-text-muted"
       >
         Нет действий этого типа
       </p>

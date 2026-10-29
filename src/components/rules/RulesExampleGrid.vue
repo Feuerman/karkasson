@@ -1,14 +1,14 @@
 <template>
-  <div class="rounded-xl border border-border bg-surface-soft p-3.5">
-    <div class="mb-1.5 text-[16px] font-semibold text-text">
+  <div class="rounded-card border border-border bg-surface-soft p-3.5">
+    <div class="mb-1.5 text-body font-semibold text-text">
       {{ example.title }}
     </div>
-    <p v-if="example.description" class="mb-3 text-[15px] text-text-muted">
+    <p v-if="example.description" class="mb-3 text-body text-text-muted">
       {{ example.description }}
     </p>
 
     <div
-      class="inline-flex flex-col gap-1.5 rounded-lg border border-border bg-surface p-2.5 shadow-soft"
+      class="inline-flex flex-col gap-1.5 rounded-card border border-border bg-surface p-2.5 shadow-soft"
     >
       <div
         v-for="(row, rowIndex) in paddedRows"
@@ -47,7 +47,7 @@
               v-else-if="marker.kind === RulesMarkerKind.Invalid"
               class="flex h-6 w-6 items-center justify-center rounded-full bg-danger text-white ring-2 ring-white shadow-soft"
             >
-              <UIcon name="i-lucide-x" class="text-[13px]" />
+              <UIcon name="i-lucide-x" class="text-sm" />
             </span>
             <span
               v-else-if="marker.kind === RulesMarkerKind.New"
@@ -70,14 +70,14 @@
 
     <p
       v-if="example.caption"
-      class="mt-2.5 text-[14px] leading-relaxed text-text-faint"
+      class="mt-2.5 text-caption leading-relaxed text-text-faint"
     >
       {{ example.caption }}
     </p>
 
     <div
       v-if="example.returnedFollowers?.length"
-      class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-success/40 bg-success/5 px-3 py-2 text-sm text-text"
+      class="mt-3 flex flex-wrap items-center gap-2 rounded-card border border-success/40 bg-success/5 px-3 py-2 text-sm text-text"
     >
       <span
         v-for="(color, index) in example.returnedFollowers"

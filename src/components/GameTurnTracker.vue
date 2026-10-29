@@ -7,7 +7,7 @@
       v-if="summaryVisible && summary"
       :key="summaryVersion"
       :data-testid="TEST_IDS.turnSummary"
-      class="turn-summary-card pointer-events-auto w-full max-w-[30rem] rounded-2xl border border-gold-dark/45 bg-surface/95 px-3 py-2 text-text shadow-card backdrop-blur"
+      class="turn-summary-card pointer-events-auto w-full max-w-[30rem] rounded-card border border-secondary-dark/45 bg-surface/95 px-3 py-2 text-text shadow-card backdrop-blur"
       aria-live="polite"
       @mouseenter="pauseAutoHide"
       @mouseleave="resumeAutoHide"
@@ -17,20 +17,18 @@
           class="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/20"
           :class="playerBackgroundColorClass(summary.color)"
         ></span>
-        <span
-          class="title-medieval min-w-0 truncate text-[.95rem] leading-none"
-        >
+        <span class="title-medieval min-w-0 truncate text-label leading-none">
           {{ summaryTitle }}
         </span>
         <span
           v-if="summary.turnNumber !== null"
-          class="shrink-0 text-[.68rem] font-semibold text-text-muted"
+          class="shrink-0 text-caption font-semibold text-text-muted"
         >
           ход {{ summary.turnNumber }}
         </span>
         <span
           v-if="summaryTotal > 0"
-          class="ml-auto shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-bold tabular-nums text-success-dark"
+          class="ml-auto shrink-0 rounded-pill bg-success/15 px-2 py-0.5 text-caption font-bold tabular-nums text-success-dark"
         >
           +{{ summaryTotal }}
         </span>
@@ -47,17 +45,17 @@
       </header>
 
       <div
-        class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[.82rem] leading-snug"
+        class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-label leading-snug"
       >
         <span v-if="summary.placedTile" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-layout-grid"
-            class="h-3.5 w-3.5 text-gold-dark"
+            class="h-3.5 w-3.5 text-secondary-dark"
           />
           Тайл <strong>{{ summary.placedTile.tile.id }}</strong>
           <button
             type="button"
-            class="cursor-pointer text-blue-600 underline underline-offset-2 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
+            class="cursor-pointer text-primary underline underline-offset-2 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
             :aria-label="`Перейти к клетке ${summary.placedTile.rowIndex + 1}, ${summary.placedTile.tileIndex + 1}`"
             title="Перейти к плитке на доске"
             @click.stop="zoomBoardToTile(summary.placedTile)"
@@ -68,23 +66,26 @@
         <span v-if="summary.follower" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-person-standing"
-            class="h-3.5 w-3.5 text-gold-dark"
+            class="h-3.5 w-3.5 text-secondary-dark"
           />
           Подданный на {{ followerLabel(summary.follower.placeType) }}
         </span>
         <span v-if="summary.returnedFollowers" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-rotate-ccw"
-            class="h-3.5 w-3.5 text-gold-dark"
+            class="h-3.5 w-3.5 text-secondary-dark"
           />
           Вернулось подданных: {{ summary.returnedFollowers }}
         </span>
         <span v-if="summary.dragonMoves" class="flex items-center gap-1">
-          <UIcon name="i-lucide-bird" class="h-3.5 w-3.5 text-gold-dark" />
+          <UIcon name="i-lucide-bird" class="h-3.5 w-3.5 text-secondary-dark" />
           Дракон двигался
         </span>
         <span v-if="summary.princessTakes" class="flex items-center gap-1">
-          <UIcon name="i-lucide-crown" class="h-3.5 w-3.5 text-gold-dark" />
+          <UIcon
+            name="i-lucide-crown"
+            class="h-3.5 w-3.5 text-secondary-dark"
+          />
           Принцесса забрала подданного
         </span>
       </div>
@@ -96,7 +97,7 @@
         <span
           v-for="(event, index) in summary.scoreEvents"
           :key="`${event.objectType}-${index}`"
-          class="rounded-md bg-gold/15 px-1.5 py-0.5 text-[.72rem] font-semibold text-wood-dark"
+          class="rounded-card bg-secondary/15 px-1.5 py-0.5 text-caption font-semibold text-tertiary"
           :title="scoreEventTitle(event)"
         >
           {{ objectLabel(event.objectType) }}: +{{ event.points }}
@@ -110,7 +111,7 @@
         <span
           v-for="change in summary.scoreChanges"
           :key="String(change.playerId)"
-          class="flex items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[.72rem] font-semibold"
+          class="flex items-center gap-1 rounded-card bg-surface-muted px-1.5 py-0.5 text-caption font-semibold"
           :title="`${change.playerName}: +${change.points}`"
         >
           <span

@@ -4,25 +4,25 @@
     :class="size === 'lg' ? 'mb-5' : 'mb-6'"
   >
     <div
-      class="title-medieval mb-2 flex items-center justify-center rounded-2xl border-2 border-gold-dark bg-gradient-to-br from-[#6b4c26] to-[#43301a] shadow-soft"
+      class="title-medieval mb-2 flex items-center justify-center rounded-card border-2 border-secondary-dark bg-gradient-to-br from-tertiary-soft to-tertiary shadow-soft"
       :class="size === 'lg' ? 'h-16 w-16' : 'h-14 w-14'"
     >
       <UIcon
         :name="icon"
-        class="text-gold"
+        class="text-secondary"
         :class="size === 'lg' ? 'h-8 w-8' : 'h-7 w-7'"
       />
     </div>
     <component
       :is="size === 'lg' ? 'h1' : 'h3'"
-      class="title-medieval m-0 text-[#5a4125]"
-      :class="size === 'lg' ? 'text-[2.4rem] leading-none' : 'text-2xl'"
+      class="title-medieval m-0 text-tertiary"
+      :class="size === 'lg' ? 'text-display leading-none' : 'text-2xl'"
     >
       {{ title }}
     </component>
     <p
       class="m-0 text-text-muted"
-      :class="size === 'lg' ? 'text-lg' : 'text-base'"
+      :class="size === 'lg' ? 'text-title' : 'text-body'"
     >
       {{ subtitle }}
     </p>

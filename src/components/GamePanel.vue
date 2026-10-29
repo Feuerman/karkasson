@@ -12,8 +12,8 @@
         class="flex items-center gap-2"
         :class="collapsed ? '' : 'mb-2.5'"
       >
-        <UIcon v-if="icon" :name="icon" class="h-5 w-5 text-gold-dark" />
-        <span v-if="title" class="title-medieval text-[1rem] leading-none">
+        <UIcon v-if="icon" :name="icon" class="h-5 w-5 text-secondary-dark" />
+        <span v-if="title" class="title-medieval text-body leading-none">
           {{ title }}
         </span>
         <PanelCollapseButton
