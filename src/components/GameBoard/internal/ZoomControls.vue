@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="!showLobby"
-    class="fixed bottom-4 right-4 z-[3000] flex items-center gap-1 rounded-xl border border-gold-dark bg-surface/90 p-1 shadow-strong backdrop-blur"
+    class="fixed bottom-4 right-4 z-[3000] flex items-center gap-1 rounded-card border border-secondary-dark bg-surface/90 p-1 shadow-strong backdrop-blur"
   >
     <UButton
       color="primary"
@@ -16,7 +16,7 @@
     <button
       type="button"
       title="Сбросить масштаб"
-      class="min-w-[3.25rem] cursor-pointer rounded-md px-1 py-0.5 text-sm font-semibold tabular-nums text-wood-dark transition-colors hover:bg-gold/20"
+      class="min-w-[3.25rem] cursor-pointer rounded-md px-1 py-0.5 text-sm font-semibold tabular-nums text-tertiary transition-colors hover:bg-secondary/20"
       :data-testid="TEST_IDS.zoomValue"
       @click="resetZoom"
     >

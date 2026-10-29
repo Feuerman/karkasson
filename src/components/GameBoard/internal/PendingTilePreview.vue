@@ -66,7 +66,7 @@
         Выберите клетку на поле
       </span>
       <span
-        class="hidden rounded-lg bg-black/40 px-3 py-1 text-[.8rem] whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
+        class="hidden rounded-card bg-black/40 px-3 py-1 text-caption whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
       >
         Клавиши: R — повернуть, P — разместить, Esc — снять выбор
       </span>

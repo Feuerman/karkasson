@@ -4,7 +4,7 @@
     class="relative border-b-2 px-3 py-2"
     :class="[
       playerBackgroundColorClass(headerColor),
-      isMyTurn ? 'border-gold-dark' : 'border-transparent',
+      isMyTurn ? 'border-secondary-dark' : 'border-transparent',
     ]"
   >
     <div class="flex items-center justify-center gap-2">
@@ -15,14 +15,14 @@
       <span
         :title="gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel"
         :data-testid="TEST_IDS.gameStatsCurrentPlayer"
-        class="title-medieval min-w-0 truncate text-lg leading-none font-bold text-black"
+        class="title-medieval min-w-0 truncate text-title leading-none font-bold text-text"
       >
         {{ gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel }}
       </span>
       <span
         v-if="isMyTurn"
         :data-testid="TEST_IDS.gameStatsTurnBadge"
-        class="stats-turn-pulse ml-1 h-2.5 w-2.5 shrink-0 rounded-full bg-white shadow-soft"
+        class="stats-turn-pulse ml-1 h-2.5 w-2.5 shrink-0 rounded-pill bg-surface shadow-soft"
         aria-hidden="true"
       ></span>
       <PanelCollapseButton
@@ -34,7 +34,7 @@
     </div>
     <div
       v-if="!gameBoard.gameIsEnded"
-      class="mt-1 flex items-center justify-center gap-1.5 px-3 text-sm font-bold text-black"
+      class="mt-1 flex items-center justify-center gap-1.5 px-3 text-sm font-bold text-text"
     >
       <span class="shrink-0 tabular-nums">ход {{ currentTurnNumber }}</span>
       <span
@@ -50,7 +50,7 @@
       </span>
       <span
         v-if="isComputerTurn"
-        class="shrink-0 rounded bg-black/10 px-1 text-[.6rem] leading-4"
+        class="shrink-0 rounded-sm bg-text/10 px-1 text-caption leading-4"
       >
         ИИ
       </span>

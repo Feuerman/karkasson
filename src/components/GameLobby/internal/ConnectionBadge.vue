@@ -3,12 +3,14 @@
     <UBadge
       :color="isConnected ? 'success' : 'error'"
       variant="subtle"
-      class="rounded-full border border-gold-dark/40 bg-surface/95 px-4 py-2 text-text-muted shadow-soft"
+      class="rounded-pill border border-secondary-dark/40 bg-surface/95 px-4 py-2 text-text-muted shadow-soft"
     >
       <template #leading>
         <span
           class="h-2.5 w-2.5 rounded-full transition-colors duration-300"
-          :class="isConnected ? 'bg-[#44ff44]' : 'bg-[#ff4444]'"
+          :class="
+            isConnected ? 'bg-status-connected' : 'bg-status-disconnected'
+          "
         ></span>
       </template>
       {{ isConnected ? 'Подключено' : 'Отключено' }}

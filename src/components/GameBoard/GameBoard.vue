@@ -43,7 +43,7 @@
             :tabindex="isFocusedCell(rowIndex, tileIndex) ? 0 : -1"
             :aria-label="cellLabel(rowIndex, tileIndex)"
             :aria-pressed="isGhostCell(rowIndex, tileIndex)"
-            class="tile-keyboard-focus relative flex-shrink-0 rounded-xl border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
+            class="tile-keyboard-focus relative flex-shrink-0 rounded-card border border-black/10 bg-black/[0.04] shadow-[0_6px_14px_-6px_rgba(0,0,0,0.35)] transition-all duration-200"
             :style="cellStyle(rowIndex, tileIndex)"
             :class="[
               gameBoard.tilePlacesStats?.[rowIndex]?.[tileIndex]
@@ -73,7 +73,7 @@
             />
             <div
               v-if="isGhostCell(rowIndex, tileIndex)"
-              class="tile-selected absolute inset-0 rounded-xl"
+              class="tile-selected absolute inset-0 rounded-card"
             >
               <div
                 v-if="tileIndex > 0"

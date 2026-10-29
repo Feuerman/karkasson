@@ -36,7 +36,7 @@
           @click.stop="placeFollower(group.place, choice.followerType)"
         >
           <template #leading>
-            <UIcon :name="choice.icon" class="h-4 w-4 text-gold-dark" />
+            <UIcon :name="choice.icon" class="h-4 w-4 text-secondary-dark" />
           </template>
           {{ choice.label }}
         </UButton>

@@ -1,20 +1,23 @@
 <template>
   <div
     v-if="game.gameIsStarted && !game.gameIsEnded"
-    class="flex items-center gap-1.5 text-[1.05rem] text-[#d9c9a3]"
+    class="flex items-center gap-1.5 text-body text-text-surface"
   >
-    <UIcon name="i-lucide-footprints" class="h-[18px] w-[18px] text-gold" />
+    <UIcon
+      name="i-lucide-footprints"
+      class="h-[18px] w-[18px] text-secondary"
+    />
     Раунд {{ game.moveCounter }}
   </div>
   <div
     v-else-if="game.gameIsEnded"
-    class="flex items-center gap-1.5 text-[1.05rem] text-[#d9c9a3]"
+    class="flex items-center gap-1.5 text-body text-text-surface"
   >
-    <UIcon name="i-lucide-trophy" class="h-[18px] w-[18px] text-gold" />
+    <UIcon name="i-lucide-trophy" class="h-[18px] w-[18px] text-secondary" />
     Окончена
   </div>
-  <div v-else class="flex items-center gap-1.5 text-[1.05rem] text-[#d9c9a3]">
-    <UIcon name="i-lucide-hourglass" class="h-[18px] w-[18px] text-gold" />
+  <div v-else class="flex items-center gap-1.5 text-body text-text-surface">
+    <UIcon name="i-lucide-hourglass" class="h-[18px] w-[18px] text-secondary" />
     Ожидание игроков
   </div>
 </template>

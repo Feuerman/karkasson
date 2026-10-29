@@ -34,7 +34,7 @@
         <UIcon
           v-if="hasDetails"
           name="i-lucide-info"
-          class="ml-0.5 inline-block h-3.5 w-3.5 align-middle text-gold-dark"
+          class="ml-0.5 inline-block h-3.5 w-3.5 align-middle text-secondary-dark"
         />
       </span>
       <template v-if="hasDetails" #content>
@@ -46,7 +46,7 @@
             <li
               v-for="line in action.actionData.details ?? []"
               :key="line.label"
-              class="flex items-baseline justify-between gap-2 text-[.78rem]"
+              class="flex items-baseline justify-between gap-2 text-caption"
             >
               <span class="min-w-0 flex-1">
                 {{ line.label }}
@@ -60,7 +60,7 @@
           <p
             v-for="modifier in action.actionData.modifiers ?? []"
             :key="modifier"
-            class="flex items-center gap-1 text-[.72rem] opacity-90"
+            class="flex items-center gap-1 text-caption opacity-90"
           >
             <UIcon name="i-lucide-sparkles" class="h-3 w-3 shrink-0" />
             {{ modifier }}
@@ -95,7 +95,7 @@ const emit = defineEmits<{
 
 /** Тултип поверх пергамента: светлая подложка, рамка и перенос строк. */
 const TOOLTIP_CONTENT_CLASS =
-  'block h-auto max-w-64 rounded-md border border-gold-dark/40 bg-surface px-2 py-1.5 text-text shadow-card'
+  'block h-auto max-w-64 rounded-card border border-secondary-dark/40 bg-surface px-2 py-1.5 text-text shadow-card'
 
 const objectLabel = computed(
   () => OBJECT_TYPE_NAMES[action.actionData.objectType] ?? 'объект'

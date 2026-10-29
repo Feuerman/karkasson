@@ -1,13 +1,15 @@
 <template>
-  <div class="mx-3 border-t border-gold-dark/40 py-2.5">
+  <div class="mx-3 border-t border-secondary-dark/40 py-2.5">
     <div class="flex items-center justify-between">
-      <span class="flex items-center gap-2 text-sm font-semibold text-wood">
-        <UIcon name="i-lucide-layers" class="h-4 w-4 text-gold-dark" />
+      <span
+        class="flex items-center gap-2 text-sm font-semibold text-tertiary-soft"
+      >
+        <UIcon name="i-lucide-layers" class="h-4 w-4 text-secondary-dark" />
         Прогресс
       </span>
       <span
         :data-testid="TEST_IDS.gameStatsTilesProgress"
-        class="text-sm font-semibold tabular-nums text-wood-dark"
+        class="text-sm font-semibold tabular-nums text-tertiary"
       >
         {{ progress.placedTiles }} / {{ progress.totalTiles }}
       </span>
@@ -15,7 +17,7 @@
     <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-track">
       <div
         :data-testid="TEST_IDS.gameStatsTilesProgressBar"
-        class="h-full rounded-full bg-gold-dark"
+        class="h-full rounded-pill bg-secondary-dark"
         :style="{ width: `${tilesProgressPercent}%` }"
       ></div>
     </div>
@@ -29,7 +31,7 @@
         class="flex items-center gap-1"
       >
         <UIcon :name="object.icon" class="h-3.5 w-3.5 shrink-0" />
-        <span class="font-semibold tabular-nums text-wood">
+        <span class="font-semibold tabular-nums text-tertiary-soft">
           {{ object.value }}
         </span>
         {{ object.label }}

@@ -2,7 +2,7 @@
   <div
     :class="
       group.isFinalScoring
-        ? 'mt-2 rounded-lg bg-gold/8 p-1 ring-1 ring-gold-dark/25'
+        ? 'mt-2 rounded-card bg-secondary/8 p-1 ring-1 ring-secondary-dark/25'
         : undefined
     "
     :data-testid="
@@ -11,7 +11,7 @@
   >
     <h3
       v-if="group.isFinalScoring"
-      class="title-medieval mb-1.5 flex items-center gap-1.5 px-1 text-[.8rem] leading-none text-gold-dark"
+      class="title-medieval mb-1.5 flex items-center gap-1.5 px-1 text-caption leading-none text-secondary-dark"
     >
       <UIcon name="i-lucide-flag" class="h-3.5 w-3.5" />
       Финальный подсчёт
@@ -19,9 +19,9 @@
     <h3
       v-else-if="group.turnNumber !== null"
       :data-testid="TEST_IDS.historyMoveHeader"
-      class="title-medieval mb-1.5 flex items-center gap-1.5 border-b border-gold-dark/20 px-1 pb-1 text-[.8rem] leading-none text-text-muted"
+      class="title-medieval mb-1.5 flex items-center gap-1.5 border-b border-secondary-dark/20 px-1 pb-1 text-caption leading-none text-text-muted"
     >
-      <UIcon name="i-lucide-hash" class="h-3.5 w-3.5 text-gold-dark" />
+      <UIcon name="i-lucide-hash" class="h-3.5 w-3.5 text-secondary-dark" />
       Ход {{ group.turnNumber }}
       <span
         v-if="groupPlayer"
