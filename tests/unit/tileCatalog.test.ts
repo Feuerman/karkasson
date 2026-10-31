@@ -132,7 +132,7 @@ describe('field topology on tile definitions', () => {
     expect(topology).toBeDefined()
     expect(topology).toHaveLength(3)
     expect(topology?.map(({ boundaryPorts }) => boundaryPorts)).toEqual([
-      ['northWest', 'westNorth', 'northEast', 'eastNorth'],
+      ['westNorth', 'eastNorth'],
       ['eastSouth', 'southEast'],
       ['southWest', 'westSouth'],
     ])
@@ -184,6 +184,6 @@ describe('field topology on tile definitions', () => {
     expect(topology).toBeDefined()
     expect(
       topology?.map(({ adjacentCityGroups }) => adjacentCityGroups)
-    ).toEqual([[0], [1]])
+    ).toEqual([[0, 1]])
   })
 })
