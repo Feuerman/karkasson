@@ -84,6 +84,7 @@ export type FollowerBoard = Pick<
   | 'isPlacingFollower'
   | 'princessFollowerPenalty'
   | 'placedFollowers'
+  | 'fieldFollowers'
   | 'scores'
   | 'actionsHistory'
 > &
@@ -139,7 +140,11 @@ export type TileBoard = Pick<
 /** Доска для финального подсчёта очков. */
 export type ScoringBoard = Pick<
   IGameState,
-  'temporaryObjects' | 'completedObjects' | 'tilePlacesStats' | 'scores'
+  | 'temporaryObjects'
+  | 'completedObjects'
+  | 'tilePlacesStats'
+  | 'fieldFollowers'
+  | 'scores'
 > &
   BoardCommands &
   BoardScoring

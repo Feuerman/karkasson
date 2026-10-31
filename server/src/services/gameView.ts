@@ -10,10 +10,14 @@
 import type { IGameState } from '../modules/gameState'
 import type { GameManager } from '../modules/GameManager'
 import type { AbbotRecallInfo, FollowerType } from '../modules/types'
+import { buildFieldComponents } from '../modules/fieldComponents'
+import type { FieldComponent } from '../modules/fieldComponents'
 
 export interface GameData {
   placingPoint?: IGameState['placingPoint']
   tilePlacesStats: IGameState['tilePlacesStats']
+  /** Производный состав связных полей, пересчитанный по выложенным тайлам. */
+  fieldComponents: FieldComponent[]
   /** Сколько тайлов осталось в колоде: клиенту нужен только размер. */
   tilesCount: number
   dragonMove?: IGameState['dragonMove']
@@ -61,6 +65,7 @@ export function formatGameData(game: GameManager): GameData {
   return {
     placingPoint: game.placingPoint,
     tilePlacesStats: game.tilePlacesStats,
+    fieldComponents: buildFieldComponents(game.tilePlacesStats),
     tilesCount: game.tilesList.length,
     dragonMove: game.dragonMove,
     princessChoice: game.princessChoice,

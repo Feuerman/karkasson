@@ -51,7 +51,7 @@ class UnionFind {
 }
 
 /** Ключ узла поля: строка, колонка, индекс региона на тайле. */
-function nodeKey(
+export function nodeKey(
   rowIndex: number,
   tileIndex: number,
   regionIndex: number
@@ -158,4 +158,24 @@ export function buildFieldComponents(
     id: `field-${index}`,
     regions,
   }))
+}
+
+/**
+ * Сопоставляет каждый узел поля (строка, колонка, регион) с идентификатором
+ * его связной компоненты. Используется для проверки занятости поля и подсчёта.
+ */
+export function fieldComponentIndex(
+  tilePlacesStats: TilePlacesStats
+): Map<string, string> {
+  const components = buildFieldComponents(tilePlacesStats)
+  const index = new Map<string, string>()
+  for (const component of components) {
+    for (const region of component.regions) {
+      index.set(
+        nodeKey(region.rowIndex, region.tileIndex, region.regionIndex),
+        component.id
+      )
+    }
+  }
+  return index
 }
