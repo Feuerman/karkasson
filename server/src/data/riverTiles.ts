@@ -1,5 +1,6 @@
 import type { TileDefinition } from './tiles'
 import { ExpansionName, SideName, TileId, TileSideType } from '../modules/types'
+import { field, fields, wholeTileField } from './fieldTopology'
 
 const image = (id: string) =>
   `/src/assets/tiles/river/River_I_C3_Tile_${id}.png`
@@ -18,6 +19,11 @@ export const riverTiles: TileDefinition[] = [
     },
     riverGroups: [[SideName.South]],
     roadGroups: [[SideName.North, SideName.East]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'westSouth', 'southWest']),
+      field(['eastNorth', 'northEast']),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('A'),
     expansion: ExpansionName.River,
   },
@@ -33,6 +39,12 @@ export const riverTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North]],
     riverGroups: [[SideName.East, SideName.West]],
+    fieldTopology: fields(
+      field(['westNorth'], [0]),
+      field(['eastNorth'], [0]),
+      field(['westSouth', 'southWest']),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('B'),
     expansion: ExpansionName.River,
   },
@@ -48,6 +60,10 @@ export const riverTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North], [SideName.South]],
     riverGroups: [[SideName.East, SideName.West]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth'], [0]),
+      field(['eastSouth', 'westSouth'], [1])
+    ),
     imgUrl: image('C'),
     expansion: ExpansionName.River,
   },
@@ -62,6 +78,10 @@ export const riverTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     riverGroups: [[SideName.North, SideName.South]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'westSouth', 'southWest']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('D'),
     expansion: ExpansionName.River,
   },
@@ -76,6 +96,10 @@ export const riverTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     riverGroups: [[SideName.North, SideName.South]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'westSouth', 'southWest']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('F'),
     expansion: ExpansionName.River,
   },
@@ -90,6 +114,10 @@ export const riverTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     riverGroups: [[SideName.North, SideName.West]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('G'),
     expansion: ExpansionName.River,
   },
@@ -106,6 +134,11 @@ export const riverTiles: TileDefinition[] = [
     roadGroups: [[SideName.South]],
     isMonastery: true,
     riverGroups: [[SideName.West, SideName.East]],
+    fieldTopology: fields(
+      field(['northWest', 'northEast', 'westNorth', 'eastNorth']),
+      field(['southWest', 'westSouth']),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('H'),
     expansion: ExpansionName.River,
   },
@@ -121,6 +154,11 @@ export const riverTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.North, SideName.West]],
     riverGroups: [[SideName.East, SideName.South]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['westSouth', 'southWest', 'northEast', 'eastNorth'])
+    ),
     imgUrl: image('I'),
     expansion: ExpansionName.River,
   },
@@ -136,6 +174,17 @@ export const riverTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     riverGroups: [[SideName.East, SideName.South]],
+    fieldTopology: fields(
+      field([
+        'northWest',
+        'northEast',
+        'eastNorth',
+        'westNorth',
+        'westSouth',
+        'southWest',
+      ]),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('J'),
     expansion: ExpansionName.River,
   },
@@ -151,6 +200,12 @@ export const riverTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.West]],
     riverGroups: [[SideName.North, SideName.South]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth']),
+      field(['northEast', 'eastNorth']),
+      field(['southWest', 'westSouth']),
+      field(['southEast', 'eastSouth'])
+    ),
     hasInn: true,
     imgUrl: image('K'),
     expansion: ExpansionName.River,
@@ -167,6 +222,7 @@ export const riverTiles: TileDefinition[] = [
     },
     isMonastery: true,
     riverGroups: [[SideName.North]],
+    fieldTopology: wholeTileField(),
     imgUrl: image('L'),
     expansion: ExpansionName.River,
   },

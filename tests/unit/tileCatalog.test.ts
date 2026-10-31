@@ -5,6 +5,12 @@ import {
   isExpansionAllowed,
   tilesForRules,
 } from '@server/data/tileCatalog'
+import { FIELD_BOUNDARY_PORTS } from '@server/data/fieldTopology'
+import { validateTileTopologies } from '@server/data/fieldTopologyValidation'
+import { tiles as baseTiles } from '@server/data/tiles'
+import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
+import { riverTiles } from '@server/data/riverTiles'
+import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import {
   DEFAULT_GAME_RULES,
   ExpansionName,
@@ -104,5 +110,80 @@ describe('allTileIds', () => {
     expect(ids.has(TileId.IAC_A)).toBe(true)
     expect(ids.has(TileId.RIVER_A)).toBe(true)
     expect(ids.has(TileId.PAD_A)).toBe(true)
+  })
+})
+
+describe('field topology on tile definitions', () => {
+  const allDefinitions = [
+    ...baseTiles,
+    ...innsAndCathedralsTiles,
+    ...riverTiles,
+    ...princessAndDragonTiles,
+  ]
+
+  it('топология каждого тайла валидна и не дублирует граничные сегменты', () => {
+    expect(validateTileTopologies(allDefinitions)).toEqual([])
+  })
+
+  it('у тайла L три поля вокруг перекрёстка, нижнее разделено дорогой', () => {
+    const topology = allDefinitions.find(
+      ({ id }) => id === TileId.L
+    )?.fieldTopology
+    expect(topology).toBeDefined()
+    expect(topology).toHaveLength(3)
+    expect(topology.map(({ boundaryPorts }) => boundaryPorts)).toEqual([
+      ['northWest', 'westNorth', 'northEast', 'eastNorth'],
+      ['eastSouth', 'southEast'],
+      ['southWest', 'westSouth'],
+    ])
+    expect(topology[0]?.adjacentCityGroups).toEqual([0])
+  })
+
+  it('назначает все восемь half-edge портов перекрёстку X по одному разу', () => {
+    const topology = allDefinitions.find(
+      ({ id }) => id === TileId.X
+    )?.fieldTopology
+    expect(topology).toBeDefined()
+    const ports = topology.flatMap(({ boundaryPorts }) => boundaryPorts)
+    expect(topology).toHaveLength(4)
+    expect(ports).toHaveLength(FIELD_BOUNDARY_PORTS.length)
+    expect(new Set(ports).size).toBe(FIELD_BOUNDARY_PORTS.length)
+  })
+
+  it('проверяет, что port matching на противоположных краях взаимно обратен', () => {
+    const opposites = {
+      northWest: 'southWest',
+      northEast: 'southEast',
+      eastNorth: 'westNorth',
+      eastSouth: 'westSouth',
+      southEast: 'northEast',
+      southWest: 'northWest',
+      westSouth: 'eastSouth',
+      westNorth: 'eastNorth',
+    } as const
+
+    for (const port of FIELD_BOUNDARY_PORTS) {
+      expect(opposites[opposites[port]]).toBe(port)
+    }
+  })
+
+  it('у T-образного перекрёстка северная зона соединяет верхние углы', () => {
+    const topology = allDefinitions.find(
+      ({ id }) => id === TileId.W
+    )?.fieldTopology
+    expect(topology).toBeDefined()
+    expect(topology).toHaveLength(3)
+    expect(topology[0]?.boundaryPorts).toContain('northWest')
+    expect(topology[0]?.boundaryPorts).toContain('northEast')
+  })
+
+  it('дополнения с отдельными городами ссылаются на свои группы отдельно', () => {
+    const topology = allDefinitions.find(
+      ({ id }) => id === TileId.PAD_Y
+    )?.fieldTopology
+    expect(topology).toBeDefined()
+    expect(
+      topology.map(({ adjacentCityGroups }) => adjacentCityGroups)
+    ).toEqual([[0], [1]])
   })
 })
