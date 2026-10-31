@@ -1,5 +1,6 @@
 import type { TileDefinition } from './tiles'
 import { ExpansionName, SideName, TileId, TileSideType } from '../modules/types'
+import { field, fields, wholeTileField } from './fieldTopology'
 
 const image = (id: string) =>
   `/src/assets/tiles/princess_and_dragon/Princess_And_Dragon_C2_Tile_${id}.jpg`
@@ -19,6 +20,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     cityGroups: [[SideName.North, SideName.West]],
     roadGroups: [[SideName.East, SideName.South]],
     hasPrincess: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'southWest'], [0]),
+      field(['southEast', 'eastSouth'])
+    ),
     imgUrl: image('A'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -36,6 +41,9 @@ export const princessAndDragonTiles: TileDefinition[] = [
     withShield: true,
     hasPrincess: true,
     hasGarden: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth', 'southEast', 'southWest'], [0])
+    ),
     imgUrl: image('B'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -51,6 +59,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
     hasPrincess: true,
+    fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     imgUrl: image('C'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -66,6 +75,11 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East], [SideName.South], [SideName.West]],
     hasPrincess: true,
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth'], [0]),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('D'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -81,6 +95,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     hasPrincess: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth'], [0]),
+      field(['southWest', 'southEast'], [0])
+    ),
     imgUrl: image('E'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -97,6 +115,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     cityGroups: [[SideName.North], [SideName.East, SideName.South]],
     hasPrincess: true,
     princessSide: SideName.North,
+    fieldTopology: fields(field(['westNorth', 'westSouth'], [0])),
     imgUrl: image('F'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -112,6 +131,17 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.West, SideName.South]],
     hasDragon: true,
+    fieldTopology: fields(
+      field([
+        'westNorth',
+        'northWest',
+        'northEast',
+        'eastNorth',
+        'eastSouth',
+        'southEast',
+      ]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('G'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -127,6 +157,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.North, SideName.South]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['westNorth', 'northWest', 'westSouth', 'southWest']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('H'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -142,6 +176,11 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East], [SideName.South], [SideName.West]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('I'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -157,6 +196,19 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     hasGarden: true,
     hasDragon: true,
+    fieldTopology: fields(
+      field(
+        [
+          'eastNorth',
+          'eastSouth',
+          'southEast',
+          'southWest',
+          'westSouth',
+          'westNorth',
+        ],
+        [0]
+      )
+    ),
     imgUrl: image('J'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -172,6 +224,9 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth', 'southEast', 'southWest'], [0])
+    ),
     imgUrl: image('K'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -187,6 +242,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.West, SideName.South]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'westNorth', 'eastSouth', 'southEast'], [0]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('L'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -202,6 +261,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.South]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'westSouth', 'southWest'], [0]),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('M'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -218,6 +281,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     cityGroups: [[SideName.East, SideName.West]],
     withShield: true,
     hasDragon: true,
+    fieldTopology: fields(
+      field(['northWest', 'northEast'], [0]),
+      field(['southEast', 'southWest'], [0])
+    ),
     imgUrl: image('N'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -234,6 +301,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
     isMonastery: true,
     hasDragon: true,
+    fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     imgUrl: image('O'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -250,6 +318,11 @@ export const princessAndDragonTiles: TileDefinition[] = [
     roadGroups: [[SideName.East], [SideName.South], [SideName.West]],
     hasDragon: true,
     isMonastery: true,
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('P'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -266,6 +339,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     roadGroups: [[SideName.North, SideName.South]],
     cityGroups: [[SideName.East, SideName.West]],
     hasDragon: true,
+    fieldTopology: fields(
+      field(['northWest', 'northEast'], [0]),
+      field(['southEast', 'southWest'], [0])
+    ),
     imgUrl: image('Q'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -280,6 +357,11 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Road,
     },
     roadGroups: [[SideName.South], [SideName.West], [SideName.East]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('R'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -294,6 +376,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
+    fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     imgUrl: image('S'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -308,6 +391,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Road,
     },
     roadGroups: [[SideName.South, SideName.West]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'eastSouth', 'southEast'], [0]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('T'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -322,6 +409,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     roadGroups: [[SideName.South, SideName.East]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'westSouth', 'southWest'], [0]),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('U'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -337,6 +428,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     roadGroups: [[SideName.East, SideName.South]],
+    fieldTopology: fields(
+      field(['eastNorth', 'southWest'], [0]),
+      field(['eastSouth', 'southEast'])
+    ),
     imgUrl: image('V'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -354,6 +449,11 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.North, SideName.West],
       [SideName.East, SideName.South],
     ],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['northEast', 'eastNorth', 'westSouth', 'southWest'])
+    ),
     imgUrl: image('W'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -369,6 +469,17 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.South, SideName.West]],
     hasVolcano: true,
+    fieldTopology: fields(
+      field([
+        'northWest',
+        'northEast',
+        'eastNorth',
+        'eastSouth',
+        'southEast',
+        'westNorth',
+      ]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('X'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -384,6 +495,9 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North], [SideName.West]],
     hasVolcano: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth', 'southEast', 'southWest'], [0, 1])
+    ),
     imgUrl: image('Y'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -398,6 +512,19 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     hasVolcano: true,
+    fieldTopology: fields(
+      field(
+        [
+          'eastNorth',
+          'eastSouth',
+          'southEast',
+          'southWest',
+          'westSouth',
+          'westNorth',
+        ],
+        [0]
+      )
+    ),
     imgUrl: image('Z'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -412,6 +539,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     hasVolcano: true,
+    fieldTopology: wholeTileField(),
     imgUrl: image('1'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -426,6 +554,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     hasVolcano: true,
+    fieldTopology: wholeTileField(),
     imgUrl: image('2'),
     expansion: ExpansionName.PrincessAndDragon,
   },
@@ -441,6 +570,10 @@ export const princessAndDragonTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.South, SideName.North]],
     hasVolcano: true,
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'westSouth', 'southWest']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('3'),
     expansion: ExpansionName.PrincessAndDragon,
   },

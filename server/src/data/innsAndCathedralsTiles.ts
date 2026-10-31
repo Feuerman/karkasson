@@ -1,5 +1,6 @@
 import type { TileDefinition } from './tiles'
 import { ExpansionName, SideName, TileId, TileSideType } from '../modules/types'
+import { field, fields } from './fieldTopology'
 
 const image = (id: string) =>
   `/src/assets/tiles/inns_and_cardinals/Inns_And_Cathedrals_C3_Tile_${id}.png`
@@ -18,6 +19,17 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.South, SideName.West]],
     hasInn: true,
+    fieldTopology: fields(
+      field([
+        'eastNorth',
+        'northEast',
+        'northWest',
+        'westNorth',
+        'eastSouth',
+        'southEast',
+      ]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('A'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -34,6 +46,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.West]],
     hasInn: true,
+    fieldTopology: fields(
+      field(['northWest', 'northEast', 'westNorth', 'eastNorth']),
+      field(['westSouth', 'southWest', 'eastSouth', 'southEast'])
+    ),
     imgUrl: image('B'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -48,6 +64,11 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Road,
     },
     hasInn: true,
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('C'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -63,6 +84,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East], [SideName.West]],
     isMonastery: true,
+    fieldTopology: fields(
+      field(['northWest', 'northEast', 'eastNorth', 'westNorth']),
+      field(['southEast', 'southWest', 'eastSouth', 'westSouth'])
+    ),
     imgUrl: image('D'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -80,6 +105,11 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.North, SideName.West],
       [SideName.East, SideName.South],
     ],
+    fieldTopology: fields(
+      field(['eastSouth', 'southEast']),
+      field(['westNorth', 'northWest']),
+      field(['southWest', 'westSouth', 'northEast', 'eastNorth'])
+    ),
     imgUrl: image('E'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -95,6 +125,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     roadGroups: [[SideName.East]],
+    fieldTopology: fields(
+      field(['eastNorth'], [0]),
+      field(['southWest', 'southEast', 'eastSouth'], [0])
+    ),
     imgUrl: image('F'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -109,6 +143,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.West]],
+    fieldTopology: fields(
+      field(['northWest', 'northEast'], [0]),
+      field(['eastNorth', 'eastSouth', 'southEast', 'southWest'], [0])
+    ),
     imgUrl: image('G'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -129,6 +167,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.South],
       [SideName.West],
     ],
+    fieldTopology: [],
     imgUrl: image('H'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -144,6 +183,12 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North], [SideName.South]],
     roadGroups: [[SideName.East], [SideName.West]],
+    fieldTopology: fields(
+      field(['westNorth'], [0]),
+      field(['eastNorth'], [0]),
+      field(['eastSouth'], [1]),
+      field(['westSouth'], [1])
+    ),
     imgUrl: image('I'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -157,6 +202,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.South]: TileSideType.Road,
       [SideName.West]: TileSideType.Field,
     },
+    fieldTopology: fields(
+      field(['westNorth', 'westSouth', 'southWest'], [0]),
+      field(['eastNorth', 'eastSouth', 'southEast'], [0])
+    ),
     imgUrl: image('J'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -174,6 +223,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.North, SideName.East, SideName.South, SideName.West],
     ],
     hasCathedral: true,
+    fieldTopology: [],
     imgUrl: image('Ka'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -191,6 +241,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.North, SideName.East, SideName.South, SideName.West],
     ],
     hasCathedral: true,
+    fieldTopology: [],
     imgUrl: image('Kb'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -208,6 +259,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     roadGroups: [[SideName.East, SideName.South]],
     withShield: true,
     hasInn: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'southWest'], [0]),
+      field(['southEast', 'eastSouth'])
+    ),
     imgUrl: image('L'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -223,6 +278,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.South, SideName.West]],
     hasInn: true,
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'eastSouth', 'southEast'], [0]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: image('M'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -238,6 +297,10 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West]],
     hasInn: true,
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth', 'southEast'], [0]),
+      field(['southWest'], [0])
+    ),
     imgUrl: image('N'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -252,6 +315,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North], [SideName.East], [SideName.West]],
+    fieldTopology: fields(field(['southWest', 'southEast'], [0, 1, 2])),
     imgUrl: image('O'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -267,6 +331,7 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.North, SideName.West], [SideName.South]],
     cityShieldGroups: [[SideName.North, SideName.West]],
+    fieldTopology: fields(field(['eastNorth', 'eastSouth'], [0, 1])),
     imgUrl: image('P'),
     expansion: ExpansionName.InnsAndCathedrals,
   },
@@ -282,6 +347,12 @@ export const innsAndCathedralsTiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.East, SideName.West]],
     withShield: true,
+    fieldTopology: fields(
+      field(['northWest'], [0]),
+      field(['northEast'], [0]),
+      field(['southEast'], [0]),
+      field(['southWest'], [0])
+    ),
     imgUrl: image('Q'),
     expansion: ExpansionName.InnsAndCathedrals,
   },

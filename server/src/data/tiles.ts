@@ -5,6 +5,8 @@ import {
   TileSideType,
   type TileSides,
 } from '../modules/types'
+import { field, fields, wholeTileField } from './fieldTopology'
+import type { TileFieldTopology } from './fieldTopology'
 
 export interface TileDefinition {
   id: TileId
@@ -26,6 +28,8 @@ export interface TileDefinition {
   cityShieldGroups?: SideName[][]
   /** Connected river sections; each group lists the tile edges they reach. */
   riverGroups?: SideName[][]
+  /** Continuous field regions and the city sections touching each region. */
+  fieldTopology: TileFieldTopology
   expansion?: ExpansionName
   imgUrl: string
 }
@@ -42,6 +46,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     isMonastery: true,
+    fieldTopology: wholeTileField(),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_A.png',
   },
   {
@@ -55,6 +60,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     isMonastery: true,
+    fieldTopology: wholeTileField(),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_B.png',
   },
   {
@@ -71,6 +77,7 @@ export const tiles: TileDefinition[] = [
       [SideName.North, SideName.East, SideName.South, SideName.West],
     ],
     withShield: true,
+    fieldTopology: [],
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_C.png',
   },
   {
@@ -85,6 +92,10 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.West]],
     cityGroups: [[SideName.North]],
+    fieldTopology: fields(
+      field(['eastNorth', 'westNorth'], [0]),
+      field(['eastSouth', 'southEast', 'southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_D.png',
   },
   {
@@ -97,6 +108,20 @@ export const tiles: TileDefinition[] = [
       [SideName.South]: TileSideType.Field,
       [SideName.West]: TileSideType.Field,
     },
+    cityGroups: [[SideName.North]],
+    fieldTopology: fields(
+      field(
+        [
+          'eastNorth',
+          'eastSouth',
+          'southEast',
+          'southWest',
+          'westSouth',
+          'westNorth',
+        ],
+        [0]
+      )
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_E.png',
   },
   {
@@ -111,6 +136,10 @@ export const tiles: TileDefinition[] = [
     },
     cityGroups: [[SideName.East, SideName.West]],
     withShield: true,
+    fieldTopology: fields(
+      field(['northWest', 'northEast'], [0]),
+      field(['southEast', 'southWest'], [0])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_F.png',
   },
   {
@@ -124,6 +153,10 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.East, SideName.West]],
+    fieldTopology: fields(
+      field(['northWest', 'northEast'], [0]),
+      field(['southEast', 'southWest'], [0])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_G.png',
   },
   {
@@ -137,6 +170,9 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     cityGroups: [[SideName.North], [SideName.South]],
+    fieldTopology: fields(
+      field(['eastNorth', 'westNorth', 'eastSouth', 'westSouth'], [0, 1])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_H.png',
   },
   {
@@ -151,6 +187,9 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North], [SideName.West]],
+    fieldTopology: fields(
+      field(['eastNorth', 'eastSouth', 'southEast', 'southWest'], [0, 1])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_I.png',
   },
   {
@@ -165,6 +204,10 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.South]],
     cityGroups: [[SideName.North]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'southWest', 'westSouth'], [0]),
+      field(['southEast', 'eastSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_J.png',
   },
   {
@@ -179,6 +222,10 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.South, SideName.West]],
     cityGroups: [[SideName.North]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth', 'eastSouth', 'southEast'], [0]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_K.png',
   },
   {
@@ -193,6 +240,11 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East], [SideName.South], [SideName.West]],
     cityGroups: [[SideName.North]],
+    fieldTopology: fields(
+      field(['westNorth', 'eastNorth'], [0]),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_L.png',
   },
   {
@@ -206,6 +258,9 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     cityGroups: [[SideName.North, SideName.East]],
+    fieldTopology: fields(
+      field(['westNorth', 'westSouth', 'southWest', 'southEast'], [0])
+    ),
     withShield: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_M.png',
   },
@@ -220,6 +275,9 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     cityGroups: [[SideName.North, SideName.East]],
+    fieldTopology: fields(
+      field(['westNorth', 'westSouth', 'southWest', 'southEast'], [0])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_N.png',
   },
   {
@@ -234,6 +292,10 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.South]],
     cityGroups: [[SideName.North, SideName.West]],
+    fieldTopology: fields(
+      field(['southWest', 'eastNorth'], [0]),
+      field(['southEast', 'eastSouth'])
+    ),
     withShield: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_O.png',
   },
@@ -249,6 +311,10 @@ export const tiles: TileDefinition[] = [
     },
     roadGroups: [[SideName.East, SideName.South]],
     cityGroups: [[SideName.North, SideName.West]],
+    fieldTopology: fields(
+      field(['southWest', 'eastNorth'], [0]),
+      field(['southEast', 'eastSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_P.png',
   },
   {
@@ -262,6 +328,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
+    fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     withShield: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_Q.png',
   },
@@ -277,6 +344,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
+    fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_R.png',
   },
   {
@@ -290,6 +358,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
+    fieldTopology: fields(field(['southWest'], [0]), field(['southEast'], [0])),
     withShield: true,
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_S.png',
   },
@@ -304,6 +373,7 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.City,
     },
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
+    fieldTopology: fields(field(['southWest'], [0]), field(['southEast'], [0])),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_T.png',
   },
   {
@@ -317,6 +387,10 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Field,
     },
     roadGroups: [[SideName.North, SideName.South]],
+    fieldTopology: fields(
+      field(['westNorth', 'northWest', 'westSouth', 'southWest']),
+      field(['northEast', 'eastNorth', 'eastSouth', 'southEast'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_U.png',
   },
   {
@@ -330,6 +404,17 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Road,
     },
     roadGroups: [[SideName.South, SideName.West]],
+    fieldTopology: fields(
+      field([
+        'westNorth',
+        'northWest',
+        'northEast',
+        'eastNorth',
+        'eastSouth',
+        'southEast',
+      ]),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_V.png',
   },
   {
@@ -343,6 +428,11 @@ export const tiles: TileDefinition[] = [
       [SideName.West]: TileSideType.Road,
     },
     roadGroups: [[SideName.East], [SideName.South], [SideName.West]],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth', 'northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_W.png',
   },
   {
@@ -361,6 +451,12 @@ export const tiles: TileDefinition[] = [
       [SideName.South],
       [SideName.West],
     ],
+    fieldTopology: fields(
+      field(['northWest', 'westNorth']),
+      field(['northEast', 'eastNorth']),
+      field(['eastSouth', 'southEast']),
+      field(['southWest', 'westSouth'])
+    ),
     imgUrl: '/src/assets/tiles/Base_Game_C3_Tile_X.png',
   },
 ]
