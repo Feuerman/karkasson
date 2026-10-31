@@ -1,3 +1,5 @@
+import type { TileFieldTopology } from '../data/fieldTopology'
+
 export type PlayerId = string | number
 
 export const TileId = {
@@ -420,6 +422,8 @@ export interface Tile {
   cityShieldGroups?: SideName[][]
   /** Связанные русла реки; стороны в группе обозначают её выходы с тайла. */
   riverGroups?: SideName[][]
+  /** Связанные между собой области поля на этой плитке. */
+  fieldTopology?: TileFieldTopology
 }
 
 export interface GridTile extends Tile {
