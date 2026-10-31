@@ -16,6 +16,7 @@ import type {
   DragonMoveState,
   DragonPosition,
   FollowerCount,
+  FieldFollower,
   GameRules,
   GridTile,
   PlacedFollower,
@@ -55,6 +56,7 @@ export interface IGameState {
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
   placedFollowers: PlacedFollower[]
+  fieldFollowers: FieldFollower[]
   tilePlacesStats: TilePlacesStats
   lastPlacement: { rowIndex?: number; tileIndex?: number }
   availablePlacesTiles: AvailablePlace[]
@@ -106,6 +108,7 @@ export const SERIALIZED_GAME_FIELDS = [
   'availableFollowersPlaces',
   'isPlacingFollower',
   'placedFollowers',
+  'fieldFollowers',
   'tilePlacesStats',
   'lastPlacement',
   'availablePlacesTiles',
@@ -161,6 +164,7 @@ export const ROLLBACK_GAME_FIELDS = [
   'availableFollowersPlaces',
   'isPlacingFollower',
   'placedFollowers',
+  'fieldFollowers',
   'tilePlacesStats',
   'lastPlacement',
   'availablePlacesTiles',

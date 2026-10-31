@@ -176,6 +176,11 @@ export interface Point {
   tileIndex?: number
   precisionX?: number
   precisionY?: number
+  /**
+   * Индекс региона поля на тайле. Заполняется только для точек постановки
+   * крестьянина: на одном тайле может быть несколько регионов поля.
+   */
+  regionIndex?: number
 }
 
 /** Тип фишки, которую игрок может выставить на объект. */
@@ -335,6 +340,16 @@ export interface PlacedFollower {
   hasCathedral?: boolean
   expansion?: ExpansionName
   isAbbot?: boolean
+  isBigFollower?: boolean
+}
+
+/**
+ * Крестьянин на поле: привязан к локальному региону тайла (через regionIndex
+ * в точке) и остаётся на поле до конца партии, не возвращаясь в запас.
+ */
+export interface FieldFollower {
+  playerId: PlayerId
+  point: Point
   isBigFollower?: boolean
 }
 
@@ -519,6 +534,7 @@ export enum ObjectTypes {
   ROAD = 'ROAD',
   MONASTERY = 'MONASTERY',
   GARDEN = 'GARDEN',
+  FIELD = 'FIELD',
 }
 
 export enum PlayerColors {

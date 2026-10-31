@@ -3,6 +3,9 @@ import { buildFieldComponents } from '@server/modules/fieldComponents'
 import type { GridTile } from '@server/modules/types'
 import { SideName, TileSideType } from '@server/modules/types'
 import { wholeTileField, fields, field } from '@server/data/fieldTopology'
+import { formatGameData } from '@server/services/gameView'
+import { GameManager } from '@server/modules/GameManager'
+import { makePlayers } from '../helpers/fixtures'
 
 function makeTile(
   rowIndex: number,
@@ -122,5 +125,33 @@ describe('Связные компоненты полей', () => {
     const components = buildFieldComponents(stats)
     const ids = components.map((c) => c.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('сливает соседние поля в актуальном состоянии, возвращаемом клиенту', () => {
+    const game = new GameManager({ players: makePlayers() })
+    const leftTile = makeTile(0, 0, wholeTileField())
+    const rightTile = makeTile(0, 1, wholeTileField())
+    game.tilePlacesStats = { 0: { 0: leftTile } }
+
+    expect(formatGameData(game).fieldComponents).toEqual([
+      {
+        id: 'field-0',
+        regions: [{ rowIndex: 0, tileIndex: 0, regionIndex: 0 }],
+      },
+    ])
+
+    const row = game.tilePlacesStats[0]
+    if (!row) throw new Error('Expected the board row')
+    row[1] = rightTile
+
+    expect(formatGameData(game).fieldComponents).toEqual([
+      {
+        id: 'field-0',
+        regions: [
+          { rowIndex: 0, tileIndex: 0, regionIndex: 0 },
+          { rowIndex: 0, tileIndex: 1, regionIndex: 0 },
+        ],
+      },
+    ])
   })
 })

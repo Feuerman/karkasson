@@ -1,5 +1,6 @@
 import { takeFollower } from './followerPool'
 import type { FollowerBoard } from './boardState'
+import { fieldComponentIndex } from './fieldComponents'
 import {
   CENTRAL_OBJECT_NAMES,
   countCenterObjectPoints,
@@ -15,6 +16,7 @@ import {
   type AbbotRecallInfo,
   type AvailableFollowerPlace,
   type BaseObject,
+  type FieldFollower,
   type FollowerCount,
   type FollowerType,
   type GridTile,
@@ -24,11 +26,17 @@ import {
   type PointDirection,
   type SideName,
 } from './types'
+import { nodeKey } from './fieldComponents'
 
 /** Кандидат на место подданного до проверки допустимости. */
 interface FollowerPlaceCandidate {
   point: Point
   temporaryObject: BaseObject | undefined
+}
+
+/** Место для крестьянина: локальный регион поля на поставленном тайле. */
+export interface FieldPlace {
+  point: Point
 }
 
 /** Центральный объект текущего игрока, с которого можно отозвать аббата. */
@@ -194,6 +202,48 @@ export class FollowerManager {
   }
 
   /**
+   * Идентификаторы связных компонент полей, в которых уже стоит хотя бы один
+   * крестьянин. В такую компоненту нового крестьянина поставить нельзя.
+   */
+  private occupiedFieldComponentIds(): Set<string> {
+    const componentIndex = fieldComponentIndex(this.state.tilePlacesStats)
+    const ids = new Set<string>()
+    for (const follower of this.state.fieldFollowers) {
+      const p = follower.point
+      const key = nodeKey(
+        p.rowIndex ?? p.y,
+        p.tileIndex ?? p.x,
+        p.regionIndex ?? 0
+      )
+      const id = componentIndex.get(key)
+      if (id) ids.add(id)
+    }
+    return ids
+  }
+
+  private isFieldComponentFree(
+    rowIndex: number,
+    tileIndex: number,
+    regionIndex: number
+  ): boolean {
+    const componentId = fieldComponentIndex(this.state.tilePlacesStats).get(
+      nodeKey(rowIndex, tileIndex, regionIndex)
+    )
+    if (!componentId) return false
+    return !this.occupiedFieldComponentIds().has(componentId)
+  }
+
+  /** Допустимые типы фишки для крестьянина: аббат на поле не ставится. */
+  private allowedFieldFollowerTypes(pool: FollowerCount): FollowerType[] {
+    const types: FollowerType[] = []
+    if (pool.ordinaryFollowers) types.push(FollowerTypes.Follower)
+    if (this.state.rules.expansions.innsAndCathedrals && pool.bigFollowers) {
+      types.push(FollowerTypes.BigFollower)
+    }
+    return types
+  }
+
+  /**
    * Типы фишек, которые активный игрок может поставить в это место прямо
    * сейчас. Список отдаётся клиенту, чтобы интерфейс не решал правила сам, и
    * используется симулятором при переборе ходов.
@@ -261,6 +311,90 @@ export class FollowerManager {
       initiator: this.state.currentPlayer,
     })
     this.state.endTurn()
+  }
+
+  /**
+   * Доступные места для крестьянина на только что поставленном тайле: каждый
+   * свободный регион поля, чья связная компонента ещё не занята другим
+   * крестьянином.
+   */
+  findAvailableFieldPlaces(tile: GridTile): FieldPlace[] {
+    const currentPlayer = this.state.currentPlayer
+    if (!currentPlayer) return []
+    const followerPool = this.state.playersFollowers[currentPlayer.id]
+    if (!followerPool || !this.hasCommonFollowers(followerPool)) return []
+
+    const topology = tile.fieldTopology
+    if (!topology) return []
+
+    const occupied = this.occupiedFieldComponentIds()
+    const places: FieldPlace[] = []
+    for (let regionIndex = 0; regionIndex < topology.length; regionIndex += 1) {
+      const key = nodeKey(tile.y, tile.x, regionIndex)
+      const componentId = fieldComponentIndex(this.state.tilePlacesStats).get(
+        key
+      )
+      if (!componentId || occupied.has(componentId)) continue
+      places.push({
+        point: {
+          x: tile.x,
+          y: tile.y,
+          rowIndex: tile.y,
+          tileIndex: tile.x,
+          regionIndex,
+          direction: undefined,
+          pointType: TileSideType.Field,
+        },
+      })
+    }
+    return places
+  }
+
+  /**
+   * Ставит крестьянина активного игрока на регион поля. Крестьянин остаётся на
+   * поле до конца партии и не возвращается в запас. Проверка занятости
+   * компонента поля выполняется серверно по текущему состоянию партии.
+   */
+  placeFieldFollower(
+    place: FieldPlace,
+    followerType: FollowerType = FollowerTypes.Follower
+  ): FollowerType | undefined {
+    const activePlayer = this.state.currentPlayer
+    if (!activePlayer) return undefined
+    const followerPool = this.state.playersFollowers[activePlayer.id]
+    if (!followerPool) return undefined
+
+    const point = place.point
+    const rowIndex = point.rowIndex ?? point.y
+    const tileIndex = point.tileIndex ?? point.x
+    const regionIndex = point.regionIndex ?? 0
+
+    const tile = this.state.tilePlacesStats[rowIndex]?.[tileIndex]
+    if (!tile) return undefined
+    const topology = tile.fieldTopology
+    if (!topology || !topology[regionIndex]) return undefined
+
+    const allowed = this.allowedFieldFollowerTypes(followerPool)
+    if (!allowed.includes(followerType)) return undefined
+
+    if (!this.isFieldComponentFree(rowIndex, tileIndex, regionIndex))
+      return undefined
+
+    this.consumeFollower(activePlayer.id, followerType)
+    const placement: FieldFollower = {
+      playerId: activePlayer.id,
+      point: {
+        ...point,
+        rowIndex,
+        tileIndex,
+        regionIndex,
+        pointType: TileSideType.Field,
+      },
+      isBigFollower: followerType === FollowerTypes.BigFollower || undefined,
+    }
+    this.state.fieldFollowers.push(placement)
+    this.state.endTurn()
+    return followerType
   }
 
   skipFollower() {

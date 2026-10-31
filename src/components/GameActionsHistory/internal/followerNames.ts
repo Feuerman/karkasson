@@ -21,6 +21,7 @@ const FOLLOWER_NAMES: Record<ObjectTypes, string> = {
   [ObjectTypes.CITY]: 'рыцарь',
   [ObjectTypes.MONASTERY]: 'монах',
   [ObjectTypes.GARDEN]: 'аббат',
+  [ObjectTypes.FIELD]: 'крестьянин',
 }
 
 /** Признаки фишки, достаточные для наименования в истории. */

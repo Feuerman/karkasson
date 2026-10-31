@@ -14,6 +14,7 @@ export const OBJECT_TYPE_NAMES: Record<ObjectTypes, string> = {
   [ObjectTypes.ROAD]: 'дорога',
   [ObjectTypes.MONASTERY]: 'монастырь',
   [ObjectTypes.GARDEN]: 'сад',
+  [ObjectTypes.FIELD]: 'поле',
 }
 
 const capitalize = (value: string): string =>
@@ -38,6 +39,7 @@ export const OBJECT_TYPE_GENITIVES: Record<ObjectTypes, string> = {
   [ObjectTypes.ROAD]: 'дороги',
   [ObjectTypes.MONASTERY]: 'монастыря',
   [ObjectTypes.GARDEN]: 'сада',
+  [ObjectTypes.FIELD]: 'поля',
 }
 
 const POINT_DIRECTION_TITLES: Record<PointDirection, string> = {

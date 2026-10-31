@@ -20,7 +20,7 @@ import {
 } from './tilePlacement'
 import { resolveTileFeatureGroups } from './tileFeatureGroups'
 import { GameObjectManager } from './GameObjectManager'
-import { FollowerManager } from './FollowerManager'
+import { FollowerManager, type FieldPlace } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
 import { DragonPrincessManager } from './DragonPrincessManager'
 import { finalizeScoring } from './finalScoring'
@@ -48,6 +48,7 @@ import {
   type BaseObject,
   type CompletedObjects,
   type FollowerCount,
+  type FieldFollower,
   type FollowerType,
   type GameOptions,
   type GameRules,
@@ -130,6 +131,7 @@ export class GameManager implements IGameState {
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
   placedFollowers: PlacedFollower[]
+  fieldFollowers: FieldFollower[] = []
   tilePlacesStats: TilePlacesStats = {}
   lastPlacement: { rowIndex?: number; tileIndex?: number }
   availablePlacesTiles: AvailablePlace[]
@@ -656,6 +658,17 @@ export class GameManager implements IGameState {
 
   skipFollower() {
     this.followerManager.skipFollower()
+  }
+
+  findAvailableFieldPlaces(tile: GridTile): FieldPlace[] {
+    return this.followerManager.findAvailableFieldPlaces(tile)
+  }
+
+  placeFieldFollower(
+    place: FieldPlace,
+    followerType: FollowerType = FollowerTypes.Follower
+  ): FollowerType | undefined {
+    return this.followerManager.placeFieldFollower(place, followerType)
   }
 
   /** Шаг дракона: перемещение и съедание подданных на клетке назначения. */

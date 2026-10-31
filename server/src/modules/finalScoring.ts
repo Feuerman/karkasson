@@ -1,15 +1,18 @@
 /**
- * Финальный подсчёт очков по незавершённым объектам.
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
  *
- * Вызывается один раз в конце партии, если включено правило финального
- * подсчёта. Дороги и города считаются незавершёнными (0 очков за дорогу с
- * таверной и за незавершённый город с собором, 1 очко за тайл в остальных
- * случаях), монастыри и сады — по окружающим занятым клеткам. Очки
- * начисляются лидерам объекта и записываются в историю отдельной записью с
- * отметкой `isFinalScoring`.
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (0 пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, 1 пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅ), пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅ
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ `isFinalScoring`.
  */
 
 import type { ScoringBoard } from './boardState'
+import { buildFieldComponents } from './fieldComponents'
+import { NEIGHBOR_SIDES, neighborCoordinates } from './gameGeometry'
+import { sideOfFieldPort } from '../data/fieldTopology'
 import {
   CENTRAL_OBJECT_NAMES,
   countCenterObjectPoints,
@@ -19,22 +22,26 @@ import {
 import {
   ActionTypes,
   ObjectTypes,
+  TileSideType,
   type BaseObject,
+  type FieldFollower,
+  type PlayerId,
   type ScoreDetails,
   type ScoreForObject,
+  type TilePlacesStats,
 } from './types'
 
-/** Виды объектов, которые считаются при финальном подсчёте. */
+/** пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. */
 type FinalScoringCollection = 'roads' | 'cities' | 'monasteries' | 'gardens'
 
 /**
- * Описание вида объекта для финального подсчёта: куда он переносится, каким
- * типом отмечается в истории и как считаются его очки.
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ
+ * пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.
  */
 interface FinalScoringKind {
   collection: FinalScoringCollection
   objectType: ObjectTypes
-  /** Очки объекта и их детализация. */
+  /** пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. */
   count(
     state: ScoringBoard,
     object: BaseObject
@@ -89,9 +96,9 @@ const FINAL_SCORING_KINDS: FinalScoringKind[] = [
 ]
 
 /**
- * Начисляет очки по незавершённым объектам и переносит их в завершённые.
- * Аббаты на уже завершённых объектах считаются отдельно: они остаются на
- * поле до конца партии и получают очки за окружение.
+ * пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
+ * пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ
+ * пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
  */
 export function finalizeScoring(state: ScoringBoard): void {
   const completedMonasteries = [...state.completedObjects.monasteries]
@@ -111,11 +118,13 @@ export function finalizeScoring(state: ScoringBoard): void {
     }
   }
 
+  scoreFields(state)
+
   scoreRemainingAbbots(state, completedMonasteries, ObjectTypes.MONASTERY)
   scoreRemainingAbbots(state, completedGardens, ObjectTypes.GARDEN)
 }
 
-/** Аббаты на завершённых объектах получают очки за окружение один раз. */
+/** пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ. */
 function scoreRemainingAbbots(
   state: ScoringBoard,
   objects: BaseObject[],
@@ -138,7 +147,7 @@ function scoreRemainingAbbots(
   }
 }
 
-/** Запись в историю о финальном начислении; объекты без подданных не пишутся. */
+/** пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. */
 function recordFinalObjectScore(
   state: ScoringBoard,
   object: BaseObject,
@@ -158,4 +167,163 @@ function recordFinalObjectScore(
       isFinalScoring: true,
     },
   })
+}
+
+/** РРЅРґРµРєСЃ С‚РѕС‡РµРє Р·Р°РІРµСЂС€С‘РЅРЅС‹С… РіРѕСЂРѕРґРѕРІ РїРѕ В«СЃС‚СЂРѕРєР°:РєРѕР»РѕРЅРєР°:СЃС‚РѕСЂРѕРЅР°В». */
+function cityPointIndex(
+  completedCities: BaseObject[]
+): Map<string, BaseObject> {
+  const index = new Map<string, BaseObject>()
+  for (const city of completedCities) {
+    for (const point of city.points) {
+      if (point.direction) {
+        index.set(`${point.y}:${point.x}:${point.direction}`, city)
+      }
+    }
+  }
+  return index
+}
+
+/** РЈРЅРёРєР°Р»СЊРЅС‹Рµ Р·Р°РІРµСЂС€С‘РЅРЅС‹Рµ РіРѕСЂРѕРґР°, СЃРѕРїСЂРёРєР°СЃР°СЋС‰РёРµСЃСЏ СЃ РїРѕР»РµРј. */
+function collectAdjacentCityIds(
+  tilePlacesStats: TilePlacesStats,
+  cityIndex: Map<string, BaseObject>,
+  component: {
+    id: string
+    regions: Array<{ rowIndex: number; tileIndex: number; regionIndex: number }>
+  }
+): Set<string> {
+  const cityIds = new Set<string>()
+
+  for (const region of component.regions) {
+    const tile = tilePlacesStats[region.rowIndex]?.[region.tileIndex]
+    if (!tile) continue
+    const topology = tile.fieldTopology
+    if (!topology) continue
+    const regionDef = topology[region.regionIndex]
+    if (!regionDef) continue
+
+    // Р“РѕСЂРѕРґР° РЅР° С‚РѕРј Р¶Рµ С‚Р°Р№Р»Рµ, СЃРѕРїСЂРёРєР°СЃР°СЋС‰РёРµСЃСЏ СЃ СЂРµРіРёРѕРЅРѕРј.
+    for (const groupIndex of regionDef.adjacentCityGroups) {
+      const group = tile.cityGroups?.[groupIndex]
+      if (!group) continue
+      for (const side of group) {
+        const city = cityIndex.get(
+          `${region.rowIndex}:${region.tileIndex}:${side}`
+        )
+        if (city) cityIds.add(city.id)
+      }
+    }
+
+    // Р“РѕСЂРѕРґР° РЅР° СЃРѕСЃРµРґРЅРёС… С‚Р°Р№Р»Р°С… С‡РµСЂРµР· РіСЂР°РЅРёС‡РЅС‹Рµ РїРѕСЂС‚С‹ СЂРµРіРёРѕРЅР°.
+    for (const port of regionDef.boundaryPorts) {
+      const side = sideOfFieldPort(port)
+      const neighborDef = NEIGHBOR_SIDES.find((n) => n.side === side)
+      if (!neighborDef) continue
+      const coords = neighborCoordinates(
+        region.rowIndex,
+        region.tileIndex,
+        neighborDef
+      )
+      const neighbor = tilePlacesStats[coords.rowIndex]?.[coords.tileIndex]
+      if (!neighbor) continue
+      if (neighbor.sides[neighborDef.oppositeSide] !== TileSideType.City)
+        continue
+      const city = cityIndex.get(
+        `${coords.rowIndex}:${coords.tileIndex}:${neighborDef.oppositeSide}`
+      )
+      if (city) cityIds.add(city.id)
+    }
+  }
+
+  return cityIds
+}
+
+/**
+ * Р¤РёРЅР°Р»СЊРЅС‹Р№ РїРѕРґСЃС‡С‘С‚ РїРѕР»РµР№: РїРѕ РєР°Р¶РґРѕРјСѓ РїРѕР»СЋ СЃРѕ РєСЂРµСЃС‚СЊСЏРЅР°РјРё СЃРѕР±РёСЂР°СЋС‚СЃСЏ СѓРЅРёРєР°Р»СЊРЅС‹Рµ
+ * СЃРѕРїСЂРёРєР°СЃР°СЋС‰РёРµСЃСЏ Р·Р°РІРµСЂС€С‘РЅРЅС‹Рµ РіРѕСЂРѕРґР°, СЃС‡РёС‚Р°СЋС‚СЃСЏ РєСЂРµСЃС‚СЊСЏРЅРµ (Р±РѕР»СЊС€РѕР№ вЂ” Р·Р° РґРІСѓС…),
+ * РѕРїСЂРµРґРµР»СЏСЋС‚СЃСЏ РІСЃРµ Р»РёРґРµСЂС‹ Рё РєР°Р¶РґРѕРјСѓ РЅР°С‡РёСЃР»СЏСЋС‚СЃСЏ РїРѕ 3 РѕС‡РєР° Р·Р° РєР°Р¶РґС‹Р№ С‚Р°РєРѕР№ РіРѕСЂРѕРґ.
+ * РћРґРёРЅ РіРѕСЂРѕРґ СѓС‡РёС‚С‹РІР°РµС‚СЃСЏ РѕС‚РґРµР»СЊРЅРѕ РЅР° РєР°Р¶РґРѕРј РїРѕР»Рµ, РЅРѕ С‚РѕР»СЊРєРѕ РѕРґРёРЅ СЂР°Р· РІ РїСЂРµРґРµР»Р°С…
+ * РѕРґРЅРѕРіРѕ РїРѕР»СЏ.
+ */
+export function scoreFields(state: ScoringBoard): void {
+  const fieldFollowers = state.fieldFollowers ?? []
+  if (!fieldFollowers.length) return
+
+  const components = buildFieldComponents(state.tilePlacesStats)
+  const cityIndex = cityPointIndex(state.completedObjects.cities)
+
+  const nodeToComponent = new Map<string, string>()
+  for (const component of components) {
+    for (const region of component.regions) {
+      nodeToComponent.set(
+        `${region.rowIndex},${region.tileIndex},${region.regionIndex}`,
+        component.id
+      )
+    }
+  }
+
+  const followersByComponent = new Map<string, FieldFollower[]>()
+  for (const follower of fieldFollowers) {
+    const p = follower.point
+    const componentId = nodeToComponent.get(
+      `${p.rowIndex ?? p.y},${p.tileIndex ?? p.x},${p.regionIndex ?? 0}`
+    )
+    if (!componentId) continue
+    const list = followersByComponent.get(componentId) ?? []
+    list.push(follower)
+    followersByComponent.set(componentId, list)
+  }
+
+  const pointsPerCity = 3
+  for (const [componentId, followers] of followersByComponent) {
+    const component = components.find((c) => c.id === componentId)
+    if (!component) continue
+
+    const cityIds = collectAdjacentCityIds(
+      state.tilePlacesStats,
+      cityIndex,
+      component
+    )
+    if (!cityIds.size) continue
+
+    const weightByPlayer = new Map<string, number>()
+    for (const follower of followers) {
+      const weight = follower.isBigFollower ? 2 : 1
+      const key = String(follower.playerId)
+      weightByPlayer.set(key, (weightByPlayer.get(key) ?? 0) + weight)
+    }
+
+    const maxWeight = Math.max(...weightByPlayer.values())
+    const pointsPerLeader = pointsPerCity * cityIds.size
+    const players: Partial<Record<PlayerId, number>> = {}
+    let total = 0
+
+    for (const [playerId, weight] of weightByPlayer) {
+      if (weight === maxWeight) {
+        players[playerId] = pointsPerLeader
+        total += pointsPerLeader
+        state.scores[playerId] = (state.scores[playerId] ?? 0) + pointsPerLeader
+      }
+    }
+
+    state.recordAction({
+      actionType: ActionTypes.ADDING_SCORES,
+      actionData: {
+        objectType: ObjectTypes.FIELD,
+        objectData: { id: componentId, points: [], followers: [] },
+        score: { total, players, objectId: componentId },
+        details: [
+          {
+            label: 'Р—Р°РІРµСЂС€С‘РЅРЅС‹Рµ РіРѕСЂРѕРґР° Сѓ РїРѕР»СЏ',
+            count: cityIds.size,
+            pointsPerUnit: pointsPerCity,
+            total: pointsPerLeader,
+          },
+        ],
+        modifiers: [],
+        isFinalScoring: true,
+      },
+    })
+  }
 }

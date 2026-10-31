@@ -38,6 +38,7 @@ const OBJECT_BUCKETS: Record<ObjectTypes, keyof ScoreBreakdown> = {
   [ObjectTypes.ROAD]: 'roads',
   [ObjectTypes.MONASTERY]: 'monasteries',
   [ObjectTypes.GARDEN]: 'gardens',
+  [ObjectTypes.FIELD]: 'other',
 }
 
 /**
