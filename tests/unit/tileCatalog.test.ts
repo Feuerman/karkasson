@@ -131,12 +131,12 @@ describe('field topology on tile definitions', () => {
     )?.fieldTopology
     expect(topology).toBeDefined()
     expect(topology).toHaveLength(3)
-    expect(topology.map(({ boundaryPorts }) => boundaryPorts)).toEqual([
+    expect(topology?.map(({ boundaryPorts }) => boundaryPorts)).toEqual([
       ['northWest', 'westNorth', 'northEast', 'eastNorth'],
       ['eastSouth', 'southEast'],
       ['southWest', 'westSouth'],
     ])
-    expect(topology[0]?.adjacentCityGroups).toEqual([0])
+    expect(topology?.[0]?.adjacentCityGroups).toEqual([0])
   })
 
   it('назначает все восемь half-edge портов перекрёстку X по одному разу', () => {
@@ -144,7 +144,7 @@ describe('field topology on tile definitions', () => {
       ({ id }) => id === TileId.X
     )?.fieldTopology
     expect(topology).toBeDefined()
-    const ports = topology.flatMap(({ boundaryPorts }) => boundaryPorts)
+    const ports = topology?.flatMap(({ boundaryPorts }) => boundaryPorts)
     expect(topology).toHaveLength(4)
     expect(ports).toHaveLength(FIELD_BOUNDARY_PORTS.length)
     expect(new Set(ports).size).toBe(FIELD_BOUNDARY_PORTS.length)
@@ -173,8 +173,8 @@ describe('field topology on tile definitions', () => {
     )?.fieldTopology
     expect(topology).toBeDefined()
     expect(topology).toHaveLength(3)
-    expect(topology[0]?.boundaryPorts).toContain('northWest')
-    expect(topology[0]?.boundaryPorts).toContain('northEast')
+    expect(topology?.[0]?.boundaryPorts).toContain('northWest')
+    expect(topology?.[0]?.boundaryPorts).toContain('northEast')
   })
 
   it('дополнения с отдельными городами ссылаются на свои группы отдельно', () => {
@@ -183,7 +183,7 @@ describe('field topology on tile definitions', () => {
     )?.fieldTopology
     expect(topology).toBeDefined()
     expect(
-      topology.map(({ adjacentCityGroups }) => adjacentCityGroups)
+      topology?.map(({ adjacentCityGroups }) => adjacentCityGroups)
     ).toEqual([[0], [1]])
   })
 })
