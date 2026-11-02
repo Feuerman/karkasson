@@ -103,6 +103,12 @@ export interface PlacedFollowerSnapshot {
   isAbbot?: boolean
 }
 
+export interface FieldFollowerSnapshot {
+  playerId: number | string
+  point: ObjectPoint
+  isBigFollower?: boolean
+}
+
 export interface FollowerCountSnapshot {
   ordinaryFollowers: number
   bigFollowers?: number
@@ -138,6 +144,7 @@ export interface GameStateSnapshot {
   isPlacingFollower?: boolean
   playersFollowers?: Record<string, FollowerCountSnapshot>
   placedFollowers?: PlacedFollowerSnapshot[]
+  fieldFollowers?: FieldFollowerSnapshot[]
   temporaryObjects?: {
     cities: BaseObjectSnapshot[]
     roads: BaseObjectSnapshot[]
@@ -485,6 +492,7 @@ export function chooseFollowerPlace(
 ): FollowerPlaceSnapshot {
   return (
     places.find((place) => place.point.pointType === TileSideType.Road) ??
+    places.find((place) => place.point.pointType !== TileSideType.Field) ??
     places[0]
   )
 }
@@ -751,9 +759,13 @@ export function assertFollowerInvariants(state: GameStateSnapshot): void {
   }
 
   for (const player of state.players) {
-    const placedCount = state.placedFollowers.filter(
-      (follower) => playerId(follower.playerId) === playerId(player.id)
-    ).length
+    const placedCount =
+      (state.placedFollowers?.filter(
+        (follower) => playerId(follower.playerId) === playerId(player.id)
+      ).length ?? 0) +
+      (state.fieldFollowers?.filter(
+        (follower) => playerId(follower.playerId) === playerId(player.id)
+      ).length ?? 0)
     const remaining =
       state.playersFollowers[playerId(player.id)]?.ordinaryFollowers
     const monks = state.playersFollowers[playerId(player.id)]?.monks

@@ -159,6 +159,12 @@ const breakdownItems = (result: PlayerResult) => {
       title: 'Сады',
       value: result.breakdown.gardens,
     },
+    {
+      key: 'fields',
+      icon: 'i-lucide-sprout',
+      title: 'Поля',
+      value: result.breakdown.fields,
+    },
   ].filter((item) => item.value > 0)
 
   if (result.breakdown.other > 0) {

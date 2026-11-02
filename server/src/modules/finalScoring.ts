@@ -118,8 +118,6 @@ export function finalizeScoring(state: ScoringBoard): void {
     }
   }
 
-  scoreFields(state)
-
   scoreRemainingAbbots(state, completedMonasteries, ObjectTypes.MONASTERY)
   scoreRemainingAbbots(state, completedGardens, ObjectTypes.GARDEN)
 }

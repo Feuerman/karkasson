@@ -50,6 +50,7 @@ export interface GameData {
   actionsHistory: IGameState['actionsHistory']
   currentPlayer: IGameState['currentPlayer']
   placedFollowers: IGameState['placedFollowers']
+  fieldFollowers: IGameState['fieldFollowers']
   winnerPlayerIds: IGameState['winnerPlayerIds']
   lastUpdate: number
 }
@@ -95,6 +96,7 @@ export function formatGameData(game: GameManager): GameData {
     actionsHistory: game.actionsHistory,
     currentPlayer: game.currentPlayer,
     placedFollowers: game.placedFollowers,
+    fieldFollowers: game.fieldFollowers,
     winnerPlayerIds: game.winnerPlayerIds,
     lastUpdate: game.lastUpdate,
   }

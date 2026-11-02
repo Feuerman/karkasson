@@ -63,6 +63,10 @@
               :followers="
                 followersByCell[rowIndex]?.[tileIndex] ?? EMPTY_CELL_FOLLOWERS
               "
+              :field-followers="
+                fieldFollowersByCell[rowIndex]?.[tileIndex] ??
+                EMPTY_CELL_FIELD_FOLLOWERS
+              "
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
@@ -170,7 +174,7 @@ import {
   toRefs,
   watch,
 } from 'vue'
-import type { PlacedFollower } from '@server/modules/types'
+import type { FieldFollower, PlacedFollower } from '@server/modules/types'
 import {
   ActionTypes,
   BOARD_GRID_SIZE,
@@ -239,7 +243,9 @@ const defaultGrid = computed(() =>
 )
 
 const EMPTY_CELL_FOLLOWERS: PlacedFollower[] = []
+const EMPTY_CELL_FIELD_FOLLOWERS: FieldFollower[] = []
 const followersByCell = ref<PlacedFollower[][][]>([])
+const fieldFollowersByCell = ref<FieldFollower[][][]>([])
 
 watch(
   () => gameBoard.value.placedFollowers,
@@ -273,6 +279,43 @@ watch(
     }
     if (changed || prev.length === 0) {
       followersByCell.value = next
+    }
+  },
+  { deep: true, immediate: true }
+)
+
+watch(
+  () => gameBoard.value.fieldFollowers,
+  (fieldFollowers: FieldFollower[] | undefined) => {
+    const all = fieldFollowers ?? []
+    const prev = fieldFollowersByCell.value
+    const next: FieldFollower[][][] = []
+    let changed = false
+    for (let r = 0; r < gridDimensions.value[0]; r++) {
+      next[r] = []
+      for (let c = 0; c < gridDimensions.value[1]; c++) {
+        const cellFieldFollowers = all.filter(
+          (follower) => follower.point.y === r && follower.point.x === c
+        )
+        const prevCell = prev[r]?.[c]
+        if (
+          prevCell &&
+          prevCell.length === cellFieldFollowers.length &&
+          prevCell.every(
+            (follower, index) => follower === cellFieldFollowers[index]
+          )
+        ) {
+          next[r][c] = prevCell
+        } else if (cellFieldFollowers.length === 0) {
+          next[r][c] = EMPTY_CELL_FIELD_FOLLOWERS
+        } else {
+          next[r][c] = cellFieldFollowers
+          changed = true
+        }
+      }
+    }
+    if (changed || prev.length === 0) {
+      fieldFollowersByCell.value = next
     }
   },
   { deep: true, immediate: true }

@@ -68,6 +68,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import GameService from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import {
+  disambiguateFollowerPlaceTitles,
   followerPlaceIcon as placeIcon,
   followerPlaceTitle,
 } from '@/utils/labels'
@@ -152,18 +153,26 @@ const showPanel = computed(
  * приходит с сервером вместе с состоянием партии, поэтому интерфейс не решает,
  * какая фишка куда разрешена; здесь остаются только подписи и значки.
  */
-const choiceGroups = computed<ChoiceGroup[]>(() =>
-  groupedPlaces.value.map(({ place, sameTypeCount }, index) => {
+const choiceGroups = computed<ChoiceGroup[]>(() => {
+  const titles = disambiguateFollowerPlaceTitles(
+    groupedPlaces.value.map(({ place }) => place),
+    groupedPlaces.value.map(({ place, sameTypeCount }) =>
+      followerPlaceTitle(
+        place,
+        sameTypeCount,
+        props.gameBoard.tilePlacesStats[place.point.y]?.[place.point.x]
+          ?.fieldTopology
+      )
+    )
+  )
+
+  return groupedPlaces.value.map(({ place }, index) => {
     const followerTypes =
       props.gameBoard.availableFollowerTypes?.[place.temporaryObject.id] ?? []
 
     const choices: FollowerChoice[] = followerTypes.map((followerType) => ({
       key: followerType,
-      label: followerChoiceLabel(
-        followerPlaceTitle(place, sameTypeCount),
-        place,
-        followerType
-      ),
+      label: followerChoiceLabel(titles[index] ?? '', place, followerType),
       icon: followerChoiceIcon(place, followerType),
       followerType,
     }))
@@ -177,7 +186,7 @@ const choiceGroups = computed<ChoiceGroup[]>(() =>
       choices,
     }
   })
-)
+})
 
 const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
   void GameService.placeFollower(place, type).catch((error: unknown) => {

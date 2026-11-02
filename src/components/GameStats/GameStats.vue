@@ -223,6 +223,7 @@ const scoreBreakdownTitle = (playerId: PlayerId): string => {
     { label: 'Дороги', value: breakdown.roads },
     { label: 'Монастыри', value: breakdown.monasteries },
     { label: 'Сады', value: breakdown.gardens },
+    { label: 'Поля', value: breakdown.fields },
     { label: 'Прочее', value: breakdown.other },
   ].filter((entry) => entry.value > 0)
 

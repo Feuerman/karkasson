@@ -6,6 +6,10 @@ import {
   TileId,
   type PointType,
 } from '@server/modules/types'
+import type {
+  FieldBoundaryPort,
+  TileFieldTopology,
+} from '@server/data/fieldTopology'
 
 export type SideDirection = Exclude<
   PointDirection,
@@ -448,6 +452,65 @@ export function getFollowerPosition(
     featurePosition ?? edgePositions[featureDirection],
     rotation
   )
+}
+
+/** Визуальная точка крестьянина — у выбранного порта с отступом от грани. */
+export function getFieldFollowerPosition(
+  regionIndex: number | undefined,
+  rotation: number,
+  topology?: TileFieldTopology
+): Position {
+  const region = topology?.[regionIndex ?? 0]
+  if (region?.boundaryPorts.length) {
+    const portPositions: Record<FieldBoundaryPort, Position> = {
+      northWest: [0.25, 0.12],
+      northEast: [0.75, 0.12],
+      eastNorth: [0.88, 0.25],
+      eastSouth: [0.88, 0.75],
+      southEast: [0.75, 0.88],
+      southWest: [0.25, 0.88],
+      westSouth: [0.12, 0.75],
+      westNorth: [0.12, 0.25],
+    }
+    const coveredQuadrants = new Set(
+      region.boundaryPorts.map((port) => {
+        const [x, y] = portPositions[port]
+        return `${x < 0.5 ? 'west' : 'east'}-${y < 0.5 ? 'north' : 'south'}`
+      })
+    )
+    if (coveredQuadrants.size === 4) return rotatePosition([0.5, 0.5], rotation)
+
+    const preferredQuadrant: Position =
+      regionIndex === 1
+        ? [0.75, 0.25]
+        : regionIndex === 2
+          ? [0.25, 0.75]
+          : regionIndex === 3
+            ? [0.75, 0.75]
+            : [0.25, 0.25]
+    const port = region.boundaryPorts.reduce((closestPort, candidatePort) => {
+      const [closestX, closestY] = portPositions[closestPort]
+      const [candidateX, candidateY] = portPositions[candidatePort]
+      const [preferredX, preferredY] = preferredQuadrant
+      const closestDistance =
+        (closestX - preferredX) ** 2 + (closestY - preferredY) ** 2
+      const candidateDistance =
+        (candidateX - preferredX) ** 2 + (candidateY - preferredY) ** 2
+      return candidateDistance < closestDistance ? candidatePort : closestPort
+    })
+    return rotatePosition(portPositions[port], rotation)
+  }
+
+  // Для старых/неполных данных оставляем прежнюю позицию по квадранту.
+  const quadrant: Position =
+    regionIndex === 1
+      ? [0.75, 0.25]
+      : regionIndex === 2
+        ? [0.25, 0.75]
+        : regionIndex === 3
+          ? [0.75, 0.75]
+          : [0.25, 0.25]
+  return rotatePosition(quadrant, rotation)
 }
 
 export function isTileId(tileId: string): tileId is TileId {

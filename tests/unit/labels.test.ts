@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  disambiguateFollowerPlaceTitles,
   followerPlaceIcon,
+  followerPlaceTitle,
   pointDirectionTitle,
   pointTypeTitle,
 } from '@/utils/labels'
@@ -11,6 +13,7 @@ import {
 } from '@server/modules/types'
 import type { BaseObject, Point } from '@server/modules/types'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
+import { field, wholeTileField } from '@server/data/fieldTopology'
 
 /**
  * Подписи и иконки мест показываются игроку, поэтому сад и монастырь не
@@ -113,5 +116,72 @@ describe('followerPlaceIcon', () => {
     expect(followerPlaceIcon(placeWithoutPointType)).toBe(
       'i-lucide-person-standing'
     )
+  })
+})
+
+describe('followerPlaceTitle', () => {
+  it('clarifies a field choice by the sides of the tile it reaches', () => {
+    const fieldPlace = place({ pointType: TileSideType.Field, regionIndex: 0 })
+
+    expect(
+      followerPlaceTitle(fieldPlace, 1, [field(['northWest', 'westNorth'])])
+    ).toBe('Поле — северо-запад')
+  })
+
+  it('describes a field spanning the whole tile', () => {
+    const fieldPlace = place({ pointType: TileSideType.Field, regionIndex: 0 })
+
+    expect(followerPlaceTitle(fieldPlace, 1, wholeTileField())).toBe(
+      'Поле — весь тайл'
+    )
+  })
+
+  it('keeps an indexed fallback when field topology is missing', () => {
+    expect(
+      followerPlaceTitle(
+        place({ pointType: TileSideType.Field, regionIndex: 1 }),
+        1
+      )
+    ).toBe('Поле 2')
+  })
+
+  it('disambiguates matching field labels by region and tile coordinates', () => {
+    const firstRegion = place({
+      x: 15,
+      y: 15,
+      pointType: TileSideType.Field,
+      regionIndex: 0,
+    })
+    const secondRegion = place({
+      x: 15,
+      y: 15,
+      pointType: TileSideType.Field,
+      regionIndex: 1,
+    })
+    const sameRegionOnAnotherTile = place({
+      x: 16,
+      y: 15,
+      pointType: TileSideType.Field,
+      regionIndex: 0,
+    })
+
+    expect(
+      disambiguateFollowerPlaceTitles(
+        [firstRegion, secondRegion],
+        ['Поле — восток и юг', 'Поле — восток и юг']
+      )
+    ).toEqual([
+      'Поле — восток и юг (участок 1)',
+      'Поле — восток и юг (участок 2)',
+    ])
+    expect(
+      disambiguateFollowerPlaceTitles(
+        [firstRegion, sameRegionOnAnotherTile],
+        ['Поле — восток и юг', 'Поле — восток и юг']
+      )
+    ).toEqual([
+      'Поле — восток и юг (участок 1) (тайл 15, 15)',
+      'Поле — восток и юг (участок 1) (тайл 16, 15)',
+    ])
   })
 })

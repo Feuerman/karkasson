@@ -3,13 +3,18 @@ import { tiles } from '@server/data/tiles'
 import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import { riverTiles } from '@server/data/riverTiles'
 import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
+import { field } from '@server/data/fieldTopology'
 import {
   PointDirection,
   SideName,
   TileId,
   TileSideType,
 } from '@server/modules/types'
-import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
+import {
+  getFieldFollowerPosition,
+  getFollowerPosition,
+  isTileId,
+} from '@/utils/followerPositions'
 
 // Наборы тайлов всех расширений: позиции фишек заданы и для речных тайлов,
 // и для тайлов «Принцесса и дракон», поэтому проверяем их наравне с базовыми.
@@ -202,6 +207,88 @@ describe('follower positions', () => {
     expect(
       getFollowerPosition(TileId.R, PointDirection.Center, 0, undefined, true)
     ).not.toEqual([0.5, 0.5])
+  })
+
+  it('positions field followers near the edge matching their topology port', () => {
+    const topology = [field(['northWest'])]
+
+    expect(getFieldFollowerPosition(0, 0, topology)).toEqual([0.25, 0.12])
+    expect(getFieldFollowerPosition(0, 90, topology)).toEqual([0.88, 0.25])
+  })
+
+  it('chooses a half-edge consistently for fields connected to multiple ports', () => {
+    expect(
+      getFieldFollowerPosition(0, 0, [field(['southWest', 'southEast'])])
+    ).toEqual([0.25, 0.88])
+  })
+
+  it('does not shift the field marker onto a city touching the same region', () => {
+    expect(getFieldFollowerPosition(0, 0, [field(['northWest'], [0])])).toEqual(
+      [0.25, 0.12]
+    )
+
+    expect(
+      getFieldFollowerPosition(0, 0, [field(['southWest', 'eastNorth'], [0])])
+    ).toEqual([0.25, 0.88])
+  })
+
+  it('uses the same edge-based placement for every tile field topology', () => {
+    const tileP = tiles.find((tile) => tile.id === TileId.P)
+    expect(
+      tileP && getFieldFollowerPosition(0, 0, tileP.fieldTopology)
+    ).toEqual([0.25, 0.88])
+
+    for (const tile of tileSets) {
+      for (
+        let regionIndex = 0;
+        regionIndex < tile.fieldTopology.length;
+        regionIndex++
+      ) {
+        const position = getFieldFollowerPosition(
+          regionIndex,
+          0,
+          tile.fieldTopology
+        )
+
+        expect(
+          position[0],
+          `${tile.id} field ${regionIndex} x`
+        ).toBeGreaterThan(0.08)
+        expect(position[0], `${tile.id} field ${regionIndex} x`).toBeLessThan(
+          0.92
+        )
+        expect(
+          position[1],
+          `${tile.id} field ${regionIndex} y`
+        ).toBeGreaterThan(0.08)
+        expect(position[1], `${tile.id} field ${regionIndex} y`).toBeLessThan(
+          0.92
+        )
+
+        for (const rotation of [90, 180, 270]) {
+          expect(
+            getFieldFollowerPosition(regionIndex, rotation, tile.fieldTopology),
+            `${tile.id} field ${regionIndex} at ${rotation}°`
+          ).toEqual(rotatePosition(position, rotation))
+        }
+      }
+    }
+  })
+
+  it('places the field on tile H between its opposite cities at every rotation', () => {
+    const tileH = tiles.find((tile) => tile.id === TileId.H)
+    expect(tileH).toBeDefined()
+
+    for (const rotation of [0, 90, 180, 270]) {
+      expect(
+        getFieldFollowerPosition(0, rotation, tileH?.fieldTopology),
+        `tile H at ${rotation}°`
+      ).toEqual([0.5, 0.5])
+    }
+  })
+
+  it('uses a stable fallback position when field topology is unavailable', () => {
+    expect(getFieldFollowerPosition(2, 0)).toEqual([0.25, 0.75])
   })
 
   // Точки без стороны или со стороной вне тайла не должны ронять отрисовку.
