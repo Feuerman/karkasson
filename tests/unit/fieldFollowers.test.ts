@@ -149,6 +149,14 @@ describe('Постановка крестьянина на поле', () => {
     expect(game.playersFollowers[P1].ordinaryFollowers).toBe(6)
     // Крестьянин остаётся на поле и не возвращается в запас.
     expect(game.fieldFollowers).toHaveLength(1)
+    // Размещение крестьянина на поле фиксируется в истории партии.
+    const followerPlacements = game.actionsHistory.filter(
+      (a) => a.actionType === ActionTypes.PLACE_FOLLOWER
+    )
+    expect(followerPlacements).toHaveLength(1)
+    expect(followerPlacements[0]?.actionData.followerType).toBe(
+      FollowerType.Follower
+    )
   })
 
   it('большой подданный расходуется и помечается', () => {
