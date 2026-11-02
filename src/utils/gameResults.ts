@@ -8,6 +8,7 @@ export interface ScoreBreakdown {
   roads: number
   monasteries: number
   gardens: number
+  fields: number
   /** Очки, которые не удалось разложить по объектам. */
   other: number
 }
@@ -29,6 +30,7 @@ const EMPTY_BREAKDOWN: ScoreBreakdown = {
   roads: 0,
   monasteries: 0,
   gardens: 0,
+  fields: 0,
   other: 0,
 }
 
@@ -38,7 +40,7 @@ const OBJECT_BUCKETS: Record<ObjectTypes, keyof ScoreBreakdown> = {
   [ObjectTypes.ROAD]: 'roads',
   [ObjectTypes.MONASTERY]: 'monasteries',
   [ObjectTypes.GARDEN]: 'gardens',
-  [ObjectTypes.FIELD]: 'other',
+  [ObjectTypes.FIELD]: 'fields',
 }
 
 /**
@@ -85,7 +87,8 @@ export const buildGameResults = (
       breakdown.cities +
       breakdown.roads +
       breakdown.monasteries +
-      breakdown.gardens
+      breakdown.gardens +
+      breakdown.fields
 
     return {
       playerId: player.id,

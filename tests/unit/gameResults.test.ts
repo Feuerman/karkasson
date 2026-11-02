@@ -55,6 +55,7 @@ describe('buildScoreBreakdown', () => {
       roads: 4,
       monasteries: 9,
       gardens: 2,
+      fields: 0,
       other: 0,
     })
   })
@@ -69,6 +70,7 @@ describe('buildScoreBreakdown', () => {
       roads: 0,
       monasteries: 0,
       gardens: 0,
+      fields: 0,
       other: 0,
     })
   })
@@ -79,6 +81,7 @@ describe('buildScoreBreakdown', () => {
       roads: 0,
       monasteries: 0,
       gardens: 0,
+      fields: 0,
       other: 0,
     })
   })
@@ -138,6 +141,7 @@ describe('buildGameResults', () => {
       roads: 4,
       monasteries: 0,
       gardens: 0,
+      fields: 0,
       other: 4,
     })
   })

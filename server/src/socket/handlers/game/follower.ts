@@ -5,6 +5,7 @@ import type {
 import {
   FollowerType as FollowerTypes,
   SocketEvents,
+  TileSideType,
 } from '../../../modules/types'
 import type { SocketCallback, SocketHandlerContext } from '../../types'
 import { GameErrors } from '../../../modules/errors'
@@ -42,7 +43,8 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
               candidate.point.x === place?.point?.x &&
               candidate.point.y === place?.point?.y &&
               candidate.point.direction === place?.point?.direction &&
-              candidate.point.pointType === place?.point?.pointType
+              candidate.point.pointType === place?.point?.pointType &&
+              candidate.point.regionIndex === place?.point?.regionIndex
           )
           if (!availablePlace) {
             throw new Error(GameErrors.InvalidFollowerPlacement)
@@ -51,8 +53,15 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
           // правила по состоянию партии, транспорт их не дублирует.
 
           const followersBefore = game.placedFollowers.length
+          const fieldFollowersBefore = game.fieldFollowers.length
           game.placeFollower(availablePlace, followerType)
-          if (game.placedFollowers.length !== followersBefore + 1) {
+          const isFieldPlace =
+            availablePlace.point.pointType === TileSideType.Field
+          if (isFieldPlace) {
+            if (game.fieldFollowers.length !== fieldFollowersBefore + 1) {
+              throw new Error(GameErrors.FollowerPlacementUnavailable)
+            }
+          } else if (game.placedFollowers.length !== followersBefore + 1) {
             throw new Error(GameErrors.FollowerPlacementUnavailable)
           }
         },

@@ -29,12 +29,19 @@ import {
   PointDirection,
   SideName,
   TileId,
-  type PlacedFollower,
+  TileSideType,
+  type FieldFollower,
   type Player,
+  type PlayerId,
+  type PlacedFollower,
   type Tile,
 } from '@server/modules/types'
 import { rotationClass } from '@/utils/tiles'
-import { getFollowerPosition, isTileId } from '@/utils/followerPositions'
+import {
+  getFieldFollowerPosition,
+  getFollowerPosition,
+  isTileId,
+} from '@/utils/followerPositions'
 import { playerColorValue } from '@/utils/colors'
 import type { RulesTileRef } from '@/rules/types'
 
@@ -43,12 +50,14 @@ const props = withDefaults(
     tile?: Tile | RulesTileRef | null
     size?: number
     followers?: PlacedFollower[]
+    fieldFollowers?: FieldFollower[]
     players?: Player[]
   }>(),
   {
     tile: null,
     size: 110,
     followers: () => [],
+    fieldFollowers: () => [],
     players: () => [],
   }
 )
@@ -415,26 +424,61 @@ const drawTile = () => {
     }
   })
 
+  const fieldPoints = props.fieldFollowers.map((follower) => {
+    return {
+      ...follower.point,
+      playerId: follower.playerId,
+      isBigFollower: follower.isBigFollower,
+      regionIndex: follower.point.regionIndex,
+    }
+  })
+
   // Рисуем каждую точку с учетом направления
-  followerPoints.forEach((point) => {
-    const tileSideType =
-      point.direction &&
-      point.direction !== PointDirection.Center &&
-      isSideName(point.direction) &&
-      props.tile &&
-      'sides' in props.tile
-        ? props.tile.sides[point.direction]
-        : undefined
-    const tileId = String(props.tile?.id ?? '')
-    const [normalizedX, normalizedY] = isTileId(tileId)
-      ? getFollowerPosition(
-          tileId,
-          point.direction,
-          Number(props.tile?.rotation ?? 0),
-          point.pointType ?? tileSideType,
-          point.isGarden
-        )
-      : [0.5, 0.5]
+  const drawPoint = (point: {
+    x: number
+    y: number
+    playerId: PlayerId
+    isBigFollower?: boolean
+    isAbbot?: boolean
+    isGarden?: boolean
+    direction?: PointDirection
+    pointType?: import('@server/modules/types').PointType
+    regionIndex?: number
+  }) => {
+    const isField = point.pointType === TileSideType.Field
+    let normalizedX = 0.5
+    let normalizedY = 0.5
+
+    if (isField && isTileId(String(props.tile?.id ?? ''))) {
+      const fieldTopology =
+        props.tile && 'fieldTopology' in props.tile
+          ? props.tile.fieldTopology
+          : undefined
+      ;[normalizedX, normalizedY] = getFieldFollowerPosition(
+        point.regionIndex,
+        Number(props.tile?.rotation ?? 0),
+        fieldTopology
+      )
+    } else {
+      const tileSideType =
+        point.direction &&
+        point.direction !== PointDirection.Center &&
+        isSideName(point.direction) &&
+        props.tile &&
+        'sides' in props.tile
+          ? props.tile.sides[point.direction]
+          : undefined
+      const tileId = String(props.tile?.id ?? '')
+      ;[normalizedX, normalizedY] = isTileId(tileId)
+        ? getFollowerPosition(
+            tileId,
+            point.direction,
+            Number(props.tile?.rotation ?? 0),
+            point.pointType ?? tileSideType,
+            point.isGarden
+          )
+        : [0.5, 0.5]
+    }
     const x = normalizedX * props.size
     const y = normalizedY * props.size
 
@@ -443,19 +487,27 @@ const drawTile = () => {
     )
     const playerColor = playerColorValue(player?.color)
 
-    // Белый ореол для читаемости на фоне тайла
+    // Белый ореал для читаемости на фоне тайла
     ctx.save()
+    if (isField) {
+      // Крестьян кладут плашмя: овальная форма отделяет их от стоящих
+      // подданных и лучше читается на рисунке поля.
+      ctx.translate(x, y)
+      ctx.scale(1, 0.55)
+    }
+    const markerX = isField ? 0 : x
+    const markerY = isField ? 0 : y
     ctx.shadowColor = 'rgba(0, 0, 0, 0.35)'
     ctx.shadowBlur = 4
     ctx.beginPath()
-    ctx.arc(x, y, point.isBigFollower ? 14 : 11, 0, Math.PI * 2)
+    ctx.arc(markerX, markerY, point.isBigFollower ? 14 : 11, 0, Math.PI * 2)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
     ctx.fill()
 
     // Цветное ядро маркера
     ctx.shadowBlur = 0
     ctx.beginPath()
-    ctx.arc(x, y, point.isBigFollower ? 11 : 8.5, 0, Math.PI * 2)
+    ctx.arc(markerX, markerY, point.isBigFollower ? 11 : 8.5, 0, Math.PI * 2)
     ctx.fillStyle = playerColor
     ctx.fill()
     ctx.lineWidth = 1.5
@@ -468,15 +520,18 @@ const drawTile = () => {
       ctx.lineWidth = 2
       const arm = point.isBigFollower ? 5 : 3.2
       ctx.beginPath()
-      ctx.moveTo(x - arm, y)
-      ctx.lineTo(x + arm, y)
-      ctx.moveTo(x, y - arm)
-      ctx.lineTo(x, y + arm)
+      ctx.moveTo(markerX - arm, markerY)
+      ctx.lineTo(markerX + arm, markerY)
+      ctx.moveTo(markerX, markerY - arm)
+      ctx.lineTo(markerX, markerY + arm)
       ctx.stroke()
     }
 
     ctx.restore()
-  })
+  }
+
+  followerPoints.forEach(drawPoint)
+  fieldPoints.forEach(drawPoint)
 }
 
 function isSideName(direction: PointDirection): direction is SideName {
@@ -490,6 +545,15 @@ function isSideName(direction: PointDirection): direction is SideName {
 
 watch(
   () => props.followers,
+  () => {
+    nextTick(() => {
+      drawTile()
+    })
+  }
+)
+
+watch(
+  () => props.fieldFollowers,
   () => {
     nextTick(() => {
       drawTile()
