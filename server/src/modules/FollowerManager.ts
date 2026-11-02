@@ -71,9 +71,21 @@ export class FollowerManager {
       return
     }
 
-    this.state.availableFollowersPlaces = this.findAvailableFollowersPlaces(
+    const regularPlaces = this.findAvailableFollowersPlaces(
       this.state.currentTile
     )
+    const fieldPlaces = this.findAvailableFieldPlaces(
+      this.state.currentTile
+    ).map((place) => ({
+      point: place.point,
+      temporaryObject: {
+        id: 'field',
+        points: [],
+        followers: [],
+      } as BaseObject,
+    }))
+
+    this.state.availableFollowersPlaces = [...regularPlaces, ...fieldPlaces]
 
     if (this.state.availableFollowersPlaces.length) {
       this.goPlaceFollower()
@@ -393,6 +405,19 @@ export class FollowerManager {
       isBigFollower: followerType === FollowerTypes.BigFollower || undefined,
     }
     this.state.fieldFollowers.push(placement)
+    this.state.recordAction({
+      actionType: ActionTypes.PLACE_FOLLOWER,
+      actionData: {
+        point: place.point,
+        temporaryObject: {
+          id: 'field',
+          points: [],
+          followers: [],
+        } as BaseObject,
+        followerType,
+      },
+      initiator: activePlayer,
+    })
     this.state.endTurn()
     return followerType
   }

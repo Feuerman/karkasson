@@ -56,6 +56,7 @@ const placeObjectType = (
   if (place.temporaryObject.isMonastery) return ObjectTypes.MONASTERY
   if (place.point.pointType === TileSideType.Road) return ObjectTypes.ROAD
   if (place.point.pointType === TileSideType.City) return ObjectTypes.CITY
+  if (place.point.pointType === TileSideType.Field) return ObjectTypes.FIELD
   return undefined
 }
 

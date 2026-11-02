@@ -5,10 +5,16 @@ import { renderToString } from 'vue/server-renderer'
 import PlayerNameById from '@/components/GameActionsHistory/internal/PlayerNameById.vue'
 import BackFollowerAction from '@/components/GameActionsHistory/internal/actions/BackFollowerAction.vue'
 import DragonMoveAction from '@/components/GameActionsHistory/internal/actions/DragonMoveAction.vue'
-import { ActionTypes, ObjectTypes, TileSideType } from '@server/modules/types'
+import {
+  ActionTypes,
+  FollowerType,
+  ObjectTypes,
+  TileSideType,
+} from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import type { Player, ReturnedFollower } from '@server/modules/types'
 import { HISTORY_PLAYERS_KEY } from '@/components/GameActionsHistory/internal/players'
+import { placedFollowerName } from '@/components/GameActionsHistory/internal/followerNames'
 
 // Иконка из Nuxt UI тянет рантайм-пакеты, недоступные в node-окружении тестов.
 vi.mock('@nuxt/ui/components/Icon.vue', () => ({
@@ -123,5 +129,36 @@ describe('имя игрока в истории', () => {
     })
 
     expect(textOf(html)).toMatch(/Съедены подданные:\s*Анна — рыцарь/)
+  })
+})
+
+describe('наименование выставленного подданного', () => {
+  const place = (
+    pointType: TileSideType,
+    followerType?: FollowerType
+  ): {
+    point: { x: number; y: number; pointType: TileSideType }
+    temporaryObject: { id: string; points: []; followers: [] }
+    followerType?: FollowerType
+  } => ({
+    point: { x: 15, y: 14, pointType },
+    temporaryObject: { id: 'obj', points: [], followers: [] },
+    followerType,
+  })
+
+  it('крестьянин на поле', () => {
+    expect(placedFollowerName(place(TileSideType.Field))).toBe('крестьянин')
+  })
+
+  it('рыцарь в городе', () => {
+    expect(placedFollowerName(place(TileSideType.City))).toBe('рыцарь')
+  })
+
+  it('разбойник на дороге', () => {
+    expect(placedFollowerName(place(TileSideType.Road))).toBe('разбойник')
+  })
+
+  it('подданный без типа объекта', () => {
+    expect(placedFollowerName(place(TileSideType.Field))).toBe('крестьянин')
   })
 })
