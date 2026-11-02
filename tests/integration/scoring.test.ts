@@ -79,8 +79,15 @@ describe('Подсчёт очков и полная партия', () => {
     // Игра действительно завершилась
     expect(endState.gameIsEnded).toBe(true)
 
-    // На доске лежат все тайлы колоды (71 ход + стартовый = 72)
-    expect(countPlacedTiles(endState.tilePlacesStats)).toBe(72)
+    // Игра может закончиться раньше, если ни один из оставшихся тайлов нельзя
+    // легально поставить. Проверяем согласованность доски с историей ходов и
+    // то, что число тайлов не превышает размер базовой колоды.
+    const placedTiles = countPlacedTiles(endState.tilePlacesStats)
+    const tilePlacementActions = (endState.actionsHistory ?? []).filter(
+      (action) => action.actionType === ActionTypes.PLACE_TILE
+    )
+    expect(placedTiles).toBe(tilePlacementActions.length)
+    expect(placedTiles).toBeLessThanOrEqual(72)
 
     // Алиса ходила не менее 10 раз (колода / число игроков ≈ 16)
     expect(stats.aliceTurns).toBeGreaterThan(10)
