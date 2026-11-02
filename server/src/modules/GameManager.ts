@@ -23,7 +23,7 @@ import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager, type FieldPlace } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
 import { DragonPrincessManager } from './DragonPrincessManager'
-import { finalizeScoring, scoreFields } from './finalScoring'
+import { finalizeScoring } from './finalScoring'
 import { getDragonTurnNumber, getPlayerTurnNumber } from './turnNumber'
 import type { IGameState } from './gameState'
 import {
@@ -823,7 +823,6 @@ export class GameManager implements IGameState {
     this.availablePlacesTiles = []
     this.currentPlayer = null
     this.tilesList = []
-    scoreFields(this)
     if (this.finalScoringEnabled) finalizeScoring(this)
     // Победителя считаем здесь, после финального подсчёта: клиент только
     // отображает готовый список лидеров и не пересчитывает очки.
