@@ -1,0 +1,42 @@
+# Generated output and dependency trees
+node_modules/
+dist/
+dist-ssr/
+.next/
+.nuxt/
+.output/
+.turbo/
+.cache/
+coverage/
+
+# Downloaded reference material is not application source
+reference/
+
+# Binary media and archives add little searchable source context
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.tif
+*.tiff
+*.avif
+*.ico
+*.mp4
+*.webm
+*.mov
+*.avi
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.aac
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.glb
+*.gltf
+*.psd
