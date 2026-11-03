@@ -89,18 +89,19 @@ const SIDE_TITLES: Record<SideName, string> = {
 
 /** Подпись региона поля по его граничным портам: угол, сторона, весь тайл или пустая строка. */
 function fieldRegionTitle(ports: FieldBoundaryPort[]): string {
-  if (ports.length === FIELD_BOUNDARY_PORTS.length) return 'весь тайл'
+  if (ports.length === FIELD_BOUNDARY_PORTS.length) return 'вокруг всего тайла'
 
   const quadrants = new Set(ports.map((port) => PORT_QUADRANT[port]))
   if (quadrants.size === 1) {
     const quadrant = [...quadrants][0]
-    return QUADRANT_TITLES[quadrant] ?? ''
+    const title = QUADRANT_TITLES[quadrant]
+    return title ? `угол: ${title}` : ''
   }
 
   const sides = new Set(ports.map(sideOfFieldPort))
   if (sides.size === 1) {
     const side = [...sides][0]
-    return SIDE_TITLES[side]
+    return `вдоль стороны: ${SIDE_TITLES[side]}`
   }
 
   return ''

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { Point } from '@server/modules/types'
 
 export type BoardZoomHandler = (cell: {
   rowIndex: number
@@ -10,6 +11,7 @@ const fairyTargetPreview = ref<{
   rowIndex: number
   tileIndex: number
 } | null>(null)
+const followerPlacementPreview = ref<Point | null>(null)
 
 /**
  * Связывает доску и элементы интерфейса, которые просят показать клетку.
@@ -31,10 +33,16 @@ export function useBoardZoom() {
     fairyTargetPreview.value = cell
   }
 
+  const setFollowerPlacementPreview = (point: Point | null) => {
+    followerPlacementPreview.value = point
+  }
+
   return {
     setZoomHandler,
     zoomToTile,
     fairyTargetPreview,
     setFairyTargetPreview,
+    followerPlacementPreview,
+    setFollowerPlacementPreview,
   }
 }

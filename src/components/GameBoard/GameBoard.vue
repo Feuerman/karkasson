@@ -73,6 +73,9 @@
                 fieldFollowersByCell[rowIndex]?.[tileIndex] ??
                 EMPTY_CELL_FIELD_FOLLOWERS
               "
+              :follower-preview-point="
+                followerPreviewForCell(rowIndex, tileIndex)
+              "
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
@@ -629,12 +632,18 @@ const zoomToTile = ({ rowIndex, tileIndex }: BoardCell = {}) => {
   highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS)
 }
 
-const { setZoomHandler, fairyTargetPreview } = useBoardZoom()
+const { setZoomHandler, fairyTargetPreview, followerPlacementPreview } =
+  useBoardZoom()
 setZoomHandler(zoomToTile)
 
 const isFairyTargetPreview = (rowIndex: number, tileIndex: number) =>
   fairyTargetPreview.value?.rowIndex === rowIndex &&
   fairyTargetPreview.value?.tileIndex === tileIndex
+
+const followerPreviewForCell = (rowIndex: number, tileIndex: number) => {
+  const point = followerPlacementPreview.value
+  return point?.y === rowIndex && point.x === tileIndex ? point : null
+}
 
 const LAST_ACTION_DURATION_MS = 3200
 const lastActionCell = ref<BoardCell>({})
