@@ -34,19 +34,29 @@
           group.isCenterFeature ? TEST_IDS.followerPlacementOptions : undefined
         "
       >
-        <UButton
+        <div
           v-for="choice in group.choices"
           :key="choice.key"
-          block
-          variant="ghost"
-          class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-          @click.stop="placeFollower(group.place, choice.followerType)"
+          class="rounded-lg hover:bg-surface-muted"
+          @mouseenter="previewFollowerPlace(group.place)"
+          @mouseleave="clearFollowerPlacePreview"
         >
-          <template #leading>
-            <UIcon :name="choice.icon" class="h-4 w-4 text-secondary-dark" />
-          </template>
-          {{ choice.label }}
-        </UButton>
+          <UButton
+            block
+            variant="ghost"
+            class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+            @focus="previewFollowerPlace(group.place)"
+            @blur="clearFollowerPlacePreview"
+            @click.stop="placeFollower(group.place, choice.followerType)"
+          >
+            <template #leading>
+              <UIcon :name="choice.icon" class="h-4 w-4 text-secondary-dark" />
+            </template>
+            <span class="flex min-w-0 flex-col items-start text-left">
+              <span>{{ choice.label }}</span>
+            </span>
+          </UButton>
+        </div>
       </div>
     </div>
     <div
@@ -230,7 +240,14 @@ function fairyTargetDescription(target: FairyFollowerRef): string {
   return `Фея к ${kind} ${player?.name ?? 'игрока'}`
 }
 
-const { zoomToTile, setFairyTargetPreview } = useBoardZoom()
+const { zoomToTile, setFairyTargetPreview, setFollowerPlacementPreview } =
+  useBoardZoom()
+
+const previewFollowerPlace = (place: AvailableFollowerPlace) => {
+  setFollowerPlacementPreview(place.point)
+}
+
+const clearFollowerPlacePreview = () => setFollowerPlacementPreview(null)
 
 const previewFairyTarget = (point: Point) => {
   setFairyTargetPreview({ rowIndex: point.y, tileIndex: point.x })
@@ -242,7 +259,10 @@ const zoomToFairyTarget = (point: Point) => {
   zoomToTile({ rowIndex: point.y, tileIndex: point.x })
 }
 
-onBeforeUnmount(clearFairyTargetPreview)
+onBeforeUnmount(() => {
+  clearFairyTargetPreview()
+  clearFollowerPlacePreview()
+})
 
 /**
  * Кнопки выбора фишки для каждого доступного места. Набор допустимых типов

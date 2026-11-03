@@ -125,15 +125,23 @@ describe('followerPlaceTitle', () => {
 
     expect(
       followerPlaceTitle(fieldPlace, 1, [field(['northWest', 'westNorth'])])
-    ).toBe('Поле — северо-запад')
+    ).toBe('Поле — угол: северо-запад')
   })
 
   it('describes a field spanning the whole tile', () => {
     const fieldPlace = place({ pointType: TileSideType.Field, regionIndex: 0 })
 
     expect(followerPlaceTitle(fieldPlace, 1, wholeTileField())).toBe(
-      'Поле — весь тайл'
+      'Поле — вокруг всего тайла'
     )
+  })
+
+  it('clarifies a field following one side of the tile', () => {
+    const fieldPlace = place({ pointType: TileSideType.Field, regionIndex: 0 })
+
+    expect(
+      followerPlaceTitle(fieldPlace, 1, [field(['northWest', 'northEast'])])
+    ).toBe('Поле — вдоль стороны: север')
   })
 
   it('keeps an indexed fallback when field topology is missing', () => {

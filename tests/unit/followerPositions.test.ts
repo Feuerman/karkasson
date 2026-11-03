@@ -4,6 +4,7 @@ import { innsAndCathedralsTiles } from '@server/data/innsAndCathedralsTiles'
 import { riverTiles } from '@server/data/riverTiles'
 import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
 import { field } from '@server/data/fieldTopology'
+import { rotateFieldTopology } from '@server/modules/tileRotation'
 import {
   PointDirection,
   SideName,
@@ -213,7 +214,9 @@ describe('follower positions', () => {
     const topology = [field(['northWest'])]
 
     expect(getFieldFollowerPosition(0, 0, topology)).toEqual([0.25, 0.12])
-    expect(getFieldFollowerPosition(0, 90, topology)).toEqual([0.88, 0.25])
+    expect(
+      getFieldFollowerPosition(0, 90, rotateFieldTopology(topology, 1))
+    ).toEqual([0.88, 0.25])
   })
 
   it('chooses a half-edge consistently for fields connected to multiple ports', () => {
@@ -230,6 +233,16 @@ describe('follower positions', () => {
     expect(
       getFieldFollowerPosition(0, 0, [field(['southWest', 'eastNorth'], [0])])
     ).toEqual([0.25, 0.88])
+  })
+
+  it('keeps a city-adjacent field marker in the same region after rotation', () => {
+    const topology = [field(['eastNorth', 'westNorth'], [0])]
+    const rotatedTopology = rotateFieldTopology(topology, 1)
+
+    expect(getFieldFollowerPosition(0, 0, topology)).toEqual([0.12, 0.25])
+    expect(getFieldFollowerPosition(0, 90, rotatedTopology)).toEqual([
+      0.75, 0.12,
+    ])
   })
 
   it('uses the same edge-based placement for every tile field topology', () => {
@@ -266,8 +279,12 @@ describe('follower positions', () => {
         )
 
         for (const rotation of [90, 180, 270]) {
+          const rotatedTopology = rotateFieldTopology(
+            tile.fieldTopology,
+            rotation / 90
+          )
           expect(
-            getFieldFollowerPosition(regionIndex, rotation, tile.fieldTopology),
+            getFieldFollowerPosition(regionIndex, rotation, rotatedTopology),
             `${tile.id} field ${regionIndex} at ${rotation}°`
           ).toEqual(rotatePosition(position, rotation))
         }
@@ -280,8 +297,12 @@ describe('follower positions', () => {
     expect(tileH).toBeDefined()
 
     for (const rotation of [0, 90, 180, 270]) {
+      const rotatedTopology = rotateFieldTopology(
+        tileH?.fieldTopology,
+        rotation / 90
+      )
       expect(
-        getFieldFollowerPosition(0, rotation, tileH?.fieldTopology),
+        getFieldFollowerPosition(0, rotation, rotatedTopology),
         `tile H at ${rotation}°`
       ).toEqual([0.5, 0.5])
     }

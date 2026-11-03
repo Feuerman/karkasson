@@ -16,6 +16,19 @@
         :height="size"
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.08] transition-transform duration-200 ease-in-out"
       ></canvas>
+      <div
+        v-if="followerPreviewPosition"
+        class="pointer-events-none absolute inset-0 z-10 scale-[1.08]"
+        aria-hidden="true"
+      >
+        <div
+          class="absolute size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-amber-300/45 shadow-[0_0_0_3px_rgba(245,158,11,0.55),0_0_16px_rgba(255,220,90,0.9)]"
+          :style="{
+            left: `${followerPreviewPosition[0] * 100}%`,
+            top: `${followerPreviewPosition[1] * 100}%`,
+          }"
+        />
+      </div>
     </template>
     <template v-else>
       <div></div>
@@ -34,6 +47,7 @@ import {
   type Player,
   type PlayerId,
   type PlacedFollower,
+  type Point,
   type Tile,
 } from '@server/modules/types'
 import { rotationClass } from '@/utils/tiles'
@@ -51,6 +65,7 @@ const props = withDefaults(
     size?: number
     followers?: PlacedFollower[]
     fieldFollowers?: FieldFollower[]
+    followerPreviewPoint?: Point | null
     players?: Player[]
   }>(),
   {
@@ -58,6 +73,7 @@ const props = withDefaults(
     size: 110,
     followers: () => [],
     fieldFollowers: () => [],
+    followerPreviewPoint: null,
     players: () => [],
   }
 )
@@ -400,6 +416,23 @@ const tileImg = computed(() => {
 })
 
 const rotateClass = computed(() => rotationClass(props.tile?.rotation ?? 0))
+
+const followerPreviewPosition = computed(() => {
+  const point = props.followerPreviewPoint
+  const tileId = String(props.tile?.id ?? '')
+  if (!point || !isTileId(tileId)) return null
+
+  const rotation = Number(props.tile?.rotation ?? 0)
+  if (point.pointType === TileSideType.Field) {
+    const topology =
+      props.tile && 'fieldTopology' in props.tile
+        ? props.tile.fieldTopology
+        : undefined
+    return getFieldFollowerPosition(point.regionIndex, rotation, topology)
+  }
+
+  return getFollowerPosition(tileId, point.direction, rotation, point.pointType)
+})
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 

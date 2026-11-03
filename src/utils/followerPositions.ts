@@ -488,17 +488,22 @@ export function getFieldFollowerPosition(
           : regionIndex === 3
             ? [0.75, 0.75]
             : [0.25, 0.25]
+    // Топология на тайле уже повёрнута сервером вместе с его сторонами.
+    // Поворачиваем опорный квадрант, чтобы выбрать тот же участок поля, но
+    // возвращаем координату порта напрямую: повторный поворот переносил её
+    // на соседнюю область (иногда прямо на город).
+    const rotatedPreferredQuadrant = rotatePosition(preferredQuadrant, rotation)
     const port = region.boundaryPorts.reduce((closestPort, candidatePort) => {
       const [closestX, closestY] = portPositions[closestPort]
       const [candidateX, candidateY] = portPositions[candidatePort]
-      const [preferredX, preferredY] = preferredQuadrant
+      const [preferredX, preferredY] = rotatedPreferredQuadrant
       const closestDistance =
         (closestX - preferredX) ** 2 + (closestY - preferredY) ** 2
       const candidateDistance =
         (candidateX - preferredX) ** 2 + (candidateY - preferredY) ** 2
       return candidateDistance < closestDistance ? candidatePort : closestPort
     })
-    return rotatePosition(portPositions[port], rotation)
+    return portPositions[port]
   }
 
   // Для старых/неполных данных оставляем прежнюю позицию по квадранту.
