@@ -1,4 +1,4 @@
-import type { TileDefinition } from './tiles'
+﻿import type { TileDefinition } from './tiles'
 import { ExpansionName, SideName, TileId, TileSideType } from '../modules/types'
 import { field, fields, wholeTileField } from './fieldTopology'
 
@@ -121,7 +121,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
   },
   {
     id: TileId.PAD_G,
-    count: 1,
+    count: 2,
     description: 'Curved road with a dragon',
     sides: {
       [SideName.North]: TileSideType.Field,
@@ -363,6 +363,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       field(['southWest', 'westSouth'])
     ),
     imgUrl: image('R'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {
@@ -378,6 +379,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
     cityGroups: [[SideName.North, SideName.East, SideName.West]],
     fieldTopology: fields(field(['southWest', 'southEast'], [0])),
     imgUrl: image('S'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {
@@ -396,6 +398,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       field(['southWest', 'westSouth'])
     ),
     imgUrl: image('T'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {
@@ -414,6 +417,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       field(['eastSouth', 'southEast'])
     ),
     imgUrl: image('U'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {
@@ -433,6 +437,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       field(['eastSouth', 'southEast'])
     ),
     imgUrl: image('V'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {
@@ -455,6 +460,7 @@ export const princessAndDragonTiles: TileDefinition[] = [
       field(['northEast', 'eastNorth', 'westSouth', 'southWest'])
     ),
     imgUrl: image('W'),
+    hasMagicPortal: true,
     expansion: ExpansionName.PrincessAndDragon,
   },
   {

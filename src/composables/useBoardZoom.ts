@@ -6,6 +6,10 @@ export type BoardZoomHandler = (cell: {
 }) => void
 
 const zoomHandler = ref<BoardZoomHandler | null>(null)
+const fairyTargetPreview = ref<{
+  rowIndex: number
+  tileIndex: number
+} | null>(null)
 
 /**
  * Связывает доску и элементы интерфейса, которые просят показать клетку.
@@ -21,5 +25,16 @@ export function useBoardZoom() {
     zoomHandler.value?.(cell)
   }
 
-  return { setZoomHandler, zoomToTile }
+  const setFairyTargetPreview = (
+    cell: { rowIndex: number; tileIndex: number } | null
+  ) => {
+    fairyTargetPreview.value = cell
+  }
+
+  return {
+    setZoomHandler,
+    zoomToTile,
+    fairyTargetPreview,
+    setFairyTargetPreview,
+  }
 }

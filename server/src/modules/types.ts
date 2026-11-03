@@ -219,6 +219,7 @@ export const SocketEvents = {
   PlaceTile: 'placeTile',
   PlaceFollower: 'placeFollower',
   MoveDragon: 'moveDragon',
+  MoveFairy: 'moveFairy',
   ChoosePrincess: 'choosePrincess',
   RecallAbbot: 'recallAbbot',
   SkipFollower: 'skipFollower',
@@ -310,6 +311,23 @@ export interface DragonMoveState {
 
 export interface PrincessChoiceState {
   followers: Array<{ cityId: string; point: Point }>
+}
+
+/** Подданный, к которому привязана фея. */
+export interface FairyFollowerRef {
+  playerId: PlayerId
+  point: Point
+  isAbbot?: boolean
+  isBigFollower?: boolean
+}
+
+/**
+ * Фея: клетка, на которой она стоит, и подданный, к которому привязана.
+ * Подданного может не быть — тогда фея просто занимает клетку.
+ */
+export interface FairyState {
+  position?: DragonPosition
+  follower?: FairyFollowerRef
 }
 
 export interface ObjectFollower {
@@ -428,6 +446,8 @@ export interface Tile {
   princessSide?: SideName
   hasDragon?: boolean
   hasVolcano?: boolean
+  /** Магический портал: позволяет выставить подданного в любой регион поля. */
+  hasMagicPortal?: boolean
   expansion?: ExpansionName
   /** Связанные между собой участки дороги на этой плитке. */
   roadGroups?: SideName[][]
@@ -527,6 +547,8 @@ export enum ActionTypes {
   BACK_FOLLOWER = 'BACK_FOLLOWER',
   DRAGON_MOVE = 'DRAGON_MOVE',
   PRINCESS_TAKE_FOLLOWER = 'PRINCESS_TAKE_FOLLOWER',
+  MOVE_FAIRY = 'MOVE_FAIRY',
+  FAIRY_POINT = 'FAIRY_POINT',
 }
 
 export enum ObjectTypes {

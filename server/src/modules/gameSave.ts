@@ -17,10 +17,19 @@ import {
   validateOutgoingState,
 } from './gameSaveValidation'
 
-export const GAME_SAVE_SCHEMA_VERSION = 7
+export const GAME_SAVE_SCHEMA_VERSION = 8
 
 /** Версии envelope, которые ещё можно прочитать. */
-const SUPPORTED_SCHEMA_VERSIONS = [1, 2, 3, 4, 5, 6, GAME_SAVE_SCHEMA_VERSION]
+const SUPPORTED_SCHEMA_VERSIONS = [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  GAME_SAVE_SCHEMA_VERSION,
+]
 
 interface VersionedGameSave {
   schemaVersion: number

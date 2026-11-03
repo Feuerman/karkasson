@@ -244,6 +244,7 @@ export class DragonPrincessManager {
   startPendingDragonMove() {
     const position = this.resolveDragonPosition()
     if (!position) {
+      this.state.awardFairyPoint()
       this.state.getRandomTileFromList()
       return
     }
@@ -286,7 +287,7 @@ export class DragonPrincessManager {
           visited.rowIndex === destination.rowIndex &&
           visited.tileIndex === destination.tileIndex
       )
-      return isPlaced && !wasVisited
+      return isPlaced && !wasVisited && !this.isFairyPosition(destination)
     })
   }
 
@@ -337,12 +338,24 @@ export class DragonPrincessManager {
       this.state.currentPlayer =
         this.state.players[move.resumePlayerIndex] ?? null
     }
+    this.state.awardFairyPoint()
     this.state.getRandomTileFromList()
   }
 
   private clearFollowerPlacement() {
     this.state.isPlacingFollower = false
+    this.state.isPlacingFairy = false
     this.state.availableFollowersPlaces = []
+  }
+
+  /** Клетка феи неприкосновенна для дракона. */
+  private isFairyPosition(position: DragonPosition): boolean {
+    const fairy = this.state.fairy?.position
+    return Boolean(
+      fairy &&
+      fairy.rowIndex === position.rowIndex &&
+      fairy.tileIndex === position.tileIndex
+    )
   }
 
   private isAdjacentDragonStep(
@@ -357,7 +370,11 @@ export class DragonPrincessManager {
       (visited) =>
         visited.rowIndex === rowIndex && visited.tileIndex === tileIndex
     )
-    return distance === 1 && !wasVisited
+    return (
+      distance === 1 &&
+      !wasVisited &&
+      !this.isFairyPosition({ rowIndex, tileIndex })
+    )
   }
 
   /**

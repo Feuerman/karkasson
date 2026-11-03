@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { princessAndDragonTiles } from '@server/data/princessAndDragonTiles'
-import { ExpansionName, TileSideType } from '@server/modules/types'
+import { ExpansionName, TileId, TileSideType } from '@server/modules/types'
 
 describe('Тайлы дополнения «Принцесса и дракон»', () => {
   it('содержит полное определение для каждого изображения набора', () => {
@@ -32,5 +32,17 @@ describe('Тайлы дополнения «Принцесса и дракон»
           )
       )
     ).toBe(true)
+  })
+
+  it('содержит два тайла дракона и шесть тайлов с порталом', () => {
+    const dragonTile = princessAndDragonTiles.find(
+      ({ id }) => id === TileId.PAD_G
+    )
+    const portalTiles = princessAndDragonTiles.filter(
+      (tile) => tile.hasMagicPortal
+    )
+
+    expect(dragonTile?.count).toBe(2)
+    expect(portalTiles).toHaveLength(6)
   })
 })

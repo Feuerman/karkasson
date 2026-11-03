@@ -105,7 +105,7 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
           }
           // Пропуск фишек допустим только на фазе выставления: иначе игрок
           // смог бы пропустить ход с уже выложенным тайлом и передать очередь.
-          if (!game.isPlacingFollower) {
+          if (!game.isPlacingFollower && !game.isPlacingFairy) {
             throw new Error(GameErrors.NotPlacingFollower)
           }
 

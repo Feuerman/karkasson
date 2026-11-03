@@ -10,6 +10,7 @@
  */
 
 import type { ScoringBoard } from './boardState'
+import { applyFairyBonus, fairyBonusDetail } from './fairy'
 import { buildFieldComponents } from './fieldComponents'
 import { NEIGHBOR_SIDES, neighborCoordinates } from './gameGeometry'
 import { sideOfFieldPort } from '../data/fieldTopology'
@@ -26,6 +27,7 @@ import {
   type BaseObject,
   type FieldFollower,
   type PlayerId,
+  type ScoreDetailLine,
   type ScoreDetails,
   type ScoreForObject,
   type TilePlacesStats,
@@ -110,6 +112,9 @@ export function finalizeScoring(state: ScoringBoard): void {
 
     for (const object of unfinished) {
       const { score, details } = kind.count(state, object)
+      if (applyFairyBonus(state.fairy, object.followers, score, state.scores)) {
+        details.details.push(fairyBonusDetail())
+      }
       recordFinalObjectScore(state, object, score, kind.objectType, details)
       state.completedObjects[kind.collection].push({
         ...structuredClone(object),
@@ -136,13 +141,20 @@ function scoreRemainingAbbots(
 
     const points = countCenterObjectPoints(state.tilePlacesStats, object)
     const score = distributeScore(points, abbots, state.scores)
+    const details = describeCentralObjectPoints(
+      points,
+      CENTRAL_OBJECT_NAMES[kind]
+    )
+    if (applyFairyBonus(state.fairy, abbots, score, state.scores)) {
+      details.details.push(fairyBonusDetail())
+    }
     object.score = score
     recordFinalObjectScore(
       state,
       { ...object, followers: abbots },
       score,
       kind,
-      describeCentralObjectPoints(points, CENTRAL_OBJECT_NAMES[kind])
+      details
     )
   }
 }
@@ -307,20 +319,30 @@ export function scoreFields(state: ScoringBoard): void {
       }
     }
 
+    const score: ScoreForObject = {
+      total,
+      players,
+      objectId: componentId,
+    }
+    const details: ScoreDetailLine[] = [
+      {
+        label: 'Завершённые города у поля',
+        count: cityIds.size,
+        pointsPerUnit: pointsPerCity,
+        total: pointsPerLeader,
+      },
+    ]
+    if (applyFairyBonus(state.fairy, followers, score, state.scores)) {
+      details.push(fairyBonusDetail())
+    }
+
     state.recordAction({
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
         objectType: ObjectTypes.FIELD,
         objectData: { id: componentId, points: [], followers: [] },
-        score: { total, players, objectId: componentId },
-        details: [
-          {
-            label: 'Завершённые города у поля',
-            count: cityIds.size,
-            pointsPerUnit: pointsPerCity,
-            total: pointsPerLeader,
-          },
-        ],
+        score,
+        details,
         modifiers: [],
         isFinalScoring: true,
       },

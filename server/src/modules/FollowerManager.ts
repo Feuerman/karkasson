@@ -1,3 +1,4 @@
+import { clearFairyFollower } from './fairy'
 import { takeFollower } from './followerPool'
 import type { FollowerBoard } from './boardState'
 import { fieldComponentIndex } from './fieldComponents'
@@ -67,16 +68,35 @@ export class FollowerManager {
     }
 
     if (!this.hasAnyFollowers(this.state.playersFollowers[currentPlayer.id])) {
-      this.state.endTurn()
+      if (!this.goPlaceFairy()) this.state.endTurn()
       return
     }
 
-    const regularPlaces = this.findAvailableFollowersPlaces(
+    this.state.availableFollowersPlaces = this.findAvailableFollowerPlaces(
       this.state.currentTile
     )
-    const fieldPlaces = this.findAvailableFieldPlaces(
-      this.state.currentTile
-    ).map((place) => ({
+
+    if (this.state.availableFollowersPlaces.length) {
+      this.goPlaceFollower()
+    } else if (!this.goPlaceFairy()) {
+      this.state.endTurn()
+    }
+  }
+
+  /**
+   * Все места, доступные после выкладки тайла: обычные объекты, регионы поля
+   * нового тайла и, при портале, свободные поля по всей доске.
+   */
+  findAvailableFollowerPlaces(tile: GridTile): AvailableFollowerPlace[] {
+    const regularPlaces = [
+      ...this.findAvailableFollowersPlaces(tile),
+      ...(tile.hasMagicPortal ? this.findAvailablePortalFollowerPlaces() : []),
+    ]
+    const fieldPlaceCandidates = [
+      ...this.findAvailableFieldPlaces(tile),
+      ...(tile.hasMagicPortal ? this.findAvailablePortalFieldPlaces() : []),
+    ]
+    const fieldPlaces = fieldPlaceCandidates.map((place) => ({
       point: place.point,
       temporaryObject: {
         id: 'field',
@@ -85,13 +105,31 @@ export class FollowerManager {
       } as BaseObject,
     }))
 
-    this.state.availableFollowersPlaces = [...regularPlaces, ...fieldPlaces]
+    return this.uniquePlaces([...regularPlaces, ...fieldPlaces])
+  }
 
-    if (this.state.availableFollowersPlaces.length) {
-      this.goPlaceFollower()
-    } else {
-      this.state.endTurn()
-    }
+  /** Убирает повторяющиеся варианты: обычное и портальное поле совпадают. */
+  private uniquePlaces(
+    places: AvailableFollowerPlace[]
+  ): AvailableFollowerPlace[] {
+    const seen = new Set<string>()
+    return places.filter(({ point }) => {
+      const key = [
+        point.x,
+        point.y,
+        point.direction ?? '',
+        point.regionIndex ?? '',
+        point.pointType ?? '',
+      ].join(':')
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  /** Фаза феи, если у текущего игрока есть подданный на доске. */
+  private goPlaceFairy(): boolean {
+    return this.state.goPlaceFairy()
   }
 
   findAvailableFollowersPlaces(tile: GridTile): AvailableFollowerPlace[] {
@@ -124,6 +162,24 @@ export class FollowerManager {
     return candidates.filter((place): place is AvailableFollowerPlace =>
       this.isPlaceAvailable(place, tile, followerPool)
     )
+  }
+
+  /**
+   * Обычные объекты на всех выложенных тайлах: портал расширяет выбор клетки,
+   * но не отменяет проверки занятости, завершённости и клетки дракона.
+   */
+  private findAvailablePortalFollowerPlaces(): AvailableFollowerPlace[] {
+    const places: AvailableFollowerPlace[] = []
+    for (const [rowKey, tiles] of Object.entries(this.state.tilePlacesStats)) {
+      const rowIndex = Number(rowKey)
+      for (const columnKey of Object.keys(tiles)) {
+        const tileIndex = Number(columnKey)
+        if (this.isDragonTile(rowIndex, tileIndex)) continue
+        const tile = tiles[tileIndex]
+        if (tile) places.push(...this.findAvailableFollowersPlaces(tile))
+      }
+    }
+    return places
   }
 
   /**
@@ -191,6 +247,7 @@ export class FollowerManager {
     } else {
       this.state.currentTile = null
       this.state.isPlacingFollower = true
+      this.state.isPlacingFairy = false
     }
   }
 
@@ -217,8 +274,9 @@ export class FollowerManager {
    * Идентификаторы связных компонент полей, в которых уже стоит хотя бы один
    * крестьянин. В такую компоненту нового крестьянина поставить нельзя.
    */
-  private occupiedFieldComponentIds(): Set<string> {
-    const componentIndex = fieldComponentIndex(this.state.tilePlacesStats)
+  private occupiedFieldComponentIds(
+    componentIndex = fieldComponentIndex(this.state.tilePlacesStats)
+  ): Set<string> {
     const ids = new Set<string>()
     for (const follower of this.state.fieldFollowers) {
       const p = follower.point
@@ -363,6 +421,63 @@ export class FollowerManager {
   }
 
   /**
+   * Портальная выкладка: по одному свободному региону каждого поля на доске.
+   * Индекс компонент и занятые поля считаются один раз, а клетка с драконом
+   * исключается.
+   */
+  findAvailablePortalFieldPlaces(): FieldPlace[] {
+    const currentPlayer = this.state.currentPlayer
+    if (!currentPlayer) return []
+    const followerPool = this.state.playersFollowers[currentPlayer.id]
+    if (!followerPool || !this.hasCommonFollowers(followerPool)) return []
+
+    const componentIndex = fieldComponentIndex(this.state.tilePlacesStats)
+    const occupied = this.occupiedFieldComponentIds(componentIndex)
+    const visitedComponents = new Set<string>()
+    const places: FieldPlace[] = []
+
+    for (const [rowKey, tiles] of Object.entries(this.state.tilePlacesStats)) {
+      const rowIndex = Number(rowKey)
+      for (const [columnKey, tile] of Object.entries(tiles)) {
+        const tileIndex = Number(columnKey)
+        if (
+          this.state.dragonPosition?.rowIndex === rowIndex &&
+          this.state.dragonPosition?.tileIndex === tileIndex
+        ) {
+          continue
+        }
+        const topology = tile.fieldTopology
+        if (!topology) continue
+
+        for (
+          let regionIndex = 0;
+          regionIndex < topology.length;
+          regionIndex += 1
+        ) {
+          const componentId = componentIndex.get(
+            nodeKey(rowIndex, tileIndex, regionIndex)
+          )
+          if (!componentId || occupied.has(componentId)) continue
+          if (visitedComponents.has(componentId)) continue
+          visitedComponents.add(componentId)
+          places.push({
+            point: {
+              x: tileIndex,
+              y: rowIndex,
+              rowIndex,
+              tileIndex,
+              regionIndex,
+              direction: undefined,
+              pointType: TileSideType.Field,
+            },
+          })
+        }
+      }
+    }
+    return places
+  }
+
+  /**
    * Ставит крестьянина активного игрока на регион поля. Крестьянин остаётся на
    * поле до конца партии и не возвращается в запас. Проверка занятости
    * компонента поля выполняется серверно по текущему состоянию партии.
@@ -383,6 +498,7 @@ export class FollowerManager {
 
     const tile = this.state.tilePlacesStats[rowIndex]?.[tileIndex]
     if (!tile) return undefined
+    if (!this.isFieldPlacementAllowed(rowIndex, tileIndex)) return undefined
     const topology = tile.fieldTopology
     if (!topology || !topology[regionIndex]) return undefined
 
@@ -420,6 +536,49 @@ export class FollowerManager {
     })
     this.state.endTurn()
     return followerType
+  }
+
+  /**
+   * Крестьянина можно ставить на только что выложенный тайл, а при портале —
+   * ещё и на любой свободный регион поля на доске, кроме клетки дракона.
+   */
+  private isFieldPlacementAllowed(
+    rowIndex: number,
+    tileIndex: number
+  ): boolean {
+    return this.isPlacementTileAllowed(rowIndex, tileIndex)
+  }
+
+  /**
+   * Клетка допустима для новой фишки: только что выложенный тайл, а при
+   * портале — любой тайл, кроме клетки дракона.
+   */
+  private isPlacementTileAllowed(rowIndex: number, tileIndex: number): boolean {
+    if (this.isDragonTile(rowIndex, tileIndex)) return false
+
+    const current = this.state.currentTile
+    const last = this.state.lastPlacement
+    if (
+      (current?.x === tileIndex && current.y === rowIndex) ||
+      (last.rowIndex === rowIndex && last.tileIndex === tileIndex)
+    ) {
+      return true
+    }
+
+    if (last.rowIndex === undefined || last.tileIndex === undefined) {
+      return false
+    }
+    const placementTile =
+      this.state.tilePlacesStats[last.rowIndex]?.[last.tileIndex]
+    return Boolean(placementTile?.hasMagicPortal)
+  }
+
+  /** Клетка, на которой сейчас стоит дракон. */
+  private isDragonTile(rowIndex: number, tileIndex: number): boolean {
+    const dragon = this.state.dragonPosition
+    return Boolean(
+      dragon && dragon.rowIndex === rowIndex && dragon.tileIndex === tileIndex
+    )
   }
 
   skipFollower() {
@@ -484,6 +643,7 @@ export class FollowerManager {
         follower.playerId === playerId
     )
     if (placedIndex !== -1) this.state.placedFollowers.splice(placedIndex, 1)
+    clearFairyFollower(this.state, abbot)
 
     this.state.playersFollowers[playerId].monks += 1
     this.state.recordAction({
@@ -572,7 +732,8 @@ export class FollowerManager {
     followerType: FollowerType = FollowerTypes.Follower
   ): boolean {
     return (
-      this.applyFollowerPlacement(availablePlace, followerType) !== undefined
+      this.applyFollowerPlacement(availablePlace, followerType, false) !==
+      undefined
     )
   }
 
@@ -583,12 +744,22 @@ export class FollowerManager {
    */
   private applyFollowerPlacement(
     availablePlace: AvailableFollowerPlace,
-    followerType: FollowerType
+    followerType: FollowerType,
+    validatePlacementTile = true
   ): FollowerType | undefined {
     const activePlayer = this.state.currentPlayer
     if (!activePlayer) return undefined
     const followerPool = this.state.playersFollowers[activePlayer.id]
     if (!followerPool) return undefined
+    if (
+      validatePlacementTile &&
+      !this.isPlacementTileAllowed(
+        availablePlace.point.y,
+        availablePlace.point.x
+      )
+    ) {
+      return undefined
+    }
 
     // Объект искать заново: клиент прислал место, а не фишку, и объект мог
     // с тех пор объединиться с соседним или быть уже занят.

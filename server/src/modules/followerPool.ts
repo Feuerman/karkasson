@@ -7,11 +7,13 @@
  * на все три операции, поэтому расхождение больше невозможно.
  */
 
+import { clearFairyFollower } from './fairy'
 import { isSameFollowerPoint } from './followerMatching'
 import {
   FollowerType as FollowerTypes,
   ObjectTypes,
   type CompletedObjects,
+  type FairyState,
   type FollowerCount,
   type FollowerType,
   type ObjectFollower,
@@ -78,6 +80,7 @@ export interface FollowerBoardState {
   temporaryObjects: TemporaryObjects
   completedObjects: CompletedObjects
   placedFollowers: PlacedFollower[]
+  fairy?: FairyState
 }
 
 /**
@@ -108,6 +111,7 @@ export function removePlacedFollower(
     isSameFollowerPoint(placed, follower)
   )
   if (index >= 0) state.placedFollowers.splice(index, 1)
+  clearFairyFollower(state, follower)
 }
 
 /** Убирает фишку с объектов доски и возвращает вид объекта, с которого снята. */

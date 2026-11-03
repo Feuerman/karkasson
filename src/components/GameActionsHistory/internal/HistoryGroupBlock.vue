@@ -65,6 +65,13 @@
         :action="action"
         @zoom="forwardZoom"
       />
+      <FairyAction
+        v-else-if="
+          action.actionType === ActionTypes.MOVE_FAIRY ||
+          action.actionType === ActionTypes.FAIRY_POINT
+        "
+        :action="action"
+      />
     </div>
   </div>
 </template>
@@ -83,6 +90,7 @@ import AddingScoresAction from './actions/AddingScoresAction.vue'
 import BackFollowerAction from './actions/BackFollowerAction.vue'
 import DragonMoveAction from './actions/DragonMoveAction.vue'
 import PrincessTakeFollowerAction from './actions/PrincessTakeFollowerAction.vue'
+import FairyAction from './actions/FairyAction.vue'
 
 const props = defineProps<{
   group: HistoryGroup

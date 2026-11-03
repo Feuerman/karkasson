@@ -9,6 +9,7 @@ import {
   type Tile,
   type FollowerType as FollowerTypeValue,
   type PlacementConflict,
+  type Point,
 } from '@server/modules/types'
 import type {
   SocketAck,
@@ -17,6 +18,7 @@ import type {
   CreateGameResponse,
   PrincessChoicePayload,
   DragonMovePayload,
+  FairyMovePayload,
   RemovePlayerPayload,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
@@ -414,6 +416,14 @@ export class GameService implements IGameService {
       point,
     }
     return this.emitAck<GameAck>(SocketEvents.ChoosePrincess, payload)
+  }
+
+  moveFairy(point: Point) {
+    const payload: FairyMovePayload & SocketPayload = {
+      gameId: this.gameId,
+      point,
+    }
+    return this.emitAck<GameAck>(SocketEvents.MoveFairy, payload)
   }
 
   skipFollower() {

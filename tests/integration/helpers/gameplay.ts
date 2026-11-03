@@ -160,6 +160,8 @@ export interface GameStateSnapshot {
     actionData?: {
       objectType?: string
       score?: { total: number; players: Record<string, number> }
+      follower?: { playerId: PlayerId }
+      points?: number
       details?: Array<{
         label: string
         count: number

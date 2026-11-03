@@ -15,6 +15,7 @@ import type {
   CompletedObjects,
   DragonMoveState,
   DragonPosition,
+  FairyState,
   FollowerCount,
   FieldFollower,
   GameRules,
@@ -55,6 +56,8 @@ export interface IGameState {
   winnerPlayerIds: PlayerId[]
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
+  /** Фаза перемещения феи, когда выставление подданного недоступно. */
+  isPlacingFairy: boolean
   placedFollowers: PlacedFollower[]
   fieldFollowers: FieldFollower[]
   tilePlacesStats: TilePlacesStats
@@ -74,6 +77,7 @@ export interface IGameState {
    */
   princessFollowerPenalty?: boolean
   dragonPosition?: DragonPosition
+  fairy?: FairyState
   /**
    * Переход между ходами: вулкан поставлен, дракон начнёт ходить в конце хода
    * игрока. Флаг живёт дольше одного хода, поэтому обязан пережить
@@ -107,6 +111,7 @@ export const SERIALIZED_GAME_FIELDS = [
   'winnerPlayerIds',
   'availableFollowersPlaces',
   'isPlacingFollower',
+  'isPlacingFairy',
   'placedFollowers',
   'fieldFollowers',
   'tilePlacesStats',
@@ -121,6 +126,7 @@ export const SERIALIZED_GAME_FIELDS = [
   'princessChoice',
   'princessFollowerPenalty',
   'dragonPosition',
+  'fairy',
   'pendingDragonMovement',
 ] as const satisfies readonly (keyof IGameState)[]
 
@@ -163,6 +169,7 @@ export const ROLLBACK_GAME_FIELDS = [
   'winnerPlayerIds',
   'availableFollowersPlaces',
   'isPlacingFollower',
+  'isPlacingFairy',
   'placedFollowers',
   'fieldFollowers',
   'tilePlacesStats',
@@ -177,6 +184,7 @@ export const ROLLBACK_GAME_FIELDS = [
   'princessChoice',
   'princessFollowerPenalty',
   'dragonPosition',
+  'fairy',
   'pendingDragonMovement',
 ] as const satisfies readonly (keyof IGameState)[]
 

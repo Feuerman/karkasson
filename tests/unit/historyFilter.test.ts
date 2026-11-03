@@ -133,6 +133,7 @@ describe('фильтр истории по типу действия', () => {
       RETURN: 1,
       DRAGON: 1,
       PRINCESS: 1,
+      FAIRY: 0,
     })
     for (const { value } of HISTORY_FILTERS) {
       expect(filterActionsHistory(history, value)).toHaveLength(counts[value])
@@ -148,6 +149,7 @@ describe('фильтр истории по типу действия', () => {
       RETURN: 0,
       DRAGON: 0,
       PRINCESS: 0,
+      FAIRY: 0,
     })
   })
 })

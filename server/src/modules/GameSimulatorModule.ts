@@ -51,6 +51,8 @@ export interface SimulationBoard {
   temporaryObjects: TemporaryObjects
   tilePlacesStats: TilePlacesStats
   actionsHistory: IGameState['actionsHistory']
+  fairy?: IGameState['fairy']
+  lastPlacement?: IGameState['lastPlacement']
   cloneForSimulation(): SimulationBoard
   simulatePlaceTile(tile: Tile, rowIndex: number, tileIndex: number): boolean
   simulatePlaceFollower(
@@ -85,6 +87,8 @@ interface TileSimulationSnapshot {
   availableFollowersPlaces: IGameState['availableFollowersPlaces']
   availableFollowerState: IGameState['availableFollowersPlaces']
   actionsHistoryLength: number
+  lastPlacement: IGameState['lastPlacement']
+  fairy: IGameState['fairy']
   placedTile?: IGameState['tilePlacesStats'][number][number]
   hadRow: boolean
 }
@@ -348,6 +352,8 @@ export class GameSimulatorModule {
       availableFollowersPlaces,
       availableFollowerState: [...availableFollowersPlaces],
       actionsHistoryLength: gameState.actionsHistory.length,
+      lastPlacement: { ...gameState.lastPlacement },
+      fairy: gameState.fairy ? structuredClone(gameState.fairy) : undefined,
       placedTile: row?.[tileIndex],
       hadRow: row !== undefined,
     }
@@ -384,6 +390,8 @@ export class GameSimulatorModule {
       ...snapshot.availableFollowerState
     )
     gameState.availableFollowersPlaces = snapshot.availableFollowersPlaces
+    gameState.fairy = snapshot.fairy
+    gameState.lastPlacement = snapshot.lastPlacement
     gameState.actionsHistory.length = snapshot.actionsHistoryLength
 
     for (const playerId of Object.keys(snapshot.scores)) {

@@ -9,7 +9,12 @@ import type { GameManager } from '@server/modules/GameManager'
 import { GameErrors } from '@server/modules/errors'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
-import { SideName, SocketEvents, TileSideType } from '@server/modules/types'
+import {
+  SideName,
+  SocketEvents,
+  TileSideType,
+  type Point,
+} from '@server/modules/types'
 import { usePlayerAsCurrent } from '../helpers/board'
 import { boardOf } from '../helpers/fixtures'
 import {
@@ -163,7 +168,7 @@ describe('Клиентское приложение (GameService)', () => {
       princessAndDragon: true,
     })
     expect(created.playersFollowers[1]?.bigFollowers).toBe(1)
-    expect(created.tilesCount).toBe(131)
+    expect(created.tilesCount).toBe(132)
 
     await addPlayers(alice, ['Alice'])
 
@@ -222,7 +227,7 @@ describe('Клиентское приложение (GameService)', () => {
 
     const created = await client.createGame({ princessAndDragonEnabled: true })
     expect(created.rules.expansions.princessAndDragon).toBe(true)
-    expect(created.tilesCount).toBe(101)
+    expect(created.tilesCount).toBe(102)
     // Состав колоды клиенту не отправляется: он нужен только серверу.
     const createdBoard = serverBoard(server!, created)
     expect(createdBoard.tilesList.some(({ id }) => id === 'PAD_A')).toBe(true)
@@ -238,6 +243,60 @@ describe('Клиентское приложение (GameService)', () => {
       ...(started.currentTile ? [started.currentTile.id] : []),
     ]
     expect(drawnAndDeckIds.some((id) => id.startsWith('PAD_'))).toBe(true)
+  })
+
+  it('перемещает фею через Socket.IO и отклоняет чужую точку', async () => {
+    const client = await connectClient('client-fairy-move')
+    const started = await createStartedGame(client, {
+      princessAndDragonEnabled: true,
+    })
+    const board = serverBoard(server!, started)
+    const player = board.players[0]
+    if (!player) throw new Error('В партии нет активного игрока')
+
+    const point: Point = {
+      x: 15,
+      y: 15,
+      direction: SideName.North,
+      pointType: TileSideType.City,
+    }
+    const follower = { playerId: player.id, objectId: 'fairy-city', point }
+    board.currentPlayer = player
+    board.currentPlayerIndex = 0
+    board.currentTile = null
+    board.princessChoice = undefined
+    board.dragonMove = undefined
+    board.princessFollowerPenalty = false
+    board.isPlacingFollower = true
+    board.isPlacingFairy = false
+    board.temporaryObjects.cities.push({
+      id: 'fairy-city',
+      points: [point],
+      followers: [follower],
+    })
+    board.placedFollowers.push(follower)
+
+    const invalid = await expectSocketAckError(
+      client.moveFairy({ ...point, x: point.x + 1 })
+    )
+    expect(invalid.message).toContain(GameErrors.InvalidFairyTarget)
+    expect(board.fairy).toBeUndefined()
+
+    board.tilesList = [
+      {
+        id: 'test-next',
+        rotation: 0,
+        sides: {
+          [SideName.North]: TileSideType.Field,
+          [SideName.East]: TileSideType.Field,
+          [SideName.South]: TileSideType.Field,
+          [SideName.West]: TileSideType.Field,
+        },
+      },
+    ]
+    const moved = await client.moveFairy(point)
+    expect(moved.game.fairy?.follower?.playerId).toBe(player.id)
+    expect(moved.game.fairy?.position).toEqual({ rowIndex: 15, tileIndex: 15 })
   })
 
   it('применяет выбор фишки принцессы и штраф её тайла', async () => {
