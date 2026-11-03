@@ -22,6 +22,7 @@ export interface TileDefinition {
   princessSide?: SideName
   hasDragon?: boolean
   hasVolcano?: boolean
+  hasMagicPortal?: boolean
   roadGroups?: SideName[][]
   cityGroups?: SideName[][]
   /** City sections on this tile that contain a shield. */

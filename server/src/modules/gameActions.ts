@@ -12,6 +12,7 @@ import {
   type AvailableFollowerPlace,
   type BaseObject,
   type DragonPosition,
+  type FairyFollowerRef,
   type FollowerType,
   type Player,
   type ReturnedFollower,
@@ -77,6 +78,20 @@ export interface PrincessTakeFollowerActionData {
   takenFollower: ReturnedFollower
 }
 
+/** Перемещение феи к подданному текущего игрока. */
+export interface MoveFairyActionData {
+  follower: FairyFollowerRef
+  /** Откуда фея пришла; не заполняется при первом выставлении. */
+  from?: DragonPosition
+  to: DragonPosition
+}
+
+/** Начисление очка феи в начале хода владельца связанного подданного. */
+export interface FairyPointActionData {
+  follower: FairyFollowerRef
+  points: number
+}
+
 /** Общая часть любой записи истории ходов. */
 export interface GameActionBase {
   /** Игрок, которому принадлежит действие. Не заполняется для части действий. */
@@ -118,6 +133,14 @@ export type GameAction =
   | (GameActionBase & {
       actionType: ActionTypes.PRINCESS_TAKE_FOLLOWER
       actionData: PrincessTakeFollowerActionData
+    })
+  | (GameActionBase & {
+      actionType: ActionTypes.MOVE_FAIRY
+      actionData: MoveFairyActionData
+    })
+  | (GameActionBase & {
+      actionType: ActionTypes.FAIRY_POINT
+      actionData: FairyPointActionData
     })
 
 /** Запись истории до простановки номеров: их проставляет сервер. */

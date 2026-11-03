@@ -81,6 +81,13 @@
           <UIcon name="i-lucide-bird" class="h-3.5 w-3.5 text-secondary-dark" />
           Дракон двигался
         </span>
+        <span v-if="summary.fairyMoves" class="flex items-center gap-1">
+          <UIcon
+            name="i-lucide-sparkles"
+            class="h-3.5 w-3.5 text-secondary-dark"
+          />
+          Фея перемещалась
+        </span>
         <span v-if="summary.princessTakes" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-crown"

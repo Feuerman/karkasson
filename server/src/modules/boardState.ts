@@ -33,6 +33,10 @@ export interface BoardCommands {
   recordAction(action: NewGameAction): void
   /** Завершение хода текущего игрока и передача хода дальше. */
   endTurn(): void
+  /** Очко феи в начале хода её владельца. */
+  awardFairyPoint(): boolean
+  /** Открыть фазу перемещения феи, если это возможно. */
+  goPlaceFairy(): boolean
   /** Стороны тайла, соединённые в группы: по ним находятся объекты доски. */
   getTileFeatureGroups(
     tile: Tile,
@@ -65,6 +69,7 @@ export type ObjectBoard = Pick<
   | 'playersFollowers'
   | 'placedFollowers'
   | 'actionsHistory'
+  | 'fairy'
 > &
   BoardCommands &
   BoardScoring
@@ -82,11 +87,15 @@ export type FollowerBoard = Pick<
   | 'tilePlacesStats'
   | 'availableFollowersPlaces'
   | 'isPlacingFollower'
+  | 'isPlacingFairy'
   | 'princessFollowerPenalty'
   | 'placedFollowers'
   | 'fieldFollowers'
   | 'scores'
   | 'actionsHistory'
+  | 'fairy'
+  | 'dragonPosition'
+  | 'lastPlacement'
 > &
   BoardCommands
 
@@ -109,6 +118,8 @@ export type DragonBoard = Pick<
   | 'princessChoice'
   | 'princessFollowerPenalty'
   | 'pendingDragonMovement'
+  | 'fairy'
+  | 'isPlacingFairy'
 > &
   BoardCommands & {
     /** Проверка мест для подданных: выполняется в начале хода. */
@@ -145,6 +156,7 @@ export type ScoringBoard = Pick<
   | 'tilePlacesStats'
   | 'fieldFollowers'
   | 'scores'
+  | 'fairy'
 > &
   BoardCommands &
   BoardScoring

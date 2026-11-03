@@ -148,7 +148,7 @@ describe('Схема сохранения игры', () => {
     expect(restored.rules.expansions.innsAndCathedrals).toBe(true)
     expect(restored.rules.expansions.river).toBe(true)
     expect(restored.rules.expansions.princessAndDragon).toBe(true)
-    expect(restored.tilesList).toHaveLength(131)
+    expect(restored.tilesList).toHaveLength(132)
   })
 
   it('сохраняет незавершённое движение дракона и выбор города принцессы', () => {

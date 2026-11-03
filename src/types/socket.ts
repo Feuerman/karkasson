@@ -1,5 +1,5 @@
 import type { GameSummary, GameData } from '@server/services/GameService'
-import type { Player, PlacementConflict } from '@server/modules/types'
+import type { Player, PlacementConflict, Point } from '@server/modules/types'
 
 export interface SocketAckBase {
   error?: string
@@ -46,7 +46,12 @@ export interface DragonMovePayload {
 export interface PrincessChoicePayload {
   gameId: string
   cityId: string
-  point: import('@server/modules/types').Point
+  point: Point
+}
+
+export interface FairyMovePayload {
+  gameId: string
+  point: Point
 }
 
 export interface RemovePlayerPayload {

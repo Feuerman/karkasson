@@ -1,4 +1,5 @@
 import { CENTRAL_OBJECT_NAMES, describeCompletedCentralObject } from './scoring'
+import { applyFairyBonus, clearFairyFollower, fairyBonusDetail } from './fairy'
 import {
   followerTypeOf,
   removePlacedFollower,
@@ -244,7 +245,7 @@ export class GameObjectManager {
     objects: BaseObject[],
     objectType: CentralObjectKind
   ) {
-    const details = describeCompletedCentralObject(
+    const baseDetails = describeCompletedCentralObject(
       CENTRAL_OBJECT_NAMES[objectType]
     )
 
@@ -252,17 +253,33 @@ export class GameObjectManager {
       for (const follower of object.followers) {
         if (follower.isAbbot) continue
 
+        const score: ScoreForObject = {
+          objectId: object.id,
+          players: { [follower.playerId]: 9 },
+          total: 9,
+        }
+        const details = {
+          details: [...baseDetails.details],
+          modifiers: [...baseDetails.modifiers],
+        }
         this.state.scores[follower.playerId] += 9
+        if (
+          applyFairyBonus(
+            this.state.fairy,
+            [follower],
+            score,
+            this.state.scores
+          )
+        ) {
+          details.details.push(fairyBonusDetail())
+        }
+
         this.state.recordAction({
           actionType: ActionTypes.ADDING_SCORES,
           actionData: {
             objectType,
             objectData: object,
-            score: {
-              objectId: object.id,
-              players: { [follower.playerId]: 9 },
-              total: 9,
-            },
+            score,
             ...details,
           },
         })
@@ -277,6 +294,7 @@ export class GameObjectManager {
 
   /** Фишка уходит с поля и возвращается в запас владельца. */
   private returnFollowerToPool(follower: ObjectFollower) {
+    clearFairyFollower(this.state, follower)
     const pool = this.state.playersFollowers[follower.playerId]
     if (pool) returnFollower(pool, followerTypeOf(follower))
     removePlacedFollower(this.state, follower)
@@ -409,6 +427,17 @@ export class GameObjectManager {
     const collection = handlers.collection
     const objectType = handlers.objectType
     const score = handlers.calcScore(this.state, feature)
+    const details = handlers.describeScore(this.state, feature)
+    if (
+      applyFairyBonus(
+        this.state.fairy,
+        feature.followers,
+        score,
+        this.state.scores
+      )
+    ) {
+      details.details.push(fairyBonusDetail())
+    }
     this.state.temporaryObjects[collection] = this.state.temporaryObjects[
       collection
     ].filter(({ id }) => id !== feature.id)
@@ -425,7 +454,7 @@ export class GameObjectManager {
         objectType,
         objectData: feature,
         score,
-        ...handlers.describeScore(this.state, feature),
+        ...details,
       },
     })
     for (const follower of feature.followers) {

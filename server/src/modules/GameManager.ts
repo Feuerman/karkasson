@@ -23,6 +23,12 @@ import { GameObjectManager } from './GameObjectManager'
 import { FollowerManager, type FieldPlace } from './FollowerManager'
 import { GameTileManager } from './GameTileManager'
 import { DragonPrincessManager } from './DragonPrincessManager'
+import {
+  fairyFollowerPosition,
+  fairyFollowerRef,
+  isSameFairyFollower,
+  FAIRY_TURN_POINTS,
+} from './fairy'
 import { finalizeScoring } from './finalScoring'
 import { getDragonTurnNumber, getPlayerTurnNumber } from './turnNumber'
 import type { IGameState } from './gameState'
@@ -54,6 +60,8 @@ import {
   type GameRules,
   type GridTile,
   type DragonMoveState,
+  type FairyFollowerRef,
+  type FairyState,
   type PrincessChoiceState,
   type DragonPosition,
   type Player,
@@ -130,6 +138,7 @@ export class GameManager implements IGameState {
   winnerPlayerIds: PlayerId[] = []
   availableFollowersPlaces: AvailableFollowerPlace[]
   isPlacingFollower: boolean
+  isPlacingFairy: boolean
   placedFollowers: PlacedFollower[]
   fieldFollowers: FieldFollower[] = []
   tilePlacesStats: TilePlacesStats = {}
@@ -144,6 +153,7 @@ export class GameManager implements IGameState {
   princessChoice?: PrincessChoiceState
   princessFollowerPenalty = false
   dragonPosition?: DragonPosition
+  fairy?: FairyState
   pendingDragonMovement = false
   private isPlacingStartTile = false
   /**
@@ -175,6 +185,7 @@ export class GameManager implements IGameState {
     this.currentPlayerIndex = 0
     this.availableFollowersPlaces = []
     this.isPlacingFollower = false
+    this.isPlacingFairy = false
     this.temporaryObjects = {
       cities: [],
       roads: [],
@@ -341,6 +352,7 @@ export class GameManager implements IGameState {
       this.moveCounter = this.moveCounter + 1
     }
     this.isPlacingFollower = false
+    this.isPlacingFairy = false
     this.princessChoice = undefined
     this.princessFollowerPenalty = false
 
@@ -357,6 +369,7 @@ export class GameManager implements IGameState {
       this.pendingDragonMovement = false
       this.dragonManager.startPendingDragonMove()
     } else if (!this.dragonMove) {
+      this.awardFairyPoint()
       this.getRandomTileFromList()
     }
   }
@@ -389,8 +402,179 @@ export class GameManager implements IGameState {
     this.followerManager.checkAvailableFollowers()
   }
 
+  /**
+   * Подданные текущего игрока, к которым можно переставить фею. Завершённые
+   * объекты не считаются: их фишки уже вернулись в запас, хотя в
+   * `placedFollowers` могли остаться записи. Аббат на завершённом объекте
+   * остаётся на доске и потому доступен.
+   */
+  getFairyTargets(
+    playerId: PlayerId | undefined = this.currentPlayer?.id,
+    includeLinkedFollower = false
+  ) {
+    if (playerId === undefined) return []
+
+    const targets = new Map<string, FairyFollowerRef>()
+    const addTarget = (follower: {
+      playerId: PlayerId
+      point: Point
+      isAbbot?: boolean
+      isBigFollower?: boolean
+    }) => {
+      if (String(follower.playerId) !== String(playerId)) return
+      const rowIndex = follower.point.rowIndex ?? follower.point.y
+      const tileIndex = follower.point.tileIndex ?? follower.point.x
+      if (
+        this.dragonPosition?.rowIndex === rowIndex &&
+        this.dragonPosition?.tileIndex === tileIndex
+      ) {
+        return
+      }
+      const ref = fairyFollowerRef(follower)
+      if (
+        !includeLinkedFollower &&
+        this.fairy?.follower &&
+        isSameFairyFollower(ref, this.fairy.follower)
+      ) {
+        return
+      }
+      targets.set(this.fairyTargetKey(ref), ref)
+    }
+
+    for (const follower of this.fieldFollowers) addTarget(follower)
+    for (const follower of this.placedFollowers) {
+      if (this.isPlacedFollowerOnBoard(follower)) addTarget(follower)
+    }
+    return [...targets.values()]
+  }
+
+  /** Есть ли у текущего игрока подданный, к которому можно поставить фею. */
+  canMoveFairy(): boolean {
+    return (
+      this.rules.expansions.princessAndDragon &&
+      !this.gameIsEnded &&
+      !this.princessFollowerPenalty &&
+      this.getFairyTargets().length > 0
+    )
+  }
+
+  /**
+   * Фаза феи без выставления подданного: так ход продолжается после вулкана
+   * или когда свободных мест для фишки нет.
+   */
+  goPlaceFairy(): boolean {
+    if (!this.canMoveFairy()) return false
+    this.currentTile = null
+    this.isPlacingFollower = false
+    this.isPlacingFairy = true
+    this.availableFollowersPlaces = []
+    return true
+  }
+
+  /** Перемещение феи к своему подданному вместо выставления фишки. */
+  moveFairyToFollower(point: Point): boolean {
+    if (!this.isPlacingFollower && !this.isPlacingFairy) return false
+    if (this.princessChoice || this.dragonMove) return false
+    if (!this.canMoveFairy()) return false
+
+    const follower = this.getFairyTargets().find(
+      (target) =>
+        target.point.x === point.x &&
+        target.point.y === point.y &&
+        target.point.rowIndex === point.rowIndex &&
+        target.point.tileIndex === point.tileIndex &&
+        target.point.direction === point.direction &&
+        target.point.regionIndex === point.regionIndex
+    )
+    if (!follower) return false
+
+    const from = this.fairy?.position
+    const to = fairyFollowerPosition(follower)
+    this.fairy = { position: to, follower }
+    this.recordAction({
+      actionType: ActionTypes.MOVE_FAIRY,
+      actionData: { follower, from, to },
+      initiator: this.currentPlayer,
+    })
+    this.endTurn()
+    return true
+  }
+
+  /** Начисляет очко феи в начале хода владельца связанного подданного. */
+  awardFairyPoint(): boolean {
+    if (this.gameIsEnded) return false
+    const linked = this.fairy?.follower
+    if (!linked) return false
+    if (String(linked.playerId) !== String(this.currentPlayer?.id)) return false
+    if (
+      !this.getFairyTargets(linked.playerId, true).some((target) =>
+        isSameFairyFollower(target, linked)
+      )
+    ) {
+      return false
+    }
+
+    this.scores[linked.playerId] =
+      (this.scores[linked.playerId] ?? 0) + FAIRY_TURN_POINTS
+    this.recordAction({
+      actionType: ActionTypes.FAIRY_POINT,
+      actionData: { follower: linked, points: FAIRY_TURN_POINTS },
+      initiator: this.currentPlayer,
+    })
+    return true
+  }
+
+  private fairyTargetKey(follower: FairyFollowerRef): string {
+    const point = follower.point
+    return [
+      follower.playerId,
+      point.x,
+      point.y,
+      point.direction ?? '',
+      point.regionIndex ?? '',
+      Boolean(follower.isAbbot),
+      Boolean(follower.isBigFollower),
+    ].join(':')
+  }
+
+  /** Подданный из `placedFollowers` всё ещё стоит на объекте доски. */
+  private isPlacedFollowerOnBoard(follower: PlacedFollower): boolean {
+    const collections = follower.isAbbot
+      ? [
+          this.temporaryObjects.cities,
+          this.temporaryObjects.roads,
+          this.temporaryObjects.monasteries,
+          this.temporaryObjects.gardens,
+          this.completedObjects.monasteries,
+          this.completedObjects.gardens,
+        ]
+      : [
+          this.temporaryObjects.cities,
+          this.temporaryObjects.roads,
+          this.temporaryObjects.monasteries,
+          this.temporaryObjects.gardens,
+        ]
+
+    return collections.some((objects) =>
+      objects.some(
+        (object) =>
+          object.id === follower.objectId &&
+          object.followers.some((objectFollower) =>
+            isSameFairyFollower(
+              fairyFollowerRef(follower),
+              fairyFollowerRef(objectFollower)
+            )
+          )
+      )
+    )
+  }
+
   findAvailableFollowersPlaces(tile: GridTile): AvailableFollowerPlace[] {
     return this.followerManager.findAvailableFollowersPlaces(tile)
+  }
+
+  findAllAvailableFollowerPlaces(tile: GridTile): AvailableFollowerPlace[] {
+    return this.followerManager.findAvailableFollowerPlaces(tile)
   }
 
   /**
@@ -543,7 +727,7 @@ export class GameManager implements IGameState {
     if (!isStartTile && expansionEnabled && tile.hasVolcano) {
       this.dragonManager.handleVolcanoPlacement(rowIndex, tileIndex)
       this.currentTile = null
-      this.endTurn()
+      if (!this.goPlaceFairy()) this.endTurn()
       return true
     }
 
@@ -745,6 +929,16 @@ export class GameManager implements IGameState {
   async autoPlaceTile(): Promise<void> {
     if (this.gameIsEnded) return
 
+    if (this.isPlacingFollower || this.isPlacingFairy) {
+      const fairyTarget = this.isPlacingFairy
+        ? this.getFairyTargets()[0]
+        : undefined
+      if (!fairyTarget || !this.moveFairyToFollower(fairyTarget.point)) {
+        this.skipFollower()
+      }
+      return
+    }
+
     if (this.dragonMove) {
       const destination = this.dragonManager.getAutomaticDragonDestination()
       if (destination)
@@ -819,6 +1013,7 @@ export class GameManager implements IGameState {
     this.gameIsEnded = true
     this.currentTile = null
     this.isPlacingFollower = false
+    this.isPlacingFairy = false
     this.availableFollowersPlaces = []
     this.availablePlacesTiles = []
     this.currentPlayer = null
@@ -1053,9 +1248,10 @@ export class GameManager implements IGameState {
       x: tileIndex,
       y: rowIndex,
     }
+    this.lastPlacement = { rowIndex, tileIndex }
 
     this.checkGridAfterPlacingTile(rowIndex, tileIndex)
-    this.availableFollowersPlaces = this.findAvailableFollowersPlaces(
+    this.availableFollowersPlaces = this.findAllAvailableFollowerPlaces(
       this.tilePlacesStats[rowIndex][tileIndex]
     )
     return true

@@ -41,6 +41,8 @@ export const GameErrors = {
   NoAbbotOnBoard: 'У игрока нет аббата на доске',
   InvalidDragonTurn: 'Сейчас нельзя перемещать дракона',
   InvalidDragonDestination: 'Дракон не может оказаться в этом месте',
+  NotPlacingFairy: 'Сейчас нельзя перемещать фею',
+  InvalidFairyTarget: 'Фея может встать только к своему подданному',
   PrincessChoiceNotPending: 'Принцесса сейчас не ждёт выбора города',
   InvalidPrincessCity: 'Недопустимый город для принцессы',
 } as const

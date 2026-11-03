@@ -47,6 +47,8 @@ export interface TurnSummary {
   returnedFollowers: number
   dragonMoves: number
   princessTakes: number
+  fairyMoves: number
+  fairyPoints: number
   actions: GameAction[]
 }
 
@@ -107,6 +109,8 @@ export const buildTurnSummary = (
   let returnedFollowers = 0
   let dragonMoves = 0
   let princessTakes = 0
+  let fairyMoves = 0
+  let fairyPoints = 0
 
   for (const action of turnActions) {
     switch (action.actionType) {
@@ -147,6 +151,12 @@ export const buildTurnSummary = (
         break
       case ActionTypes.PRINCESS_TAKE_FOLLOWER:
         princessTakes += 1
+        break
+      case ActionTypes.MOVE_FAIRY:
+        fairyMoves += 1
+        break
+      case ActionTypes.FAIRY_POINT:
+        fairyPoints += action.actionData.points
         break
     }
   }
@@ -196,6 +206,8 @@ export const buildTurnSummary = (
     returnedFollowers,
     dragonMoves,
     princessTakes,
+    fairyMoves,
+    fairyPoints,
     actions: turnActions,
   }
 }

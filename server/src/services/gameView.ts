@@ -24,6 +24,8 @@ export interface GameData {
   princessChoice?: IGameState['princessChoice']
   princessFollowerPenalty?: IGameState['princessFollowerPenalty']
   dragonPosition?: IGameState['dragonPosition']
+  fairy?: IGameState['fairy']
+  fairyTargets: ReturnType<GameManager['getFairyTargets']>
   currentTile: IGameState['currentTile']
   players: IGameState['players']
   currentPlayerIndex: number
@@ -39,6 +41,7 @@ export interface GameData {
   id: string | undefined
   roomCode?: string
   isPlacingFollower: boolean
+  isPlacingFairy: boolean
   scores: IGameState['scores']
   gameIsStarted: boolean
   gridSize: number[]
@@ -72,6 +75,8 @@ export function formatGameData(game: GameManager): GameData {
     princessChoice: game.princessChoice,
     princessFollowerPenalty: game.princessFollowerPenalty,
     dragonPosition: game.dragonPosition,
+    fairy: game.fairy,
+    fairyTargets: game.getFairyTargets(),
     currentTile: game.currentTile,
     players: game.players,
     currentPlayerIndex: game.currentPlayerIndex,
@@ -85,6 +90,7 @@ export function formatGameData(game: GameManager): GameData {
     id: game.id,
     roomCode: game.roomCode,
     isPlacingFollower: game.isPlacingFollower,
+    isPlacingFairy: game.isPlacingFairy,
     scores: game.scores,
     gameIsStarted: game.gameIsStarted,
     gridSize: game.gridSize,

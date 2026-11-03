@@ -17,6 +17,7 @@ import { pickGameState, type IGameState } from './gameState'
 import { allTileIds } from '../data/tileCatalog'
 import {
   DRAGON_TOTAL_STEPS,
+  PointDirection,
   SIDE_NAMES,
   isTileSideType,
   type GameRules,
@@ -187,6 +188,7 @@ function validateRequiredGameState(value: Record<string, unknown>): void {
     !isRecord(value.scores) ||
     !Number.isInteger(value.currentPlayerIndex) ||
     typeof value.isPlacingFollower !== 'boolean' ||
+    !isOptionalBoolean(value.isPlacingFairy) ||
     typeof value.moveCounter !== 'number' ||
     typeof value.lastUpdate !== 'number'
   ) {
@@ -307,6 +309,51 @@ function validateDragonMove(value: Record<string, unknown>) {
   }
 }
 
+/** Фея: клетка и подданный, к которому она привязана. */
+function validateFairy(value: Record<string, unknown>) {
+  if (value.fairy === undefined) return
+  const fairy = value.fairy
+  if (!isRecord(fairy)) {
+    throw new Error('Game save contains an invalid fairy')
+  }
+
+  if (fairy.position !== undefined) {
+    if (
+      !isRecord(fairy.position) ||
+      !Number.isInteger(fairy.position.rowIndex) ||
+      !Number.isInteger(fairy.position.tileIndex)
+    ) {
+      throw new Error('Game save contains an invalid fairy position')
+    }
+  }
+
+  if (fairy.follower === undefined) return
+  const follower = fairy.follower
+  if (
+    !isRecord(follower) ||
+    (typeof follower.playerId !== 'number' &&
+      typeof follower.playerId !== 'string') ||
+    !isRecord(follower.point) ||
+    typeof follower.point.x !== 'number' ||
+    typeof follower.point.y !== 'number' ||
+    (follower.point.direction !== undefined &&
+      ![...SIDE_NAMES, PointDirection.Center].includes(
+        follower.point.direction as (typeof SIDE_NAMES)[number]
+      )) ||
+    !isOptionalBoolean(follower.isAbbot) ||
+    !isOptionalBoolean(follower.isBigFollower)
+  ) {
+    throw new Error('Game save contains an invalid fairy follower')
+  }
+
+  // Позиция феи всегда совпадает с клеткой подданного: так её видят правила,
+  // даже если в записи позиция отсутствовала.
+  fairy.position = {
+    rowIndex: follower.point.y,
+    tileIndex: follower.point.x,
+  }
+}
+
 /** Выбор принцессы: список городов и клеток с подданными. */
 function validatePrincessChoice(value: Record<string, unknown>) {
   if (value.princessChoice === undefined) return
@@ -424,6 +471,7 @@ export function validateOutgoingState(value: unknown): void {
   }
   validatePlayers(value)
   validateRequiredGameState(value)
+  validateFairy(value)
 }
 
 export function migrateLegacyGameState(value: unknown): IGameState {
@@ -451,6 +499,7 @@ export function migrateLegacyGameState(value: unknown): IGameState {
   validateTileIds(value, rules)
   validateDragonPosition(value)
   validateDragonMove(value)
+  validateFairy(value)
   validatePrincessChoice(value)
   restoreBigFollowerPools(value, rules)
   restoreDragonPosition(value)
@@ -461,5 +510,7 @@ export function migrateLegacyGameState(value: unknown): IGameState {
   // Штраф принцессы живёт внутри хода: в старых сохранениях его нет, и партия
   // продолжается без запрета на выставление фишки.
   value.princessFollowerPenalty ??= false
+  // Фаза феи появилась в схеме 8; в старых сохранениях её нет.
+  value.isPlacingFairy ??= false
   return readMigratedState(value)
 }

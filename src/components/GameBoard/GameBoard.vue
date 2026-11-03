@@ -50,6 +50,12 @@
                 ? 'border-black/15'
                 : '',
               isDragonCell(rowIndex, tileIndex) ? 'tile-pulse' : '',
+              isFairyCell(rowIndex, tileIndex)
+                ? 'ring-2 ring-secondary-dark/70'
+                : '',
+              isFairyTargetPreview(rowIndex, tileIndex)
+                ? 'ring-4 ring-primary shadow-[0_0_24px_rgba(255,220,90,0.9)]'
+                : '',
               conflictCells.has(`${rowIndex}:${tileIndex}`)
                 ? 'tile-conflict'
                 : '',
@@ -70,6 +76,14 @@
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
+            <div
+              v-if="isFairyCell(rowIndex, tileIndex)"
+              class="pointer-events-none absolute right-1 top-1 flex size-7 items-center justify-center rounded-full bg-surface/85 text-xl shadow-card ring-1 ring-secondary-dark/50"
+              role="img"
+              :aria-label="fairyLabel"
+            >
+              🧚
+            </div>
             <LastActionBubble
               :is-visible="isLastActionBubbleCell(rowIndex, tileIndex)"
               :points="lastActionBubble?.points ?? 0"
@@ -398,6 +412,7 @@ const canShowPlacementUi = computed(
   () =>
     gameBoard.value.isMyTurn &&
     !gameBoard.value.isPlacingFollower &&
+    !gameBoard.value.isPlacingFairy &&
     !gameBoard.value.dragonMove &&
     !gameBoard.value.princessChoice &&
     !gameBoard.value.gameIsEnded
@@ -441,6 +456,19 @@ const isDragonCell = (rowIndex: number, tileIndex: number): boolean =>
   gameBoard.value.dragonPosition?.rowIndex === rowIndex &&
   gameBoard.value.dragonPosition?.tileIndex === tileIndex
 
+const isFairyCell = (rowIndex: number, tileIndex: number): boolean =>
+  gameBoard.value.fairy?.position?.rowIndex === rowIndex &&
+  gameBoard.value.fairy?.position?.tileIndex === tileIndex
+
+const fairyLabel = computed(() => {
+  const follower = gameBoard.value.fairy?.follower
+  if (!follower) return 'Фея, не связана с подданным'
+  const player = gameBoard.value.players.find(
+    ({ id }) => String(id) === String(follower.playerId)
+  )
+  return `Фея у подданного игрока ${player?.name ?? ''}`
+})
+
 /**
  * Клетка, в которой сервер разрешает поставить тайл.
  *
@@ -470,6 +498,10 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
       void GameService.moveDragon({ rowIndex, tileIndex }).catch((error) => {
         notifyError(error, 'Не удалось переместить дракона')
       })
+      return
+    }
+
+    if (gameBoard.value.isPlacingFollower || gameBoard.value.isPlacingFairy) {
       return
     }
 
@@ -597,8 +629,12 @@ const zoomToTile = ({ rowIndex, tileIndex }: BoardCell = {}) => {
   highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS)
 }
 
-const { setZoomHandler } = useBoardZoom()
+const { setZoomHandler, fairyTargetPreview } = useBoardZoom()
 setZoomHandler(zoomToTile)
+
+const isFairyTargetPreview = (rowIndex: number, tileIndex: number) =>
+  fairyTargetPreview.value?.rowIndex === rowIndex &&
+  fairyTargetPreview.value?.tileIndex === tileIndex
 
 const LAST_ACTION_DURATION_MS = 3200
 const lastActionCell = ref<BoardCell>({})

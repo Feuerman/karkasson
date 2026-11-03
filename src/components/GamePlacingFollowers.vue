@@ -6,8 +6,12 @@
     :initial-y="400"
     :drag-enabled="dragEnabled"
     :collapsed="collapsed"
-    icon="i-lucide-person-standing"
-    title="Поставить подданного"
+    :icon="
+      gameBoard.isPlacingFairy
+        ? 'i-lucide-sparkles'
+        : 'i-lucide-person-standing'
+    "
+    :title="panelTitle"
     surface-class="min-w-[220px] max-w-[300px] p-4"
     @toggle="toggle"
   >
@@ -15,7 +19,10 @@
       Принцесса забрала подданного — на этот тайл свою фишку поставить нельзя.
       Завершите ход.
     </div>
-    <div v-else-if="groupedPlaces.length === 0" class="mb-2 text-text-muted">
+    <div
+      v-else-if="groupedPlaces.length === 0 && !gameBoard.isPlacingFairy"
+      class="mb-2 text-text-muted"
+    >
       Нет доступных вариантов
     </div>
     <div v-else class="flex flex-col gap-1.5">
@@ -42,6 +49,48 @@
         </UButton>
       </div>
     </div>
+    <div
+      v-if="showFairyActions && gameBoard.fairyTargets?.length"
+      class="mt-3 border-t border-border/60 pt-3"
+    >
+      <p class="mb-1.5 text-sm text-text-muted">
+        {{
+          gameBoard.isPlacingFairy
+            ? 'Можно переместить фею к своему подданному или завершить ход.'
+            : 'Вместо выставления подданного можно переместить фею.'
+        }}
+      </p>
+      <div
+        v-for="(target, index) in gameBoard.fairyTargets ?? []"
+        :key="`fairy-${target.playerId}-${target.point.x}-${target.point.y}-${target.point.regionIndex ?? target.point.direction ?? index}`"
+        class="flex items-center gap-1 rounded-lg hover:bg-surface-muted"
+        @mouseenter="previewFairyTarget(target.point)"
+        @mouseleave="clearFairyTargetPreview"
+      >
+        <UButton
+          block
+          variant="ghost"
+          class="btn-choice min-w-0 flex-1 cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
+          @click.stop="moveFairy(target.point)"
+        >
+          <template #leading>
+            <UIcon
+              name="i-lucide-sparkles"
+              class="h-4 w-4 text-secondary-dark"
+            />
+          </template>
+          {{ fairyTargetDescription(target) }}
+        </UButton>
+        <a
+          href="#"
+          class="shrink-0 cursor-pointer text-primary underline underline-offset-2 hover:text-primary-dark"
+          :title="`Показать тайл ${target.point.x + 1}, ${target.point.y + 1}`"
+          @click.stop.prevent="zoomToFairyTarget(target.point)"
+        >
+          {{ target.point.x + 1 }}, {{ target.point.y + 1 }}
+        </a>
+      </div>
+    </div>
     <UButton
       block
       variant="soft"
@@ -50,7 +99,7 @@
       @click="skipFollower()"
     >
       {{
-        gameBoard.princessFollowerPenalty
+        gameBoard.princessFollowerPenalty || gameBoard.isPlacingFairy
           ? 'Завершить ход'
           : 'Пропустить выставление'
       }}
@@ -60,7 +109,12 @@
 
 <script setup lang="ts">
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
-import { FollowerType } from '@server/modules/types'
+import {
+  FollowerType,
+  TileSideType,
+  type FairyFollowerRef,
+  type Point,
+} from '@server/modules/types'
 import type { IGameBoard } from '@/types/game'
 import GamePanel from '@/components/GamePanel.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
@@ -71,11 +125,13 @@ import {
   disambiguateFollowerPlaceTitles,
   followerPlaceIcon as placeIcon,
   followerPlaceTitle,
+  pointDirectionTitle,
 } from '@/utils/labels'
 import { notifyError } from '@/utils/common'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
-import { computed } from 'vue'
+import { useBoardZoom } from '@/composables/useBoardZoom'
+import { computed, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   gameBoard: {
@@ -89,7 +145,7 @@ const props = defineProps({
 })
 
 const groupedPlaces = computed(() =>
-  groupFollowerPlaces(props.gameBoard.availableFollowersPlaces)
+  groupFollowerPlaces(props.gameBoard.availableFollowersPlaces ?? [])
 )
 
 /** Окно можно свернуть, чтобы не закрывать доску. */
@@ -145,8 +201,49 @@ interface ChoiceGroup {
  * `isPlacingFollower` всем, а варианты действий относятся к текущему игроку.
  */
 const showPanel = computed(
-  () => Boolean(props.gameBoard.isMyTurn) && props.gameBoard.isPlacingFollower
+  () =>
+    Boolean(props.gameBoard.isMyTurn) &&
+    (props.gameBoard.isPlacingFollower || props.gameBoard.isPlacingFairy)
 )
+
+const showFairyActions = computed(
+  () =>
+    props.gameBoard.rules.expansions.princessAndDragon &&
+    !props.gameBoard.princessFollowerPenalty &&
+    (props.gameBoard.isPlacingFollower || props.gameBoard.isPlacingFairy)
+)
+
+const panelTitle = computed(() =>
+  props.gameBoard.isPlacingFairy ? 'Переместить фею' : 'Поставить подданного'
+)
+
+function fairyTargetDescription(target: FairyFollowerRef): string {
+  const kind = target.isAbbot
+    ? 'аббату'
+    : target.isBigFollower
+      ? 'большому подданному'
+      : target.point.pointType === TileSideType.Field
+        ? 'крестьянину'
+        : 'подданному'
+  const player = props.gameBoard.players.find(
+    ({ id }) => String(id) === String(target.playerId)
+  )
+  return `Фея к ${kind} ${player?.name ?? 'игрока'}`
+}
+
+const { zoomToTile, setFairyTargetPreview } = useBoardZoom()
+
+const previewFairyTarget = (point: Point) => {
+  setFairyTargetPreview({ rowIndex: point.y, tileIndex: point.x })
+}
+
+const clearFairyTargetPreview = () => setFairyTargetPreview(null)
+
+const zoomToFairyTarget = (point: Point) => {
+  zoomToTile({ rowIndex: point.y, tileIndex: point.x })
+}
+
+onBeforeUnmount(clearFairyTargetPreview)
 
 /**
  * Кнопки выбора фишки для каждого доступного места. Набор допустимых типов
@@ -197,6 +294,12 @@ const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
 const skipFollower = () => {
   void GameService.skipFollower().catch((error: unknown) => {
     notifyError(error, 'Не удалось пропустить выставление')
+  })
+}
+
+const moveFairy = (point: Point) => {
+  void GameService.moveFairy(point).catch((error: unknown) => {
+    notifyError(error, 'Не удалось переместить фею')
   })
 }
 </script>

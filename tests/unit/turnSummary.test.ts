@@ -160,6 +160,8 @@ describe('buildTurnSummary', () => {
       returnedFollowers: 1,
       dragonMoves: 1,
       princessTakes: 1,
+      fairyMoves: 0,
+      fairyPoints: 0,
     })
     expect(summary?.scoreEvents).toEqual([
       {

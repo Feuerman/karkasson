@@ -264,6 +264,7 @@ export class ComputerMoveScheduler {
     const activePlayerId: PlayerId = game.currentPlayer.id
     const previousTileCount = countPlacedTiles(game)
     const isDragonMove = Boolean(game.dragonMove)
+    const isFollowerAction = game.isPlacingFollower || game.isPlacingFairy
 
     try {
       return await service.mutateAndSave(
@@ -282,6 +283,7 @@ export class ComputerMoveScheduler {
           }
           if (
             !isDragonMove &&
+            !isFollowerAction &&
             !updatedGame.gameIsEnded &&
             countPlacedTiles(updatedGame) === previousTileCount
           ) {
