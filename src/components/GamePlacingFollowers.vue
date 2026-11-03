@@ -125,7 +125,6 @@ import {
   disambiguateFollowerPlaceTitles,
   followerPlaceIcon as placeIcon,
   followerPlaceTitle,
-  pointDirectionTitle,
 } from '@/utils/labels'
 import { notifyError } from '@/utils/common'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
