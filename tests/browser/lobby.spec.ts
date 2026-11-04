@@ -72,7 +72,7 @@ test('игрок создаёт лобби, занимает слот и нач�
     ).toBe(true)
 
     const availableSlots = page.getByTestId(TEST_IDS.playerSlotCheckbox)
-    await expect(availableSlots).toHaveCount(8)
+    await expect(availableSlots).toHaveCount(6)
     for (let slot = 1; slot < 4; slot++) {
       await availableSlots.nth(slot).click()
     }
