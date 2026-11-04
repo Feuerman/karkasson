@@ -4,19 +4,19 @@
     class="relative border-b-2 px-3 py-2"
     :class="[
       playerBackgroundColorClass(headerColor),
+      playerBackgroundTextColorClass(headerColor),
       isMyTurn ? 'border-secondary-dark' : 'border-transparent',
     ]"
   >
     <div class="flex items-center justify-center gap-2">
       <UIcon
         :name="gameBoard.gameIsEnded ? 'i-lucide-crown' : 'i-lucide-footprints'"
-        class="h-5 w-5 text-black/70"
+        class="h-5 w-5"
       />
       <span
         :title="gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel"
         :data-testid="TEST_IDS.gameStatsCurrentPlayer"
         class="title-medieval min-w-0 truncate text-title leading-none font-bold"
-        :class="playerTextColorClass(headerColor)"
       >
         {{ gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel }}
       </span>
@@ -35,11 +35,11 @@
     </div>
     <div
       v-if="!gameBoard.gameIsEnded"
-      class="mt-1 flex items-center justify-center gap-1.5 px-3 text-sm font-bold text-text"
+      class="mt-1 flex items-center justify-center gap-1.5 px-3 text-sm font-bold"
     >
       <span class="shrink-0 tabular-nums">ход {{ currentTurnNumber }}</span>
       <span
-        class="h-1 w-1 shrink-0 rounded-full bg-black/30"
+        class="h-1 w-1 shrink-0 rounded-full bg-current"
         aria-hidden="true"
       ></span>
       <span
@@ -66,7 +66,7 @@ import type { IGameBoard } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
 import {
   playerBackgroundColorClass,
-  playerTextColorClass,
+  playerBackgroundTextColorClass,
 } from '@/utils/colors'
 
 withDefaults(

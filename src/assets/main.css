@@ -77,6 +77,13 @@
   --color-player-black-text: #ffffff;
   --color-player-pink-text: #880e4f;
 
+  --color-player-red-bg-text: #000000;
+  --color-player-yellow-bg-text: #7a5c00;
+  --color-player-green-bg-text: #000000;
+  --color-player-blue-bg-text: #000000;
+  --color-player-black-bg-text: #ffffff;
+  --color-player-pink-bg-text: #000000;
+
   --font-sans: 'Alegreya', Georgia, 'Times New Roman', serif;
   --font-display: 'Alegreya SC', 'Alegreya', Georgia, 'Times New Roman', serif;
 
