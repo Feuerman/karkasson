@@ -49,7 +49,14 @@ describe('Размещение фишек', () => {
     const { preState, offerGame } = await driveTurnsUntilFollowerOffer(
       creator,
       gameId,
-      aliceId
+      aliceId,
+      {
+        // Поля предлагаются на каждом ходу; здесь нужен обычный объект,
+        // на который ставится подданный, а не аббат в сад.
+        acceptOffer: (game) =>
+          chooseFollowerPlace(game.availableFollowersPlaces ?? []) !==
+          undefined,
+      }
     )
     expect(offerGame).not.toBeNull()
     expect(preState).not.toBeNull()
