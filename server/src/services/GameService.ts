@@ -299,7 +299,7 @@ export class GameService {
     const gameId = globalThis.crypto.randomUUID()
     const deviceId = this.getDeviceBySocketId(socketId)
 
-    const players: Player[] = Array.from({ length: 8 }, (_, i) => ({
+    const players: Player[] = Array.from({ length: 6 }, (_, i) => ({
       id: i + 1,
       socketId: i === 0 ? socketId : null,
       deviceId: i === 0 ? (deviceId ?? null) : null,
