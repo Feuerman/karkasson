@@ -2,45 +2,35 @@ const playerColorMap: Record<
   string,
   { text: string; bg: string; border: string }
 > = {
-  coral: {
-    text: 'text-player-coral-text',
-    bg: 'bg-player-coral',
-    border: 'border-player-coral',
+  red: {
+    text: 'text-player-red-text',
+    bg: 'bg-player-red',
+    border: 'border-player-red',
   },
-  skyblue: {
-    text: 'text-player-skyblue-text',
-    bg: 'bg-player-skyblue',
-    border: 'border-player-skyblue',
+  yellow: {
+    text: 'text-player-yellow-text',
+    bg: 'bg-player-yellow',
+    border: 'border-player-yellow',
   },
-  lime: {
-    text: 'text-player-lime-text',
-    bg: 'bg-player-lime',
-    border: 'border-player-lime',
+  green: {
+    text: 'text-player-green-text',
+    bg: 'bg-player-green',
+    border: 'border-player-green',
   },
-  gold: {
-    text: 'text-player-gold-text',
-    bg: 'bg-player-gold',
-    border: 'border-player-gold',
+  blue: {
+    text: 'text-player-blue-text',
+    bg: 'bg-player-blue',
+    border: 'border-player-blue',
   },
-  orchid: {
-    text: 'text-player-orchid-text',
-    bg: 'bg-player-orchid',
-    border: 'border-player-orchid',
+  black: {
+    text: 'text-player-black-text',
+    bg: 'bg-player-black',
+    border: 'border-player-black',
   },
-  teal: {
-    text: 'text-player-teal-text',
-    bg: 'bg-player-teal',
-    border: 'border-player-teal',
-  },
-  salmon: {
-    text: 'text-player-salmon-text',
-    bg: 'bg-player-salmon',
-    border: 'border-player-salmon',
-  },
-  slateblue: {
-    text: 'text-player-slateblue-text',
-    bg: 'bg-player-slateblue',
-    border: 'border-player-slateblue',
+  pink: {
+    text: 'text-player-pink-text',
+    bg: 'bg-player-pink',
+    border: 'border-player-pink',
   },
 }
 

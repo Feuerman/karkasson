@@ -3,14 +3,12 @@ import { playerColorValue } from '@/utils/colors'
 
 describe('playerColorValue', () => {
   const playerColors = {
-    coral: '#ff7f50',
-    skyblue: '#87ceeb',
-    lime: '#00ff00',
-    gold: '#ffd700',
-    orchid: '#da70d6',
-    teal: '#008080',
-    salmon: '#fa8072',
-    slateblue: '#6a5acd',
+    red: '#d32f2f',
+    yellow: '#ffcc00',
+    green: '#388e3c',
+    blue: '#1976d2',
+    black: '#424242',
+    pink: '#ec407a',
   } as const
   const cssColors = new Map<string, string>([
     ...Object.entries(playerColors).map(
@@ -38,6 +36,6 @@ describe('playerColorValue', () => {
   it('uses the neutral color for missing or unknown player colors', () => {
     expect(playerColorValue()).toBe('#b29b6a')
     expect(playerColorValue('unknown')).toBe('#b29b6a')
-    expect(playerColorValue('CORAL')).toBe('#ff7f50')
+    expect(playerColorValue('RED')).toBe('#d32f2f')
   })
 })

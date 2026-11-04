@@ -132,10 +132,12 @@ const cellStyle = computed(() => ({
 
 const followerColorClass = (color: RulesMarkerColor) => {
   return {
-    coral: 'bg-player-coral',
-    skyblue: 'bg-player-skyblue',
-    gold: 'bg-player-gold',
-    teal: 'bg-player-teal',
+    red: 'bg-player-red',
+    yellow: 'bg-player-yellow',
+    green: 'bg-player-green',
+    blue: 'bg-player-blue',
+    black: 'bg-player-black',
+    pink: 'bg-player-pink',
   }[color]
 }
 

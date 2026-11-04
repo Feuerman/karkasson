@@ -15,7 +15,8 @@ export type RulesMarkerKind =
 export type RulesRotation = 0 | 90 | 180 | 270
 
 /** Цвета подданных на примерах — ключи темы player-*. */
-export type RulesMarkerColor = 'coral' | 'skyblue' | 'gold' | 'teal'
+export type RulesMarkerColor =
+  'red' | 'yellow' | 'green' | 'blue' | 'black' | 'pink'
 
 /** Цветная точка подданного на грани тайла (или в центре монастыря). */
 export interface RulesMarkerFollower {

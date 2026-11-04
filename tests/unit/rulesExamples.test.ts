@@ -156,14 +156,12 @@ describe('примеры правил', () => {
   it('примеры дракона показывают возврат съеденного подданного', () => {
     const straight = examples.find(({ id }) => id === 'dragon-move-straight')
 
-    expect(straight?.returnedFollowers).toEqual(['coral'])
+    expect(straight?.returnedFollowers).toEqual(['red'])
     expect(
       straight?.grid
         .flatMap((row) => row)
         .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
-        .some(
-          (marker) => marker.kind === 'follower' && marker.color === 'coral'
-        )
+        .some((marker) => marker.kind === 'follower' && marker.color === 'red')
     ).toBe(true)
   })
 })

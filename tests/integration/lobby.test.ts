@@ -86,7 +86,7 @@ describe('Лобби', () => {
     }>(SocketEvents.GetGamesList)
     const found = games.find((g) => g.id === created.gameId)
     expect(found).toBeTruthy()
-    expect(found!.players).toHaveLength(8)
+    expect(found!.players).toHaveLength(6)
     expect(found!.roomCode).toMatch(/^\d{6}$/)
   })
 
@@ -136,9 +136,9 @@ describe('Лобби', () => {
     expect(gameId).toBeTruthy()
     expect(game.gridSize).toEqual([30, 30])
 
-    // Заполняем все 8 слотов реальными игроками + пробуем зайти девятым
+    // Заполняем все 6 слотов реальными игроками + пробуем зайти седьмым
     const others: TestClient[] = []
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i <= 5; i++) {
       const client = new TestClient(server.url, `device-full-${i}`)
       clients.push(client)
       others.push(client)

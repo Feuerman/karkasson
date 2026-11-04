@@ -21,7 +21,7 @@ export const roadConnectionExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.North,
         }
       ),
@@ -62,7 +62,7 @@ export const completedMonasteryExample: RulesExample = {
         { kind: RulesMarkerKind.Completed },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: PointDirection.Center,
         }
       ),
@@ -84,7 +84,7 @@ export const cityCornersExample: RulesExample = {
     [
       cell(rot(TileId.E), {
         kind: RulesMarkerKind.Follower,
-        color: 'coral',
+        color: 'red',
         direction: SideName.North,
       }),
       empty,
@@ -110,7 +110,7 @@ export const roadCrossroadsExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.North,
         }
       ),
@@ -139,7 +139,7 @@ export const roadLoopExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'skyblue',
+          color: 'blue',
           direction: SideName.North,
         }
       ),
@@ -162,14 +162,14 @@ export const abbotRecallExample: RulesExample = {
       tile(TileId.C),
       cell(garden(TileId.I), {
         kind: RulesMarkerKind.Follower,
-        color: 'teal',
+        color: 'green',
         direction: PointDirection.Center,
       }),
       tile(TileId.B),
     ],
     [empty, tile(TileId.B), tile(TileId.B)],
   ]),
-  returnedFollowers: ['teal'],
+  returnedFollowers: ['green'],
   caption:
     'Вокруг сада занято 5 из 8 клеток, поэтому отзыв аббата даёт 1 очко за сам сад и по 1 за каждый соседний тайл — всего 6 очков. Аббат возвращается в запас, ход при этом не тратится. Два верхних тайла примыкают к саду гранями города: сад лежит на тайле, у которого есть и сад, и две городские стороны.',
 }
@@ -186,7 +186,7 @@ export const partialGardenExample: RulesExample = {
       cell(rot(TileId.C)),
       cell(garden(TileId.I), {
         kind: RulesMarkerKind.Follower,
-        color: 'teal',
+        color: 'green',
         direction: PointDirection.Center,
       }),
       cell(rot(TileId.B)),
@@ -209,7 +209,7 @@ export const completedGardenExample: RulesExample = {
       tile(TileId.C),
       cell(garden(TileId.R), {
         kind: RulesMarkerKind.Follower,
-        color: 'teal',
+        color: 'green',
         direction: PointDirection.Center,
       }),
       tile(TileId.C),
@@ -235,7 +235,7 @@ export const completedRoadExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.North,
         }
       ),
@@ -257,7 +257,7 @@ export const completedCityExample: RulesExample = {
       tile(TileId.D, 90),
       cell(rot(TileId.C), {
         kind: RulesMarkerKind.Follower,
-        color: 'coral',
+        color: 'red',
         direction: SideName.North,
       }),
       tile(TileId.I),
@@ -280,7 +280,7 @@ export const claimedObjectExample: RulesExample = {
       empty,
       cell(rot(TileId.U), {
         kind: RulesMarkerKind.Follower,
-        color: 'coral',
+        color: 'red',
         direction: SideName.South,
       }),
       empty,
@@ -314,7 +314,7 @@ export const innRoadExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.North,
         }
       ),
@@ -340,7 +340,7 @@ export const twoInnsExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.East,
         }
       ),
@@ -365,7 +365,7 @@ export const bigFollowerRoadExample: RulesExample = {
         { kind: RulesMarkerKind.Completed },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.East,
           isBig: true,
         }
@@ -377,7 +377,7 @@ export const bigFollowerRoadExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'skyblue',
+          color: 'blue',
           direction: SideName.East,
         }
       ),
@@ -404,7 +404,7 @@ export const cathedralCityExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.North,
         }
       ),
@@ -427,7 +427,7 @@ export const bigFollowerExample: RulesExample = {
       empty,
       cell(rot(TileId.E, 180), {
         kind: RulesMarkerKind.Follower,
-        color: 'skyblue',
+        color: 'blue',
         direction: SideName.South,
       }),
       empty,
@@ -436,7 +436,7 @@ export const bigFollowerExample: RulesExample = {
       cell(rot(TileId.E, 90)),
       cell(rot(TileId.C), {
         kind: RulesMarkerKind.Follower,
-        color: 'coral',
+        color: 'red',
         direction: SideName.North,
         isBig: true,
       }),
@@ -462,7 +462,7 @@ export const trappedObjectExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.East,
         }
       ),
@@ -487,7 +487,7 @@ export const sharedRoadExample: RulesExample = {
         { kind: RulesMarkerKind.Completed },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.East,
         }
       ),
@@ -497,7 +497,7 @@ export const sharedRoadExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.East,
         }
       ),
@@ -519,7 +519,7 @@ export const sharedCityExample: RulesExample = {
       empty,
       cell(rot(TileId.E, 180), {
         kind: RulesMarkerKind.Follower,
-        color: 'gold',
+        color: 'yellow',
         direction: SideName.South,
       }),
       empty,
@@ -532,7 +532,7 @@ export const sharedCityExample: RulesExample = {
         { kind: RulesMarkerKind.Completed },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.East,
         }
       ),
@@ -541,7 +541,7 @@ export const sharedCityExample: RulesExample = {
         { kind: RulesMarkerKind.Completed },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'coral',
+          color: 'red',
           direction: SideName.South,
         }
       ),
@@ -563,7 +563,7 @@ export const finalScoringExample: RulesExample = {
     [
       cell(rot(TileId.M), {
         kind: RulesMarkerKind.Follower,
-        color: 'coral',
+        color: 'red',
         direction: SideName.North,
       }),
       cell(rot(TileId.E, 270)),
@@ -574,7 +574,7 @@ export const finalScoringExample: RulesExample = {
         { kind: RulesMarkerKind.New },
         {
           kind: RulesMarkerKind.Follower,
-          color: 'gold',
+          color: 'yellow',
           direction: SideName.East,
         }
       ),
