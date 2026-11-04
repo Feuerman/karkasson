@@ -2,12 +2,13 @@
 
 Корневой `AGENTS.md` — единый источник общих инструкций. `src/AGENTS.md` и
 `server/AGENTS.md` содержат только дополнения для соответствующих слоёв.
-Обновляй эти инструкции вместе с `README.md`, если меняются архитектура,
+Обновляй эти инструкции, если меняются архитектура,
 источники истины или порядок работы.
 
 Проект — онлайн-игра «Каркассон»: Vue 3 SPA в `src/`, сервер Node.js/Socket.IO
-в `server/`, Firebase Realtime Database, pnpm workspace. Архитектура и запуск —
-в [README.md](README.md), история изменений — в [CHANGELOG.md](CHANGELOG.md).
+в `server/`, Firebase Realtime Database, pnpm workspace. Архитектура, запуск и
+порядок работы описаны в этом `AGENTS.md`; `README.md` и `CHANGELOG.md` —
+документы для игроков, не входят в контекст агентов.
 
 ## Основные инварианты
 
