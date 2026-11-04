@@ -38,15 +38,15 @@
           v-for="choice in group.choices"
           :key="choice.key"
           class="rounded-lg hover:bg-surface-muted"
-          @mouseenter="previewFollowerPlace(group.place)"
-          @mouseleave="clearFollowerPlacePreview"
         >
           <UButton
             block
             variant="ghost"
             class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text"
-            @focus="previewFollowerPlace(group.place)"
+            @focus="previewFollowerPlace(group.place, choice.followerType)"
             @blur="clearFollowerPlacePreview"
+            @mouseenter="previewFollowerPlace(group.place, choice.followerType)"
+            @mouseleave="clearFollowerPlacePreview"
             @click.stop="placeFollower(group.place, choice.followerType)"
           >
             <template #leading>
@@ -137,6 +137,7 @@ import {
   followerPlaceTitle,
 } from '@/utils/labels'
 import { notifyError } from '@/utils/common'
+import { playerColorValue } from '@/utils/colors'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
 import { useBoardZoom } from '@/composables/useBoardZoom'
@@ -240,14 +241,22 @@ function fairyTargetDescription(target: FairyFollowerRef): string {
   return `Фея к ${kind} ${player?.name ?? 'игрока'}`
 }
 
-const { zoomToTile, setFairyTargetPreview, setFollowerPlacementPreview } =
-  useBoardZoom()
+const {
+  zoomToTile,
+  setFairyTargetPreview,
+  setFollowerPlacementPreview,
+  clearFollowerPlacementPreview,
+} = useBoardZoom()
 
-const previewFollowerPlace = (place: AvailableFollowerPlace) => {
-  setFollowerPlacementPreview(place.point)
+const previewFollowerPlace = (
+  place: AvailableFollowerPlace,
+  followerType: FollowerType
+) => {
+  const playerColor = playerColorValue(props.gameBoard.currentPlayer?.color)
+  setFollowerPlacementPreview(place.point, followerType, playerColor)
 }
 
-const clearFollowerPlacePreview = () => setFollowerPlacementPreview(null)
+const clearFollowerPlacePreview = clearFollowerPlacementPreview
 
 const previewFairyTarget = (point: Point) => {
   setFairyTargetPreview({ rowIndex: point.y, tileIndex: point.x })

@@ -58,6 +58,9 @@ describe('Размещение фишек', () => {
       preState!.playersFollowers![playerId(aliceId)].ordinaryFollowers
     const offeredPlaces = offerGame!.availableFollowersPlaces!
     const place = chooseFollowerPlace(offeredPlaces)
+    expect(place).toBeTruthy()
+    if (!place)
+      throw new Error('Не найдено подходящее неполевое место для фишки')
 
     const placed = await creator.emitAck<{
       success: boolean

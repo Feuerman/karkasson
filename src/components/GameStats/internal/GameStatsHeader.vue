@@ -15,7 +15,8 @@
       <span
         :title="gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel"
         :data-testid="TEST_IDS.gameStatsCurrentPlayer"
-        class="title-medieval min-w-0 truncate text-title leading-none font-bold text-text"
+        class="title-medieval min-w-0 truncate text-title leading-none font-bold"
+        :class="playerTextColorClass(headerColor)"
       >
         {{ gameBoard.gameIsEnded ? leaderLabel : currentPlayerLabel }}
       </span>
@@ -63,7 +64,10 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import PanelCollapseButton from '@/components/PanelCollapseButton.vue'
 import type { IGameBoard } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
-import { playerBackgroundColorClass } from '@/utils/colors'
+import {
+  playerBackgroundColorClass,
+  playerTextColorClass,
+} from '@/utils/colors'
 
 withDefaults(
   defineProps<{

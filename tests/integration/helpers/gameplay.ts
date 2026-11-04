@@ -491,11 +491,13 @@ export async function makeHumanMove(
 /** Предпочитает дорогу (они замыкаются чаще всего), иначе первый вариант */
 export function chooseFollowerPlace(
   places: FollowerPlaceSnapshot[]
-): FollowerPlaceSnapshot {
+): FollowerPlaceSnapshot | undefined {
+  const nonField = places.filter(
+    (place) => place.point.pointType !== TileSideType.Field
+  )
   return (
-    places.find((place) => place.point.pointType === TileSideType.Road) ??
-    places.find((place) => place.point.pointType !== TileSideType.Field) ??
-    places[0]
+    nonField.find((place) => place.point.pointType === TileSideType.Road) ??
+    nonField[0]
   )
 }
 

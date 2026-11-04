@@ -50,9 +50,10 @@
           :title="turnOrderTitle(player, index)"
         >
           <span
-            class="flex h-5 w-5 items-center justify-center rounded-pill text-caption font-bold text-text/75 ring-1 ring-border/15"
+            class="flex h-5 w-5 items-center justify-center rounded-pill text-caption font-bold ring-1 ring-border/15"
             :class="[
               playerBackgroundColorClass(player.color),
+              playerTextColorClass(player.color),
               index === 0 ? 'ring-2 ring-secondary-dark' : 'opacity-75',
             ]"
           >
@@ -68,7 +69,10 @@
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { Player } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
-import { playerBackgroundColorClass } from '@/utils/colors'
+import {
+  playerBackgroundColorClass,
+  playerTextColorClass,
+} from '@/utils/colors'
 
 withDefaults(
   defineProps<{

@@ -61,7 +61,8 @@
           :icon="item.icon"
           :disabled="!filterCounts[item.value]"
           :data-testid="`${TEST_IDS.historyFilter}-${item.value.toLowerCase()}`"
-          class="h-7 cursor-pointer gap-1.5 px-2 text-caption"
+          class="h-7 cursor-pointer gap-1.5 px-2"
+          :class="activeFilter === item.value ? 'text-white' : 'text-caption'"
           @click="activeFilter = item.value"
         >
           {{ item.label }}

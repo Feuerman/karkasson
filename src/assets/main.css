@@ -61,25 +61,21 @@
   --color-text-muted: #6d5c40;
   --color-text-faint: #837152;
 
-  /* Dynamic player colors (server PlayerColors) */
-  --color-player-coral: #ff7f50;
-  --color-player-skyblue: #87ceeb;
-  --color-player-lime: #00ff00;
-  --color-player-gold: #ffd700;
-  --color-player-orchid: #da70d6;
-  --color-player-teal: #008080;
-  --color-player-salmon: #fa8072;
-  --color-player-slateblue: #6a5acd;
+  /* Dynamic player colors (original Carcassonne + Abbot pink) */
+  --color-player-red: #e53935;
+  --color-player-yellow: #ffcc00;
+  --color-player-green: #388e3c;
+  --color-player-blue: #1976d2;
+  --color-player-black: #424242;
+  --color-player-pink: #c2185b;
 
   /* Darker player tones for readable labels on parchment surfaces */
-  --color-player-coral-text: #b33b1d;
-  --color-player-skyblue-text: #187392;
-  --color-player-lime-text: #155c1a;
-  --color-player-gold-text: #755000;
-  --color-player-orchid-text: #a13b98;
-  --color-player-teal-text: #006b68;
-  --color-player-salmon-text: #b8443c;
-  --color-player-slateblue-text: #5144ad;
+  --color-player-red-text: #b71c1c;
+  --color-player-yellow-text: #7a5c00;
+  --color-player-green-text: #1b5e20;
+  --color-player-blue-text: #0d47a1;
+  --color-player-black-text: #ffffff;
+  --color-player-pink-text: #880e4f;
 
   --font-sans: 'Alegreya', Georgia, 'Times New Roman', serif;
   --font-display: 'Alegreya SC', 'Alegreya', Georgia, 'Times New Roman', serif;
@@ -130,65 +126,42 @@
     0%,
     100% {
       box-shadow:
-        0 0 12px 3px rgba(255, 193, 90, 0.28),
-        0 0 30px 10px rgba(201, 153, 63, 0.16),
-        inset 0 0 0 1px rgba(255, 236, 190, 0.18);
-      border-color: rgba(255, 193, 90, 0.45);
-      transform: scale(1.02);
+        0 0 10px 2px rgba(201, 153, 63, 0.3),
+        inset 0 0 0 1px rgba(255, 236, 190, 0.15);
+      border-color: rgba(201, 153, 63, 0.4);
+      transform: scale(1);
     }
     50% {
       box-shadow:
-        0 0 24px 9px rgba(255, 203, 118, 0.42),
-        0 0 58px 22px rgba(201, 153, 63, 0.26),
-        inset 0 0 0 1px rgba(255, 236, 190, 0.32);
-      border-color: rgba(255, 203, 118, 0.75);
-      transform: scale(1.07);
+        0 0 18px 6px rgba(201, 153, 63, 0.45),
+        inset 0 0 0 1px rgba(255, 236, 190, 0.3);
+      border-color: rgba(201, 153, 63, 0.7);
+      transform: scale(1.03);
     }
   }
 
   @keyframes tile-focus {
     0% {
       box-shadow:
-        0 0 0 2px rgba(255, 214, 140, 0),
-        0 0 0 6px rgba(201, 153, 63, 0),
+        0 0 0 2px rgba(201, 153, 63, 0),
         inset 0 0 0 2px rgba(255, 236, 190, 0);
       border-color: rgba(201, 153, 63, 0);
       transform: scale(1);
     }
-    12% {
+    40% {
       box-shadow:
-        0 0 0 2px rgba(255, 214, 140, 0.95),
-        0 0 0 6px rgba(201, 153, 63, 0.45),
-        inset 0 0 0 2px rgba(255, 236, 190, 0.85),
-        0 10px 26px -6px rgba(46, 34, 15, 0.55);
-      border-color: rgba(201, 153, 63, 0.95);
-      transform: scale(1.04);
-    }
-    30% {
-      box-shadow:
-        0 0 0 2px rgba(255, 214, 140, 0.95),
-        0 0 0 6px rgba(201, 153, 63, 0.45),
-        inset 0 0 0 2px rgba(255, 236, 190, 0.85),
-        0 10px 26px -6px rgba(46, 34, 15, 0.55);
-      border-color: rgba(201, 153, 63, 0.95);
-      transform: scale(1.04);
-    }
-    46% {
-      box-shadow:
-        0 0 0 2px rgba(255, 226, 168, 0.9),
-        0 0 0 7px rgba(201, 153, 63, 0.3),
-        inset 0 0 0 2px rgba(255, 240, 205, 0.7),
-        0 10px 26px -6px rgba(46, 34, 15, 0.55);
-      border-color: rgba(201, 153, 63, 0.8);
+        0 0 0 2px rgba(201, 153, 63, 0.85),
+        0 0 14px -2px rgba(201, 153, 63, 0.45),
+        inset 0 0 0 2px rgba(255, 236, 190, 0.7);
+      border-color: rgba(201, 153, 63, 0.85);
       transform: scale(1.02);
     }
     70% {
       box-shadow:
-        0 0 0 2px rgba(255, 214, 140, 0.55),
-        0 0 0 5px rgba(201, 153, 63, 0.18),
-        inset 0 0 0 2px rgba(255, 236, 190, 0.4),
-        0 10px 26px -6px rgba(46, 34, 15, 0.55);
-      border-color: rgba(201, 153, 63, 0.55);
+        0 0 0 2px rgba(201, 153, 63, 0.5),
+        0 0 10px -2px rgba(201, 153, 63, 0.25),
+        inset 0 0 0 2px rgba(255, 236, 190, 0.4);
+      border-color: rgba(201, 153, 63, 0.5);
       transform: scale(1);
     }
     100% {
@@ -201,12 +174,12 @@
   @keyframes tile-conflict {
     0%,
     100% {
-      box-shadow: 0 0 10px 3px rgba(191, 68, 51, 0.55);
-      border-color: rgba(191, 68, 51, 0.7);
+      box-shadow: 0 0 8px 2px rgba(191, 68, 51, 0.45);
+      border-color: rgba(191, 68, 51, 0.55);
     }
     50% {
-      box-shadow: 0 0 22px 8px rgba(191, 68, 51, 0.8);
-      border-color: rgba(191, 68, 51, 0.95);
+      box-shadow: 0 0 16px 5px rgba(191, 68, 51, 0.7);
+      border-color: rgba(191, 68, 51, 0.85);
     }
   }
 
@@ -216,14 +189,14 @@
   @keyframes tile-available {
     0%,
     100% {
-      box-shadow: inset 0 0 0 2px rgba(214, 234, 226, 0.16);
-      border-color: rgba(214, 234, 226, 0.26);
+      box-shadow: inset 0 0 0 2px rgba(214, 234, 226, 0.14);
+      border-color: rgba(214, 234, 226, 0.22);
     }
     50% {
       box-shadow:
-        inset 0 0 0 2px rgba(214, 234, 226, 0.36),
-        0 0 8px 1px rgba(111, 147, 122, 0.35);
-      border-color: rgba(214, 234, 226, 0.48);
+        inset 0 0 0 2px rgba(214, 234, 226, 0.3),
+        0 0 8px 1px rgba(111, 147, 122, 0.3);
+      border-color: rgba(214, 234, 226, 0.4);
     }
   }
 
@@ -260,14 +233,13 @@
 }
 
 /*
- * Выбранная клетка с «призраком» тайла: тонкое тёплое кольцо вокруг «призрака»
- * вместо пульсирующего сияния. Кольцо идёт снаружи плитки: она закрывает
- * клетку целиком, и внутренняя рамка была бы не видна. Кольцо не пульсирует —
- * иначе кнопки поворота рядом с плиткой дрожат.
+ * Выбранная клетка с «призраком» тайла: тонкое тёплое кольцо по форме плитки
+ * вместо outline (outline не следует за border-radius). Рамка обводит клетку
+ * снаружи и не пульсирует, чтобы кнопки поворота не дрожали.
  */
 @utility tile-selected {
-  outline: 2px solid rgba(255, 214, 140, 0.6);
-  outline-offset: 1px;
+  border: 2px solid rgba(255, 214, 140, 0.7);
+  border-radius: inherit;
   z-index: 5;
 }
 
@@ -352,13 +324,13 @@
 @keyframes tile-last-action {
   0% {
     box-shadow: 0 0 0 2px var(--last-action-color);
-    transform: scale(1.04);
+    transform: scale(1);
   }
-  25% {
+  30% {
     box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--last-action-color) 55%, transparent),
-      0 0 24px color-mix(in srgb, var(--last-action-color) 65%, transparent);
-    transform: scale(1.04);
+      0 0 0 4px color-mix(in srgb, var(--last-action-color) 50%, transparent),
+      0 0 16px color-mix(in srgb, var(--last-action-color) 55%, transparent);
+    transform: scale(1.02);
   }
   100% {
     box-shadow: 0 0 0 0 transparent;
@@ -402,8 +374,10 @@
   outline: none;
 
   &:focus-visible {
-    outline: 2px solid rgba(255, 226, 168, 0.95);
-    outline-offset: 3px;
+    border: 2px solid rgba(255, 226, 168, 0.9);
+    border-radius: inherit;
+    outline: 2px solid rgba(255, 226, 168, 0.9);
+    outline-offset: -2px;
   }
 }
 

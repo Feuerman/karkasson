@@ -1,17 +1,23 @@
 import { ref } from 'vue'
-import type { Point } from '@server/modules/types'
+import type { FollowerType, Point } from '@server/modules/types'
 
 export type BoardZoomHandler = (cell: {
   rowIndex: number
   tileIndex: number
 }) => void
 
+export type FollowerPlacementPreview = {
+  point: Point
+  followerType: FollowerType
+  playerColor: string
+} | null
+
 const zoomHandler = ref<BoardZoomHandler | null>(null)
 const fairyTargetPreview = ref<{
   rowIndex: number
   tileIndex: number
 } | null>(null)
-const followerPlacementPreview = ref<Point | null>(null)
+const followerPlacementPreview = ref<FollowerPlacementPreview>(null)
 
 /**
  * Связывает доску и элементы интерфейса, которые просят показать клетку.
@@ -33,8 +39,16 @@ export function useBoardZoom() {
     fairyTargetPreview.value = cell
   }
 
-  const setFollowerPlacementPreview = (point: Point | null) => {
-    followerPlacementPreview.value = point
+  const setFollowerPlacementPreview = (
+    point: Point,
+    followerType: FollowerType,
+    playerColor: string
+  ) => {
+    followerPlacementPreview.value = { point, followerType, playerColor }
+  }
+
+  const clearFollowerPlacementPreview = () => {
+    followerPlacementPreview.value = null
   }
 
   return {
@@ -44,5 +58,6 @@ export function useBoardZoom() {
     setFairyTargetPreview,
     followerPlacementPreview,
     setFollowerPlacementPreview,
+    clearFollowerPlacementPreview,
   }
 }

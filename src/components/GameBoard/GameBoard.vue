@@ -73,9 +73,7 @@
                 fieldFollowersByCell[rowIndex]?.[tileIndex] ??
                 EMPTY_CELL_FIELD_FOLLOWERS
               "
-              :follower-preview-point="
-                followerPreviewForCell(rowIndex, tileIndex)
-              "
+              :follower-preview="followerPreviewForCell(rowIndex, tileIndex)"
               :players="gameBoard.players"
               :size="TILE_SIZE"
             />
@@ -641,8 +639,10 @@ const isFairyTargetPreview = (rowIndex: number, tileIndex: number) =>
   fairyTargetPreview.value?.tileIndex === tileIndex
 
 const followerPreviewForCell = (rowIndex: number, tileIndex: number) => {
-  const point = followerPlacementPreview.value
-  return point?.y === rowIndex && point.x === tileIndex ? point : null
+  const preview = followerPlacementPreview.value
+  return preview?.point?.y === rowIndex && preview?.point?.x === tileIndex
+    ? preview
+    : null
 }
 
 const LAST_ACTION_DURATION_MS = 3200

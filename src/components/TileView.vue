@@ -17,17 +17,61 @@
         class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 scale-[1.08] transition-transform duration-200 ease-in-out"
       ></canvas>
       <div
-        v-if="followerPreviewPosition"
+        v-if="followerPreview && followerPreviewPosition"
         class="pointer-events-none absolute inset-0 z-10 scale-[1.08]"
         aria-hidden="true"
       >
         <div
-          class="absolute size-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-amber-300/45 shadow-[0_0_0_3px_rgba(245,158,11,0.55),0_0_16px_rgba(255,220,90,0.9)]"
+          class="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_16px_rgba(255,255,255,0.6)] box-border"
           :style="{
             left: `${followerPreviewPosition[0] * 100}%`,
             top: `${followerPreviewPosition[1] * 100}%`,
+            width: previewOuterSize + 'px',
+            height: previewOuterSize + 'px',
+            backgroundColor: followerPreview.playerColor,
           }"
-        />
+        >
+          <div
+            class="absolute inset-0 rounded-full box-border"
+            :style="{
+              width: previewInnerSize + 'px',
+              height: previewInnerSize + 'px',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: followerPreview.playerColor,
+            }"
+          />
+          <div
+            v-if="previewShowCross"
+            class="absolute inset-0 flex items-center justify-center pointer-events-none"
+            :style="{
+              width: previewOuterSize + 'px',
+              height: previewOuterSize + 'px',
+            }"
+          >
+            <div
+              class="absolute bg-[rgba(255,255,255,0.9)]"
+              :style="{
+                width: previewCrossStroke + 'px',
+                height: previewCrossLength + 'px',
+                left: '50%',
+                top: '50%',
+                transform: `translate(-50%, -50%)`,
+              }"
+            />
+            <div
+              class="absolute bg-[rgba(255,255,255,0.9)]"
+              :style="{
+                width: previewCrossLength + 'px',
+                height: previewCrossStroke + 'px',
+                left: '50%',
+                top: '50%',
+                transform: `translate(-50%, -50%)`,
+              }"
+            />
+          </div>
+        </div>
       </div>
     </template>
     <template v-else>
@@ -44,6 +88,7 @@ import {
   TileId,
   TileSideType,
   type FieldFollower,
+  type FollowerType,
   type Player,
   type PlayerId,
   type PlacedFollower,
@@ -65,7 +110,11 @@ const props = withDefaults(
     size?: number
     followers?: PlacedFollower[]
     fieldFollowers?: FieldFollower[]
-    followerPreviewPoint?: Point | null
+    followerPreview?: {
+      point: Point
+      followerType: FollowerType
+      playerColor: string
+    } | null
     players?: Player[]
   }>(),
   {
@@ -73,7 +122,7 @@ const props = withDefaults(
     size: 110,
     followers: () => [],
     fieldFollowers: () => [],
-    followerPreviewPoint: null,
+    followerPreview: null,
     players: () => [],
   }
 )
@@ -418,7 +467,8 @@ const tileImg = computed(() => {
 const rotateClass = computed(() => rotationClass(props.tile?.rotation ?? 0))
 
 const followerPreviewPosition = computed(() => {
-  const point = props.followerPreviewPoint
+  const preview = props.followerPreview
+  const point = preview?.point
   const tileId = String(props.tile?.id ?? '')
   if (!point || !isTileId(tileId)) return null
 
@@ -432,6 +482,28 @@ const followerPreviewPosition = computed(() => {
   }
 
   return getFollowerPosition(tileId, point.direction, rotation, point.pointType)
+})
+
+const previewOuterSize = computed(() => {
+  const type = props.followerPreview?.followerType
+  return type === 'bigFollower' ? 28 : 22
+})
+
+const previewInnerSize = computed(() => {
+  const type = props.followerPreview?.followerType
+  return type === 'bigFollower' ? 22 : 17
+})
+
+const previewShowCross = computed(() => {
+  const type = props.followerPreview?.followerType
+  return type === 'abbot' || type === 'bigFollower'
+})
+
+const previewCrossStroke = computed(() => 2)
+
+const previewCrossLength = computed(() => {
+  const type = props.followerPreview?.followerType
+  return type === 'bigFollower' ? 10 : 6.4
 })
 
 const canvas = ref<HTMLCanvasElement | null>(null)
