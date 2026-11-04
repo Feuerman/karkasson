@@ -488,16 +488,21 @@ export async function makeHumanMove(
   return { move, game, placedFollower }
 }
 
-/** Предпочитает дорогу (они замыкаются чаще всего), иначе первый вариант */
+/**
+ * Место для обычного подданного: поле и сад не подходят (в сад ставится
+ * только аббат). Предпочитает дорогу — они замыкаются чаще всего.
+ */
 export function chooseFollowerPlace(
   places: FollowerPlaceSnapshot[]
 ): FollowerPlaceSnapshot | undefined {
-  const nonField = places.filter(
-    (place) => place.point.pointType !== TileSideType.Field
+  const candidates = places.filter(
+    (place) =>
+      place.point.pointType !== TileSideType.Field &&
+      !place.temporaryObject.isGarden
   )
   return (
-    nonField.find((place) => place.point.pointType === TileSideType.Road) ??
-    nonField[0]
+    candidates.find((place) => place.point.pointType === TileSideType.Road) ??
+    candidates[0]
   )
 }
 
@@ -528,11 +533,16 @@ export async function driveTurnsUntilFollowerOffer(
   client: TestClient,
   gameId: string,
   aliceId: number,
-  maxTurns = 40
+  options: {
+    maxTurns?: number
+    /** Какие предложения подходят; остальные ходы завершаются пропуском. */
+    acceptOffer?: (game: GameStateSnapshot) => boolean
+  } = {}
 ): Promise<{
   preState: GameStateSnapshot | null
   offerGame: GameStateSnapshot | null
 }> {
+  const maxTurns = options.maxTurns ?? 40
   let state = await startGame(client, gameId)
 
   for (let turn = 0; turn < maxTurns; turn++) {
@@ -545,7 +555,11 @@ export async function driveTurnsUntilFollowerOffer(
     const move = requireValidPlacement(state)
 
     let game = await placeTurnTile(client, gameId, move)
-    if (game.isPlacingFollower && game.availableFollowersPlaces?.length) {
+    const offerAccepted =
+      game.isPlacingFollower &&
+      Boolean(game.availableFollowersPlaces?.length) &&
+      (!options.acceptOffer || options.acceptOffer(game))
+    if (offerAccepted) {
       return { preState: state, offerGame: game }
     }
     if (game.isPlacingFollower) {
