@@ -6,7 +6,7 @@ const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
 const TWENTY_MINUTES = 20 * 60 * 1000
 
 function startedGame(service: GameService) {
-  const game = service.createLobby('socket-1')
+  const game = service.createLobby('socket-1', 'session-1')
   game.gameIsStarted = true
   return game
 }
@@ -68,7 +68,7 @@ describe('Сборка забытых партий', () => {
 
   it('не трогает завершённые и ещё не начатые партии', async () => {
     const service = new GameService(new InMemoryGameDatabase())
-    const notStarted = service.createLobby('socket-1')
+    const notStarted = service.createLobby('socket-1', 'session-1')
     const ended = startedGame(service)
     ended.gameIsEnded = true
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { CommonErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
-import { TestClient } from './helpers/client'
+import { TestClient, connectTestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
   createLobby,
@@ -27,7 +28,7 @@ describe('Отключение и переподключение игроков'
     },
   })
 
-  it('временное отключение в игре сохраняет device игрока, реджойн возвращает его', async () => {
+  it('временное отключение в игре сохраняет сессию игрока, реджойн возвращает его', async () => {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
@@ -40,47 +41,78 @@ describe('Отключение и переподключение игроков'
     )
     expect(started.gameIsStarted).toBe(true)
     expect(started.players[1].name).toBe('Bob')
-    expect(started.players[1].socketId).toBeTruthy()
-    expect(started.players[1].deviceId).toBe('device-joiner')
+    expect(started.players[1].isConnected).toBe(true)
+    expect(started.players[1].sessionId).toBe(lobby.joiner.sessionId)
 
     // Оборвался транспорт у Боба — сервер должен увидеть «transport close»
     lobby.joiner.closeTransport()
 
     await latestGame(
       lobby.creator,
-      (g) => g.players.find((p) => p.name === 'Bob')?.socketId === null
+      (g) => g.players.find((p) => p.name === 'Bob')?.isConnected === false
     )
 
-    const tempEvent = await lobby.creator.waitForEvent<{ deviceId: string }>(
-      SocketEvents.PlayerTemporaryDisconnected,
-      (payload) => payload.deviceId === 'device-joiner'
+    const bobId = started.players[1].id
+    const tempEvent = await lobby.creator.waitForEvent<{
+      playerIds: Array<number | string>
+    }>(SocketEvents.PlayerTemporaryDisconnected, (payload) =>
+      payload.playerIds.includes(bobId)
     )
-    expect(tempEvent.deviceId).toBe('device-joiner')
+    expect(tempEvent.playerIds).toContain(bobId)
 
-    // Device у Боба сохранился, а socket освобождён
+    // Сессия Боба сохранилась, а socket освобождён
     const savedAfterDisconnect = await server.db.getGame(lobby.gameId)
     const savedBob = savedAfterDisconnect?.players.find((p) => p.name === 'Bob')
     expect(savedBob?.socketId).toBeNull()
-    expect(savedBob?.deviceId).toBe('device-joiner')
+    expect(savedBob?.sessionId).toBe(lobby.joiner.sessionId)
 
-    // Боб переподключается с тем же deviceId
+    // Боб переподключается с тем же токеном сессии
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
-    lobby.joiner.registerDevice()
-    lobby.joiner.emit(SocketEvents.RejoinGame, {
-      gameId: lobby.gameId,
-      deviceId: lobby.joiner.deviceId,
-    })
+    await lobby.joiner.registerSession()
+    lobby.joiner.emit(SocketEvents.RejoinGame, { gameId: lobby.gameId })
 
     const rejoined = await latestGame(
       lobby.joiner,
       (g) =>
-        g.players.find((p) => p.name === 'Bob')?.socketId === lobby.joiner.id
+        g.gameIsStarted === true &&
+        g.players.find((p) => p.name === 'Bob')?.isConnected === true
     )
     const rejoinedBob = rejoined.players.find((p) => p.name === 'Bob')
-    expect(rejoinedBob?.socketId).toBe(lobby.joiner.id)
-    expect(rejoinedBob?.deviceId).toBe('device-joiner')
+    expect(rejoinedBob?.isConnected).toBe(true)
+    expect(rejoinedBob?.sessionId).toBe(lobby.joiner.sessionId)
     expect(rejoined.gameIsStarted).toBe(true)
+  })
+
+  it('не восстанавливает чужой слот по публичному sessionId', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.creator.emitAck(SocketEvents.StartGame, {
+      gameId: lobby.gameId,
+    })
+    lobby.joiner.closeTransport()
+    const disconnected = await latestGame(
+      lobby.creator,
+      (g) => g.players.find((p) => p.name === 'Bob')?.isConnected === false
+    )
+    const bob = disconnected.players.find((p) => p.name === 'Bob')
+    if (!bob?.sessionId) throw new Error('Сессия Боба не найдена')
+
+    const mallory = await connectTestClient(server.url, 'device-mallory')
+    clients.push(mallory)
+    expect(mallory.sessionId).not.toBe(bob.sessionId)
+
+    await expect(
+      mallory.emitAck(SocketEvents.RejoinGame, { gameId: lobby.gameId })
+    ).rejects.toThrow(CommonErrors.PlayerNotFoundInGame)
+
+    const bobSlot = server.handle.gameService
+      .getGame(lobby.gameId)
+      ?.players.find((p) => p.name === 'Bob')
+    expect(bobSlot?.socketId).toBeNull()
+    expect(bobSlot?.sessionId).toBe(bob.sessionId)
   })
 
   it('сохраняет состояние до рассылки обновления при отключении', async () => {
@@ -121,7 +153,8 @@ describe('Отключение и переподключение игроков'
     await latestGame(
       lobby.creator,
       (game) =>
-        game.players.find((player) => player.name === 'Bob')?.socketId === null
+        game.players.find((player) => player.name === 'Bob')?.isConnected ===
+        false
     )
     expect(updateReceived).toBe(true)
 
@@ -136,33 +169,33 @@ describe('Отключение и переподключение игроков'
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
 
-    // Боб явно отключается из лобби → слот 1 освобождается (socket и device)
+    // Боб явно отключается из лобби → слот 1 освобождается (socket и сессия)
     lobby.joiner.disconnect()
     await latestGame(
       lobby.creator,
-      (g) => g.players[1]?.socketId === null && g.players[1]?.deviceId === null
+      (g) => g.players[1]?.isConnected === false && !g.players[1]?.sessionId
     )
 
     // Боб возвращается новым соединением; joinGame найдёт его бывший слот
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
-    lobby.joiner.registerDevice()
+    await lobby.joiner.registerSession()
     lobby.joiner.emit(SocketEvents.JoinGame, { gameId: lobby.gameId })
 
     const rejoined = await latestGame(
       lobby.joiner,
       (g) =>
-        g.players[1]?.deviceId === 'device-joiner' &&
-        g.players[1]?.socketId === lobby.joiner.id
+        g.players[1]?.sessionId === lobby.joiner.sessionId &&
+        g.players[1]?.isConnected === true
     )
-    expect(rejoined.players[1].socketId).toBe(lobby.joiner.id)
-    expect(rejoined.players[1].deviceId).toBe('device-joiner')
+    expect(rejoined.players[1].isConnected).toBe(true)
+    expect(rejoined.players[1].sessionId).toBe(lobby.joiner.sessionId)
   })
 
   it('отключение последнего игрока лобби удаляет игру', async () => {
     server = await startTestServer()
     const { gameId, creator } = await createLobby(server.url, {
-      deviceId: 'device-lone',
+      identity: 'device-lone',
       computers: 0,
     })
     clients.push(creator)
@@ -192,21 +225,19 @@ describe('Отключение и переподключение игроков'
     lobby.creator.closeTransport()
     await latestGame(
       lobby.joiner,
-      (g) => g.players.find((p) => p.name === 'Alice')?.socketId === null
+      (g) => g.players.find((p) => p.name === 'Alice')?.isConnected === false
     )
 
     lobby.creator.reconnect()
     await lobby.creator.connect()
-    lobby.creator.registerDevice()
-    lobby.creator.emit(SocketEvents.RejoinGame, {
-      gameId: lobby.gameId,
-      deviceId: lobby.creator.deviceId,
-    })
+    await lobby.creator.registerSession()
+    lobby.creator.emit(SocketEvents.RejoinGame, { gameId: lobby.gameId })
 
     const after = await latestGame(
       lobby.joiner,
       (g) =>
-        g.players.find((p) => p.name === 'Alice')?.socketId === lobby.creator.id
+        g.gameIsStarted === true &&
+        g.players.find((p) => p.name === 'Alice')?.isConnected === true
     )
     expect(after.gameIsStarted).toBe(true)
     expect(after.tilePlacesStats).toEqual(beforeState.tilePlacesStats)
@@ -233,11 +264,12 @@ describe('Отключение и переподключение игроков'
     const disconnected = await latestGame(
       lobby.creator,
       (state) =>
-        state.players.find((player) => player.name === 'Bob')?.socketId === null
+        state.players.find((player) => player.name === 'Bob')?.isConnected ===
+        false
     )
     expect(
-      disconnected.players.find((player) => player.name === 'Bob')?.deviceId
-    ).toBe(lobby.joiner.deviceId)
+      disconnected.players.find((player) => player.name === 'Bob')?.sessionId
+    ).toBe(lobby.joiner.sessionId)
 
     server.handle.gameService.computerMoves.continueGame(
       server.handle.events,
@@ -254,10 +286,9 @@ describe('Отключение и переподключение игроков'
 
     lobby.joiner.reconnect()
     await lobby.joiner.connect()
-    lobby.joiner.registerDevice()
+    await lobby.joiner.registerSession()
     await lobby.joiner.emitAck(SocketEvents.RejoinGame, {
       gameId: lobby.gameId,
-      deviceId: lobby.joiner.deviceId,
     })
 
     await waitForCondition(
@@ -286,7 +317,8 @@ describe('Отключение и переподключение игроков'
     await latestGame(
       lobby.creator,
       (state) =>
-        state.players.find((player) => player.name === 'Bob')?.socketId === null
+        state.players.find((player) => player.name === 'Bob')?.isConnected ===
+        false
     )
 
     server.handle.gameService.computerMoves.continueGame(
@@ -305,11 +337,11 @@ describe('Отключение и переподключение игроков'
   it('освобождает слот игрока во всех партиях, где он состоял', async () => {
     server = await startTestServer()
     const own = await createLobby(server.url, {
-      deviceId: 'device-alice',
+      identity: 'device-alice',
       computers: 0,
     })
     const foreign = await createLobby(server.url, {
-      deviceId: 'device-bob',
+      identity: 'device-bob',
       computers: 0,
     })
     const alice = own.creator
@@ -329,9 +361,9 @@ describe('Отключение и переподключение игроков'
       // Обрабатывается только первая партия, если сокет ищут по одной игре.
       return (
         ownSlot?.socketId === null &&
-        ownSlot.deviceId === null &&
+        ownSlot.sessionId === null &&
         foreignSlot?.socketId === null &&
-        foreignSlot.deviceId === null
+        foreignSlot.sessionId === null
       )
     }, 'освобождение слота во всех партиях отключившегося игрока')
   })

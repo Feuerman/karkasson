@@ -8,9 +8,11 @@ import {
   SaveErrors,
 } from '../modules/errors'
 import { randomInt } from 'node:crypto'
+import { getSessionSecret } from '../config'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
 import { ComputerMoveScheduler } from './computerPlayer'
+import { createSessionToken, verifySessionToken } from './sessionToken'
 import {
   sortGameSummaries,
   toGameSummary,
@@ -62,16 +64,18 @@ export class GameService {
    */
   readonly computerMoves = new ComputerMoveScheduler()
   private games: Record<string, GameManager> = {}
-  private deviceToSocketMap: Record<string, string> = {}
-  /** Обратная карта: сокет → устройство. Заполняется при регистрации. */
-  private socketToDeviceMap: Record<string, string> = {}
+  /** Обратная карта: сокет → сессия. Заполняется при регистрации. */
+  private socketToSessionMap: Record<string, string> = {}
   private lobbyOwners: Record<string, string> = {}
   private readonly pendingSaves = new Map<string, Promise<void>>()
   private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
   /** Сколько сохранений не удалось прочитать при последней загрузке. */
   private unreadableSaves = 0
 
-  constructor(private readonly db: IGameDatabase) {}
+  constructor(
+    private readonly db: IGameDatabase,
+    private readonly sessionSecret: string = getSessionSecret()
+  ) {}
 
   restoreGame(gameId: string, game: GameManager): void {
     this.games[gameId] = game
@@ -203,19 +207,37 @@ export class GameService {
     throw new Error('Pending game saves did not settle while flushing')
   }
 
-  // ------------------------------------------------------------------ devices
+  // ----------------------------------------------------------------- sessions
 
-  registerDevice(deviceId: string, socketId: string) {
-    this.deviceToSocketMap[deviceId] = socketId
-    // Первый зарегистрированный сокет для устройства остаётся и в обратной
-    // карте: так поиск по сокету ведёт себя так же, как поиск перебором.
-    if (!this.socketToDeviceMap[socketId]) {
-      this.socketToDeviceMap[socketId] = deviceId
-    }
+  /**
+   * Принимает токен клиента или выдаёт новый. Подпись проверяется здесь, а не
+   * в обработчике сокета: идентичность — часть доменного жизненного цикла.
+   */
+  resolveSession(token: string | undefined): {
+    token: string
+    sessionId: string
+    isNew: boolean
+  } {
+    const sessionId = token
+      ? verifySessionToken(token, this.sessionSecret)
+      : undefined
+    if (sessionId) return { token: token as string, sessionId, isNew: false }
+
+    const issued = createSessionToken(this.sessionSecret)
+    return { ...issued, isNew: true }
   }
 
-  getDeviceBySocketId(socketId: string): string | undefined {
-    return this.socketToDeviceMap[socketId]
+  registerSession(sessionId: string, socketId: string): void {
+    this.socketToSessionMap[socketId] = sessionId
+  }
+
+  getSessionBySocketId(socketId: string): string | undefined {
+    return this.socketToSessionMap[socketId]
+  }
+
+  /** Забывает сокет при отключении: карта не должна расти бесконечно. */
+  unregisterSocket(socketId: string): void {
+    delete this.socketToSessionMap[socketId]
   }
 
   // ------------------------------------------------------------------ registry
@@ -294,15 +316,15 @@ export class GameService {
 
   createLobby(
     socketId: string,
+    sessionId: string,
     options: GameOptions = {}
   ): GameManager & { id: string } {
     const gameId = globalThis.crypto.randomUUID()
-    const deviceId = this.getDeviceBySocketId(socketId)
 
     const players: Player[] = Array.from({ length: 6 }, (_, i) => ({
       id: i + 1,
       socketId: i === 0 ? socketId : null,
-      deviceId: i === 0 ? (deviceId ?? null) : null,
+      sessionId: i === 0 ? sessionId : null,
       name: i === 0 ? playerNameForIndex(i) : '',
       color: playerColorForIndex(i),
       score: 0,
@@ -316,7 +338,7 @@ export class GameService {
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
     this.games[gameId] = game
-    this.lobbyOwners[gameId] = deviceId ?? socketId
+    this.lobbyOwners[gameId] = sessionId
     return game as GameManager & { id: string }
   }
 
@@ -325,7 +347,7 @@ export class GameService {
   addPlayer(
     gameId: string,
     index: number,
-    params: { name: string | null; socketId: string; deviceId?: string }
+    params: { name: string | null; socketId: string; sessionId: string }
   ) {
     const player = this.games[gameId]?.players[index]
     if (!player) return
@@ -333,32 +355,32 @@ export class GameService {
     if (params.name) {
       player.name = params.name
       player.socketId = params.socketId
-      player.deviceId = params.deviceId ?? null
+      player.sessionId = params.sessionId
     } else {
       player.name = playerNameForIndex(index)
     }
   }
 
-  canEditLobbySlot(gameId: string, socketId: string, index: number): boolean {
+  canEditLobbySlot(
+    gameId: string,
+    socketId: string,
+    sessionId: string,
+    index: number
+  ): boolean {
     const game = this.games[gameId]
     if (!game || game.gameIsStarted || !Number.isInteger(index)) return false
 
     const targetPlayer = game.players[index]
     if (!targetPlayer) return false
 
-    const ownerId = this.lobbyOwners[gameId]
-    const isOwner =
-      ownerId === socketId || ownerId === this.getDeviceBySocketId(socketId)
+    const isOwner = this.lobbyOwners[gameId] === sessionId
     return isOwner || targetPlayer.socketId === socketId
   }
 
-  canStartLobby(gameId: string, socketId: string): boolean {
+  canStartLobby(gameId: string, sessionId: string): boolean {
     const game = this.games[gameId]
     if (!game || game.gameIsStarted) return false
-    const ownerId = this.lobbyOwners[gameId]
-    return (
-      ownerId === socketId || ownerId === this.getDeviceBySocketId(socketId)
-    )
+    return this.lobbyOwners[gameId] === sessionId
   }
 
   removePlayer(gameId: string, index: number, keepAsComputer: boolean) {
@@ -368,10 +390,10 @@ export class GameService {
     if (keepAsComputer) {
       player.name = playerNameForIndex(index)
       player.socketId = null
-      player.deviceId = null
+      player.sessionId = null
     } else {
       player.socketId = null
-      player.deviceId = null
+      player.sessionId = null
       player.name = ''
     }
   }
@@ -379,7 +401,7 @@ export class GameService {
   joinFirstFreeSlot(
     gameId: string,
     socketId: string,
-    deviceId?: string
+    sessionId: string
   ): JoinResult | { game: GameManager; playerIndex: number } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
@@ -392,7 +414,7 @@ export class GameService {
     }
 
     const playerIndex = game.players.findIndex(
-      (p) => !p.socketId && !p.deviceId
+      (p) => !p.socketId && !p.sessionId
     )
     if (playerIndex === -1) {
       return { error: LobbyErrors.AllSlotsTaken }
@@ -401,7 +423,7 @@ export class GameService {
     const player = game.players[playerIndex]
     player.name = playerNameForIndex(playerIndex)
     player.socketId = socketId
-    player.deviceId = deviceId ?? null
+    player.sessionId = sessionId
 
     return { game, playerIndex }
   }
@@ -431,39 +453,40 @@ export class GameService {
   /**
    * Освобождает сокет игрока в партии.
    *
-   * Что делать с устройством игрока, задаёт `deviceId`:
-   * `undefined` — оставить устройство как есть (забыт только сокет),
-   * `null` — забыть устройство (слот освобождён целиком),
-   * строка — запомнить указанное устройство.
+   * Что делать с сессией игрока, задаёт `sessionId`:
+   * `undefined` — оставить сессию как есть (забыт только сокет),
+   * `null` — забыть сессию (слот освобождён целиком),
+   * строка — запомнить указанную сессию.
    */
-  releasePlayer(gameId: string, socketId: string, deviceId?: string | null) {
+  releasePlayer(gameId: string, socketId: string, sessionId?: string | null) {
     const game = this.games[gameId]
     if (!game) return
 
     game.players = game.players.map((player) => {
       if (player.socketId !== socketId) return player
       player.socketId = null
-      if (deviceId !== undefined) player.deviceId = deviceId
+      if (sessionId !== undefined) player.sessionId = sessionId
       return player
     })
   }
 
   rejoinGame(
     gameId: string,
-    deviceId: string,
+    sessionId: string,
     socketId: string
   ): { game: GameManager; players: Player[] } | null {
     const game = this.games[gameId]
     if (!game) return null
 
-    const players = game.players.filter((p) => p.deviceId === deviceId)
+    const players = game.players.filter((p) => p.sessionId === sessionId)
 
     if (players.length > 0) {
       game.players.forEach((player) => {
-        if (player.deviceId !== deviceId) return
+        if (player.sessionId !== sessionId) return
         player.socketId = socketId
         if (game.currentPlayer && player.id === game.currentPlayer.id) {
           game.currentPlayer.socketId = socketId
+          game.currentPlayer.sessionId = sessionId
         }
       })
     }
@@ -508,9 +531,9 @@ export class GameService {
           updatedGameIds.push(gameId)
         }
         if (game.roomCode) roomCodes.add(game.roomCode)
-        const owner = game.players.find((player) => player.socketId)
-        if (owner?.socketId) {
-          this.lobbyOwners[gameId] = owner.deviceId ?? owner.socketId
+        const owner = game.players.find((player) => player.sessionId)
+        if (owner?.sessionId) {
+          this.lobbyOwners[gameId] = owner.sessionId
         }
         game.players.forEach((player) => {
           player.socketId = null

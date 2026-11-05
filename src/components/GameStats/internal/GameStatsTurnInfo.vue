@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import type { Player } from '@server/modules/types'
+import type { PlayerView } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import {
   playerBackgroundColorClass,
@@ -80,7 +80,7 @@ withDefaults(
     currentPlayerName: string
     isComputerTurn: boolean
     nextPlayerName: string | null
-    turnOrder: Player[]
+    turnOrder: PlayerView[]
     gameIsEnded: boolean
   }>(),
   {
@@ -93,7 +93,7 @@ withDefaults(
 const initialOf = (name?: string | null): string =>
   name?.trim().charAt(0).toLocaleUpperCase('ru') || '?'
 
-const turnOrderTitle = (player: Player, index: number): string => {
+const turnOrderTitle = (player: PlayerView, index: number): string => {
   const name = player.name || 'Игрок'
   return index === 0 ? `Ходит сейчас: ${name}` : `В очереди: ${name}`
 }

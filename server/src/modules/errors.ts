@@ -10,6 +10,7 @@
 export const CommonErrors = {
   GameNotFound: 'Партия не найдена',
   PlayerNotFoundInGame: 'Игрок не найден в этой партии',
+  SessionRequired: 'Сессия не готова. Переподключитесь к серверу',
   InternalFailure: 'Что-то пошло не так. Попробуйте повторить действие',
   SaveFailed: 'Не удалось сохранить изменения. Попробуйте повторить действие',
 } as const

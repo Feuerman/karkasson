@@ -125,13 +125,13 @@ test('игрок находит комнату и подключается по 
 
     const roomCode = gameServer.gameService.allGames()[0]?.roomCode
     if (!roomCode) throw new Error('Номер комнаты не создан')
-    const creatorDeviceId = await creatorPage.evaluate(() =>
-      localStorage.getItem('deviceId')
+    const creatorSessionToken = await creatorPage.evaluate(() =>
+      localStorage.getItem('sessionToken')
     )
 
     const guestPage = await guestContext.newPage()
     await guestPage.addInitScript(() => {
-      localStorage.setItem('deviceId', 'unrelated-guest-device')
+      localStorage.setItem('sessionToken', 'unrelated-guest-session-token')
     })
     await guestPage.goto(frontend.url)
     const roomSearch = guestPage.getByTestId(TEST_IDS.lobbyRoomSearch)
@@ -141,10 +141,10 @@ test('игрок находит комнату и подключается по 
     const guestRoomHeading = guestPage.getByTestId(TEST_IDS.lobbyRoomHeading)
     await expect(guestRoomHeading).toBeVisible()
     await expect(guestRoomHeading).toContainText(`Комната № ${roomCode}`)
-    const guestDeviceId = await guestPage.evaluate(() =>
-      localStorage.getItem('deviceId')
+    const guestSessionToken = await guestPage.evaluate(() =>
+      localStorage.getItem('sessionToken')
     )
-    expect(guestDeviceId).not.toBe(creatorDeviceId)
+    expect(guestSessionToken).not.toBe(creatorSessionToken)
     await expect(guestPage.getByTestId(TEST_IDS.lobbyStartGame)).toHaveCount(0)
   } finally {
     await creatorContext.close()

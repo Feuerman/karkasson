@@ -8,11 +8,12 @@ import {
   TileSideType,
 } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { BaseObject, Player, Tile } from '@server/modules/types'
-import { makePlayers } from '../helpers/fixtures'
+import type { BaseObject, PlayerView, Tile } from '@server/modules/types'
+import { makePlayers, makePlayerViews } from '../helpers/fixtures'
 import { actionTurnKey, buildTurnSummary } from '@/utils/turnSummary'
 
-const players: Player[] = makePlayers()
+const domainPlayers = makePlayers()
+const players: PlayerView[] = makePlayerViews()
 const tile: Tile = {
   id: TileId.T,
   rotation: 0,
@@ -32,7 +33,7 @@ const objectData: BaseObject = {
 const tileAction: GameAction = {
   actionType: ActionTypes.PLACE_TILE,
   actionData: { tile, rowIndex: 15, tileIndex: 16 },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -48,7 +49,7 @@ const followerAction: GameAction = {
     },
     temporaryObject: objectData,
   },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -65,7 +66,7 @@ const scoreAction: Extract<
     details: [{ label: 'Город', count: 1, pointsPerUnit: 6, total: 6 }],
     modifiers: ['Собор'],
   },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -82,7 +83,7 @@ const backFollowerAction: GameAction = {
       },
     ],
   },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -95,7 +96,7 @@ const dragonAction: GameAction = {
     eatenFollowers: [],
     remainingSteps: 5,
   },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -110,7 +111,7 @@ const princessAction: GameAction = {
       point: { x: 16, y: 15 },
     },
   },
-  initiator: players[0],
+  initiator: domainPlayers[0],
   moveNumber: 1,
   turnNumber: 2,
 }
@@ -208,7 +209,7 @@ describe('buildTurnSummary', () => {
     const oldAction: GameAction = {
       actionType: ActionTypes.PLACE_TILE,
       actionData: { tile, rowIndex: 15, tileIndex: 16 },
-      initiator: players[1],
+      initiator: domainPlayers[1],
       moveNumber: 4,
     }
 

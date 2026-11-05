@@ -48,21 +48,21 @@ describe('Лобби', () => {
     const [alice, bob, aiP1, aiP2] = game.players
 
     expect(alice.name).toBe('Alice')
-    expect(alice.socketId).toBeTruthy()
-    expect(alice.deviceId).toBe('device-creator')
+    expect(alice.isConnected).toBe(true)
+    expect(alice.sessionId).toBe(lobby.creator.sessionId)
 
     expect(bob.name).toBe('Bob')
-    expect(bob.socketId).toBeTruthy()
-    expect(bob.deviceId).toBe('device-joiner')
+    expect(bob.isConnected).toBe(true)
+    expect(bob.sessionId).toBe(lobby.joiner.sessionId)
 
-    // Компьютерные игроки: есть имя, но нет ни socket, ни device
+    // У компьютеров нет ни сессии, ни подключения
     expect(aiP1.name).toBeTruthy()
-    expect(aiP1.socketId).toBeNull()
-    expect(aiP1.deviceId).toBeNull()
+    expect(aiP1.isConnected).toBe(false)
+    expect(aiP1.sessionId).toBeNull()
 
     expect(aiP2.name).toBeTruthy()
-    expect(aiP2.socketId).toBeNull()
-    expect(aiP2.deviceId).toBeNull()
+    expect(aiP2.isConnected).toBe(false)
+    expect(aiP2.sessionId).toBeNull()
   })
 
   it('созданное лобби появляется в общем списке игр', async () => {
@@ -70,7 +70,7 @@ describe('Лобби', () => {
     const creator = new TestClient(server.url, 'device-list-check')
     clients.push(creator)
     await creator.connect()
-    creator.registerDevice()
+    await creator.registerSession()
 
     creator.emit(SocketEvents.CreateGame)
     const created = await creator.waitForEvent<{ gameId: string }>(
@@ -100,7 +100,7 @@ describe('Лобби', () => {
     const visitor = new TestClient(server.url, 'device-room-code-visitor')
     clients.push(visitor)
     await visitor.connect()
-    visitor.registerDevice()
+    await visitor.registerSession()
 
     const response = await visitor.emitAck<{
       success: boolean
@@ -113,8 +113,14 @@ describe('Лобби', () => {
 
   it('назначает разным комнатам разные номера', async () => {
     server = await startTestServer()
-    const first = server.handle.gameService.createLobby('socket-first')
-    const second = server.handle.gameService.createLobby('socket-second')
+    const first = server.handle.gameService.createLobby(
+      'socket-first',
+      'session-first'
+    )
+    const second = server.handle.gameService.createLobby(
+      'socket-second',
+      'session-second'
+    )
 
     expect(first.roomCode).toMatch(/^\d{6}$/)
     expect(second.roomCode).toMatch(/^\d{6}$/)
@@ -126,7 +132,7 @@ describe('Лобби', () => {
     const creator = new TestClient(server.url, 'device-full')
     clients.push(creator)
     await creator.connect()
-    creator.registerDevice()
+    await creator.registerSession()
 
     creator.emit(SocketEvents.CreateGame)
     const { gameId, game } = await creator.waitForEvent<{
@@ -143,7 +149,7 @@ describe('Лобби', () => {
       clients.push(client)
       others.push(client)
       await client.connect()
-      client.registerDevice()
+      await client.registerSession()
       client.emit(SocketEvents.JoinGame, { gameId })
     }
 
@@ -154,7 +160,7 @@ describe('Лобби', () => {
     const extra = new TestClient(server.url, 'device-full-extra')
     clients.push(extra)
     await extra.connect()
-    extra.registerDevice()
+    await extra.registerSession()
     extra.emit(SocketEvents.JoinGame, { gameId })
 
     const error = await extra.waitForEvent(SocketEvents.Error)
@@ -175,16 +181,13 @@ describe('Лобби', () => {
         lobby.creator,
         (g) =>
           g.players[1] !== undefined &&
-          !g.players[1].socketId &&
-          !g.players[1].deviceId &&
-          Boolean(g.players[0]?.socketId)
+          !g.players[1].isConnected &&
+          !g.players[1].sessionId &&
+          Boolean(g.players[0]?.isConnected)
       )
-    ).players as Array<{
-      socketId: string | null
-      deviceId: string | null
-    }>
-    expect(afterJoiner[0].socketId).toBeTruthy()
-    expect(afterJoiner[1].socketId).toBeNull()
+    ).players
+    expect(afterJoiner[0].isConnected).toBe(true)
+    expect(afterJoiner[1].isConnected).toBe(false)
 
     // creator (последний активный игрок) уходит тоже — лобби пустеет,
     // сервер удаляет игру, шлёт gameDeleted и обновляет updateGamesList.
@@ -210,8 +213,8 @@ describe('Лобби', () => {
 
     const game = await latestGame(lobby.creator)
     expect(game.players[2].name).toBeFalsy()
-    expect(game.players[2].socketId).toBeNull()
-    expect(game.players[2].deviceId).toBeNull()
+    expect(game.players[2].isConnected).toBe(false)
+    expect(game.players[2].sessionId).toBeNull()
   })
 
   it('переименование реального игрока доходит до остальных', async () => {
@@ -249,7 +252,7 @@ describe('Лобби', () => {
     const observer = new TestClient(server.url, 'device-observer')
     clients.push(observer)
     await observer.connect()
-    observer.registerDevice()
+    await observer.registerSession()
 
     const response = await observer.emitAck<{
       success: boolean
@@ -272,7 +275,7 @@ describe('Лобби', () => {
     if (!lobbyGame) throw new Error('Лобби не создано')
     lobbyGame.players.forEach((player) => {
       player.socketId = null
-      player.deviceId = null
+      player.sessionId = null
     })
 
     const game = server.handle.gameService.startGame(lobby.gameId)
@@ -282,7 +285,7 @@ describe('Лобби', () => {
     const observer = new TestClient(server.url, 'device-observer')
     clients.push(observer)
     await observer.connect()
-    observer.registerDevice()
+    await observer.registerSession()
 
     const response = await observer.emitAck<{
       success: boolean
@@ -295,7 +298,7 @@ describe('Лобби', () => {
       game.players.every(
         (player) =>
           player.socketId !== observer.id &&
-          player.deviceId !== observer.deviceId
+          player.sessionId !== observer.sessionId
       )
     ).toBe(true)
   })
@@ -314,7 +317,10 @@ describe('Лобби', () => {
     newerEnded.gameIsEnded = true
     newerEnded.lastUpdate = 20
 
-    const active = server.handle.gameService.createLobby('socket-active')
+    const active = server.handle.gameService.createLobby(
+      'socket-active',
+      'session-active'
+    )
     active.lastUpdate = 30
 
     const ids = server.handle.gameService
@@ -353,7 +359,7 @@ describe('Лобби', () => {
 
     expect(response.game.players[1]?.name).toBeTruthy()
     expect(response.game.players[1]?.name).not.toBe('Robert')
-    expect(response.game.players[1]?.socketId).toBeNull()
+    expect(response.game.players[1]?.isConnected).toBe(false)
   })
 
   it('removePlayer без keepAsComputer полностью освобождает слот', async () => {
@@ -384,6 +390,6 @@ describe('Лобби', () => {
       (g: TestGameData) => g.players[1]?.name === ''
     )
     expect(updated.players[1].name).toBe('')
-    expect(updated.players[1].socketId).toBeNull()
+    expect(updated.players[1].isConnected).toBe(false)
   })
 })

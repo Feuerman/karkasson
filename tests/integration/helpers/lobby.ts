@@ -22,8 +22,9 @@ export interface GameSummaryPlayer {
   id: number
   name: string | null
   color: string | null
-  socketId: string | null
-  deviceId: string | null
+  score: number
+  sessionId: string | null
+  isConnected: boolean
 }
 
 /** Типизированный слепок данных игры из события server gameUpdated */
@@ -35,8 +36,8 @@ export interface TestGameData {
   currentPlayer?: {
     id: number | string
     name: string | null
-    socketId: string | null
-    deviceId: string | null
+    sessionId: string | null
+    isConnected: boolean
   } | null
   gameIsStarted: boolean
   gameIsEnded: boolean
@@ -63,10 +64,10 @@ export interface TestGameData {
 }
 
 export interface CreateLobbyOptions {
-  /** deviceId создателя лобби (слот 0) */
-  deviceId?: string
-  /** deviceId второго реального игрока (слот 1) */
-  joinerDeviceId?: string
+  /** Идентичность создателя лобби (слот 0). */
+  identity?: string
+  /** Идентичность второго подключения (слот 1). */
+  joinerIdentity?: string
   /** Сколько слотов занимают люди: 1 — создатель, 2 — создатель и вошедший */
   humans?: 1 | 2
   /** Сколько слотов после людей занимают компьютеры (по умолчанию — до четырёх) */
@@ -133,7 +134,7 @@ export async function createLobby(
 
   const creator = await connectTestClient(
     serverUrl,
-    options.deviceId ?? 'device-creator'
+    options.identity ?? 'device-creator'
   )
   creator.emit(SocketEvents.CreateGame, options.rules ?? {})
   const { gameId } = await creator.waitForEvent<{ gameId: string }>(
@@ -163,7 +164,7 @@ export async function createLobby(
   if (humans === 2) {
     joiner = await connectTestClient(
       serverUrl,
-      options.joinerDeviceId ?? 'device-joiner'
+      options.joinerIdentity ?? 'device-joiner'
     )
     await joiner.emitAck(SocketEvents.JoinGame, { gameId })
     playerIds[1] = await fillSlot(joiner, gameId, 1, HUMAN_NAMES[1])
@@ -199,7 +200,7 @@ export async function createLobbyWithSingleHuman(
   serverUrl: string
 ): Promise<SingleHumanLobby> {
   const { gameId, creator, playerIds } = await createLobby(serverUrl, {
-    deviceId: 'device-human',
+    identity: 'device-human',
     humans: 1,
   })
   const aliceId = playerIds[0]

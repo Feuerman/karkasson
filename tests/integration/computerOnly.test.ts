@@ -55,7 +55,7 @@ describe('Полностью автоматическая партия (4 ком
     async () => {
       server = await startTestServer()
       const { gameId, creator } = await createLobby(server.url, {
-        deviceId: 'device-spectator',
+        identity: 'device-spectator',
         computerOnly: true,
         rules: { princessAndDragonEnabled: true },
       })
@@ -108,7 +108,7 @@ describe('Полностью автоматическая партия (4 ком
           (action) =>
             action.actionType === ActionTypes.PLACE_FOLLOWER &&
             !action.initiator?.socketId &&
-            !action.initiator?.deviceId
+            !action.initiator?.sessionId
         ).length
       ).toBeGreaterThan(0)
 

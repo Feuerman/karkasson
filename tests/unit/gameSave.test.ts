@@ -73,7 +73,7 @@ describe('Схема сохранения игры', () => {
           color: 'coral',
           score: 0,
           socketId: null,
-          deviceId: null,
+          sessionId: null,
         },
       ],
       innsAndCathedralsEnabled: true,
@@ -105,7 +105,7 @@ describe('Схема сохранения игры', () => {
           color: 'coral',
           score: 0,
           socketId: 'socket-alice',
-          deviceId: null,
+          sessionId: null,
         },
       ],
     })
@@ -364,7 +364,7 @@ describe('Схема сохранения игры', () => {
   })
 
   it('восстанавливает legacy-лобби, сохранённое до появления полного состояния', () => {
-    const player = {
+    const player: Record<string, unknown> = {
       id: 1,
       name: 'Host',
       color: 'coral',
@@ -380,7 +380,17 @@ describe('Схема сохранения игры', () => {
 
     expect(restored.id).toBe('legacy-lobby')
     expect(restored.gameIsStarted).toBe(false)
-    expect(restored.players).toEqual([player])
+    expect(restored.players).toEqual([
+      {
+        id: 1,
+        name: 'Host',
+        color: 'coral',
+        score: 0,
+        socketId: 'socket-host',
+        sessionId: null,
+      },
+    ])
+    expect(restored.players[0]).not.toHaveProperty('deviceId')
     expect(restored.playersFollowers[1]).toEqual({
       ordinaryFollowers: 7,
       monks: 1,
@@ -470,7 +480,7 @@ describe('Схема сохранения игры', () => {
             color: 'coral',
             score: 0,
             socketId: null,
-            deviceId: null,
+            sessionId: null,
           },
         ],
       })

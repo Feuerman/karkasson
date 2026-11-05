@@ -3,6 +3,7 @@ import type {
   GridTile,
   ObjectFollower,
   Player,
+  PlayerView,
   Scores,
   TilePlacesStats,
 } from '@server/modules/types'
@@ -13,6 +14,14 @@ import type {
  * переопределяют их через параметры.
  */
 
+/** Публичное представление тестового состава игроков. */
+export function makePlayerViews(): PlayerView[] {
+  return makePlayers().map(({ socketId, ...player }) => ({
+    ...player,
+    isConnected: Boolean(socketId),
+  }))
+}
+
 /** Всегда свежая пара: тесты мутируют состояние игроков и запасы фишек */
 export function makePlayers(): Player[] {
   return [1, 2].map((id) => ({
@@ -21,7 +30,7 @@ export function makePlayers(): Player[] {
     color: id === 1 ? 'coral' : 'skyblue',
     score: 0,
     socketId: `socket-${id}`,
-    deviceId: `device-${id}`,
+    sessionId: `session-${id}`,
   }))
 }
 

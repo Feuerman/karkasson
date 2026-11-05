@@ -25,9 +25,9 @@
 <script setup lang="ts">
 import UBadge from '@nuxt/ui/components/Badge.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import type { Player } from '@server/modules/types'
+import type { PlayerView } from '@server/modules/types'
 
 defineProps<{
-  players: Player[]
+  players: PlayerView[]
 }>()
 </script>

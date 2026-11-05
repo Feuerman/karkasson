@@ -40,7 +40,7 @@ async function restartWithComputerGame(): Promise<RunningServer> {
         color: 'coral',
         score: 0,
         socketId: null,
-        deviceId: null,
+        sessionId: null,
       },
     ],
   })
@@ -95,17 +95,18 @@ describe('Сохранение данных лобби', () => {
     expect(saved?.roomCode).toMatch(/^\d{6}$/)
     expect(saved?.players[0]).toMatchObject({
       name: 'Alice',
-      deviceId: 'device-creator',
+      sessionId: lobby.creator.sessionId,
+      socketId: null,
     })
     expect(saved?.players[1]).toMatchObject({
       name: 'Bob',
-      deviceId: 'device-joiner',
+      sessionId: lobby.joiner.sessionId,
+      socketId: null,
     })
-    expect(saved?.players[1].socketId).toBeTruthy()
     expect(saved?.players[2]).toMatchObject({
       name: expect.any(String),
       socketId: null,
-      deviceId: null,
+      sessionId: null,
     })
     expect(saved?.players[3].socketId).toBeNull()
 
@@ -122,10 +123,10 @@ describe('Сохранение данных лобби', () => {
     expect(restored?.roomCode).toBe(saved?.roomCode)
     expect(restored!.players[0].name).toBe('Alice')
     expect(restored!.players[1].name).toBe('Bob')
-    expect(restored!.players[1].deviceId).toBe('device-joiner')
+    expect(restored!.players[1].sessionId).toBe(lobby.joiner.sessionId)
     expect(restored!.players[2].name).toBeTruthy()
     expect(restored!.players[2].socketId).toBeNull()
-    expect(restored!.players[2].deviceId).toBeNull()
+    expect(restored!.players[2].sessionId).toBeNull()
   })
 
   it('начатая игра восстанавливается из базы и продолжается после перезапуска', async () => {
@@ -161,19 +162,13 @@ describe('Сохранение данных лобби', () => {
     expect(restored!.moveCounter).toBe(beforeMoveCounter)
     expect(restored!.scores).toEqual(beforeScores)
 
-    // Алиса возвращается по deviceId и партия продолжается новым ходом
+    // Алиса возвращается по токену сессии, и партия продолжается новым ходом
     const resumer = new TestClient(server.url, 'device-human')
     clients.push(resumer)
     await resumer.connect()
-    resumer.registerDevice()
-    resumer.emit(SocketEvents.RejoinGame, {
-      gameId: lobby.gameId,
-      deviceId: 'device-human',
-    })
-    await latestGame(
-      resumer,
-      (game) => game.players[0]?.socketId === resumer.id
-    )
+    await resumer.registerSession()
+    resumer.emit(SocketEvents.RejoinGame, { gameId: lobby.gameId })
+    await latestGame(resumer, (game) => game.players[0]?.isConnected === true)
 
     const resumed = await waitForHumanTurnOrEnd(resumer, lobby.aliceId)
     expect(countPlacedTiles(resumed.tilePlacesStats)).toBeGreaterThanOrEqual(
@@ -189,22 +184,37 @@ describe('Сохранение данных лобби', () => {
   it('после перезапуска смешанной партии ИИ ждёт подключения всех людей', async () => {
     const store = createInMemoryStore()
     server = await startTestServer(store)
+    const identityAlice = new TestClient(server.url, 'device-alice')
+    const identityBob = new TestClient(server.url, 'device-bob')
+    await Promise.all([identityAlice.connect(), identityBob.connect()])
+    await Promise.all([
+      identityAlice.registerSession(),
+      identityBob.registerSession(),
+    ])
+    const aliceSessionId = identityAlice.sessionId
+    const bobSessionId = identityBob.sessionId
+    identityAlice.dispose()
+    identityBob.dispose()
+    if (!aliceSessionId || !bobSessionId) {
+      throw new Error('Сессии для игроков не зарегистрированы')
+    }
+
     const players: Player[] = [
       {
         id: 1,
         name: 'Alice',
         color: 'coral',
         score: 0,
-        socketId: 'old-socket-alice',
-        deviceId: 'device-alice',
+        socketId: null,
+        sessionId: aliceSessionId,
       },
       {
         id: 2,
         name: 'Bob',
         color: 'skyblue',
         score: 0,
-        socketId: 'old-socket-bob',
-        deviceId: 'device-bob',
+        socketId: null,
+        sessionId: bobSessionId,
       },
       {
         id: 3,
@@ -212,7 +222,7 @@ describe('Сохранение данных лобби', () => {
         color: 'lime',
         score: 0,
         socketId: null,
-        deviceId: null,
+        sessionId: null,
       },
     ]
     const game = new GameManager({ players })
@@ -252,17 +262,10 @@ describe('Сохранение данных лобби', () => {
     const bob = new TestClient(server.url, 'device-bob')
     clients.push(alice, bob)
     await Promise.all([alice.connect(), bob.connect()])
-    alice.registerDevice()
-    bob.registerDevice()
+    await Promise.all([alice.registerSession(), bob.registerSession()])
     await Promise.all([
-      alice.emitAck(SocketEvents.RejoinGame, {
-        gameId: 'mixed-game',
-        deviceId: alice.deviceId,
-      }),
-      bob.emitAck(SocketEvents.RejoinGame, {
-        gameId: 'mixed-game',
-        deviceId: bob.deviceId,
-      }),
+      alice.emitAck(SocketEvents.RejoinGame, { gameId: 'mixed-game' }),
+      bob.emitAck(SocketEvents.RejoinGame, { gameId: 'mixed-game' }),
     ])
 
     await waitForCondition(
@@ -344,7 +347,7 @@ describe('Сохранение данных лобби', () => {
           color: 'coral',
           score: 0,
           socketId: null,
-          deviceId: null,
+          sessionId: null,
         },
       ],
       innsAndCathedralsEnabled: true,

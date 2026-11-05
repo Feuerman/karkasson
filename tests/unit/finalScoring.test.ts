@@ -7,7 +7,7 @@ import { gridTile, makePlayers } from '../helpers/fixtures'
 const players = makePlayers().map((player) => ({
   ...player,
   socketId: null,
-  deviceId: null,
+  sessionId: null,
 }))
 
 function tile(x: number, y: number, withShield = false): GridTile {

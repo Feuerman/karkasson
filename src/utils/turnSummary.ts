@@ -1,7 +1,7 @@
 import {
   ActionTypes,
   type ObjectTypes,
-  type Player,
+  type PlayerView,
   type PlayerId,
   type ScoreDetailLine,
   type Tile,
@@ -73,7 +73,7 @@ export const actionTurnKey = (action: GameAction): string => {
 
 export const buildTurnSummary = (
   actions: GameAction[],
-  players: Player[],
+  players: PlayerView[],
   ownPlayerId?: PlayerId | null
 ): TurnSummary | null => {
   const turnActions = actions.filter(Boolean)

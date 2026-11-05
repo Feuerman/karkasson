@@ -264,7 +264,7 @@ describe('Действия в игре: валидация ходов', () => {
     ).rejects.toThrow(LobbyErrors.OnlyLobbyOwnerCanStart)
   })
 
-  it('leaveGame в начатой игре освобождает сокет, но сохраняет deviceId', async () => {
+  it('leaveGame в начатой игре освобождает сокет, но сохраняет сессию', async () => {
     const { server: running, creator, joiner, gameId } = await startLobby()
 
     const started = await startGame(creator, gameId)
@@ -275,29 +275,26 @@ describe('Действия в игре: валидация ходов', () => {
     const afterLeave = await latestGame(
       creator,
       (g: TestGameData) =>
-        g.gameIsStarted === true && g.players[1]?.socketId === null
+        g.gameIsStarted === true && g.players[1]?.isConnected === false
     )
     expect(afterLeave.gameIsStarted).toBe(true)
-    expect(afterLeave.players[1].deviceId).toBe('device-joiner')
+    expect(afterLeave.players[1].sessionId).toBe(joiner.sessionId)
     expect(afterLeave.players[1].name).toBe('Bob')
 
     // Игра не удалена
     expect(running.handle.gameService.getGame(gameId)).toBeTruthy()
 
-    // Боб может вернуться по устройству
+    // Боб может вернуться по сессии
     joiner.reconnect()
     await joiner.connect()
-    joiner.registerDevice()
-    joiner.emit(SocketEvents.RejoinGame, {
-      gameId,
-      deviceId: joiner.deviceId,
-    })
+    await joiner.registerSession()
+    joiner.emit(SocketEvents.RejoinGame, { gameId })
     const rejoined = await latestGame(
       joiner,
       (g: TestGameData) =>
-        g.gameIsStarted === true && g.players[1]?.socketId === joiner.id
+        g.gameIsStarted === true && g.players[1]?.isConnected === true
     )
-    expect(rejoined.players[1].socketId).toBe(joiner.id)
+    expect(rejoined.players[1].isConnected).toBe(true)
   })
 
   it('skipFollower отклоняется вне фазы выставления фишек и не передаёт очередь', async () => {

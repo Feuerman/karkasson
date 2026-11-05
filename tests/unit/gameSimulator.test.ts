@@ -13,7 +13,7 @@ const currentPlayer: Player = {
   color: 'coral',
   score: 0,
   socketId: 'socket-1',
-  deviceId: 'device-1',
+  sessionId: 'device-1',
 }
 
 function follower(playerId: number, objectId: string): ObjectFollower {

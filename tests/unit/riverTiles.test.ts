@@ -159,7 +159,7 @@ describe('Тайлы дополнения «Река»', () => {
           color: 'red',
           score: 0,
           socketId: 's1',
-          deviceId: 'd1',
+          sessionId: 'd1',
         },
       ],
     })
@@ -194,7 +194,7 @@ describe('Тайлы дополнения «Река»', () => {
             color: 'red',
             score: 0,
             socketId: 's1',
-            deviceId: 'd1',
+            sessionId: 'd1',
           },
         ],
       })

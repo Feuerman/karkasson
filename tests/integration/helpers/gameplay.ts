@@ -155,7 +155,7 @@ export interface GameStateSnapshot {
   placingPoint?: { rowIndex: number; tileIndex: number }
   actionsHistory?: Array<{
     actionType: ActionTypes
-    initiator?: { socketId?: string | null; deviceId?: string | null } | null
+    initiator?: { socketId?: string | null; sessionId?: string | null } | null
     moveNumber?: number
     actionData?: {
       objectType?: string

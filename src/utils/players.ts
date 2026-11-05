@@ -1,8 +1,8 @@
-import type { Player, PlayerId, Scores } from '@server/modules/types'
+import type { PlayerView, PlayerId, Scores } from '@server/modules/types'
 
 /** Игрок в таблице счёта: с очками и признаками лидера и «это я». */
 export interface RankedPlayer {
-  player: Player
+  player: PlayerView
   score: number
   /** Лидирует по очкам. */
   isLeader: boolean
@@ -12,31 +12,28 @@ export interface RankedPlayer {
 
 /** Как текущий браузер узнаёт себя среди игроков. */
 export interface OwnPlayerRef {
-  socketId?: string | null
-  deviceId?: string | null
+  sessionId?: string | null
 }
 
 /**
  * Игрок, которого разыгрывает компьютер.
  *
- * Признак тот же, что и на сервере: у компьютера нет ни сокета, ни устройства,
- * поэтому его ход виден как «ход соперника, который думает».
+ * Признак тот же, что и на сервере: у компьютера нет сессии, поэтому его ход
+ * виден как «ход соперника, который думает».
  */
-export const isComputerPlayer = (player?: Player | null): boolean => {
+export const isComputerPlayer = (player?: PlayerView | null): boolean => {
   if (!player) return false
 
-  return !player.socketId && !player.deviceId
+  return !player.sessionId
 }
 
 /** Ищет игрока, за которым сидит текущий браузер. */
 export const findOwnPlayer = (
-  players: Player[],
+  players: PlayerView[],
   own: OwnPlayerRef
-): Player | undefined =>
+): PlayerView | undefined =>
   players.find(
-    (player) =>
-      (Boolean(own.socketId) && player.socketId === own.socketId) ||
-      (Boolean(own.deviceId) && player.deviceId === own.deviceId)
+    (player) => Boolean(own.sessionId) && player.sessionId === own.sessionId
   )
 
 /**
@@ -46,11 +43,11 @@ export const findOwnPlayer = (
  * Лидером считается игрок с наибольшим счётом, если очки уже есть.
  */
 export const rankPlayers = (
-  players: Player[],
+  players: PlayerView[],
   scores: Scores | undefined,
   ownPlayerId?: PlayerId | null
 ): RankedPlayer[] => {
-  const scoreOf = (player: Player) => scores?.[player.id] ?? 0
+  const scoreOf = (player: PlayerView) => scores?.[player.id] ?? 0
   const maxScore = players.reduce(
     (max, player) => Math.max(max, scoreOf(player)),
     0
@@ -79,9 +76,9 @@ export const rankPlayers = (
  * Порядок ходов задаёт сервер: игроки ходят по порядку в списке.
  */
 export const getNextPlayer = (
-  players: Player[],
+  players: PlayerView[],
   currentPlayerIndex: number
-): Player | undefined => {
+): PlayerView | undefined => {
   if (players.length === 0) return undefined
 
   return players[(currentPlayerIndex + 1) % players.length]

@@ -33,7 +33,6 @@ async function saveGameOnDisconnect(
 async function releaseGameAfterDisconnect(
   context: SocketHandlerContext,
   game: GameManager,
-  deviceId: string | undefined,
   reason: string
 ): Promise<void> {
   const { events, service, scheduler, socket } = context
@@ -41,19 +40,22 @@ async function releaseGameAfterDisconnect(
   if (!gameId) return
 
   if (isTemporaryDisconnect(reason)) {
-    const playerIds = game.players.filter((p) => p.socketId === socket.id)
+    const playerIds = game.players
+      .filter((p) => p.socketId === socket.id)
+      .map((p) => p.id)
     socket.to(gameId).emit(SocketEvents.PlayerTemporaryDisconnected, {
-      deviceId,
       playerIds,
     })
 
     if (game.gameIsStarted) {
-      service.releasePlayer(gameId, socket.id, deviceId ?? null)
+      // Сессия остаётся за игроком: он должен вернуться в свою партию.
+      service.releasePlayer(gameId, socket.id)
       // Сохраняем до рассылки: игроки не должны увидеть состояние,
       // которого нет в хранилище.
       await saveGameOnDisconnect(service, gameId)
       scheduler.continueGame(events, service, gameId)
     } else {
+      // В лобби слот освобождается сразу: сессия уходит вместе с сокетом.
       service.releasePlayer(gameId, socket.id, null)
     }
 
@@ -93,13 +95,12 @@ async function releaseGameAfterDisconnect(
  */
 async function handleDisconnect(
   context: SocketHandlerContext,
-  deviceId: string | undefined,
   reason: string
 ): Promise<void> {
   const games = context.service.findPlayerGamesForSocket(context.socket.id)
   for (const game of games) {
     try {
-      await releaseGameAfterDisconnect(context, game, deviceId, reason)
+      await releaseGameAfterDisconnect(context, game, reason)
     } catch (error: unknown) {
       // Одна партия не должна мешать освобождению остальных.
       logger.error(`Failed to release game ${game.id ?? 'unknown'}:`, error)
@@ -107,22 +108,43 @@ async function handleDisconnect(
   }
 }
 
+interface RegisterSessionPayload {
+  token?: unknown
+}
+
 export function registerConnectionHandlers(context: SocketHandlerContext) {
   const { events, service, scheduler, socket } = context
 
   socket.on(
-    SocketEvents.RegisterDevice,
-    ({ deviceId }: { deviceId: string }) => {
-      service.registerDevice(deviceId, socket.id)
+    SocketEvents.RegisterSession,
+    (payloadOrCallback?: unknown, maybeCallback?: SocketCallback) => {
+      const callback: SocketCallback | undefined =
+        typeof payloadOrCallback === 'function'
+          ? (payloadOrCallback as SocketCallback)
+          : maybeCallback
+      const payload =
+        typeof payloadOrCallback === 'object' && payloadOrCallback !== null
+          ? (payloadOrCallback as RegisterSessionPayload)
+          : undefined
+      const token =
+        typeof payload?.token === 'string' ? payload.token : undefined
+
+      const session = service.resolveSession(token)
+      service.registerSession(session.sessionId, socket.id)
+      callback?.({
+        success: true,
+        token: session.token,
+        sessionId: session.sessionId,
+      })
     }
   )
 
   socket.on('disconnect', (reason: string) => {
-    const deviceId = service.getDeviceBySocketId(socket.id)
+    service.unregisterSocket(socket.id)
     if (!service.findPlayerGamesForSocket(socket.id).length) return
     // Фоновая задача с собственным обработчиком ошибок: хендлер disconnect
     // обязан вернуться сразу и не блокировать цикл событий.
-    void handleDisconnect(context, deviceId, reason).catch((error: unknown) => {
+    void handleDisconnect(context, reason).catch((error: unknown) => {
       logger.error('Failed to handle disconnect:', error)
     })
   })
@@ -130,9 +152,9 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
   socket.on(
     SocketEvents.RejoinGame,
     async (
-      { gameId, deviceId }: { gameId: string; deviceId: string },
+      { gameId }: { gameId: string },
       callbackOrPayload?: unknown,
-      maybeCallback?: (response: { error?: string; game?: unknown }) => void
+      maybeCallback?: SocketCallback
     ) => {
       const callback: SocketCallback | undefined =
         typeof callbackOrPayload === 'function'
@@ -140,7 +162,14 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
           : maybeCallback
 
       await runLobbyCommand(callback, async () => {
-        const result = service.rejoinGame(gameId, deviceId, socket.id)
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          socket.emit(SocketEvents.Error, CommonErrors.SessionRequired)
+          callback?.({ error: CommonErrors.SessionRequired })
+          return
+        }
+
+        const result = service.rejoinGame(gameId, sessionId, socket.id)
         if (!result) {
           socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
           callback?.({ error: CommonErrors.GameNotFound })

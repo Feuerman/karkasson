@@ -56,7 +56,12 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
             return
           }
         }
-        const game = service.createLobby(socket.id, {
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          callback?.({ error: CommonErrors.SessionRequired })
+          return
+        }
+        const game = service.createLobby(socket.id, sessionId, {
           finalScoringEnabled: payload?.finalScoringEnabled === true,
           innsAndCathedralsEnabled: payload?.innsAndCathedralsEnabled === true,
           riverEnabled: payload?.riverEnabled === true,
@@ -110,11 +115,17 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           return
         }
 
-        const deviceId = service.getDeviceBySocketId(socket.id)
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          const error = CommonErrors.SessionRequired
+          socket.emit(SocketEvents.Error, error)
+          callback?.({ error })
+          return
+        }
         const result = service.joinFirstFreeSlot(
           resolvedGameId,
           socket.id,
-          deviceId
+          sessionId
         )
 
         if ('error' in result) {
@@ -150,7 +161,8 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           callback?.({ error: CommonErrors.GameNotFound })
           return
         }
-        if (!service.canStartLobby(gameId, socket.id)) {
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId || !service.canStartLobby(gameId, sessionId)) {
           socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
           callback?.({ error: LobbyErrors.OnlyLobbyOwnerCanStart })
           return
@@ -176,7 +188,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
 
         ackGameUpdated(events, gameId, newGame, callback)
 
-        if (newGame.players.every((p) => !p.socketId && !p.deviceId)) {
+        if (newGame.players.every((p) => !p.socketId && !p.sessionId)) {
           scheduler.scheduleMove(events, service, gameId)
         }
       })
@@ -196,7 +208,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
 
         if (!game.gameIsStarted) {
           service.releasePlayer(gameId, socket.id, null)
-          if (game.players.every((p) => !p.socketId && !p.deviceId)) {
+          if (game.players.every((p) => !p.socketId && !p.sessionId)) {
             try {
               await service.deleteGame(gameId)
             } catch (error) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Player, Scores } from '@server/modules/types'
+import type { PlayerView, Scores } from '@server/modules/types'
 import {
   findOwnPlayer,
   getNextPlayer,
@@ -16,14 +16,14 @@ import {
 const player = (
   id: number,
   name: string,
-  overrides: Partial<Player> = {}
-): Player => ({
+  overrides: Partial<PlayerView> = {}
+): PlayerView => ({
   id,
   name,
   color: 'coral',
   score: 0,
-  socketId: `socket-${id}`,
-  deviceId: `device-${id}`,
+  sessionId: `session-${id}`,
+  isConnected: true,
   ...overrides,
 })
 
@@ -33,7 +33,7 @@ const scores = (entries: [number, number][]): Scores =>
 describe('isComputerPlayer', () => {
   it('компьютером считается игрок без сокета и устройства', () => {
     expect(
-      isComputerPlayer(player(1, 'ИИ', { socketId: null, deviceId: null }))
+      isComputerPlayer(player(1, 'ИИ', { sessionId: null, isConnected: false }))
     ).toBe(true)
   })
 
@@ -42,7 +42,9 @@ describe('isComputerPlayer', () => {
   })
 
   it('отключившийся игрок не компьютер: у него есть устройство', () => {
-    expect(isComputerPlayer(player(1, 'Иван', { socketId: null }))).toBe(false)
+    expect(isComputerPlayer(player(1, 'Иван', { isConnected: false }))).toBe(
+      false
+    )
   })
 
   it('для отсутствующего игрока даёт ложь', () => {
@@ -53,20 +55,18 @@ describe('isComputerPlayer', () => {
 describe('findOwnPlayer', () => {
   const players = [player(1, 'Иван'), player(2, 'Мария')]
 
-  it('находит игрока по сокету', () => {
-    expect(findOwnPlayer(players, { socketId: 'socket-2' })?.name).toBe('Мария')
+  it('находит игрока по идентификатору сессии', () => {
+    expect(findOwnPlayer(players, { sessionId: 'session-2' })?.name).toBe(
+      'Мария'
+    )
   })
 
-  it('находит игрока по устройству', () => {
-    expect(findOwnPlayer(players, { deviceId: 'device-1' })?.name).toBe('Иван')
+  it('для чужой сессии не находит игрока', () => {
+    expect(findOwnPlayer(players, { sessionId: 'session-9' })).toBeUndefined()
   })
 
-  it('для чужого браузера не находит игрока', () => {
-    expect(findOwnPlayer(players, { socketId: 'socket-9' })).toBeUndefined()
-  })
-
-  it('пустое устройство не считается своим', () => {
-    expect(findOwnPlayer(players, { deviceId: '' })).toBeUndefined()
+  it('пустая сессия не считается своей', () => {
+    expect(findOwnPlayer(players, { sessionId: null })).toBeUndefined()
   })
 })
 

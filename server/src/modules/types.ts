@@ -158,13 +158,25 @@ export const RotationTurns = {
   ThreeQuarter: 3,
 } as const
 
-export interface Player {
+/**
+ * Игрок в том виде, в каком его видят другие клиенты.
+ *
+ * `sessionId` — публичный случайный идентификатор сессии: по нему клиент
+ * узнаёт свою фишку, но он не даёт прав. `isConnected` заменяет внутренний
+ * `socketId`, который наружу не отдаётся.
+ */
+export interface PlayerView {
   id: PlayerId
   name: string | null
   color: string | null
   score: number
+  sessionId: string | null
+  isConnected: boolean
+}
+
+/** Внутреннее состояние игрока: `socketId` — только серверу. */
+export interface Player extends Omit<PlayerView, 'isConnected'> {
   socketId: string | null
-  deviceId: string | null
 }
 
 export interface Point {
@@ -202,7 +214,7 @@ export type ExpansionName = (typeof ExpansionName)[keyof typeof ExpansionName]
 
 /** События прикладного Socket.IO-протокола, общие для клиента и сервера. */
 export const SocketEvents = {
-  RegisterDevice: 'registerDevice',
+  RegisterSession: 'registerSession',
   GetGamesList: 'getGamesList',
   CreateGame: 'createGame',
   GameCreated: 'gameCreated',

@@ -72,13 +72,33 @@ function validatePlayers(value: Record<string, unknown>): void {
         (typeof player.id === 'number' || typeof player.id === 'string') &&
         (typeof player.name === 'string' || player.name === null) &&
         (typeof player.socketId === 'string' || player.socketId === null) &&
-        (typeof player.deviceId === 'string' || player.deviceId === null) &&
+        (player.sessionId === undefined ||
+          typeof player.sessionId === 'string' ||
+          player.sessionId === null) &&
         (typeof player.color === 'string' || player.color === null) &&
         typeof player.score === 'number'
     )
   ) {
     throw new Error('Game save contains an invalid player')
   }
+}
+
+/**
+ * Игроки старых схем хранили клиентский `deviceId`. Доверять ему нельзя:
+ * сессия теперь выдаётся сервером, поэтому старый идентификатор отбрасывается,
+ * а игрок остаётся без сессии до нового входа.
+ */
+function normalizeLegacySession(player: unknown): void {
+  if (!isRecord(player)) return
+  if (player.sessionId === undefined) player.sessionId = null
+  delete player.deviceId
+}
+
+function normalizeLegacyPlayerSessions(value: Record<string, unknown>): void {
+  if (Array.isArray(value.players)) {
+    value.players.forEach(normalizeLegacySession)
+  }
+  normalizeLegacySession(value.currentPlayer)
 }
 
 function isLegacyLobby(value: Record<string, unknown>): boolean {
@@ -481,6 +501,7 @@ export function migrateLegacyGameState(value: unknown): IGameState {
   }
 
   validatePlayers(value)
+  normalizeLegacyPlayerSessions(value)
   if (
     value.finalScoringEnabled !== undefined &&
     typeof value.finalScoringEnabled !== 'boolean'
