@@ -37,20 +37,36 @@ describe('getClientOrigins', () => {
     )
   })
 
-  it('rejects invalid and non-http origins', () => {
-    expect(() =>
+  it('ignores invalid values and keeps valid origins', () => {
+    expect(
       getClientOrigins({
         CLIENT_ORIGIN: 'https://example.com, *',
         NODE_ENV: 'production',
       })
-    ).toThrow('Invalid origin')
+    ).toEqual(['https://example.com'])
 
-    expect(() =>
+    expect(
+      getClientOrigins({
+        CLIENT_ORIGIN: 'https://example.com, file:///tmp/client.html',
+        NODE_ENV: 'production',
+      })
+    ).toEqual(['https://example.com'])
+  })
+
+  it('falls back to defaults when no configured origin is valid', () => {
+    expect(
+      getClientOrigins({
+        CLIENT_ORIGIN: '*',
+        NODE_ENV: 'production',
+      })
+    ).toEqual(['https://feuerman.github.io'])
+
+    expect(
       getClientOrigins({
         CLIENT_ORIGIN: 'file:///tmp/client.html',
         NODE_ENV: 'production',
       })
-    ).toThrow('Unsupported origin protocol')
+    ).toEqual(['https://feuerman.github.io'])
   })
 })
 
