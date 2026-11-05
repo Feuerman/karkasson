@@ -50,6 +50,19 @@ export const COMPUTER_MOVE_DELAY_MS =
 // Время на восстановление соединения всеми реальными игроками партии.
 export const PLAYER_RECONNECT_TIMEOUT_MS = 15 * 60 * 1000
 
+// Верхняя граница размера одного Socket.IO-пакета.
+export const MAX_HTTP_BUFFER_SIZE = 64 * 1024
+
+// Сколько сокетов с одного IP может держать сервер одновременно.
+export const MAX_SOCKETS_PER_IP = 20
+
+// Общее число партий в памяти и число лобби, созданных одной сессией.
+export const MAX_TOTAL_GAMES = 500
+export const MAX_OWNED_LOBBIES = 5
+
+// Доверять ли `X-Forwarded-For`. Включать только за доверенным прокси.
+export const TRUST_PROXY = process.env.TRUST_PROXY === 'true'
+
 export interface FirebaseConfig {
   apiKey: string
   databaseURL: string

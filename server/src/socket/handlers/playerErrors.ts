@@ -8,7 +8,12 @@
  * служебный текст не путался с причиной отказа.
  */
 
-import { CommonErrors, GameErrors, LobbyErrors } from '../../modules/errors'
+import {
+  CommonErrors,
+  GameErrors,
+  LobbyErrors,
+  errorCodeForMessage,
+} from '../../modules/errors'
 import { getErrorMessage } from '../../utils/common'
 import { PLACEMENT_FAILURE_MESSAGE } from './placementErrors'
 
@@ -28,4 +33,18 @@ export function toPlayerErrorMessage(error: unknown): string {
     return message
   }
   return CommonErrors.InternalFailure
+}
+
+/** Текст и машинный код отказа для ack игрока. */
+export function toPlayerError(error: unknown): {
+  error: string
+  code: string
+} {
+  const message = toPlayerErrorMessage(error)
+  return {
+    error: message,
+    code: message.startsWith(PLACEMENT_FAILURE_MESSAGE)
+      ? 'game.placement_failed'
+      : errorCodeForMessage(message),
+  }
 }

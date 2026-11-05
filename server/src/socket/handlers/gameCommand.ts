@@ -3,7 +3,8 @@ import { CommonErrors, GameErrors } from '../../modules/errors'
 import type { SocketEvent } from '../../modules/types'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback, SocketHandlerContext } from '../types'
-import { toPlayerErrorMessage } from './playerErrors'
+import { errorResponse } from './errorResponse'
+import { toPlayerError } from './playerErrors'
 import { ackGameUpdated } from './shared'
 
 const logger = createLogger('gameCommand')
@@ -107,13 +108,13 @@ export async function runGameCommand(
   await service.runGameCommand(gameId, async () => {
     const game = service.getGame(gameId)
     if (!game) {
-      callback?.({ error: CommonErrors.GameNotFound })
+      callback?.(errorResponse(CommonErrors.GameNotFound))
       return
     }
 
     const guardError = guard(game, socket.id)
     if (guardError) {
-      callback?.({ error: guardError })
+      callback?.(errorResponse(guardError))
       return
     }
 
@@ -130,7 +131,7 @@ export async function runGameCommand(
     } catch (error) {
       logger.error(`Ошибка команды ${command}:`, error)
       callback?.({
-        error: toPlayerErrorMessage(error),
+        ...toPlayerError(error),
         ...commandErrorDetails(error),
       })
       return

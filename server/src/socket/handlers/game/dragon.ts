@@ -1,6 +1,8 @@
 import { SocketEvents } from '../../../modules/types'
-import type { SocketCallback, SocketHandlerContext } from '../../types'
-import { GameErrors } from '../../../modules/errors'
+import type { SocketHandlerContext } from '../../types'
+import { CommonErrors, GameErrors } from '../../../modules/errors'
+import { parsePositionRequest, payloadAndCallback } from '../../validation'
+import { errorResponse } from '../errorResponse'
 import { runGameCommand, type GameCommandGuard } from '../gameCommand'
 
 /** Ходы дракона доступны только тому, кому принадлежит очередь и ход дракона. */
@@ -15,23 +17,22 @@ export function registerDragonHandlers(context: SocketHandlerContext) {
 
   socket.on(
     SocketEvents.MoveDragon,
-    async (
-      {
-        gameId,
-        position,
-      }: { gameId: string; position: { rowIndex: number; tileIndex: number } },
-      callback: SocketCallback
-    ) => {
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parsePositionRequest(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId, position } = request
+
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.MoveDragon,
         callback,
         guard: requireDragonTurn,
         execute: async ({ game }) => {
-          if (
-            !position ||
-            !game.moveDragon(position.rowIndex, position.tileIndex)
-          ) {
+          if (!game.moveDragon(position.rowIndex, position.tileIndex)) {
             throw new Error(GameErrors.InvalidDragonDestination)
           }
         },

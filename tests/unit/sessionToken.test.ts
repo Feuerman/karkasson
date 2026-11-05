@@ -70,4 +70,9 @@ describe('sessionToken', () => {
 
     expect(verifySessionToken(session.token, secret)).toBeUndefined()
   })
+
+  it('не разбирает слишком длинный токен', () => {
+    expect(verifySessionToken('a'.repeat(10_000), secret)).toBeUndefined()
+    expect(verifySessionToken('', secret)).toBeUndefined()
+  })
 })

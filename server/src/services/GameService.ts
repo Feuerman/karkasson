@@ -8,7 +8,8 @@ import {
   SaveErrors,
 } from '../modules/errors'
 import { randomInt } from 'node:crypto'
-import { getSessionSecret } from '../config'
+import { getSessionSecret, MAX_OWNED_LOBBIES, MAX_TOTAL_GAMES } from '../config'
+import { playerNameKey } from '../modules/playerName'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
 import { ComputerMoveScheduler } from './computerPlayer'
@@ -33,6 +34,11 @@ const logger = createLogger('GameService')
 
 export interface JoinResult {
   error: string
+}
+
+export interface GameServiceLimits {
+  maxTotalGames: number
+  maxOwnedLobbies: number
 }
 
 /**
@@ -71,11 +77,18 @@ export class GameService {
   private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
   /** Сколько сохранений не удалось прочитать при последней загрузке. */
   private unreadableSaves = 0
+  private readonly limits: GameServiceLimits
 
   constructor(
     private readonly db: IGameDatabase,
-    private readonly sessionSecret: string = getSessionSecret()
-  ) {}
+    private readonly sessionSecret: string = getSessionSecret(),
+    limits: Partial<GameServiceLimits> = {}
+  ) {
+    this.limits = {
+      maxTotalGames: limits.maxTotalGames ?? MAX_TOTAL_GAMES,
+      maxOwnedLobbies: limits.maxOwnedLobbies ?? MAX_OWNED_LOBBIES,
+    }
+  }
 
   restoreGame(gameId: string, game: GameManager): void {
     this.games[gameId] = game
@@ -314,6 +327,29 @@ export class GameService {
     return trackedSave
   }
 
+  /** Причина отказа создать ещё одно лобби или `undefined`, если можно. */
+  lobbyCreationError(sessionId: string): string | undefined {
+    if (this.allGames().length >= this.limits.maxTotalGames) {
+      return LobbyErrors.TooManyGames
+    }
+
+    const ownedLobbies = Object.entries(this.lobbyOwners).filter(
+      ([gameId, ownerSessionId]) => {
+        const game = this.games[gameId]
+        return (
+          ownerSessionId === sessionId &&
+          game !== undefined &&
+          !game.gameIsStarted
+        )
+      }
+    ).length
+    if (ownedLobbies >= this.limits.maxOwnedLobbies) {
+      return LobbyErrors.TooManyOwnedLobbies
+    }
+
+    return undefined
+  }
+
   createLobby(
     socketId: string,
     sessionId: string,
@@ -359,6 +395,23 @@ export class GameService {
     } else {
       player.name = playerNameForIndex(index)
     }
+  }
+
+  /** Занято ли имя другим слотом; сравнение без учёта регистра и «ё». */
+  isPlayerNameTaken(
+    gameId: string,
+    name: string,
+    ignoreIndex: number
+  ): boolean {
+    const game = this.games[gameId]
+    if (!game || !name) return false
+    const key = playerNameKey(name)
+    return game.players.some(
+      (player, index) =>
+        index !== ignoreIndex &&
+        Boolean(player.name) &&
+        playerNameKey(player.name ?? '') === key
+    )
   }
 
   canEditLobbySlot(

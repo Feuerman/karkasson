@@ -2,9 +2,17 @@ import express from 'express'
 import http from 'http'
 import { Server } from 'socket.io'
 import { instrument } from '@socket.io/admin-ui'
-import { ADMIN_UI_ORIGIN, getSocketAdminUIOptions } from './config'
+import {
+  ADMIN_UI_ORIGIN,
+  getSessionSecret,
+  getSocketAdminUIOptions,
+  MAX_HTTP_BUFFER_SIZE,
+} from './config'
 import type { IGameDatabase } from './modules/Database'
+import type { GameServiceLimits } from './services/GameService'
 import { GameService } from './services/GameService'
+import { SocketAbuseGuard } from './socket/abuseGuard'
+import type { SocketAbuseGuardOptions } from './socket/abuseGuard'
 import { registerSocketHandlers } from './socket/router'
 import { createGameEventsPublisher } from './socket/publisher'
 import type { GameEventsPublisher } from './services/gameEvents'
@@ -25,6 +33,9 @@ export interface GameServerHandle {
 
 export interface CreateGameServerOptions {
   adminUI?: boolean
+  maxHttpBufferSize?: number
+  gameLimits?: Partial<GameServiceLimits>
+  abuseGuard?: SocketAbuseGuardOptions
 }
 
 /**
@@ -45,6 +56,7 @@ export function createGameServer(
       origin: [ADMIN_UI_ORIGIN],
       credentials: true,
     },
+    maxHttpBufferSize: options.maxHttpBufferSize ?? MAX_HTTP_BUFFER_SIZE,
   })
 
   if (adminUI) {
@@ -59,10 +71,15 @@ export function createGameServer(
     }
   }
 
-  const gameService = new GameService(db)
+  const gameService = new GameService(
+    db,
+    getSessionSecret(),
+    options.gameLimits
+  )
   const events = createGameEventsPublisher(io)
+  const abuseGuard = new SocketAbuseGuard(options.abuseGuard)
 
-  registerSocketHandlers(io, gameService, events)
+  registerSocketHandlers(io, gameService, events, abuseGuard)
 
   /**
    * Состояние сервера для внешнего наблюдения.
