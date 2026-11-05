@@ -35,30 +35,10 @@ describe('База данных сервера', () => {
     expect(new InMemoryGameDatabase()).toBeInstanceOf(InMemoryGameDatabase)
   })
 
-  it('не поднимает Firebase без обязательных переменных окружения', () => {
-    expect(() =>
+  it('поднимает production-базу без переменных окружения', () => {
+    expect(
       createProductionGameDatabase({ NODE_ENV: 'production' })
-    ).toThrow(/FIREBASE_API_KEY/)
-    expect(() =>
-      createProductionGameDatabase({
-        NODE_ENV: 'production',
-        FIREBASE_API_KEY: 'test-key',
-      })
-    ).toThrow(/FIREBASE_DATABASE_URL/)
-    expect(() =>
-      createProductionGameDatabase({
-        NODE_ENV: 'production',
-        FIREBASE_API_KEY: 'test-key',
-        FIREBASE_DATABASE_URL: 'https://example.firebaseio.com/',
-      })
-    ).toThrow(/FIREBASE_SERVICE_ACCOUNT/)
-    expect(() =>
-      createProductionGameDatabase({
-        NODE_ENV: 'production',
-        FIREBASE_API_KEY: '   ',
-        FIREBASE_DATABASE_URL: 'https://example.firebaseio.com/',
-      })
-    ).toThrow(/FIREBASE_API_KEY/)
+    ).toBeDefined()
   })
 
   it('сохраняет, загружает и удаляет игру из in-memory базы', async () => {
@@ -80,7 +60,7 @@ describe('База данных сервера', () => {
 })
 
 describe('Конфигурация Firebase', () => {
-  it('читает обязательные значения и сервисный аккаунт', () => {
+  it('читает значения из окружения и сервисный аккаунт', () => {
     expect(
       getFirebaseConfig({
         FIREBASE_API_KEY: ' test-key ',
@@ -94,6 +74,16 @@ describe('Конфигурация Firebase', () => {
     })
   })
 
+  it('использует публичный конфиг без переменных окружения', () => {
+    const config = getFirebaseConfig({})
+
+    expect(config.apiKey).not.toBe('')
+    expect(config.databaseURL).toBe(
+      'https://karkassone-a5080-default-rtdb.firebaseio.com/'
+    )
+    expect(config.serviceAccount).toBeNull()
+  })
+
   it('восстанавливает экранированные переносы приватного ключа', () => {
     const escapedKey = serviceAccountFields.private_key.replace(/\n/g, '\\n')
     const config = getFirebaseConfig({
@@ -105,28 +95,7 @@ describe('Конфигурация Firebase', () => {
       }),
     })
 
-    expect(config.serviceAccount.privateKey).toBe(serviceAccount.privateKey)
-  })
-
-  it('сообщает имя отсутствующей обязательной переменной', () => {
-    const missingApiKey = () => getFirebaseConfig({})
-    const missingDatabaseUrl = () =>
-      getFirebaseConfig({ FIREBASE_API_KEY: 'test-key' })
-    const missingServiceAccount = () =>
-      getFirebaseConfig({
-        FIREBASE_API_KEY: 'test-key',
-        FIREBASE_DATABASE_URL: 'https://test.firebaseio.com/',
-      })
-
-    expect(missingApiKey).toThrow(
-      'Missing required environment variable FIREBASE_API_KEY'
-    )
-    expect(missingDatabaseUrl).toThrow(
-      'Missing required environment variable FIREBASE_DATABASE_URL'
-    )
-    expect(missingServiceAccount).toThrow(
-      'Missing required environment variable FIREBASE_SERVICE_ACCOUNT'
-    )
+    expect(config.serviceAccount?.privateKey).toBe(serviceAccount.privateKey)
   })
 
   it('отклоняет некорректный сервисный аккаунт', () => {

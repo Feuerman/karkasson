@@ -292,12 +292,9 @@ export class GameService implements IGameService {
     const socket = io(SERVER_URL, {
       secure: isSecure,
       rejectUnauthorized: isSecure,
-      // Polling с последующим upgrade: websocket-only ломался при жёстком
-      // CORS и не давал запасного пути в сетях, где WS недоступен.
+      // Только WebSocket: polling не нужен ни для этого сервера, ни для CSP
+      // клиента, а лишний канал усложняет диагностику подключения.
       transports: ['websocket'],
-      // Если polling недоступен (CORS, прокси, CSP), пробуем WebSocket,
-      // а не сдаёмся после ошибки первого транспорта.
-      tryAllTransports: true,
       reconnection: true,
       // Render засыпает и отвечает 503/522, пока инстанс поднимается. Ограничение
       // попыток теряло сессию до окончания холодного старта, поэтому повторяем

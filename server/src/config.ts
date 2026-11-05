@@ -21,6 +21,12 @@ const DEFAULT_PRODUCTION_CLIENT_ORIGINS = ['https://feuerman.github.io']
 
 const logger = createLogger('config')
 
+// Публичный web-конфиг проекта. Это не секрет; значения можно переопределить
+// переменными окружения, но для запуска на хостинге они больше не обязательны.
+const DEFAULT_FIREBASE_API_KEY = 'AIzaSyDyRbOXPz22xQVZndSmwwXWwfBXXQw-adw'
+const DEFAULT_FIREBASE_DATABASE_URL =
+  'https://karkassone-a5080-default-rtdb.firebaseio.com/'
+
 /** Канонический Origin или `null`, если значение не является http(s)-Origin. */
 function normalizeOrigin(value: string): string | null {
   let url: URL
@@ -184,7 +190,7 @@ export interface FirebaseServiceAccount {
 export interface FirebaseConfig {
   apiKey: string
   databaseURL: string
-  serviceAccount: FirebaseServiceAccount
+  serviceAccount: FirebaseServiceAccount | null
 }
 
 function readEnv(
@@ -193,14 +199,6 @@ function readEnv(
 ): string | undefined {
   const value = environment[name]?.trim()
   return value ? value : undefined
-}
-
-function requireEnv(environment: NodeJS.ProcessEnv, name: string): string {
-  const value = readEnv(environment, name)
-  if (!value) {
-    throw new Error(`Missing required environment variable ${name}`)
-  }
-  return value
 }
 
 /**
@@ -274,22 +272,31 @@ function readStringValue(value: unknown): string | undefined {
 }
 
 /**
- * Конфигурация Firebase Realtime Database. Значения приходят из окружения:
- * обязательны FIREBASE_API_KEY, FIREBASE_DATABASE_URL и
- * FIREBASE_SERVICE_ACCOUNT. Нужен только production-серверу, в разработке и
- * тестах работает in-memory хранилище.
+ * Конфигурация Firebase Realtime Database. FIREBASE_API_KEY и
+ * FIREBASE_DATABASE_URL можно переопределить, иначе берутся публичные значения
+ * проекта. FIREBASE_SERVICE_ACCOUNT необязателен: с ним сервер входит в Firebase
+ * и работает по закрытым правилам, без него используется прежний доступ.
  *
- * Сервер пишет в базу от имени сервисного аккаунта: правила Realtime Database
- * запрещают прямой доступ клиентам.
+ * Нужен только production-серверу, в разработке и тестах работает in-memory
+ * хранилище.
  */
 export function getFirebaseConfig(
   environment: NodeJS.ProcessEnv = process.env
 ): FirebaseConfig {
+  const rawServiceAccount = readEnv(environment, 'FIREBASE_SERVICE_ACCOUNT')
+  if (!rawServiceAccount) {
+    logger.warn(
+      'FIREBASE_SERVICE_ACCOUNT is not set: Firebase access is unauthenticated and requires permissive database rules'
+    )
+  }
   return {
-    apiKey: requireEnv(environment, 'FIREBASE_API_KEY'),
-    databaseURL: requireEnv(environment, 'FIREBASE_DATABASE_URL'),
-    serviceAccount: parseServiceAccount(
-      requireEnv(environment, 'FIREBASE_SERVICE_ACCOUNT')
-    ),
+    apiKey:
+      readEnv(environment, 'FIREBASE_API_KEY') ?? DEFAULT_FIREBASE_API_KEY,
+    databaseURL:
+      readEnv(environment, 'FIREBASE_DATABASE_URL') ??
+      DEFAULT_FIREBASE_DATABASE_URL,
+    serviceAccount: rawServiceAccount
+      ? parseServiceAccount(rawServiceAccount)
+      : null,
   }
 }

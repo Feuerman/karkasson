@@ -258,23 +258,23 @@ Chromium для браузерного smoke описаны в [`AGENTS.md`](AGE
 
 ## Переменные окружения
 
-| Переменная                      | Где    | По умолчанию                              |
-| ------------------------------- | ------ | ----------------------------------------- |
-| `VITE_SERVER_URL`               | клиент | `https://karkasson.onrender.com`          |
-| `PORT`                          | сервер | `3001`                                    |
-| `CLIENT_ORIGIN`                 | сервер | `https://feuerman.github.io` в production |
-| `SESSION_SECRET`                | сервер | обязательно для production                |
-| `TRUST_PROXY`                   | сервер | `false`                                   |
-| `COMPUTER_MOVE_DELAY_MS`        | сервер | `1000`                                    |
-| `HEALTH_TOKEN`                  | сервер | не задано — `/health/details` закрыт      |
-| `SOCKET_ADMIN_UI_ENABLED`       | сервер | `false` в production                      |
-| `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена            |
-| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена            |
-| `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                                    |
-| `LOG_LEVEL`                     | сервер | `info`                                    |
-| `FIREBASE_API_KEY`              | сервер | обязательно для production                |
-| `FIREBASE_DATABASE_URL`         | сервер | обязательно для production                |
-| `FIREBASE_SERVICE_ACCOUNT`      | сервер | обязательно для production; JSON ключа    |
+| Переменная                      | Где    | По умолчанию                                  |
+| ------------------------------- | ------ | --------------------------------------------- |
+| `VITE_SERVER_URL`               | клиент | `https://karkasson.onrender.com`              |
+| `PORT`                          | сервер | `3001`                                        |
+| `CLIENT_ORIGIN`                 | сервер | `https://feuerman.github.io` в production     |
+| `SESSION_SECRET`                | сервер | обязательно для production                    |
+| `TRUST_PROXY`                   | сервер | `false`                                       |
+| `COMPUTER_MOVE_DELAY_MS`        | сервер | `1000`                                        |
+| `HEALTH_TOKEN`                  | сервер | не задано — `/health/details` закрыт          |
+| `SOCKET_ADMIN_UI_ENABLED`       | сервер | `false` в production                          |
+| `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена                |
+| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена                |
+| `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                                        |
+| `LOG_LEVEL`                     | сервер | `info`                                        |
+| `FIREBASE_API_KEY`              | сервер | публичное значение проекта                    |
+| `FIREBASE_DATABASE_URL`         | сервер | публичное значение проекта                    |
+| `FIREBASE_SERVICE_ACCOUNT`      | сервер | необязательно; JSON ключа для закрытых правил |
 
 `LOG_LEVEL` принимает `debug`, `info`, `warn`, `error` или `silent`; неизвестное
 значение заменяется на `info`.
@@ -292,16 +292,18 @@ Firebase нужен только production-серверу: он сохраня�
 Database. В разработке и тестах `NODE_ENV` не равен `production`, поэтому сервер
 работает с in-memory хранилищем и подключение к Firebase не требуется.
 
-Конфигурация Firebase читается из переменных окружения при старте. Обязательны
-`FIREBASE_API_KEY`, `FIREBASE_DATABASE_URL` и `FIREBASE_SERVICE_ACCOUNT` —
-JSON сервисного аккаунта одной строкой. Если обязательной переменной нет,
-сервер завершает запуск с ошибкой `Missing required environment variable ...`.
+Для запуска достаточно production-базы без дополнительных переменных:
+`FIREBASE_API_KEY` и `FIREBASE_DATABASE_URL` по умолчанию берут публичные
+значения проекта, а `FIREBASE_SERVICE_ACCOUNT` (JSON сервисного аккаунта одной
+строкой) необязателен. Если сервисный аккаунт задан, сервер входит в Firebase
+Auth по custom token и работает по закрытым правилам; без него используется
+прежний доступ без авторизации.
 
-Сервер входит в Firebase Auth по custom token, подписанному ключом сервисного
-аккаунта, и только после этого читает и пишет игры. Клиент не подключается к
-Firebase напрямую и получает состояние через Socket.IO. Правила базы лежат в
-`database.rules.json`: чтение и запись `games` разрешены только claim'у
-`server: true`, всё остальное закрыто по умолчанию. Правила применяются из
+Клиент не подключается к Firebase напрямую и получает состояние через
+Socket.IO. Сейчас действует временный режим: `database.rules.json` открывает
+чтение и запись `games` без авторизации, потому что сервер запускается без
+сервисного аккаунта. После возврата `FIREBASE_SERVICE_ACCOUNT` верни закрытые
+правила с claim `server: true` и вход по custom token. Правила применяются из
 корня репозитория:
 
 ```sh

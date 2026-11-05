@@ -98,29 +98,36 @@ export class InMemoryGameDatabase implements IGameDatabase {
 
 class GameDatabase implements IGameDatabase {
   private firebaseDatabase: Database
-  private auth: Auth
-  private serviceAccount: FirebaseServiceAccount
+  private auth: Auth | null
+  private serviceAccount: FirebaseServiceAccount | null
   private authPromise: Promise<void> | undefined
 
   constructor(firebaseConfig: FirebaseConfig) {
+    const serviceAccount = firebaseConfig.serviceAccount
     const app = initializeApp({
       apiKey: firebaseConfig.apiKey,
       databaseURL: firebaseConfig.databaseURL,
-      projectId: firebaseConfig.serviceAccount.projectId,
+      ...(serviceAccount ? { projectId: serviceAccount.projectId } : {}),
     })
-    this.auth = initializeAuth(app, { persistence: inMemoryPersistence })
+    this.auth = serviceAccount
+      ? initializeAuth(app, { persistence: inMemoryPersistence })
+      : null
     this.firebaseDatabase = getDatabase(app)
-    this.serviceAccount = firebaseConfig.serviceAccount
+    this.serviceAccount = serviceAccount
   }
 
   /**
-   * Вход серверным сервисным аккаунтом. Правила Realtime Database закрыты для
-   * клиентов, поэтому без этого шага ни чтение, ни запись не пройдут.
+   * Вход серверным сервисным аккаунтом, если он задан. Без него сервер
+   * работает как раньше: по правилам, разрешающим доступ без авторизации.
    */
   private ensureAuthenticated(): Promise<void> {
+    const auth = this.auth
+    const serviceAccount = this.serviceAccount
+    if (!auth || !serviceAccount) return Promise.resolve()
+
     this.authPromise ??= signInWithCustomToken(
-      this.auth,
-      createServerCustomToken(this.serviceAccount)
+      auth,
+      createServerCustomToken(serviceAccount)
     ).then(
       () => undefined,
       (error: unknown) => {
