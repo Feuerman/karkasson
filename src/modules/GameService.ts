@@ -292,7 +292,9 @@ export class GameService implements IGameService {
     const socket = io(SERVER_URL, {
       secure: isSecure,
       rejectUnauthorized: isSecure,
-      transports: ['websocket'],
+      // Polling с последующим upgrade: websocket-only ломался при жёстком
+      // CORS и не давал запасного пути в сетях, где WS недоступен.
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,

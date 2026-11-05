@@ -1,7 +1,7 @@
 # Готовность «Каркассона» к широкой аудитории
 
 Дата анализа: 2026-11-05
-Статус: анализ завершён; этап 0, п. 1 выполнен (идентичность и сессии)
+Статус: анализ завершён; этап 0, п. 1–3 выполнены
 Область: клиент `src/`, сервер `server/src/`, тесты, CI, эксплуатация
 
 Документ фиксирует разрывы между текущим состоянием проекта и требованиями
@@ -176,30 +176,70 @@ Handoff:
 
 ### 1.3. Транспорт, CORS и WebSocket — P0/P1
 
-- **[Изменить] CORS.** Сейчас разрешён только Origin админки
-  (`ADMIN_UI_ORIGIN`), поэтому клиент вынужден ходить только через
-  `transports: ['websocket']`. Нужен конфигурируемый список Origin клиента,
-  корректная работа polling и fallback; не маскировать проблему
-  websocket-only режимом.
-- **[Добавить] Проверку Origin при WebSocket-рукопожатии.** Иначе возможна
-  Cross-Site WebSocket Hijacking: браузер жертвы откроет сокет на игровой
-  сервер с чужими cookie/состоянием.
-- **[Добавить] Security headers и HTTPS.** CSP, `X-Content-Type-Options`,
-  `Referrer-Policy`, `Permissions-Policy`, HSTS; `trust proxy` за Render;
-  запрет Mixed Content. Внешние Google Fonts усложняют CSP и создают
-  зависимость от третьей стороны — рассмотреть self-hosting.
-- **[Проверить] Поведение Socket.IO Admin UI в production.** Сейчас он
-  включается при наличии env-переменных и по умолчанию доступен на том же
-  публичном сервере. Лучше выключить в production или вынести на отдельный
-  порт/сеть с обязательной аутентификацией.
-- **[Изменить] `/health`.** Публичный endpoint не должен отдавать подробный
-  `StorageStatus`; оставить минимальный `ok` и отдельный защищённый
-  диагностический endpoint.
-- **[Добавить] Ограничение и таймауты на уровне HTTP/WebSocket.** Не держать
-  бесконечно «полуоткрытые» соединения; настроить ping/pong и лимиты.
+- **[Сделано] CORS и список Origin клиента.** `CLIENT_ORIGIN` (список через
+  запятую) задаёт разрешённые Origin; без переменной в production используется
+  публичный `https://feuerman.github.io`, в разработке и тестах — локальные
+  значения по умолчанию и loopback-Origin. CORS применяется к polling и
+  рукопожатию; клиент больше не привязан к `transports: ['websocket']`,
+  начинает с polling и переходит на WebSocket.
+- **[Сделано] Проверка Origin при рукопожатии.** `allowRequest` Socket.IO
+  отклоняет браузерное рукопожатие с неизвестным Origin до регистрации
+  сокета; запросы без Origin (серверные клиенты и тесты) допускаются.
+- **[Сделано] Security headers и HTTPS.** Сервер отдаёт CSP,
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` и
+  `Permissions-Policy`; HSTS — при защищённом соединении или в production.
+  `trust proxy` включается через `TRUST_PROXY`. Production-сборка клиента
+  получает CSP meta с `connect-src` на сервер, запретом внешних скриптов и
+  `upgrade-insecure-requests` для HTTPS; referrer-политика задана и в
+  `index.html`.
+- **[Сделано] Admin UI в production.** По умолчанию включён только вне
+  production; в production требует явного `SOCKET_ADMIN_UI_ENABLED=true` и
+  настроенных учётных данных. Origin админки добавляется в allowlist только
+  когда UI включён.
+- **[Сделано] `/health` и диагностика.** Публичный `/health` отдаёт только
+  `{ status: 'ok' }`. Подробное состояние хранилища доступно на
+  `/health/details` по `Authorization: Bearer $HEALTH_TOKEN`; без токена
+  endpoint отвечает 404, с неверным токеном — 401.
+- **[Сделано] Таймауты HTTP/WebSocket.** Заданы ping/pong, upgrade и connect
+  timeouts Socket.IO, а также `requestTimeout`/`headersTimeout` HTTP-сервера.
+
+Инварианты этапа:
+
+- Origin сравниваются в каноническом виде; неизвестный Origin отклоняется,
+  запрос без Origin считается не браузерным и допускается.
+- `CLIENT_ORIGIN` не может быть `*`; без переменной в production разрешён
+  только публичный адрес клиента проекта. Loopback-Origin автоматически
+  разрешены только вне production.
+- Origin `https://admin.socket.io` входит в allowlist только при включённом
+  Admin UI.
+- Публичный `/health` не содержит `StorageStatus`; токен диагностики
+  сравнивается за постоянное время и не попадает в журнал.
+- CSP клиента строится при сборке из `VITE_SERVER_URL`; production-значение
+  по умолчанию — HTTPS-адрес сервера.
+
+Handoff:
+
+- Для переопределения Origin клиента задайте `CLIENT_ORIGIN` (список через
+  запятую); по умолчанию в production используется `https://feuerman.github.io`.
+  При работе за Render нужен `TRUST_PROXY=true`; также нужны `SESSION_SECRET`
+  и, при использовании диагностики, `HEALTH_TOKEN`.
+- Для Admin UI в production нужно явно включить `SOCKET_ADMIN_UI_ENABLED` и
+  задать пару `SOCKET_ADMIN_UI_USERNAME`/`SOCKET_ADMIN_UI_PASSWORD_HASH`.
+  По умолчанию админка на публичном сервере недоступна.
+- Внешние Google Fonts пока остаются: CSP разрешает `fonts.googleapis.com` и
+  `fonts.gstatic.com`. Self-hosting шрифтов — задача этапа 2.
+- Браузерные тесты поднимают Vite на случайном loopback-порту, поэтому в
+  тестовом окружении Origin проверяется по loopback-правилу. В production это
+  правило отключено.
+- Проверено: `pnpm --filter server run build`, `pnpm run type-check`,
+  `pnpm run lint`, `pnpm run build`, целевые unit/integration-тесты и
+  `tests/browser/lobby.spec.ts`. Полный `pnpm run check:all` — перед релизом.
 
 Файлы: `server/src/app.ts`, `server/src/config.ts`,
-`server/src/socket/handlers/*`, `src/modules/GameService.ts`, `index.html`.
+`server/src/index.ts`, `src/modules/GameService.ts`, `vite.config.js`,
+`index.html`, `server/.env.example`,
+`tests/integration/transportSecurity.test.ts`,
+`tests/unit/serverConfig.test.ts`.
 
 ### 1.4. Firebase и данные — P0
 
@@ -371,7 +411,7 @@ Handoff:
   клиент; сервер разворачивается вручную. Нужны Dockerfile/конфиг Render,
   workflow, миграции, healthcheck, откат.
 - **[Добавить] Валидацию env при старте.** Падать с понятной ошибкой, если
-  нет `FIREBASE_*`/`PORT`/`CLIENT_ORIGIN`; не запускаться в production с
+  нет `FIREBASE_*`/`SESSION_SECRET`; не запускаться в production с
   in-memory БД случайно.
 - **[Добавить] Zero-downtime/controlled deploy.** Учитывать незавершённые
   партии и сохранения; не убивать процесс до дренажа.
@@ -562,7 +602,8 @@ Handoff:
 
 1. **[Сделано]** Серверные сессии/токены, убрать `deviceId`/`socketId` из
    payload'ов, закрыть захват слота. Инварианты и handoff — в п. 1.1.
-2. Валидация событий, лимиты, rate limiting, Origin/CORS, payload size.
+2. **[Сделано]** Валидация событий, лимиты, rate limiting, Origin/CORS,
+   payload size. Транспорт и заголовки безопасности — в п. 1.3.
 3. Firebase Security Rules/App Check, проверить права записи, бэкапы.
 4. Исправить сохранение `LeaveGame`, порядок удаления, retry/timeout.
 5. Не удалять активные игры; определить жизненный цикл и TTL.
