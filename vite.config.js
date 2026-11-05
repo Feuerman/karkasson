@@ -66,6 +66,25 @@ export default defineConfig(({ mode }) => {
         router: false,
         dts: false,
         colorMode: false,
+        icon: {
+          clientBundle: {
+            // Иконки собираются в бандл: CSP запрещает запросы к API
+            // Iconify, а внешняя загрузка ещё и зависит от стороннего CDN.
+            scan: {
+              globInclude: ['**/*.{vue,js,ts,jsx,tsx}'],
+              globExclude: [
+                '**/node_modules/**',
+                '**/dist/**',
+                '**/build/**',
+                '**/coverage/**',
+                '**/tests/**',
+                '**/test-results/**',
+                '**/playwright-report/**',
+                '**/.*/**',
+              ],
+            },
+          },
+        },
       }),
       vueDevTools(),
       contentSecurityPolicy(serverUrl),

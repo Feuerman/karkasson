@@ -30,6 +30,7 @@
     "vue": "^3.3.4"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.151",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.6",
