@@ -16,7 +16,7 @@ const database =
   process.env.NODE_ENV === 'production'
     ? createProductionGameDatabase()
     : new InMemoryGameDatabase()
-const handle = createGameServer(database, { adminUI: true })
+const handle = createGameServer(database)
 const { server, events, gameService } = handle
 
 process.on('uncaughtException', (error: unknown) => {
