@@ -1,8 +1,8 @@
 {
   "rules": {
     "games": {
-      ".read": "auth != null && auth.token.server === true",
-      ".write": "auth != null && auth.token.server === true",
+      ".read": true,
+      ".write": true,
       "$gameId": {
         ".validate": "newData.isString()"
       }
