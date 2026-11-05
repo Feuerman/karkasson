@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "games": {
+      ".read": "auth != null && auth.token.server === true",
+      ".write": "auth != null && auth.token.server === true",
+      "$gameId": {
+        ".validate": "newData.isString()"
+      }
+    }
+  }
+}

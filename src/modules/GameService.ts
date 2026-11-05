@@ -299,7 +299,10 @@ export class GameService implements IGameService {
       // а не сдаёмся после ошибки первого транспорта.
       tryAllTransports: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      // Render засыпает и отвечает 503/522, пока инстанс поднимается. Ограничение
+      // попыток теряло сессию до окончания холодного старта, поэтому повторяем
+      // бесконечно с ограниченной паузой.
+      reconnectionAttempts: Number.POSITIVE_INFINITY,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,

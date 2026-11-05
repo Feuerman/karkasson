@@ -1,5 +1,11 @@
 import { initializeApp } from 'firebase/app'
 import {
+  inMemoryPersistence,
+  initializeAuth,
+  signInWithCustomToken,
+  type Auth,
+} from 'firebase/auth'
+import {
   getDatabase,
   ref,
   set,
@@ -7,9 +13,14 @@ import {
   remove,
   type Database,
 } from 'firebase/database'
-import { getFirebaseConfig, type FirebaseConfig } from '../config'
+import {
+  getFirebaseConfig,
+  type FirebaseConfig,
+  type FirebaseServiceAccount,
+} from '../config'
 import type { IGameState } from './gameState'
 import { deserializeGameState, readGameSummary } from './gameSave'
+import { createServerCustomToken } from './firebaseAuth'
 
 /** Строка сохранения в том виде, в каком она лежит в хранилище. */
 export type GameSavePayload = string
@@ -87,20 +98,49 @@ export class InMemoryGameDatabase implements IGameDatabase {
 
 class GameDatabase implements IGameDatabase {
   private firebaseDatabase: Database
+  private auth: Auth
+  private serviceAccount: FirebaseServiceAccount
+  private authPromise: Promise<void> | undefined
 
   constructor(firebaseConfig: FirebaseConfig) {
-    const app = initializeApp(firebaseConfig)
+    const app = initializeApp({
+      apiKey: firebaseConfig.apiKey,
+      databaseURL: firebaseConfig.databaseURL,
+      projectId: firebaseConfig.serviceAccount.projectId,
+    })
+    this.auth = initializeAuth(app, { persistence: inMemoryPersistence })
     this.firebaseDatabase = getDatabase(app)
+    this.serviceAccount = firebaseConfig.serviceAccount
+  }
+
+  /**
+   * Вход серверным сервисным аккаунтом. Правила Realtime Database закрыты для
+   * клиентов, поэтому без этого шага ни чтение, ни запись не пройдут.
+   */
+  private ensureAuthenticated(): Promise<void> {
+    this.authPromise ??= signInWithCustomToken(
+      this.auth,
+      createServerCustomToken(this.serviceAccount)
+    ).then(
+      () => undefined,
+      (error: unknown) => {
+        this.authPromise = undefined
+        throw error
+      }
+    )
+    return this.authPromise
   }
 
   async saveGame(
     gameId: string,
     serializedState: GameSavePayload
   ): Promise<void> {
+    await this.ensureAuthenticated()
     await set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
+    await this.ensureAuthenticated()
     const snapshot = await get(ref(this.firebaseDatabase, `games/${gameId}`))
     if (!snapshot.exists()) {
       return null
@@ -109,6 +149,7 @@ class GameDatabase implements IGameDatabase {
   }
 
   async getAllGameSaves(): Promise<RawGameSave[]> {
+    await this.ensureAuthenticated()
     const snapshot = await get(ref(this.firebaseDatabase, 'games'))
     if (!snapshot.exists()) {
       return []
@@ -127,6 +168,7 @@ class GameDatabase implements IGameDatabase {
   }
 
   async deleteGame(gameId: string): Promise<void> {
+    await this.ensureAuthenticated()
     await remove(ref(this.firebaseDatabase, `games/${gameId}`))
   }
 }
