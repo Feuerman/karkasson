@@ -1,6 +1,80 @@
 export const PORT = Number(process.env.PORT) || 3001
 
+export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+
 export const ADMIN_UI_ORIGIN = 'https://admin.socket.io'
+
+// Origin, с которых разрешено подключаться клиенту в разработке и тестах.
+const DEFAULT_CLIENT_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+]
+
+// Публичный адрес клиента проекта. Используется, если production-деплой не
+// переопределил Origin через CLIENT_ORIGIN.
+const DEFAULT_PRODUCTION_CLIENT_ORIGINS = ['https://feuerman.github.io']
+
+function normalizeOrigin(value: string): string {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`Invalid origin "${value}"`)
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`Unsupported origin protocol in "${value}"`)
+  }
+  return url.origin
+}
+
+/**
+ * Разрешённые Origin клиента. Значение задаётся списком через запятую в
+ * `CLIENT_ORIGIN` (предпочтительно) или `CLIENT_ORIGINS`. Без переменной в
+ * production используется публичный адрес клиента проекта; произвольный
+ * Origin не разрешается никогда.
+ */
+export function getClientOrigins(
+  environment: NodeJS.ProcessEnv = process.env
+): string[] {
+  const raw =
+    readEnv(environment, 'CLIENT_ORIGIN') ??
+    readEnv(environment, 'CLIENT_ORIGINS')
+  const values = (raw ?? '').split(',').map((value) => value.trim())
+  const origins = values.filter(Boolean)
+
+  if (origins.length > 0) {
+    return [...new Set(origins.map(normalizeOrigin))]
+  }
+
+  if (environment.NODE_ENV === 'production') {
+    return [...DEFAULT_PRODUCTION_CLIENT_ORIGINS]
+  }
+  return [...DEFAULT_CLIENT_ORIGINS]
+}
+
+/**
+ * Токен защищённого диагностического endpoint. Если не задан, подробная
+ * диагностика недоступна: публичный `/health` остаётся минимальным.
+ */
+export function getDiagnosticsToken(
+  environment: NodeJS.ProcessEnv = process.env
+): string | undefined {
+  return readEnv(environment, 'HEALTH_TOKEN')
+}
+
+/**
+ * Socket.IO Admin UI полезен для отладки, но в production он не должен быть
+ * доступен на публичном сервере без явного решения эксплуатации.
+ */
+export function isSocketAdminUIEnabled(
+  environment: NodeJS.ProcessEnv = process.env
+): boolean {
+  if (environment.NODE_ENV !== 'production') return true
+  return environment.SOCKET_ADMIN_UI_ENABLED === 'true'
+}
 
 export interface SocketAdminUIOptions {
   auth: {
@@ -52,6 +126,14 @@ export const PLAYER_RECONNECT_TIMEOUT_MS = 15 * 60 * 1000
 
 // Верхняя граница размера одного Socket.IO-пакета.
 export const MAX_HTTP_BUFFER_SIZE = 64 * 1024
+
+// Таймауты HTTP и Socket.IO: не держим полуоткрытые соединения бесконечно.
+export const SOCKET_PING_INTERVAL_MS = 25_000
+export const SOCKET_PING_TIMEOUT_MS = 20_000
+export const SOCKET_UPGRADE_TIMEOUT_MS = 10_000
+export const SOCKET_CONNECT_TIMEOUT_MS = 20_000
+export const HTTP_REQUEST_TIMEOUT_MS = 30_000
+export const HTTP_HEADERS_TIMEOUT_MS = 15_000
 
 // Сколько сокетов с одного IP может держать сервер одновременно.
 export const MAX_SOCKETS_PER_IP = 20

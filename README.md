@@ -258,23 +258,28 @@ Chromium для браузерного smoke описаны в [`AGENTS.md`](AGE
 
 ## Переменные окружения
 
-| Переменная                      | Где    | По умолчанию                     |
-| ------------------------------- | ------ | -------------------------------- |
-| `VITE_SERVER_URL`               | клиент | `https://karkasson.onrender.com` |
-| `PORT`                          | сервер | `3001`                           |
-| `COMPUTER_MOVE_DELAY_MS`        | сервер | `1000`                           |
-| `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена   |
-| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена   |
-| `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                           |
-| `LOG_LEVEL`                     | сервер | `info`                           |
-| `FIREBASE_API_KEY`              | сервер | обязательно для production       |
-| `FIREBASE_DATABASE_URL`         | сервер | обязательно для production       |
-| `FIREBASE_AUTH_DOMAIN`          | сервер | не задано                        |
-| `FIREBASE_PROJECT_ID`           | сервер | не задано                        |
-| `FIREBASE_STORAGE_BUCKET`       | сервер | не задано                        |
-| `FIREBASE_MESSAGING_SENDER_ID`  | сервер | не задано                        |
-| `FIREBASE_APP_ID`               | сервер | не задано                        |
-| `FIREBASE_MEASUREMENT_ID`       | сервер | не задано                        |
+| Переменная                      | Где    | По умолчанию                              |
+| ------------------------------- | ------ | ----------------------------------------- |
+| `VITE_SERVER_URL`               | клиент | `https://karkasson.onrender.com`          |
+| `PORT`                          | сервер | `3001`                                    |
+| `CLIENT_ORIGIN`                 | сервер | `https://feuerman.github.io` в production |
+| `SESSION_SECRET`                | сервер | обязательно для production                |
+| `TRUST_PROXY`                   | сервер | `false`                                   |
+| `COMPUTER_MOVE_DELAY_MS`        | сервер | `1000`                                    |
+| `HEALTH_TOKEN`                  | сервер | не задано — `/health/details` закрыт      |
+| `SOCKET_ADMIN_UI_ENABLED`       | сервер | `false` в production                      |
+| `SOCKET_ADMIN_UI_USERNAME`      | сервер | не задано — Admin UI выключена            |
+| `SOCKET_ADMIN_UI_PASSWORD_HASH` | сервер | не задано — Admin UI выключена            |
+| `SOCKET_ADMIN_UI_READONLY`      | сервер | `true`                                    |
+| `LOG_LEVEL`                     | сервер | `info`                                    |
+| `FIREBASE_API_KEY`              | сервер | обязательно для production                |
+| `FIREBASE_DATABASE_URL`         | сервер | обязательно для production                |
+| `FIREBASE_AUTH_DOMAIN`          | сервер | не задано                                 |
+| `FIREBASE_PROJECT_ID`           | сервер | не задано                                 |
+| `FIREBASE_STORAGE_BUCKET`       | сервер | не задано                                 |
+| `FIREBASE_MESSAGING_SENDER_ID`  | сервер | не задано                                 |
+| `FIREBASE_APP_ID`               | сервер | не задано                                 |
+| `FIREBASE_MEASUREMENT_ID`       | сервер | не задано                                 |
 
 `LOG_LEVEL` принимает `debug`, `info`, `warn`, `error` или `silent`; неизвестное
 значение заменяется на `info`.
