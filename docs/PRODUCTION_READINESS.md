@@ -1,7 +1,7 @@
 # Готовность «Каркассона» к широкой аудитории
 
 Дата анализа: 2026-11-05
-Статус: анализ завершён; этап 0, п. 1–3 выполнены
+Статус: анализ завершён; этап 0, п. 1–2 выполнены (идентичность, валидация)
 Область: клиент `src/`, сервер `server/src/`, тесты, CI, эксплуатация
 
 Документ фиксирует разрывы между текущим состоянием проекта и требованиями
@@ -176,128 +176,49 @@ Handoff:
 
 ### 1.3. Транспорт, CORS и WebSocket — P0/P1
 
-- **[Сделано] CORS и список Origin клиента.** `CLIENT_ORIGIN` (список через
-  запятую) задаёт разрешённые Origin; без переменной в production используется
-  публичный `https://feuerman.github.io`, в разработке и тестах — локальные
-  значения по умолчанию и loopback-Origin. CORS применяется к рукопожатию
-  Socket.IO; клиент подключается только по `transports: ['websocket']`, без
-  polling и upgrade.
-- **[Сделано] Проверка Origin при рукопожатии.** `allowRequest` Socket.IO
-  отклоняет браузерное рукопожатие с неизвестным Origin до регистрации
-  сокета; запросы без Origin (серверные клиенты и тесты) допускаются.
-- **[Сделано] Security headers и HTTPS.** Сервер отдаёт CSP,
-  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` и
-  `Permissions-Policy`; HSTS — при защищённом соединении или в production.
-  `trust proxy` включается через `TRUST_PROXY`. Production-сборка клиента
-  получает CSP meta с `connect-src` на сервер, запретом внешних скриптов и
-  `upgrade-insecure-requests` для HTTPS; referrer-политика задана и в
-  `index.html`.
-- **[Сделано] Admin UI в production.** По умолчанию включён только вне
-  production; в production требует явного `SOCKET_ADMIN_UI_ENABLED=true` и
-  настроенных учётных данных. Origin админки добавляется в allowlist только
-  когда UI включён.
-- **[Сделано] `/health` и диагностика.** Публичный `/health` отдаёт только
-  `{ status: 'ok' }`. Подробное состояние хранилища доступно на
-  `/health/details` по `Authorization: Bearer $HEALTH_TOKEN`; без токена
-  endpoint отвечает 404, с неверным токеном — 401.
-- **[Сделано] Таймауты HTTP/WebSocket.** Заданы ping/pong, upgrade и connect
-  timeouts Socket.IO, а также `requestTimeout`/`headersTimeout` HTTP-сервера.
-
-Инварианты этапа:
-
-- Origin сравниваются в каноническом виде; неизвестный Origin отклоняется,
-  запрос без Origin считается не браузерным и допускается.
-- `CLIENT_ORIGIN` не может быть `*` или не-http(s) значением: такие записи
-  игнорируются с предупреждением, чтобы опечатка в необязательной настройке не
-  останавливала сервер. Если валидных Origin не осталось, в production
-  разрешён только публичный адрес клиента проекта, вне production — локальные.
-  Loopback-Origin автоматически разрешены только вне production.
-- Origin `https://admin.socket.io` входит в allowlist только при включённом
-  Admin UI.
-- Публичный `/health` не содержит `StorageStatus`; токен диагностики
-  сравнивается за постоянное время и не попадает в журнал.
-- CSP клиента строится при сборке из `VITE_SERVER_URL`; production-значение
-  по умолчанию — HTTPS-адрес сервера.
-
-Handoff:
-
-- Для переопределения Origin клиента задайте `CLIENT_ORIGIN` (список через
-  запятую); по умолчанию в production используется `https://feuerman.github.io`.
-  При работе за Render нужен `TRUST_PROXY=true`; также нужны `SESSION_SECRET`
-  и, при использовании диагностики, `HEALTH_TOKEN`.
-- Для Admin UI в production нужно явно включить `SOCKET_ADMIN_UI_ENABLED` и
-  задать пару `SOCKET_ADMIN_UI_USERNAME`/`SOCKET_ADMIN_UI_PASSWORD_HASH`.
-  По умолчанию админка на публичном сервере недоступна.
-- Внешние Google Fonts пока остаются: CSP разрешает `fonts.googleapis.com` и
-  `fonts.gstatic.com`. Self-hosting шрифтов — задача этапа 2.
-- Браузерные тесты поднимают Vite на случайном loopback-порту, поэтому в
-  тестовом окружении Origin проверяется по loopback-правилу. В production это
-  правило отключено.
-- Проверено: `pnpm --filter server run build`, `pnpm run type-check`,
-  `pnpm run lint`, `pnpm run build`, целевые unit/integration-тесты и
-  `tests/browser/lobby.spec.ts`. Полный `pnpm run check:all` — перед релизом.
+- **[Изменить] CORS.** Сейчас разрешён только Origin админки
+  (`ADMIN_UI_ORIGIN`), поэтому клиент вынужден ходить только через
+  `transports: ['websocket']`. Нужен конфигурируемый список Origin клиента,
+  корректная работа polling и fallback; не маскировать проблему
+  websocket-only режимом.
+- **[Добавить] Проверку Origin при WebSocket-рукопожатии.** Иначе возможна
+  Cross-Site WebSocket Hijacking: браузер жертвы откроет сокет на игровой
+  сервер с чужими cookie/состоянием.
+- **[Добавить] Security headers и HTTPS.** CSP, `X-Content-Type-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, HSTS; `trust proxy` за Render;
+  запрет Mixed Content. Внешние Google Fonts усложняют CSP и создают
+  зависимость от третьей стороны — рассмотреть self-hosting.
+- **[Проверить] Поведение Socket.IO Admin UI в production.** Сейчас он
+  включается при наличии env-переменных и по умолчанию доступен на том же
+  публичном сервере. Лучше выключить в production или вынести на отдельный
+  порт/сеть с обязательной аутентификацией.
+- **[Изменить] `/health`.** Публичный endpoint не должен отдавать подробный
+  `StorageStatus`; оставить минимальный `ok` и отдельный защищённый
+  диагностический endpoint.
+- **[Добавить] Ограничение и таймауты на уровне HTTP/WebSocket.** Не держать
+  бесконечно «полуоткрытые» соединения; настроить ping/pong и лимиты.
 
 Файлы: `server/src/app.ts`, `server/src/config.ts`,
-`server/src/index.ts`, `src/modules/GameService.ts`, `vite.config.js`,
-`index.html`, `server/.env.example`,
-`tests/integration/transportSecurity.test.ts`,
-`tests/unit/serverConfig.test.ts`.
+`server/src/socket/handlers/*`, `src/modules/GameService.ts`, `index.html`.
 
 ### 1.4. Firebase и данные — P0
 
-- **[Временно] Security Rules в репозитории.** `database.rules.json` открывает
-  чтение и запись `games` без авторизации, пока сервер запускается без
-  `FIREBASE_SERVICE_ACCOUNT`. Закрытые правила разрешают доступ только серверу
-  с claim `server: true`; их нужно вернуть вместе с сервисным аккаунтом.
-  `firebase.json` связывает правила с проектом, деплой —
-  `npx firebase-tools deploy --only database`.
-- **[Сделано] Запись только с сервера.** Если задан `FIREBASE_SERVICE_ACCOUNT`,
-  сервер входит в Firebase Auth по custom token и работает с базой от этого
-  пользователя. Без переменной сервер запускается в прежнем режиме без
-  авторизации; тогда доступ к данным определяют правила базы. Клиент не
-  подключается к Firebase напрямую.
-- **[Сделано] Изоляция окружений.** `FIREBASE_API_KEY` и
-  `FIREBASE_DATABASE_URL` можно переопределить; по умолчанию используются
-  публичные значения проекта. README фиксирует отдельные проекты для
-  dev/staging/prod и запрет production-ключей в локальных файлах; ключи
-  сервисных аккаунтов добавлены в `.gitignore`.
-- **[Сделано] Инструкция по бэкапам и восстановлению.** README описывает
-  ежедневный экспорт, срок хранения и ежемесячную проверку восстановления в
-  staging. Регулярный запуск и хранение копий — задача эксплуатации.
-- **[Сделано] Инструкция по аудиту доступа.** README требует 2FA, журнал
-  административных операций, Cloud Audit Logs и сохранение серверных журналов
-  без payload'ов и секретов. Настройка журналов — задача эксплуатации.
+- **[Добавить] Security Rules и/или App Check в репозиторий.** Сейчас правил
+  в проекте нет. Если база открыта на запись с клиентским API key, состояние
+  партий можно подделать или удалить. Клиентский Firebase SDK не должен
+  иметь права писать произвольные игры.
+- **[Изменить] Предпочтительно писать в БД только с сервера** (Admin SDK или
+  серверный сервисный аккаунт), а клиенту не давать прямого доступа к
+  игровым данным.
+- **[Добавить] Изоляцию окружений.** Отдельные Firebase-проекты/базы для
+  dev/staging/prod; запрет production-ключей в локальных файлах.
+- **[Добавить] Бэкапы и проверку восстановления.** Экспорт, retention,
+  регулярное тестовое восстановление.
+- **[Добавить] Аудит доступа.** Кто и когда менял сохранение; журнал
+  административных операций.
 
-Инварианты этапа:
-
-- Безопасность не держится на сокрытии конфигурации: `FIREBASE_API_KEY`
-  публичен; при заданном сервисном аккаунте доступ к данным даёт его подпись.
-- Custom token живёт час; обновлением ID token занимается Firebase SDK.
-  Смена или отзыв ключа сервисного аккаунта закрывает серверу доступ.
-- Правила не меняют путь хранения `games/<id>`: существующие сохранения
-  читаются без миграции.
-- Без `FIREBASE_SERVICE_ACCOUNT` сервер стартует без входа в Firebase; в
-  dev/test остаётся in-memory хранилище.
-
-Handoff:
-
-- Для закрытого режима: создать ключ сервисного аккаунта, задать
-  `FIREBASE_SERVICE_ACCOUNT` в панели хостинга, применить
-  `database.rules.json` и проверить, что прямой REST-запрос с API key получает
-  отказ, а сервер загружает партии. Без доступа к переменным хостинга сервер
-  работает без авторизации, и правила должны разрешать такой доступ.
-- Старые необязательные `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID` и
-  подобные переменные серверу больше не нужны.
-- Бэкапы, retention, тестовое восстановление и аудит настраиваются в Firebase
-  Console и на хостинге по инструкции README; код их не заменяет.
-- Проверено: `tests/unit/database.test.ts`, `pnpm --filter server run build`,
-  `pnpm run type-check`, ESLint по изменённым файлам. Полный
-  `pnpm run check:all` — перед релизом.
-
-Файлы: `server/src/modules/Database.ts`,
-`server/src/modules/firebaseAuth.ts`, `server/src/config.ts`,
-`server/.env.example`, `database.rules.json`, `firebase.json`, `.gitignore`,
-`README.md`, `tests/unit/database.test.ts`.
+Файлы: `server/src/modules/Database.ts`, `server/src/config.ts`,
+`server/.env.example`, README.
 
 ### 1.5. Прочее
 
@@ -450,7 +371,7 @@ Handoff:
   клиент; сервер разворачивается вручную. Нужны Dockerfile/конфиг Render,
   workflow, миграции, healthcheck, откат.
 - **[Добавить] Валидацию env при старте.** Падать с понятной ошибкой, если
-  нет `FIREBASE_*`/`SESSION_SECRET`; не запускаться в production с
+  нет `FIREBASE_*`/`PORT`/`CLIENT_ORIGIN`; не запускаться в production с
   in-memory БД случайно.
 - **[Добавить] Zero-downtime/controlled deploy.** Учитывать незавершённые
   партии и сохранения; не убивать процесс до дренажа.
@@ -641,10 +562,9 @@ Handoff:
 
 1. **[Сделано]** Серверные сессии/токены, убрать `deviceId`/`socketId` из
    payload'ов, закрыть захват слота. Инварианты и handoff — в п. 1.1.
-2. **[Сделано]** Валидация событий, лимиты, rate limiting, Origin/CORS,
-   payload size. Транспорт и заголовки безопасности — в п. 1.3.
-3. **[Сделано]** Firebase Security Rules/App Check, проверить права записи,
-   бэкапы. Инварианты и handoff — в п. 1.4.
+2. **[Сделано]** Валидация событий, лимиты, rate limiting, payload size.
+   Origin/CORS — в п. 1.3.
+3. Firebase Security Rules/App Check, проверить права записи, бэкапы.
 4. Исправить сохранение `LeaveGame`, порядок удаления, retry/timeout.
 5. Не удалять активные игры; определить жизненный цикл и TTL.
 6. Отключить/защитить админку, закрыть детальный `/health`.

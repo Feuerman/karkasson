@@ -292,14 +292,9 @@ export class GameService implements IGameService {
     const socket = io(SERVER_URL, {
       secure: isSecure,
       rejectUnauthorized: isSecure,
-      // Только WebSocket: polling не нужен ни для этого сервера, ни для CSP
-      // клиента, а лишний канал усложняет диагностику подключения.
       transports: ['websocket'],
       reconnection: true,
-      // Render засыпает и отвечает 503/522, пока инстанс поднимается. Ограничение
-      // попыток теряло сессию до окончания холодного старта, поэтому повторяем
-      // бесконечно с ограниченной паузой.
-      reconnectionAttempts: Number.POSITIVE_INFINITY,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,

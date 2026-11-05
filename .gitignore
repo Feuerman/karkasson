@@ -33,10 +33,6 @@ test-results/
 
 *.tsbuildinfo
 
-# Firebase service account keys
-*service-account*.json
-*firebase-adminsdk*.json
-
 # OpenCode: project settings and commands are tracked; local installs and secrets are not
 /opencode.json
 .opencode/node_modules/
