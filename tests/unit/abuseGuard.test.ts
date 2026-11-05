@@ -154,4 +154,21 @@ describe('SocketAbuseGuard', () => {
     })
     expect(guard.isJoinBlocked('ip')).toBe(false)
   })
+
+  it('ограничивает частоту запуска партий с компьютерами', () => {
+    const time = clock()
+    const guard = new SocketAbuseGuard({
+      aiGameStartBurst: 2,
+      aiGameStartRefillPerSecond: 1 / 60,
+      now: time.now,
+    })
+
+    expect(guard.tryConsumeAiGameStart('ip')).toBe(true)
+    expect(guard.tryConsumeAiGameStart('ip')).toBe(true)
+    expect(guard.tryConsumeAiGameStart('ip')).toBe(false)
+
+    time.advance(60_000)
+    expect(guard.tryConsumeAiGameStart('ip')).toBe(true)
+    expect(guard.tryConsumeAiGameStart('other-ip')).toBe(true)
+  })
 })

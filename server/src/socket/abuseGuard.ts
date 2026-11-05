@@ -22,6 +22,8 @@ export interface SocketAbuseGuardOptions {
   joinDelayMaxMs?: number
   joinBlockThreshold?: number
   joinBlockMs?: number
+  aiGameStartBurst?: number
+  aiGameStartRefillPerSecond?: number
   trustProxy?: boolean
   now?: () => number
 }
@@ -60,6 +62,7 @@ export class SocketAbuseGuard {
   private readonly ipBySocket = new Map<string, string>()
   private readonly socketBuckets = new Map<string, TokenBucket>()
   private readonly ipBuckets = new Map<string, TokenBucket>()
+  private readonly aiGameBuckets = new Map<string, TokenBucket>()
   private readonly joinAttempts = new Map<string, JoinAttemptState>()
 
   constructor(options: SocketAbuseGuardOptions = {}) {
@@ -75,6 +78,8 @@ export class SocketAbuseGuard {
       joinDelayMaxMs: options.joinDelayMaxMs ?? 1_500,
       joinBlockThreshold: options.joinBlockThreshold ?? 8,
       joinBlockMs: options.joinBlockMs ?? 10 * 60 * 1000,
+      aiGameStartBurst: options.aiGameStartBurst ?? 3,
+      aiGameStartRefillPerSecond: options.aiGameStartRefillPerSecond ?? 1 / 60,
       trustProxy: options.trustProxy ?? TRUST_PROXY,
       now: options.now ?? (() => Date.now()),
     }
@@ -136,6 +141,20 @@ export class SocketAbuseGuard {
     }
 
     return { allowed: true }
+  }
+
+  /**
+   * Запуск партии с компьютерами — дорогая операция: цепочка ходов ИИ
+   * занимает цикл событий. Отдельный лимит не даёт одному клиенту запускать
+   * такие партии чаще, чем он успевает их завершать.
+   */
+  tryConsumeAiGameStart(ip: string): boolean {
+    return this.takeToken(
+      this.aiGameBuckets,
+      ip,
+      this.options.aiGameStartBurst,
+      this.options.aiGameStartRefillPerSecond
+    )
   }
 
   isJoinBlocked(ip: string): boolean {
