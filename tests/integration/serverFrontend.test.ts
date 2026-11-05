@@ -37,11 +37,14 @@ describe('Запуск сервера и фронтенда', () => {
     expect(html).toContain('/src/main.js')
   })
 
-  it('health-эндпоинт не раскрывает состояние хранилища', async () => {
+  it('health-эндпоинт отдаёт состояние хранилища', async () => {
     const response = await fetch(`${server!.url}/health`)
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ status: 'ok' })
+    expect(await response.json()).toMatchObject({
+      status: 'ok',
+      storage: { unreadableSaves: 0 },
+    })
   })
 
   it('фронтенд компилирует точку входа и корневой компонент', async () => {

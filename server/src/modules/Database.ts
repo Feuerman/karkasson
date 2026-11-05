@@ -1,11 +1,5 @@
 import { initializeApp } from 'firebase/app'
 import {
-  inMemoryPersistence,
-  initializeAuth,
-  signInWithCustomToken,
-  type Auth,
-} from 'firebase/auth'
-import {
   getDatabase,
   ref,
   set,
@@ -13,14 +7,9 @@ import {
   remove,
   type Database,
 } from 'firebase/database'
-import {
-  getFirebaseConfig,
-  type FirebaseConfig,
-  type FirebaseServiceAccount,
-} from '../config'
+import { getFirebaseConfig, type FirebaseConfig } from '../config'
 import type { IGameState } from './gameState'
 import { deserializeGameState, readGameSummary } from './gameSave'
-import { createServerCustomToken } from './firebaseAuth'
 
 /** Строка сохранения в том виде, в каком она лежит в хранилище. */
 export type GameSavePayload = string
@@ -98,56 +87,20 @@ export class InMemoryGameDatabase implements IGameDatabase {
 
 class GameDatabase implements IGameDatabase {
   private firebaseDatabase: Database
-  private auth: Auth | null
-  private serviceAccount: FirebaseServiceAccount | null
-  private authPromise: Promise<void> | undefined
 
   constructor(firebaseConfig: FirebaseConfig) {
-    const serviceAccount = firebaseConfig.serviceAccount
-    const app = initializeApp({
-      apiKey: firebaseConfig.apiKey,
-      databaseURL: firebaseConfig.databaseURL,
-      ...(serviceAccount ? { projectId: serviceAccount.projectId } : {}),
-    })
-    this.auth = serviceAccount
-      ? initializeAuth(app, { persistence: inMemoryPersistence })
-      : null
+    const app = initializeApp(firebaseConfig)
     this.firebaseDatabase = getDatabase(app)
-    this.serviceAccount = serviceAccount
-  }
-
-  /**
-   * Вход серверным сервисным аккаунтом, если он задан. Без него сервер
-   * работает как раньше: по правилам, разрешающим доступ без авторизации.
-   */
-  private ensureAuthenticated(): Promise<void> {
-    const auth = this.auth
-    const serviceAccount = this.serviceAccount
-    if (!auth || !serviceAccount) return Promise.resolve()
-
-    this.authPromise ??= signInWithCustomToken(
-      auth,
-      createServerCustomToken(serviceAccount)
-    ).then(
-      () => undefined,
-      (error: unknown) => {
-        this.authPromise = undefined
-        throw error
-      }
-    )
-    return this.authPromise
   }
 
   async saveGame(
     gameId: string,
     serializedState: GameSavePayload
   ): Promise<void> {
-    await this.ensureAuthenticated()
     await set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
-    await this.ensureAuthenticated()
     const snapshot = await get(ref(this.firebaseDatabase, `games/${gameId}`))
     if (!snapshot.exists()) {
       return null
@@ -156,7 +109,6 @@ class GameDatabase implements IGameDatabase {
   }
 
   async getAllGameSaves(): Promise<RawGameSave[]> {
-    await this.ensureAuthenticated()
     const snapshot = await get(ref(this.firebaseDatabase, 'games'))
     if (!snapshot.exists()) {
       return []
@@ -175,7 +127,6 @@ class GameDatabase implements IGameDatabase {
   }
 
   async deleteGame(gameId: string): Promise<void> {
-    await this.ensureAuthenticated()
     await remove(ref(this.firebaseDatabase, `games/${gameId}`))
   }
 }
