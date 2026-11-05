@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { ActionTypes, ObjectTypes, type Player } from '@server/modules/types'
+import {
+  ActionTypes,
+  ObjectTypes,
+  type PlayerView,
+} from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import { buildGameResults, buildScoreBreakdown } from '@/utils/gameResults'
 
@@ -8,13 +12,13 @@ import { buildGameResults, buildScoreBreakdown } from '@/utils/gameResults'
  * источникам — по записям истории о начислении очков.
  */
 
-const player = (id: number, name: string): Player => ({
+const player = (id: number, name: string): PlayerView => ({
   id,
   name,
   color: 'coral',
   score: 0,
-  socketId: `socket-${id}`,
-  deviceId: `device-${id}`,
+  sessionId: `session-${id}`,
+  isConnected: true,
 })
 
 const addingScores = (

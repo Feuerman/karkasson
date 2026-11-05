@@ -1,5 +1,5 @@
 import type { GameSummary, GameData } from '@server/services/GameService'
-import type { Player, PlacementConflict, Point } from '@server/modules/types'
+import type { PlayerId, PlacementConflict, Point } from '@server/modules/types'
 
 export interface SocketAckBase {
   error?: string
@@ -62,6 +62,5 @@ export interface RemovePlayerPayload {
 }
 
 export interface PlayerTemporaryDisconnectedPayload {
-  deviceId?: string
-  playerIds: Player[]
+  playerIds: PlayerId[]
 }

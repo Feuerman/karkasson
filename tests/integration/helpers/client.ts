@@ -13,14 +13,23 @@ interface Waiter {
  * ждёт соединения, слушает события в «почтовый ящик» и умеет
  * дожидаться нужного события с предикатом.
  */
+const sessionTokens = new Map<string, string>()
+
+function sessionTokenKey(identity: string): string {
+  return identity
+}
+
 export class TestClient {
   readonly socket: Socket
-  readonly deviceId: string
+  readonly identity: string
+  sessionId: string | null = null
+  private sessionToken: string | undefined
   private inbox: Map<string, unknown[]> = new Map()
   private waiters: Map<string, Waiter[]> = new Map()
 
-  constructor(url: string, deviceId: string) {
-    this.deviceId = deviceId
+  constructor(url: string, identity: string) {
+    this.identity = identity
+    this.sessionToken = sessionTokens.get(sessionTokenKey(identity))
     this.socket = io(url, {
       transports: ['websocket'],
       forceNew: true,
@@ -75,8 +84,16 @@ export class TestClient {
     })
   }
 
-  registerDevice(): void {
-    this.socket.emit(SocketEvents.RegisterDevice, { deviceId: this.deviceId })
+  async registerSession(): Promise<{ token: string; sessionId: string }> {
+    const payload = this.sessionToken ? { token: this.sessionToken } : undefined
+    const response = await this.emitAck<{ token: string; sessionId: string }>(
+      SocketEvents.RegisterSession,
+      payload
+    )
+    this.sessionToken = response.token
+    this.sessionId = response.sessionId
+    sessionTokens.set(sessionTokenKey(this.identity), response.token)
+    return response
   }
 
   /** emit с acknowledgement-колбэком сервера */
@@ -202,11 +219,11 @@ export class TestClient {
  */
 export async function connectTestClient(
   serverUrl: string,
-  deviceId: string
+  identity: string
 ): Promise<TestClient> {
-  const client = new TestClient(serverUrl, deviceId)
+  const client = new TestClient(serverUrl, identity)
   await client.connect()
-  client.registerDevice()
+  await client.registerSession()
   return client
 }
 

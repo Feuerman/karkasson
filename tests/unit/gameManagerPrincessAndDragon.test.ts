@@ -473,7 +473,7 @@ describe('Правила дополнения «Принцесса и драко
         color: 'coral',
         score: 0,
         socketId: 'socket-3',
-        deviceId: 'device-3',
+        sessionId: 'device-3',
       },
     ]
     const game = new GameManager({

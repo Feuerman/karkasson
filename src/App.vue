@@ -16,7 +16,7 @@
         :is-games-list-loading="isGamesListLoading"
         :pending-actions="pendingList"
         :show-room="showRoom"
-        :device-id="GameService.deviceId"
+        :session-id="GameService.sessionId.value ?? ''"
         @start-game="startGame"
         @rejoin-game="rejoinGame"
         @join-game="joinGame"
@@ -92,7 +92,7 @@ import {
 } from './composables/usePendingActions'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
-import { SocketEvents, type Player } from '@server/modules/types'
+import { SocketEvents, type PlayerView } from '@server/modules/types'
 import type { RulesDocument } from './rules/types'
 
 const RulesPanel = defineAsyncComponent(
@@ -159,7 +159,9 @@ const { pendingList, runPending } = usePendingActions()
 
 /** Добавляет к серверному снимку локальный признак текущего хода. */
 const applyGameState = (game: IGame) => {
-  const isMyTurn = game.currentPlayer?.socketId === GameService.socket?.id
+  const isMyTurn =
+    Boolean(GameService.sessionId.value) &&
+    game.currentPlayer?.sessionId === GameService.sessionId.value
   gameState.value = { ...game, isMyTurn } as IGameBoard
 }
 
@@ -377,8 +379,7 @@ const isLobbyCreator = computed(() => {
   if (!creator) return false
 
   return Boolean(
-    (creator.deviceId && creator.deviceId === GameService.deviceId) ||
-    (creator.socketId && creator.socketId === GameService.socketId.value)
+    creator.sessionId && creator.sessionId === GameService.sessionId.value
   )
 })
 
@@ -388,13 +389,13 @@ const playersReconnectProcess = computed(() => {
 
 const reconnectingPlayers = computed(() => {
   return gameState.value.players?.filter(
-    (player) => !player.socketId && player.deviceId
+    (player) => !player.isConnected && player.sessionId
   )
 })
 
 const games = ref<LobbyGame[]>([])
 const isGamesListLoading = ref(true)
-const playersList = ref<Player[]>([])
+const playersList = ref<PlayerView[]>([])
 const currentGame = ref<IGame | null>(null)
 
 const showRules = ref(false)

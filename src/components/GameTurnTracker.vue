@@ -178,8 +178,7 @@ const processedActions = ref<number | null>(null)
 
 const ownPlayer = computed(() =>
   findOwnPlayer(props.gameBoard.players ?? [], {
-    socketId: GameService.socketId.value,
-    deviceId: GameService.deviceId,
+    sessionId: GameService.sessionId.value,
   })
 )
 

@@ -17,7 +17,7 @@ import {
   validateOutgoingState,
 } from './gameSaveValidation'
 
-export const GAME_SAVE_SCHEMA_VERSION = 8
+export const GAME_SAVE_SCHEMA_VERSION = 9
 
 /** Версии envelope, которые ещё можно прочитать. */
 const SUPPORTED_SCHEMA_VERSIONS = [
@@ -28,6 +28,7 @@ const SUPPORTED_SCHEMA_VERSIONS = [
   5,
   6,
   7,
+  8,
   GAME_SAVE_SCHEMA_VERSION,
 ]
 
@@ -42,6 +43,13 @@ export function serializeGameState(game: IGameState): string {
   // through an intermediate JSON string.
   const state = {
     ...pickGameState(game),
+    // Сокет — runtime-идентификатор: в хранилище он не имеет смысла и после
+    // перезапуска всё равно сбрасывается. Сохраняем игроков без него, чтобы
+    // сводки из базы не показывали «подключённого» игрока у спящей партии.
+    players: game.players.map((player) => ({ ...player, socketId: null })),
+    currentPlayer: game.currentPlayer
+      ? { ...game.currentPlayer, socketId: null }
+      : null,
     rules: {
       ...game.rules,
       expansions: { ...game.rules.expansions },

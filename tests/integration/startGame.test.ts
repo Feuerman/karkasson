@@ -40,7 +40,7 @@ describe('Запуск игры', () => {
       'Bob',
     ])
     const computerPlayers = started.players.filter(
-      (player) => !player.socketId && !player.deviceId
+      (player) => !player.isConnected && !player.sessionId
     )
     expect(computerPlayers).toHaveLength(2)
 

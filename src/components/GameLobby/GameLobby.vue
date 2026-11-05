@@ -84,7 +84,7 @@
               v-for="game in computedGamesList"
               :key="game.id"
               :game="game"
-              :device-id="deviceId"
+              :session-id="sessionId"
               :pending="isGamePending(game)"
               @join="joinGame"
               @rejoin="rejoinGame"
@@ -138,7 +138,7 @@
           <PlayerSlotsList
             :slots="occupiedSlots"
             title="Игроки"
-            :device-id="deviceId"
+            :session-id="sessionId"
             :pending="isSlotPending"
             @toggle-checkbox="toggleCheckbox"
             @name-input="currentPlayerName = $event"
@@ -147,7 +147,7 @@
           <PlayerSlotsList
             :slots="freeSlots"
             title="Свободные слоты"
-            :device-id="deviceId"
+            :session-id="sessionId"
             :pending="isSlotPending"
             @toggle-checkbox="toggleCheckbox"
             @name-input="currentPlayerName = $event"
@@ -193,7 +193,7 @@ import type { CreateGameOptions } from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
 import type { IGame, LobbyGame } from '@/types/game'
-import type { Player } from '@server/modules/types'
+import type { PlayerView } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UEmpty from '@nuxt/ui/components/Empty.vue'
@@ -211,7 +211,7 @@ import { buildGameRules, isRejoinable } from './internal/helpers'
 const props = withDefaults(
   defineProps<{
     gamesList?: LobbyGame[]
-    players?: Player[]
+    players?: PlayerView[]
     currentGame?: IGame | null
     /** Подключение и идентификация приходят из слоя транспорта. */
     isConnected?: boolean
@@ -221,7 +221,7 @@ const props = withDefaults(
     showRoom?: boolean
     /** Ключи команд, ожидающих ответа сервера: показываем индикатор занятости. */
     pendingActions?: string[]
-    deviceId?: string
+    sessionId?: string
   }>(),
   {
     gamesList: () => [],
@@ -232,7 +232,7 @@ const props = withDefaults(
     isGamesListLoading: false,
     showRoom: false,
     pendingActions: () => [],
-    deviceId: '',
+    sessionId: '',
   }
 )
 
@@ -289,7 +289,7 @@ const isLeaveGamePending = computed(() =>
 )
 
 const gameJoinKey = (game: LobbyGame) =>
-  isRejoinable(game, props.deviceId)
+  isRejoinable(game, props.sessionId)
     ? pendingActionKeys.rejoinGame(game.id ?? '')
     : pendingActionKeys.joinGame(game.id ?? '')
 
@@ -334,16 +334,16 @@ function addPlayer(name: string | null | undefined, index: number) {
   currentPlayerName.value = ''
 }
 
-function toggleCheckbox(player: Player, index: number) {
-  if (player.socketId || player.name) {
+function toggleCheckbox(player: PlayerView, index: number) {
+  if (player.isConnected || player.name) {
     emit('removePlayer', index, false)
   } else {
     addPlayer(player.name, index)
   }
 }
 
-function toggleButton(player: Player, index: number) {
-  if (player.socketId) {
+function toggleButton(player: PlayerView, index: number) {
+  if (player.isConnected) {
     emit('removePlayer', index, true)
   } else {
     addPlayer(currentPlayerName.value || player.name, index)

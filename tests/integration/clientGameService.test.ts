@@ -50,11 +50,11 @@ async function waitForServerDevice(
       const socketId = service.socket?.id
       return Boolean(
         socketId &&
-        server.handle.gameService.getDeviceBySocketId(socketId) ===
-          service.deviceId
+        server.handle.gameService.getSessionBySocketId(socketId) ===
+          service.sessionId.value
       )
     },
-    `device ${service.deviceId} не зарегистрировался на сервере`,
+    `сессия не зарегистрировалась на сервере`,
     DEVICE_TIMEOUT_MS
   )
 }
@@ -138,9 +138,9 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   /** Поднимает сервер, если он ещё не запущен, и подключает клиента. */
-  async function connectClient(deviceId: string): Promise<GameService> {
+  async function connectClient(): Promise<GameService> {
     server ??= await startTestServer()
-    const client = new GameService({ serverUrl: server.url, deviceId })
+    const client = new GameService({ serverUrl: server.url })
     services.push(client)
     client.connect()
     await waitUntilConnected(client)
@@ -149,8 +149,8 @@ describe('Клиентское приложение (GameService)', () => {
   }
 
   it('создаёт лобби, добавляет игроков и видит игру в списке', async () => {
-    const alice = await connectClient('client-alice')
-    expect(localStorage.getItem('deviceId')).toBe('client-alice')
+    const alice = await connectClient()
+    expect(localStorage.getItem('sessionToken')).toBeTruthy()
 
     const created = await alice.createGame({
       finalScoringEnabled: true,
@@ -178,7 +178,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('снимает подписку gameUpdated по возвращённой функции cleanup', async () => {
-    const client = await connectClient('client-listener-cleanup')
+    const client = await connectClient()
 
     const listener = () => undefined
     const unsubscribe = client.onGameUpdated(listener)
@@ -195,7 +195,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('подписки переживают переподключение: сокет не заменяется новым', async () => {
-    const client = await connectClient('client-reconnect')
+    const client = await connectClient()
 
     const updates: GameData[] = []
     client.onGameUpdated((game) => updates.push(game))
@@ -223,7 +223,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('передаёт включённое дополнение в правила, колоду и начатую игру', async () => {
-    const client = await connectClient('client-princess-dragon')
+    const client = await connectClient()
 
     const created = await client.createGame({ princessAndDragonEnabled: true })
     expect(created.rules.expansions.princessAndDragon).toBe(true)
@@ -246,7 +246,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('перемещает фею через Socket.IO и отклоняет чужую точку', async () => {
-    const client = await connectClient('client-fairy-move')
+    const client = await connectClient()
     const started = await createStartedGame(client, {
       princessAndDragonEnabled: true,
     })
@@ -300,7 +300,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('применяет выбор фишки принцессы и штраф её тайла', async () => {
-    const client = await connectClient('client-princess-choice')
+    const client = await connectClient()
     const game = await createStartedGame(client, {
       princessAndDragonEnabled: true,
     })
@@ -336,7 +336,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('передаёт серверу ход дракона на соседний тайл', async () => {
-    const client = await connectClient('client-dragon-move')
+    const client = await connectClient()
     const game = await createStartedGame(client, {
       princessAndDragonEnabled: true,
     })
@@ -361,8 +361,8 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('играет ход через клиентский сервис и получает отказ вне очереди', async () => {
-    const alice = await connectClient('client-alice')
-    const bob = await connectClient('client-bob')
+    const alice = await connectClient()
+    const bob = await connectClient()
 
     // Лобби: Алиса создаёт, Боб присоединяется, добавляем компьютерных
     await alice.createGame()
@@ -429,7 +429,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('возвращает причину отказа по реке и подсветку открытого конца', async () => {
-    const client = await connectClient('client-river-conflict')
+    const client = await connectClient()
 
     const started = await createStartedGame(client, { riverEnabled: true })
     expect(started.rules.expansions.river).toBe(true)
@@ -450,7 +450,7 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   it('отклоняет висящую команду при разрыве соединения', async () => {
-    const client = await connectClient('client-disconnect')
+    const client = await connectClient()
 
     // Сервер не знает этого события и не ответит на него: без явной отмены
     // промис висел бы до пятнадцатисекундного таймаута.

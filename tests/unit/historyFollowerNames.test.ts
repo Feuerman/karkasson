@@ -12,7 +12,7 @@ import {
   TileSideType,
 } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { Player, ReturnedFollower } from '@server/modules/types'
+import type { PlayerView, ReturnedFollower } from '@server/modules/types'
 import { HISTORY_PLAYERS_KEY } from '@/components/GameActionsHistory/internal/players'
 import { placedFollowerName } from '@/components/GameActionsHistory/internal/followerNames'
 
@@ -26,22 +26,22 @@ vi.mock('@nuxt/ui/components/Icon.vue', () => ({
  * или возвращён.
  */
 
-const players: Player[] = [
+const players: PlayerView[] = [
   {
     id: 10,
     name: 'Анна',
     color: 'coral',
     score: 0,
-    socketId: null,
-    deviceId: null,
+    sessionId: null,
+    isConnected: false,
   },
   {
     id: 42,
     name: 'Борис',
     color: 'skyblue',
     score: 0,
-    socketId: null,
-    deviceId: null,
+    sessionId: null,
+    isConnected: false,
   },
 ]
 

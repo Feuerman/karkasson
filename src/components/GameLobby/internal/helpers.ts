@@ -1,5 +1,5 @@
 import type { GameSummary } from '@server/services/GameService'
-import type { Player } from '@server/modules/types'
+import type { PlayerView } from '@server/modules/types'
 import type { IGame } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
 
@@ -15,14 +15,15 @@ export const joinButtonLabel = (game: GameSummary): string => {
   return 'Загрузить'
 }
 
-export const isRejoinable = (game: GameSummary, deviceId: string): boolean =>
+export const isRejoinable = (game: GameSummary, sessionId: string): boolean =>
+  Boolean(sessionId) &&
   !game.gameIsEnded &&
-  game.players?.some((player) => player.deviceId === deviceId)
+  game.players?.some((player) => player.sessionId === sessionId)
 
-export const canToggleSlot = (player: Player, deviceId: string): boolean =>
+export const canToggleSlot = (player: PlayerView, sessionId: string): boolean =>
   Boolean(
-    (player.socketId && player.deviceId === deviceId) ||
-    (!player.socketId && player.name)
+    (player.isConnected && player.sessionId === sessionId) ||
+    (!player.isConnected && player.name)
   )
 
 /** Список правил партии для отображения в комнате: названия и тестовые идентификаторы. */

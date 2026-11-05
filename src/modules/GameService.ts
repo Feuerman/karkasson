@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import type { AvailableFollowerPlace } from '@server/modules/GameManager'
 import type { GameSummary, GameData } from '@server/services/GameService'
 import {
@@ -28,7 +28,7 @@ const logger = createLogger('GameService')
 export interface IGameService {
   socket: Socket | null
   gameId: string
-  deviceId: string
+  sessionId: Ref<string | null>
   connect: () => void
   disconnect: () => void
   createGame: (options?: CreateGameOptions) => Promise<GameData>
@@ -63,7 +63,7 @@ export class SocketAckError extends Error {
 
 export interface GameServiceOptions {
   serverUrl?: string
-  deviceId?: string
+  sessionToken?: string
 }
 
 export interface CreateGameOptions {
@@ -76,18 +76,43 @@ export interface CreateGameOptions {
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
 const DEFAULT_SERVER_URL =
   import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
-const DEVICE_ID_STORAGE_KEY = 'deviceId'
+const SESSION_TOKEN_STORAGE_KEY = 'sessionToken'
 const SOCKET_ACK_TIMEOUT_MS = 15_000
+const CONNECTION_INTERRUPTED_ERROR =
+  'Соединение с сервером прервано, попробуйте отправить команду ещё раз'
+
+function readStoredSessionToken(): string {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_STORAGE_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function storeSessionToken(token: string): void {
+  try {
+    localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token)
+  } catch {
+    // Приватный режим или переполненное хранилище: сессия проживёт до
+    // перезагрузки страницы, но приложение не должно падать.
+  }
+}
 
 export class GameService implements IGameService {
   socket: Socket | null
   gameId: string
-  deviceId: string
+  /** Публичный идентификатор сессии: по нему клиент узнаёт свои фишки. */
+  sessionId = ref<string | null>(null)
   gamesList: GameSummary[] = []
   isConnected = ref(false)
   /** Идентификатор текущего сокета: меняется при каждом переподключении. */
   socketId = ref<string | null>(null)
   private serverUrl: string
+  private sessionToken: string
+  /** Сервер подтвердил сессию для текущего сокета. */
+  private sessionRegistered = false
+  /** Готовность регистрации: команды не должны опережать выдачу сессии. */
+  private sessionReady: Promise<void> = Promise.resolve()
   private readonly pendingAcks = new Set<(error: Error) => void>()
   /**
    * Подписки вызывающего кода: сокет переподключается, а они должны остаться
@@ -100,15 +125,27 @@ export class GameService implements IGameService {
     this.gameId = ''
     this.gamesList = []
     this.serverUrl = options.serverUrl ?? DEFAULT_SERVER_URL
-    this.deviceId =
-      options.deviceId ??
-      localStorage.getItem(DEVICE_ID_STORAGE_KEY) ??
-      crypto.randomUUID()
-    localStorage.setItem(DEVICE_ID_STORAGE_KEY, this.deviceId)
+    this.sessionToken = options.sessionToken ?? readStoredSessionToken()
   }
 
   private getNotConnectedError(): string {
     return 'Нет соединения с сервером'
+  }
+
+  /**
+   * Ждёт, пока сервер выдаст или подтвердит сессию. Без этого первая команда
+   * после холодного старта могла бы уйти раньше регистрации и создать слот
+   * без владельца.
+   */
+  private async whenSessionReady(): Promise<void> {
+    if (this.sessionRegistered) return
+    if (!this.socket?.connected) throw new Error(this.getNotConnectedError())
+    await this.sessionReady
+    if (!this.sessionRegistered) {
+      throw new Error(
+        'Не удалось установить сессию. Переподключитесь к серверу'
+      )
+    }
   }
 
   /** Ack-callback: emit → ответ { error?, ... }. Резолвится самим ответом. */
@@ -116,41 +153,52 @@ export class GameService implements IGameService {
     event: string,
     payload?: SocketPayload
   ): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      if (!this.socket?.connected) {
-        reject(this.getNotConnectedError())
-        return
-      }
+    const wasConnected = Boolean(this.socket?.connected)
+    return this.whenSessionReady().then(
+      () =>
+        new Promise<T>((resolve, reject) => {
+          if (!this.socket?.connected) {
+            reject(
+              wasConnected
+                ? new Error(CONNECTION_INTERRUPTED_ERROR)
+                : this.getNotConnectedError()
+            )
+            return
+          }
 
-      // Ответ может прийти и после разрыва. Без явной отмены промис висел бы
-      // до таймаута, и игрок увидел бы ошибку уже после применённого хода.
-      const cancel = (error: Error) => {
-        clearTimeout(timeout)
-        this.pendingAcks.delete(cancel)
-        reject(error)
-      }
-      this.pendingAcks.add(cancel)
+          // Ответ может прийти и после разрыва. Без явной отмены промис
+          // висел бы до таймаута, и игрок увидел бы ошибку уже после
+          // применённого хода.
+          const cancel = (error: Error) => {
+            clearTimeout(timeout)
+            this.pendingAcks.delete(cancel)
+            reject(error)
+          }
+          this.pendingAcks.add(cancel)
 
-      const timeout = setTimeout(() => {
-        cancel(new Error('Сервер не ответил вовремя. Повторите действие'))
-      }, SOCKET_ACK_TIMEOUT_MS)
+          const timeout = setTimeout(() => {
+            cancel(new Error('Сервер не ответил вовремя. Повторите действие'))
+          }, SOCKET_ACK_TIMEOUT_MS)
 
-      const callback = (response: SocketAck) => {
-        clearTimeout(timeout)
-        this.pendingAcks.delete(cancel)
-        if (response.error) {
-          reject(new SocketAckError(response.error, response.conflicts ?? []))
-        } else {
-          resolve(response as T)
-        }
-      }
+          const callback = (response: SocketAck) => {
+            clearTimeout(timeout)
+            this.pendingAcks.delete(cancel)
+            if (response.error) {
+              reject(
+                new SocketAckError(response.error, response.conflicts ?? [])
+              )
+            } else {
+              resolve(response as T)
+            }
+          }
 
-      if (payload === undefined) {
-        this.socket.emit(event, callback)
-      } else {
-        this.socket.emit(event, payload, callback)
-      }
-    })
+          if (payload === undefined) {
+            this.socket.emit(event, callback)
+          } else {
+            this.socket.emit(event, payload, callback)
+          }
+        })
+    )
   }
 
   private rejectPendingAcks(error: Error): void {
@@ -185,6 +233,42 @@ export class GameService implements IGameService {
   private attachSubscriptions(socket: Socket): void {
     this.subscriptions.forEach(({ event, callback }) => {
       socket.on(event, callback)
+    })
+  }
+
+  /**
+   * Обменивает сохранённый токен на подтверждённую сессию. Сервер сам решает,
+   * принимать старый токен или выдать новый; клиент только сохраняет ответ.
+   */
+  private registerSession(socket: Socket): void {
+    this.sessionRegistered = false
+    this.sessionReady = new Promise<void>((resolve) => {
+      const finish = (response?: { token?: unknown; sessionId?: unknown }) => {
+        clearTimeout(timer)
+        const token =
+          typeof response?.token === 'string' ? response.token : undefined
+        const sessionId =
+          typeof response?.sessionId === 'string'
+            ? response.sessionId
+            : undefined
+        if (token && sessionId) {
+          this.sessionToken = token
+          this.sessionId.value = sessionId
+          this.sessionRegistered = true
+          storeSessionToken(token)
+        }
+        resolve()
+      }
+
+      // Сервер может не ответить при обрыве сразу после рукопожатия. Ждём
+      // ограниченно: следующая команда и так получит понятный отказ, а
+      // подвисший промис заблокировал бы все действия до переподключения.
+      const timer = setTimeout(() => finish(), 10_000)
+      socket.emit(
+        SocketEvents.RegisterSession,
+        this.sessionToken ? { token: this.sessionToken } : {},
+        finish
+      )
     })
   }
 
@@ -223,14 +307,13 @@ export class GameService implements IGameService {
       logger.info('Connected to server')
       this.isConnected.value = true
       this.socketId.value = socket.id ?? null
-      this.socket?.emit(SocketEvents.RegisterDevice, {
-        deviceId: this.deviceId,
-      })
+      this.registerSession(socket)
     })
 
     socket.on('disconnect', (reason: string) => {
       logger.info('Disconnected from server:', reason)
       this.isConnected.value = false
+      this.sessionRegistered = false
       this.socketId.value = null
       this.rejectPendingAcks(
         new Error('Соединение с сервером прервано, команда не доставлена')
@@ -337,7 +420,7 @@ export class GameService implements IGameService {
   async rejoinGame(gameId: string) {
     const response = await this.emitAck<{ game: GameData }>(
       SocketEvents.RejoinGame,
-      { gameId, deviceId: this.deviceId }
+      { gameId }
     )
     this.gameId = gameId
     return response.game

@@ -27,7 +27,12 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
     change: () => void
   ) => {
     const currentGame = service.getGame(gameId)
-    if (!currentGame || !service.canEditLobbySlot(gameId, socket.id, index)) {
+    const sessionId = service.getSessionBySocketId(socket.id)
+    if (
+      !currentGame ||
+      !sessionId ||
+      !service.canEditLobbySlot(gameId, socket.id, sessionId, index)
+    ) {
       callback?.({ error: LobbyErrors.SlotEditForbidden })
       return
     }
@@ -58,12 +63,16 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
       callback: SocketCallback
     ) => {
       await runLobbyCommand(callback, async () => {
-        const deviceId = service.getDeviceBySocketId(socket.id)
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          callback?.({ error: CommonErrors.SessionRequired })
+          return
+        }
         await editSlot(gameId, index, callback, () => {
           service.addPlayer(gameId, index, {
             name,
             socketId: socket.id,
-            deviceId,
+            sessionId,
           })
         })
       })

@@ -11,7 +11,7 @@ import { formatGameData } from './gameView'
 const logger = createLogger('computerPlayer')
 
 export function isComputerPlayer(player: Player): boolean {
-  return !player.socketId && !player.deviceId
+  return !player.socketId && !player.sessionId
 }
 
 /**
@@ -214,7 +214,7 @@ export class ComputerMoveScheduler {
 
   private hasDisconnectedHuman(game: GameManager): boolean {
     return game.players.some(
-      (player) => Boolean(player.deviceId) && !player.socketId
+      (player) => Boolean(player.sessionId) && !player.socketId
     )
   }
 

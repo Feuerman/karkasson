@@ -89,7 +89,7 @@ import {
   TileSideType,
   type FieldFollower,
   type FollowerType,
-  type Player,
+  type PlayerView,
   type PlayerId,
   type PlacedFollower,
   type Point,
@@ -115,7 +115,7 @@ const props = withDefaults(
       followerType: FollowerType
       playerColor: string
     } | null
-    players?: Player[]
+    players?: PlayerView[]
   }>(),
   {
     tile: null,

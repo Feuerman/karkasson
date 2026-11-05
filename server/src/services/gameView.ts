@@ -9,9 +9,14 @@
 
 import type { IGameState } from '../modules/gameState'
 import type { GameManager } from '../modules/GameManager'
-import type { AbbotRecallInfo, FollowerType } from '../modules/types'
+import type {
+  AbbotRecallInfo,
+  FollowerType,
+  PlayerView,
+} from '../modules/types'
 import { buildFieldComponents } from '../modules/fieldComponents'
 import type { FieldComponent } from '../modules/fieldComponents'
+import { toPlayerView } from './playerView'
 
 export interface GameData {
   placingPoint?: IGameState['placingPoint']
@@ -27,7 +32,7 @@ export interface GameData {
   fairy?: IGameState['fairy']
   fairyTargets: ReturnType<GameManager['getFairyTargets']>
   currentTile: IGameState['currentTile']
-  players: IGameState['players']
+  players: PlayerView[]
   currentPlayerIndex: number
   availableFollowersPlaces: IGameState['availableFollowersPlaces']
   /** Типы фишек, доступные в каждом месте, по id объекта. */
@@ -51,7 +56,7 @@ export interface GameData {
   availablePlacesTiles: IGameState['availablePlacesTiles']
   playersFollowers: IGameState['playersFollowers']
   actionsHistory: IGameState['actionsHistory']
-  currentPlayer: IGameState['currentPlayer']
+  currentPlayer: PlayerView | null
   placedFollowers: IGameState['placedFollowers']
   fieldFollowers: IGameState['fieldFollowers']
   winnerPlayerIds: IGameState['winnerPlayerIds']
@@ -78,7 +83,7 @@ export function formatGameData(game: GameManager): GameData {
     fairy: game.fairy,
     fairyTargets: game.getFairyTargets(),
     currentTile: game.currentTile,
-    players: game.players,
+    players: game.players.map(toPlayerView),
     currentPlayerIndex: game.currentPlayerIndex,
     availableFollowersPlaces: game.availableFollowersPlaces,
     availableFollowerTypes: collectAvailableFollowerTypes(game),
@@ -100,7 +105,7 @@ export function formatGameData(game: GameManager): GameData {
     availablePlacesTiles: game.availablePlacesTiles,
     playersFollowers: game.playersFollowers,
     actionsHistory: game.actionsHistory,
-    currentPlayer: game.currentPlayer,
+    currentPlayer: game.currentPlayer ? toPlayerView(game.currentPlayer) : null,
     placedFollowers: game.placedFollowers,
     fieldFollowers: game.fieldFollowers,
     winnerPlayerIds: game.winnerPlayerIds,

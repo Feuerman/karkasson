@@ -85,9 +85,7 @@
           class="h-2.5 w-2.5 rounded-full ring-1 ring-black/30"
           :class="playerBackgroundColorClass(row.player.color)"
         ></span>
-        <template
-          v-if="!row.player.socketId && !row.player.deviceId && row.player.name"
-        >
+        <template v-if="!row.player.sessionId && row.player.name">
           AI
         </template>
         {{ row.player.name }} — {{ row.score }}
@@ -127,7 +125,7 @@ import { isRejoinable, joinButtonIcon, joinButtonLabel } from './helpers'
 const props = withDefaults(
   defineProps<{
     game: LobbyGame
-    deviceId: string
+    sessionId: string
     /** Команда входа или переподключения ожидает ответа сервера. */
     pending?: boolean
   }>(),
@@ -171,7 +169,7 @@ const emit = defineEmits<{
 
 const onJoin = () => {
   if (!props.game.id || props.pending) return
-  if (isRejoinable(props.game, props.deviceId)) {
+  if (isRejoinable(props.game, props.sessionId)) {
     emit('rejoin', props.game.id)
   } else {
     emit('join', props.game.id)

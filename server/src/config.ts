@@ -78,6 +78,29 @@ function requireEnv(environment: NodeJS.ProcessEnv, name: string): string {
 }
 
 /**
+ * Секрет подписи токенов сессий.
+ *
+ * В production обязателен: без него сервер не должен запускаться, иначе
+ * токены можно подделать. В разработке и тестах берётся стабильное значение,
+ * чтобы перезапуск не обрывал уже выданные сессии.
+ */
+export function getSessionSecret(
+  environment: NodeJS.ProcessEnv = process.env
+): string {
+  const secret = readEnv(environment, 'SESSION_SECRET')
+  if (secret) {
+    if (secret.length < 32) {
+      throw new Error('SESSION_SECRET must be at least 32 characters long')
+    }
+    return secret
+  }
+  if (environment.NODE_ENV === 'production') {
+    throw new Error('Missing required environment variable SESSION_SECRET')
+  }
+  return 'karkasson-development-session-secret'
+}
+
+/**
  * Конфигурация Firebase Realtime Database. Значения приходят из окружения:
  * обязательны FIREBASE_API_KEY и FIREBASE_DATABASE_URL, остальные необязательны
  * и попадают в конфиг только когда заданы. Нужен только production-серверу,

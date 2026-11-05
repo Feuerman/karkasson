@@ -50,7 +50,7 @@ import type { IGameBoard } from '@/types/game'
 import {
   ActionTypes,
   type FollowerCount,
-  type Player,
+  type PlayerView,
   type PlayerId,
 } from '@server/modules/types'
 import { getCurrentTurnNumber } from '@/utils/turnNumber'
@@ -100,7 +100,7 @@ const leaderPlayers = computed(() =>
     .map((id) =>
       props.gameBoard.players.find((p) => String(p.id) === String(id))
     )
-    .filter((player): player is Player => Boolean(player))
+    .filter((player): player is PlayerView => Boolean(player))
 )
 
 const leaderLabel = computed(() => {
@@ -136,8 +136,7 @@ const headerColor = computed(() => {
 /** Игрок, за которым сидит текущий браузер. */
 const ownPlayer = computed(() =>
   findOwnPlayer(props.gameBoard.players ?? [], {
-    socketId: GameService.socketId.value,
-    deviceId: GameService.deviceId,
+    sessionId: GameService.sessionId.value,
   })
 )
 

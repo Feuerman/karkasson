@@ -26,7 +26,7 @@ describe('Сбои ходов компьютера', () => {
   async function allComputerGame() {
     server = await startTestServer()
     const { gameId, creator } = await createLobby(server.url, {
-      deviceId: 'device-spectator',
+      identity: 'device-spectator',
       computerOnly: true,
     })
     clients.push(creator)

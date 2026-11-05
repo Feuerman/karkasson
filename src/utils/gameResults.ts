@@ -1,6 +1,6 @@
 import { ActionTypes, ObjectTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
-import type { Player, PlayerId, Scores } from '@server/modules/types'
+import type { PlayerView, PlayerId, Scores } from '@server/modules/types'
 
 /** Очки игрока, разложенные по источникам. */
 export interface ScoreBreakdown {
@@ -75,7 +75,7 @@ export const buildScoreBreakdown = (
  * место, а следующее место пропускается.
  */
 export const buildGameResults = (
-  players: Player[],
+  players: PlayerView[],
   scores: Scores | undefined,
   actionsHistory?: GameAction[],
   winnerPlayerIds: PlayerId[] = []

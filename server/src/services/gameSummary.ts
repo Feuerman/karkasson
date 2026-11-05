@@ -11,16 +11,12 @@ import {
   DEFAULT_GAME_RULES,
   type GameRules,
   type PlayerId,
+  type PlayerView,
   type Scores,
 } from '../modules/types'
+import { toPlayerView } from './playerView'
 
-export interface GameSummaryPlayer {
-  id: PlayerId
-  name: string | null
-  color: string | null
-  socketId: string | null
-  deviceId: string | null
-}
+export type GameSummaryPlayer = PlayerView
 
 export interface GameSummary {
   id: string | undefined
@@ -61,13 +57,7 @@ export function toGameSummary(game: GameSummarySource): GameSummary {
   return {
     id: game.id,
     roomCode: game.roomCode ?? '',
-    players: (game.players ?? []).map((player) => ({
-      id: player.id,
-      name: player.name,
-      color: player.color,
-      socketId: player.socketId,
-      deviceId: player.deviceId,
-    })),
+    players: (game.players ?? []).map(toPlayerView),
     currentPlayer: game.currentPlayer?.id ?? null,
     gameIsEnded: game.gameIsEnded ?? false,
     moveCounter: game.moveCounter ?? 0,

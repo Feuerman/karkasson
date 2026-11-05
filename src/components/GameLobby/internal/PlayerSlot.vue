@@ -13,7 +13,7 @@
     <UInput
       :model-value="player.name ?? ''"
       :placeholder="`Игрок ${index + 1}`"
-      :disabled="Boolean(player.socketId || !player.name)"
+      :disabled="Boolean(player.isConnected || !player.name)"
       :ui="{
         input:
           'border-2 text-lg ' +
@@ -23,7 +23,7 @@
       @update:model-value="emit('nameInput', $event)"
     />
     <div
-      v-if="!player.socketId && player.name"
+      v-if="!player.sessionId && player.name"
       class="text-base font-semibold text-text-muted"
     >
       ИИ
@@ -49,7 +49,7 @@
         class="h-5 w-5 animate-spin"
       />
       <template v-else>
-        {{ player.socketId ? 'Освободить' : 'Занять' }}
+        {{ player.isConnected ? 'Освободить' : 'Занять' }}
       </template>
     </UButton>
   </div>
@@ -61,16 +61,16 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UInput from '@nuxt/ui/components/Input.vue'
-import type { Player } from '@server/modules/types'
+import type { PlayerView } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
 import { canToggleSlot } from './helpers'
 
 const props = withDefaults(
   defineProps<{
-    player: Player
+    player: PlayerView
     index: number
-    deviceId: string
+    sessionId: string
     /** Слот занят командой, ожидающей ответа сервера. */
     pending?: boolean
   }>(),
@@ -78,17 +78,17 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  toggleCheckbox: [player: Player, index: number]
+  toggleCheckbox: [player: PlayerView, index: number]
   nameInput: [value: string]
-  toggleButton: [player: Player, index: number]
+  toggleButton: [player: PlayerView, index: number]
 }>()
 
 const checkboxDisabled = computed(
   () =>
     Boolean(
-      props.player.socketId && props.player.deviceId !== props.deviceId
+      props.player.isConnected && props.player.sessionId !== props.sessionId
     ) || props.pending
 )
 
-const canToggle = computed(() => canToggleSlot(props.player, props.deviceId))
+const canToggle = computed(() => canToggleSlot(props.player, props.sessionId))
 </script>
