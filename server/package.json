@@ -1,6 +1,6 @@
 {
   "name": "server",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "description": "Игровой сервер «Каркассон Онлайн» (Socket.IO): лобби, правила, ИИ, персистентность в Firebase",
   "main": "index.ts",
   "scripts": {
