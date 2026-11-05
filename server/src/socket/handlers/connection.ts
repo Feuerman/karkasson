@@ -1,8 +1,14 @@
-import type { SocketCallback, SocketHandlerContext } from '../types'
+import type { SocketHandlerContext } from '../types'
 import type { GameManager } from '../../modules/GameManager'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
 import { createLogger } from '../../utils/logger'
+import {
+  parseGameRequest,
+  parseRegisterSession,
+  payloadAndCallback,
+} from '../validation'
+import { errorResponse } from './errorResponse'
 import { ackGameUpdated, runLobbyCommand } from './shared'
 
 const logger = createLogger('connection')
@@ -108,36 +114,25 @@ async function handleDisconnect(
   }
 }
 
-interface RegisterSessionPayload {
-  token?: unknown
-}
-
 export function registerConnectionHandlers(context: SocketHandlerContext) {
   const { events, service, scheduler, socket } = context
 
-  socket.on(
-    SocketEvents.RegisterSession,
-    (payloadOrCallback?: unknown, maybeCallback?: SocketCallback) => {
-      const callback: SocketCallback | undefined =
-        typeof payloadOrCallback === 'function'
-          ? (payloadOrCallback as SocketCallback)
-          : maybeCallback
-      const payload =
-        typeof payloadOrCallback === 'object' && payloadOrCallback !== null
-          ? (payloadOrCallback as RegisterSessionPayload)
-          : undefined
-      const token =
-        typeof payload?.token === 'string' ? payload.token : undefined
-
-      const session = service.resolveSession(token)
-      service.registerSession(session.sessionId, socket.id)
-      callback?.({
-        success: true,
-        token: session.token,
-        sessionId: session.sessionId,
-      })
+  socket.on(SocketEvents.RegisterSession, (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseRegisterSession(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
     }
-  )
+
+    const session = service.resolveSession(request.token)
+    service.registerSession(session.sessionId, socket.id)
+    callback?.({
+      success: true,
+      token: session.token,
+      sessionId: session.sessionId,
+    })
+  })
 
   socket.on('disconnect', (reason: string) => {
     service.unregisterSocket(socket.id)
@@ -151,28 +146,27 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
 
   socket.on(
     SocketEvents.RejoinGame,
-    async (
-      { gameId }: { gameId: string },
-      callbackOrPayload?: unknown,
-      maybeCallback?: SocketCallback
-    ) => {
-      const callback: SocketCallback | undefined =
-        typeof callbackOrPayload === 'function'
-          ? (callbackOrPayload as SocketCallback)
-          : maybeCallback
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGameRequest(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId } = request
 
       await runLobbyCommand(callback, async () => {
         const sessionId = service.getSessionBySocketId(socket.id)
         if (!sessionId) {
           socket.emit(SocketEvents.Error, CommonErrors.SessionRequired)
-          callback?.({ error: CommonErrors.SessionRequired })
+          callback?.(errorResponse(CommonErrors.SessionRequired))
           return
         }
 
         const result = service.rejoinGame(gameId, sessionId, socket.id)
         if (!result) {
           socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
-          callback?.({ error: CommonErrors.GameNotFound })
+          callback?.(errorResponse(CommonErrors.GameNotFound))
           return
         }
 
@@ -182,7 +176,7 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
           ackGameUpdated(context.events, gameId, game, callback)
         } else {
           socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
-          callback?.({ error: CommonErrors.PlayerNotFoundInGame })
+          callback?.(errorResponse(CommonErrors.PlayerNotFoundInGame))
           return
         }
 

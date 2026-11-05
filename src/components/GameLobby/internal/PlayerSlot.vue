@@ -13,6 +13,7 @@
     <UInput
       :model-value="player.name ?? ''"
       :placeholder="`Игрок ${index + 1}`"
+      :maxlength="MAX_PLAYER_NAME_LENGTH"
       :disabled="Boolean(player.isConnected || !player.name)"
       :ui="{
         input:
@@ -61,7 +62,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import UInput from '@nuxt/ui/components/Input.vue'
-import type { PlayerView } from '@server/modules/types'
+import { MAX_PLAYER_NAME_LENGTH, type PlayerView } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
 import { canToggleSlot } from './helpers'

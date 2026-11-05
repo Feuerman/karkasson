@@ -1,14 +1,12 @@
-import type {
-  AvailableFollowerPlace,
-  FollowerType,
-} from '../../../modules/types'
+import { SocketEvents, TileSideType } from '../../../modules/types'
+import type { SocketHandlerContext } from '../../types'
+import { CommonErrors, GameErrors } from '../../../modules/errors'
 import {
-  FollowerType as FollowerTypes,
-  SocketEvents,
-  TileSideType,
-} from '../../../modules/types'
-import type { SocketCallback, SocketHandlerContext } from '../../types'
-import { GameErrors } from '../../../modules/errors'
+  parseGameRequest,
+  parsePlaceFollower,
+  payloadAndCallback,
+} from '../../validation'
+import { errorResponse } from '../errorResponse'
 import { runGameCommand } from '../gameCommand'
 
 export function registerFollowerHandlers(context: SocketHandlerContext) {
@@ -16,18 +14,15 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
 
   socket.on(
     SocketEvents.PlaceFollower,
-    async (
-      {
-        gameId,
-        place,
-        followerType = FollowerTypes.Follower,
-      }: {
-        gameId: string
-        place: AvailableFollowerPlace
-        followerType?: FollowerType
-      },
-      callback: SocketCallback
-    ) => {
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parsePlaceFollower(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId, place, followerType } = request
+
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.PlaceFollower,
@@ -39,12 +34,12 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
 
           const availablePlace = game.availableFollowersPlaces.find(
             (candidate) =>
-              candidate.temporaryObject.id === place?.temporaryObject?.id &&
-              candidate.point.x === place?.point?.x &&
-              candidate.point.y === place?.point?.y &&
-              candidate.point.direction === place?.point?.direction &&
-              candidate.point.pointType === place?.point?.pointType &&
-              candidate.point.regionIndex === place?.point?.regionIndex
+              candidate.temporaryObject.id === place.temporaryObject.id &&
+              candidate.point.x === place.point.x &&
+              candidate.point.y === place.point.y &&
+              candidate.point.direction === place.point.direction &&
+              candidate.point.pointType === place.point.pointType &&
+              candidate.point.regionIndex === place.point.regionIndex
           )
           if (!availablePlace) {
             throw new Error(GameErrors.InvalidFollowerPlacement)
@@ -74,7 +69,15 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
 
   socket.on(
     SocketEvents.RecallAbbot,
-    async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGameRequest(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId } = request
+
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.RecallAbbot,
@@ -94,7 +97,15 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
 
   socket.on(
     SocketEvents.SkipFollower,
-    async ({ gameId }: { gameId: string }, callback: SocketCallback) => {
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGameRequest(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId } = request
+
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.SkipFollower,

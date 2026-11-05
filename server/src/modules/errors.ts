@@ -13,6 +13,11 @@ export const CommonErrors = {
   SessionRequired: 'Сессия не готова. Переподключитесь к серверу',
   InternalFailure: 'Что-то пошло не так. Попробуйте повторить действие',
   SaveFailed: 'Не удалось сохранить изменения. Попробуйте повторить действие',
+  InvalidRequest: 'Некорректный запрос. Проверьте данные и повторите',
+  TooManyRequests: 'Слишком много запросов. Подождите немного и повторите',
+  TooManyConnections: 'Слишком много подключений. Попробуйте позже',
+  JoinAttemptsExceeded:
+    'Слишком много неудачных попыток входа. Попробуйте позже',
 } as const
 
 export const LobbyErrors = {
@@ -28,6 +33,13 @@ export const LobbyErrors = {
   StartFailed: 'Не удалось начать игру',
   GameAlreadyStarted: 'Игра уже началась',
   AlreadyJoinedGame: 'Вы уже присоединились к игре',
+  TooManyGames: 'Слишком много активных партий на сервере. Попробуйте позже',
+  TooManyOwnedLobbies:
+    'Вы создали слишком много лобби. Завершите старые партии',
+  PlayerNameTooLong: 'Имя игрока слишком длинное',
+  PlayerNameInvalid: 'Имя игрока содержит недопустимые символы',
+  PlayerNameProfanity: 'Имя игрока содержит недопустимые слова',
+  PlayerNameTaken: 'Игрок с таким именем уже есть в лобби',
 } as const
 
 export const GameErrors = {
@@ -35,7 +47,6 @@ export const GameErrors = {
   InvalidTileRotation: 'Недопустимый поворот тайла',
   ResolveExpansionActionFirst: 'Сначала завершите текущее действие дополнения',
   NoTileWaiting: 'Нет тайла, который можно разместить',
-  InvalidTilePosition: 'Недопустимая позиция тайла',
   NotPlacingFollower: 'Сейчас нельзя выставлять подданных',
   InvalidFollowerPlacement: 'Недопустимое место для подданного',
   FollowerPlacementUnavailable: 'Выставление подданных больше недоступно',
@@ -55,6 +66,37 @@ export const SaveErrors = {
   SaveInvalidTile: 'Game save contains an invalid tile',
   SaveInvalidFollowerPool: 'Game save contains an invalid follower pool',
 } as const
+
+function toErrorCode(prefix: string, key: string): string {
+  return `${prefix}.${key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)}`
+}
+
+function buildErrorCodeMap(): Record<string, string> {
+  const catalogs: Array<[string, Record<string, string>]> = [
+    ['common', CommonErrors],
+    ['lobby', LobbyErrors],
+    ['game', GameErrors],
+  ]
+  return Object.fromEntries(
+    catalogs.flatMap(([prefix, catalog]) =>
+      Object.entries(catalog).map(([key, message]) => [
+        message,
+        toErrorCode(prefix, key),
+      ])
+    )
+  )
+}
+
+/**
+ * Стабильные машинные коды для безопасных текстов из каталогов. Клиент может
+ * опираться на код, не разбирая русский текст сообщения.
+ */
+export const ERROR_CODES_BY_MESSAGE: Readonly<Record<string, string>> =
+  buildErrorCodeMap()
+
+export function errorCodeForMessage(message: string): string {
+  return ERROR_CODES_BY_MESSAGE[message] ?? 'common.internal_failure'
+}
 
 /**
  * Ошибка записи партии в хранилище, отличная от сбоя самой логики хода.

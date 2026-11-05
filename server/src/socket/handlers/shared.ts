@@ -3,7 +3,7 @@ import type { GameEventsPublisher } from '../../services/gameEvents'
 import { formatGameData } from '../../services/gameView'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback } from '../types'
-import { toPlayerErrorMessage } from './playerErrors'
+import { toPlayerError } from './playerErrors'
 
 const logger = createLogger('socket')
 
@@ -34,6 +34,6 @@ export function runLobbyCommand(
 ): Promise<void> {
   return execute().catch((error: unknown) => {
     logger.error('Lobby command failed:', error)
-    callback?.({ error: toPlayerErrorMessage(error) })
+    callback?.(toPlayerError(error))
   })
 }

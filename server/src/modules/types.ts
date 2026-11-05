@@ -106,6 +106,9 @@ export const SIDE_NAMES = [
 
 export const BOARD_GRID_SIZE = [30, 30] as const
 
+/** Максимальная длина отображаемого имени игрока. */
+export const MAX_PLAYER_NAME_LENGTH = 24
+
 export const OPPOSITE_SIDE: Record<SideName, SideName> = {
   [SideName.North]: SideName.South,
   [SideName.East]: SideName.West,

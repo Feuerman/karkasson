@@ -19,6 +19,15 @@ const database =
 const handle = createGameServer(database, { adminUI: true })
 const { server, events, gameService } = handle
 
+process.on('uncaughtException', (error: unknown) => {
+  logger.error('Uncaught exception:', error)
+  void shutdown(1)
+})
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error('Unhandled rejection:', reason)
+  void shutdown(1)
+})
+
 function startStaleGamesCleanup() {
   const timer = setInterval(() => {
     void gameService
@@ -53,7 +62,11 @@ async function shutdown(exitCode: number): Promise<void> {
   if (isShuttingDown) return
   isShuttingDown = true
   clearInterval(cleanupTimer)
-  await handle.close()
+  try {
+    await handle.close()
+  } catch (error: unknown) {
+    logger.error('Failed to close server during shutdown:', error)
+  }
   process.exit(exitCode)
 }
 

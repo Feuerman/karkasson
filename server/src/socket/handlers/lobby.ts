@@ -1,9 +1,15 @@
 import { isComputerPlayer } from '../../services/computerPlayer'
 import type { GameManager } from '../../modules/GameManager'
 import type { GameOptions } from '../../modules/types'
-import type { SocketCallback, SocketHandlerContext } from '../types'
+import type { SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
+import {
+  parseCreateGame,
+  parseGameRequest,
+  payloadAndCallback,
+} from '../validation'
+import { errorResponse } from './errorResponse'
 import { ackGameUpdated, runLobbyCommand } from './shared'
 import { formatGameData } from '../../services/gameView'
 
@@ -19,8 +25,8 @@ const LOBBY_OPTION_ERRORS: Record<keyof GameOptions, string> = {
   princessAndDragonEnabled: LobbyErrors.InvalidPrincessAndDragonOption,
 }
 
-interface LobbyOptionsPayload {
-  [option: string]: unknown
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -28,53 +34,53 @@ interface LobbyOptionsPayload {
  * выход. Правка отдельных слотов живёт в `slots.ts`.
  */
 export function registerLobbyHandlers(context: SocketHandlerContext) {
-  const { events, service, scheduler, socket } = context
+  const { events, guard, service, scheduler, socket } = context
 
-  socket.on(SocketEvents.GetGamesList, async (callback: SocketCallback) => {
-    await runLobbyCommand(callback, async () => {
-      const games = await service.getGameSummaries()
-      callback?.({ games })
-    })
-  })
+  socket.on(
+    SocketEvents.GetGamesList,
+    async (first: unknown, second: unknown) => {
+      const { callback } = payloadAndCallback(first, second)
+      await runLobbyCommand(callback, async () => {
+        const games = await service.getGameSummaries()
+        callback?.({ games })
+      })
+    }
+  )
 
   socket.on(
     SocketEvents.CreateGame,
-    async (callbackOrPayload?: unknown, maybeCallback?: SocketCallback) => {
-      await runLobbyCommand(maybeCallback, async () => {
-        const callback =
-          typeof callbackOrPayload === 'function'
-            ? callbackOrPayload
-            : maybeCallback
-        const payload =
-          typeof callbackOrPayload === 'object' && callbackOrPayload !== null
-            ? (callbackOrPayload as LobbyOptionsPayload)
-            : undefined
-        for (const [option, error] of Object.entries(LOBBY_OPTION_ERRORS)) {
-          const value = payload?.[option]
-          if (value !== undefined && typeof value !== 'boolean') {
-            callback?.({ error })
-            return
-          }
-        }
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseCreateGame(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      if (request.invalidOption) {
+        callback?.(errorResponse(LOBBY_OPTION_ERRORS[request.invalidOption]))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
         const sessionId = service.getSessionBySocketId(socket.id)
         if (!sessionId) {
-          callback?.({ error: CommonErrors.SessionRequired })
+          callback?.(errorResponse(CommonErrors.SessionRequired))
           return
         }
-        const game = service.createLobby(socket.id, sessionId, {
-          finalScoringEnabled: payload?.finalScoringEnabled === true,
-          innsAndCathedralsEnabled: payload?.innsAndCathedralsEnabled === true,
-          riverEnabled: payload?.riverEnabled === true,
-          princessAndDragonEnabled: payload?.princessAndDragonEnabled === true,
-        })
+
+        const limitError = service.lobbyCreationError(sessionId)
+        if (limitError) {
+          callback?.(errorResponse(limitError))
+          return
+        }
+
+        const game = service.createLobby(socket.id, sessionId, request.options)
         try {
           await service.saveWithRollback(game.id, () =>
             service.deleteGame(game.id)
           )
         } catch (error) {
-          callback?.({
-            error: CommonErrors.SaveFailed,
-          })
+          callback?.(errorResponse(CommonErrors.SaveFailed))
           return
         }
         await socket.join(game.id)
@@ -92,142 +98,164 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
     }
   )
 
-  socket.on(
-    SocketEvents.JoinGame,
-    async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
-      await runLobbyCommand(callback, async () => {
-        const existingGame = service.getGameByIdentifier(gameId)
-        const resolvedGameId = existingGame?.id
-        if (!existingGame || !resolvedGameId) {
-          const error = CommonErrors.GameNotFound
-          socket.emit(SocketEvents.Error, error)
-          callback?.({ error })
-          return
-        }
-        if (
-          existingGame.gameIsEnded ||
-          (existingGame.gameIsStarted && isComputerOnlyGame(existingGame))
-        ) {
-          await socket.join(resolvedGameId)
-          const game = formatGameData(existingGame)
-          socket.emit(SocketEvents.GameUpdated, game)
-          callback?.({ success: true, game })
-          return
-        }
+  socket.on(SocketEvents.JoinGame, async (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseGameRequest(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
+    }
+    const { gameId } = request
 
-        const sessionId = service.getSessionBySocketId(socket.id)
-        if (!sessionId) {
-          const error = CommonErrors.SessionRequired
-          socket.emit(SocketEvents.Error, error)
-          callback?.({ error })
-          return
-        }
-        const result = service.joinFirstFreeSlot(
-          resolvedGameId,
-          socket.id,
-          sessionId
-        )
+    await runLobbyCommand(callback, async () => {
+      const ip = guard.clientIp(socket)
+      if (guard.isJoinBlocked(ip)) {
+        socket.emit(SocketEvents.Error, CommonErrors.JoinAttemptsExceeded)
+        callback?.(errorResponse(CommonErrors.JoinAttemptsExceeded))
+        return
+      }
 
-        if ('error' in result) {
-          socket.emit(SocketEvents.Error, result.error)
-          callback?.({ error: result.error })
-          return
-        }
+      const existingGame = service.getGameByIdentifier(gameId)
+      const resolvedGameId = existingGame?.id
+      if (!existingGame || !resolvedGameId) {
+        const failure = guard.recordJoinFailure(ip)
+        if (failure.delayMs > 0) await sleep(failure.delayMs)
+        const error = failure.blocked
+          ? CommonErrors.JoinAttemptsExceeded
+          : CommonErrors.GameNotFound
+        socket.emit(SocketEvents.Error, error)
+        callback?.(errorResponse(error))
+        return
+      }
+      guard.recordJoinSuccess(ip)
 
+      if (
+        existingGame.gameIsEnded ||
+        (existingGame.gameIsStarted && isComputerOnlyGame(existingGame))
+      ) {
         await socket.join(resolvedGameId)
-        try {
-          await service.saveWithRollback(resolvedGameId, () => {
-            service.releasePlayer(resolvedGameId, socket.id, null)
-          })
-        } catch (error) {
-          await socket.leave(resolvedGameId)
-          callback?.({
-            error: CommonErrors.SaveFailed,
-          })
-          return
-        }
-        ackGameUpdated(events, resolvedGameId, result.game, callback)
-      })
+        const game = formatGameData(existingGame)
+        socket.emit(SocketEvents.GameUpdated, game)
+        callback?.({ success: true, game })
+        return
+      }
+
+      const sessionId = service.getSessionBySocketId(socket.id)
+      if (!sessionId) {
+        const error = CommonErrors.SessionRequired
+        socket.emit(SocketEvents.Error, error)
+        callback?.(errorResponse(error))
+        return
+      }
+      const result = service.joinFirstFreeSlot(
+        resolvedGameId,
+        socket.id,
+        sessionId
+      )
+
+      if ('error' in result) {
+        socket.emit(SocketEvents.Error, result.error)
+        callback?.(errorResponse(result.error))
+        return
+      }
+
+      await socket.join(resolvedGameId)
+      try {
+        await service.saveWithRollback(resolvedGameId, () => {
+          service.releasePlayer(resolvedGameId, socket.id, null)
+        })
+      } catch (error) {
+        await socket.leave(resolvedGameId)
+        callback?.(errorResponse(CommonErrors.SaveFailed))
+        return
+      }
+      ackGameUpdated(events, resolvedGameId, result.game, callback)
+    })
+  })
+
+  socket.on(SocketEvents.StartGame, async (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseGameRequest(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
     }
-  )
+    const { gameId } = request
 
-  socket.on(
-    SocketEvents.StartGame,
-    async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
-      await runLobbyCommand(callback, async () => {
-        const game = service.getGame(gameId)
-        if (!game) {
-          socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
-          callback?.({ error: CommonErrors.GameNotFound })
-          return
-        }
-        const sessionId = service.getSessionBySocketId(socket.id)
-        if (!sessionId || !service.canStartLobby(gameId, sessionId)) {
-          socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
-          callback?.({ error: LobbyErrors.OnlyLobbyOwnerCanStart })
-          return
-        }
+    await runLobbyCommand(callback, async () => {
+      const game = service.getGame(gameId)
+      if (!game) {
+        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        callback?.(errorResponse(CommonErrors.GameNotFound))
+        return
+      }
+      const sessionId = service.getSessionBySocketId(socket.id)
+      if (!sessionId || !service.canStartLobby(gameId, sessionId)) {
+        socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
+        callback?.(errorResponse(LobbyErrors.OnlyLobbyOwnerCanStart))
+        return
+      }
 
-        const previousGame = game
-        const newGame = service.startGame(gameId)
-        if (!newGame) {
-          callback?.({ error: LobbyErrors.StartFailed })
-          return
-        }
+      const previousGame = game
+      const newGame = service.startGame(gameId)
+      if (!newGame) {
+        callback?.(errorResponse(LobbyErrors.StartFailed))
+        return
+      }
 
-        try {
-          await service.saveWithRollback(gameId, () => {
-            service.restoreGame(gameId, previousGame)
-          })
-        } catch (error) {
-          callback?.({
-            error: CommonErrors.SaveFailed,
-          })
-          return
-        }
+      try {
+        await service.saveWithRollback(gameId, () => {
+          service.restoreGame(gameId, previousGame)
+        })
+      } catch (error) {
+        callback?.(errorResponse(CommonErrors.SaveFailed))
+        return
+      }
 
-        ackGameUpdated(events, gameId, newGame, callback)
+      ackGameUpdated(events, gameId, newGame, callback)
 
-        if (newGame.players.every((p) => !p.socketId && !p.sessionId)) {
-          scheduler.scheduleMove(events, service, gameId)
-        }
-      })
+      if (newGame.players.every((p) => !p.socketId && !p.sessionId)) {
+        scheduler.scheduleMove(events, service, gameId)
+      }
+    })
+  })
+
+  socket.on(SocketEvents.LeaveGame, async (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseGameRequest(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
     }
-  )
+    const { gameId } = request
 
-  socket.on(
-    SocketEvents.LeaveGame,
-    async ({ gameId }: { gameId: string }, callback?: SocketCallback) => {
-      await runLobbyCommand(callback, async () => {
-        const game = service.getGame(gameId)
-        if (!game) {
-          socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
-          callback?.({ error: CommonErrors.GameNotFound })
-          return
-        }
+    await runLobbyCommand(callback, async () => {
+      const game = service.getGame(gameId)
+      if (!game) {
+        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        callback?.(errorResponse(CommonErrors.GameNotFound))
+        return
+      }
 
-        if (!game.gameIsStarted) {
-          service.releasePlayer(gameId, socket.id, null)
-          if (game.players.every((p) => !p.socketId && !p.sessionId)) {
-            try {
-              await service.deleteGame(gameId)
-            } catch (error) {
-              callback?.({
-                error: CommonErrors.SaveFailed,
-              })
-              return
-            }
-            events.publishGameDeleted(gameId)
-            events.publishGamesList(service.formatGamesList())
+      if (!game.gameIsStarted) {
+        service.releasePlayer(gameId, socket.id, null)
+        if (game.players.every((p) => !p.socketId && !p.sessionId)) {
+          try {
+            await service.deleteGame(gameId)
+          } catch (error) {
+            callback?.(errorResponse(CommonErrors.SaveFailed))
+            return
           }
-        } else if (!game.gameIsEnded) {
-          service.releasePlayer(gameId, socket.id)
-          scheduler.continueGame(events, service, gameId)
+          events.publishGameDeleted(gameId)
+          events.publishGamesList(service.formatGamesList())
         }
+      } else if (!game.gameIsEnded) {
+        service.releasePlayer(gameId, socket.id)
+        scheduler.continueGame(events, service, gameId)
+      }
 
-        await socket.leave(gameId)
-        ackGameUpdated(events, gameId, game, callback)
-      })
-    }
-  )
+      await socket.leave(gameId)
+      ackGameUpdated(events, gameId, game, callback)
+    })
+  })
 }

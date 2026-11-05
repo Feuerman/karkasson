@@ -13,6 +13,8 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 
 const TOKEN_VERSION = 'v1'
+/** Верхняя граница длины токена: защищает от разбора произвольно больших строк. */
+export const MAX_SESSION_TOKEN_LENGTH = 512
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ISSUED_AT_PATTERN = /^\d{1,16}$/
@@ -47,6 +49,10 @@ export function verifySessionToken(
   token: string,
   secret: string
 ): string | undefined {
+  if (token.length === 0 || token.length > MAX_SESSION_TOKEN_LENGTH) {
+    return undefined
+  }
+
   const parts = token.split('.')
   if (parts.length !== 4) return undefined
 

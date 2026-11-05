@@ -1,6 +1,13 @@
 import type { SocketCallback, SocketHandlerContext } from '../types'
-import { SocketEvents } from '../../modules/types'
+import { SocketEvents, playerNameForIndex } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
+import { normalizePlayerName } from '../../modules/playerName'
+import {
+  parseAddPlayer,
+  parseRemovePlayer,
+  payloadAndCallback,
+} from '../validation'
+import { errorResponse } from './errorResponse'
 import { ackGameUpdated, runLobbyCommand } from './shared'
 
 /** Снимок списка игроков для отката неудачного изменения слота. */
@@ -23,8 +30,9 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
   const editSlot = async (
     gameId: string,
     index: number,
-    callback: SocketCallback,
-    change: () => void
+    callback: SocketCallback | undefined,
+    change: () => void,
+    validate?: () => string | undefined
   ) => {
     const currentGame = service.getGame(gameId)
     const sessionId = service.getSessionBySocketId(socket.id)
@@ -33,7 +41,13 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
       !sessionId ||
       !service.canEditLobbySlot(gameId, socket.id, sessionId, index)
     ) {
-      callback?.({ error: LobbyErrors.SlotEditForbidden })
+      callback?.(errorResponse(LobbyErrors.SlotEditForbidden))
+      return
+    }
+
+    const validationError = validate?.()
+    if (validationError) {
+      callback?.(errorResponse(validationError))
       return
     }
 
@@ -45,55 +59,66 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
         currentGame.players = previousPlayers
       })
     } catch (error) {
-      callback?.({ error: CommonErrors.SaveFailed })
+      callback?.(errorResponse(CommonErrors.SaveFailed))
       return
     }
 
     ackGameUpdated(events, gameId, currentGame, callback)
   }
 
-  socket.on(
-    SocketEvents.AddPlayer,
-    async (
-      {
+  socket.on(SocketEvents.AddPlayer, async (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseAddPlayer(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
+    }
+    const { gameId, index } = request
+    const normalized = normalizePlayerName(request.name)
+    if ('error' in normalized) {
+      callback?.(errorResponse(normalized.error))
+      return
+    }
+    const requestedName = normalized.name
+    const effectiveName = requestedName ?? playerNameForIndex(index)
+
+    await runLobbyCommand(callback, async () => {
+      const sessionId = service.getSessionBySocketId(socket.id)
+      if (!sessionId) {
+        callback?.(errorResponse(CommonErrors.SessionRequired))
+        return
+      }
+      await editSlot(
         gameId,
-        name,
         index,
-      }: { gameId: string; name: string | null; index: number },
-      callback: SocketCallback
-    ) => {
-      await runLobbyCommand(callback, async () => {
-        const sessionId = service.getSessionBySocketId(socket.id)
-        if (!sessionId) {
-          callback?.({ error: CommonErrors.SessionRequired })
-          return
-        }
-        await editSlot(gameId, index, callback, () => {
+        callback,
+        () => {
           service.addPlayer(gameId, index, {
-            name,
+            name: requestedName,
             socketId: socket.id,
             sessionId,
           })
-        })
-      })
-    }
-  )
+        },
+        () =>
+          service.isPlayerNameTaken(gameId, effectiveName, index)
+            ? LobbyErrors.PlayerNameTaken
+            : undefined
+      )
+    })
+  })
 
   socket.on(
     SocketEvents.RemovePlayer,
-    async (
-      {
-        gameId,
-        index,
-        keepAsComputer,
-      }: { gameId: string; index: number; keepAsComputer: boolean },
-      callback: SocketCallback
-    ) => {
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseRemovePlayer(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId, index, keepAsComputer } = request
+
       await runLobbyCommand(callback, async () => {
-        if (typeof keepAsComputer !== 'boolean') {
-          callback?.({ error: LobbyErrors.SlotEditForbidden })
-          return
-        }
         await editSlot(gameId, index, callback, () => {
           service.removePlayer(gameId, index, keepAsComputer)
         })

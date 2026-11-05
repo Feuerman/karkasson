@@ -1,5 +1,9 @@
 import type { AddressInfo } from 'node:net'
-import { createGameServer, type GameServerHandle } from '@server/app'
+import {
+  createGameServer,
+  type CreateGameServerOptions,
+  type GameServerHandle,
+} from '@server/app'
 import {
   createInMemoryStore,
   InMemoryDatabase,
@@ -19,10 +23,11 @@ export interface RunningServer {
  * с файрбезовским хранилищем, заменённым на in-memory.
  */
 export async function startTestServer(
-  store: InMemoryStore = createInMemoryStore()
+  store: InMemoryStore = createInMemoryStore(),
+  options: Omit<CreateGameServerOptions, 'adminUI'> = {}
 ): Promise<RunningServer> {
   const db = new InMemoryDatabase(store)
-  const handle = createGameServer(db, { adminUI: false })
+  const handle = createGameServer(db, { ...options, adminUI: false })
 
   await new Promise<void>((resolve) => {
     handle.server.listen(0, '127.0.0.1', resolve)

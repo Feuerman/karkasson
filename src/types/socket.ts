@@ -3,6 +3,8 @@ import type { PlayerId, PlacementConflict, Point } from '@server/modules/types'
 
 export interface SocketAckBase {
   error?: string
+  /** Стабильный машинный код отказа; текст может меняться. */
+  code?: string
   success?: boolean
   /** Конфликтующие соседние клетки при неудачном размещении тайла. */
   conflicts?: PlacementConflict[]
@@ -18,11 +20,13 @@ export interface GameAck extends SocketAckBase {
 export interface GamesListResponse {
   games: GameSummary[]
   error?: string
+  code?: string
 }
 
 export interface GameResponse {
   success?: boolean
   error?: string
+  code?: string
   game?: GameData
 }
 
