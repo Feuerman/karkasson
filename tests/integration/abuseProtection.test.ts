@@ -3,7 +3,7 @@ import { CommonErrors, LobbyErrors } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { connectTestClient, TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
-import type { TestGameData } from './helpers/lobby'
+import { createLobby, type TestGameData } from './helpers/lobby'
 import { startTestServer, type RunningServer } from './helpers/server'
 
 describe('Защита от злоупотреблений', () => {
@@ -130,6 +130,29 @@ describe('Защита от злоупотреблений', () => {
     await expect(second.emitAck(SocketEvents.CreateGame, {})).rejects.toThrow(
       LobbyErrors.TooManyGames
     )
+  })
+
+  it('ограничивает число одновременных партий с компьютерами', async () => {
+    server = await startTestServer(undefined, {
+      gameLimits: { maxActiveAiGames: 1, maxActiveAiGamesPerSession: 10 },
+    })
+    const first = await createLobby(server.url, {
+      identity: 'abuse-ai-1',
+      computerOnly: true,
+    })
+    clients.push(first.creator)
+    await first.creator.emitAck(SocketEvents.StartGame, {
+      gameId: first.gameId,
+    })
+
+    const second = await createLobby(server.url, {
+      identity: 'abuse-ai-2',
+      computerOnly: true,
+    })
+    clients.push(second.creator)
+    await expect(
+      second.creator.emitAck(SocketEvents.StartGame, { gameId: second.gameId })
+    ).rejects.toThrow(LobbyErrors.TooManyAiGames)
   })
 
   it('ограничивает частоту команд', async () => {

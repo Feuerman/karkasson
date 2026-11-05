@@ -168,6 +168,11 @@ export const MAX_SOCKETS_PER_IP = 20
 export const MAX_TOTAL_GAMES = 500
 export const MAX_OWNED_LOBBIES = 5
 
+// Автоматические партии считаются без участия человека и постоянно занимают
+// цикл событий ходами ИИ, поэтому их число ограничено отдельно от общего.
+export const MAX_ACTIVE_AI_GAMES = 20
+export const MAX_ACTIVE_AI_GAMES_PER_SESSION = 2
+
 // Доверять ли `X-Forwarded-For`. Включать только за доверенным прокси.
 export const TRUST_PROXY = process.env.TRUST_PROXY === 'true'
 

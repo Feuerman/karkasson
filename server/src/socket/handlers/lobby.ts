@@ -196,6 +196,20 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         return
       }
 
+      if (isComputerOnlyGame(game)) {
+        const limitError = service.aiGameStartError(sessionId)
+        if (limitError) {
+          socket.emit(SocketEvents.Error, limitError)
+          callback?.(errorResponse(limitError))
+          return
+        }
+        if (!guard.tryConsumeAiGameStart(guard.clientIp(socket))) {
+          socket.emit(SocketEvents.Error, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+      }
+
       const previousGame = game
       const newGame = service.startGame(gameId)
       if (!newGame) {

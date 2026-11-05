@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryGameDatabase } from '@server/modules/Database'
+import { LobbyErrors } from '@server/modules/errors'
 import { GameService } from '@server/services/GameService'
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
@@ -316,5 +317,67 @@ describe('Состояние хранилища', () => {
     await service.loadSavedGames()
 
     expect(service.storageStatus().unreadableSaves).toBe(1)
+  })
+})
+
+describe('Партии с компьютерами', () => {
+  function computerOnlyGame(service: GameService, sessionId = 'session-1') {
+    const game = service.createLobby('socket-1', sessionId)
+    game.players.forEach((player, index) => {
+      player.socketId = null
+      player.sessionId = null
+      player.name = `Игрок ${index + 1}`
+    })
+    game.gameIsStarted = true
+    return game
+  }
+
+  it('не даёт превысить общий предел активных автоматических партий', () => {
+    const service = new GameService(new InMemoryGameDatabase(), undefined, {
+      maxActiveAiGames: 1,
+      maxActiveAiGamesPerSession: 10,
+    })
+    computerOnlyGame(service)
+
+    expect(service.aiGameStartError('session-1')).toBe(
+      LobbyErrors.TooManyAiGames
+    )
+  })
+
+  it('ограничивает автоматические партии одной сессии', () => {
+    const service = new GameService(new InMemoryGameDatabase(), undefined, {
+      maxActiveAiGames: 10,
+      maxActiveAiGamesPerSession: 1,
+    })
+    computerOnlyGame(service, 'session-1')
+
+    expect(service.aiGameStartError('session-1')).toBe(
+      LobbyErrors.TooManyOwnedAiGames
+    )
+    expect(service.aiGameStartError('session-2')).toBeUndefined()
+  })
+
+  it('не считает партии с людьми', () => {
+    const service = new GameService(new InMemoryGameDatabase(), undefined, {
+      maxActiveAiGames: 1,
+      maxActiveAiGamesPerSession: 1,
+    })
+    const game = service.createLobby('socket-1', 'session-1')
+    game.gameIsStarted = true
+
+    expect(service.aiGameStartError('session-1')).toBeUndefined()
+  })
+
+  it('не считает завершённые и ещё не начатые партии', () => {
+    const service = new GameService(new InMemoryGameDatabase(), undefined, {
+      maxActiveAiGames: 1,
+      maxActiveAiGamesPerSession: 1,
+    })
+    const ended = computerOnlyGame(service)
+    ended.gameIsEnded = true
+    const notStarted = computerOnlyGame(service, 'session-2')
+    notStarted.gameIsStarted = false
+
+    expect(service.aiGameStartError('session-1')).toBeUndefined()
   })
 })

@@ -8,11 +8,17 @@ import {
   SaveErrors,
 } from '../modules/errors'
 import { randomInt } from 'node:crypto'
-import { getSessionSecret, MAX_OWNED_LOBBIES, MAX_TOTAL_GAMES } from '../config'
+import {
+  getSessionSecret,
+  MAX_ACTIVE_AI_GAMES,
+  MAX_ACTIVE_AI_GAMES_PER_SESSION,
+  MAX_OWNED_LOBBIES,
+  MAX_TOTAL_GAMES,
+} from '../config'
 import { playerNameKey } from '../modules/playerName'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
-import { ComputerMoveScheduler } from './computerPlayer'
+import { ComputerMoveScheduler, isComputerPlayer } from './computerPlayer'
 import { createSessionToken, verifySessionToken } from './sessionToken'
 import {
   sortGameSummaries,
@@ -39,6 +45,8 @@ export interface JoinResult {
 export interface GameServiceLimits {
   maxTotalGames: number
   maxOwnedLobbies: number
+  maxActiveAiGames: number
+  maxActiveAiGamesPerSession: number
 }
 
 /**
@@ -87,6 +95,9 @@ export class GameService {
     this.limits = {
       maxTotalGames: limits.maxTotalGames ?? MAX_TOTAL_GAMES,
       maxOwnedLobbies: limits.maxOwnedLobbies ?? MAX_OWNED_LOBBIES,
+      maxActiveAiGames: limits.maxActiveAiGames ?? MAX_ACTIVE_AI_GAMES,
+      maxActiveAiGamesPerSession:
+        limits.maxActiveAiGamesPerSession ?? MAX_ACTIVE_AI_GAMES_PER_SESSION,
     }
   }
 
@@ -345,6 +356,39 @@ export class GameService {
     ).length
     if (ownedLobbies >= this.limits.maxOwnedLobbies) {
       return LobbyErrors.TooManyOwnedLobbies
+    }
+
+    return undefined
+  }
+
+  /**
+   * Причина отказа запустить ещё одну полностью автоматическую партию или
+   * `undefined`, если можно.
+   *
+   * Партии с компьютерами не ждут команд человека: цепочка ходов ИИ занимает
+   * цикл событий постоянно. Поэтому число одновременных таких партий ограничено
+   * глобально и на сессию. Владелец известен по `lobbyOwners`; после перезапуска
+   * сервера у автоматической партии владельца уже нет, но глобальный предел
+   * продолжает её учитывать.
+   */
+  aiGameStartError(sessionId: string): string | undefined {
+    const activeAiGames = this.allGames().filter(
+      (game) =>
+        game.gameIsStarted &&
+        !game.gameIsEnded &&
+        game.players.length > 0 &&
+        game.players.every(isComputerPlayer)
+    )
+
+    if (activeAiGames.length >= this.limits.maxActiveAiGames) {
+      return LobbyErrors.TooManyAiGames
+    }
+
+    const ownedAiGames = activeAiGames.filter(
+      (game) => game.id && this.lobbyOwners[game.id] === sessionId
+    ).length
+    if (ownedAiGames >= this.limits.maxActiveAiGamesPerSession) {
+      return LobbyErrors.TooManyOwnedAiGames
     }
 
     return undefined
