@@ -294,7 +294,7 @@ export class GameService implements IGameService {
       rejectUnauthorized: isSecure,
       // Polling с последующим upgrade: websocket-only ломался при жёстком
       // CORS и не давал запасного пути в сетях, где WS недоступен.
-      transports: ['polling', 'websocket'],
+      transports: ['websocket'],
       // Если polling недоступен (CORS, прокси, CSP), пробуем WebSocket,
       // а не сдаёмся после ошибки первого транспорта.
       tryAllTransports: true,
