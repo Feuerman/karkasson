@@ -242,8 +242,7 @@ describe('Сохранение данных лобби', () => {
     await server.handle.gameService.loadSavedGames()
     server.handle.gameService.computerMoves.resumeAll(
       server.handle.events,
-      server.handle.gameService,
-      5_000
+      server.handle.gameService
     )
 
     const restored = server.handle.gameService.getGame('mixed-game')

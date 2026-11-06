@@ -3,8 +3,13 @@ import { InMemoryGameDatabase } from '@server/modules/Database'
 import { CommonErrors, LobbyErrors } from '@server/modules/errors'
 import { GameService } from '@server/services/GameService'
 
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
+const ABANDONED_TIMEOUT_MS = 30 * 60 * 1000
+const FINISHED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const TWENTY_MINUTES = 20 * 60 * 1000
+const CLEANUP_OPTIONS = {
+  abandonedTimeoutMs: ABANDONED_TIMEOUT_MS,
+  finishedRetentionMs: FINISHED_RETENTION_MS,
+}
 
 function startedGame(service: GameService) {
   const game = service.createLobby('socket-1', 'session-1')
@@ -42,32 +47,46 @@ describe('Сборка забытых партий', () => {
 
     // Сборщик видит свежую партию и оставляет её в покое
     vi.advanceTimersByTime(TWENTY_MINUTES)
-    expect(await service.deleteStaleGames(INACTIVITY_TIMEOUT_MS)).toEqual([])
+    expect(await service.cleanupGames(CLEANUP_OPTIONS)).toEqual([])
 
     // Игрок ходит, затем ещё один игровой отрезок без активности
     await service.saveGame(game.id)
     vi.advanceTimersByTime(TWENTY_MINUTES)
-    expect(await service.deleteStaleGames(INACTIVITY_TIMEOUT_MS)).toEqual([])
+    expect(await service.cleanupGames(CLEANUP_OPTIONS)).toEqual([])
 
     // С момента последнего хода прошло меньше таймаута, хотя с момента
     // создания партии — больше
     expect(service.getGame(game.id)).toBeDefined()
   })
 
-  it('удаляет партию, в которой давно не играли', async () => {
+  it('удаляет партию, в которой давно нет подключённых игроков', async () => {
     const service = new GameService(new InMemoryGameDatabase())
     const game = startedGame(service)
+    game.players.forEach((player) => {
+      player.socketId = null
+    })
     await service.saveGame(game.id)
 
-    vi.advanceTimersByTime(INACTIVITY_TIMEOUT_MS + 60_000)
+    vi.advanceTimersByTime(ABANDONED_TIMEOUT_MS + 60_000)
 
-    expect(await service.deleteStaleGames(INACTIVITY_TIMEOUT_MS)).toEqual([
-      game.id,
+    expect(await service.cleanupGames(CLEANUP_OPTIONS)).toEqual([
+      { gameId: game.id, reason: 'stale' },
     ])
     expect(service.getGame(game.id)).toBeUndefined()
   })
 
-  it('не трогает завершённые и ещё не начатые партии', async () => {
+  it('не удаляет активную партию, пока в ней кто-то подключён', async () => {
+    const service = new GameService(new InMemoryGameDatabase())
+    const game = startedGame(service)
+    await service.saveGame(game.id)
+
+    vi.advanceTimersByTime(ABANDONED_TIMEOUT_MS * 10)
+
+    expect(await service.cleanupGames(CLEANUP_OPTIONS)).toEqual([])
+    expect(service.getGame(game.id)).toBeDefined()
+  })
+
+  it('оставляет лобби и удаляет завершённую партию по сроку хранения', async () => {
     const service = new GameService(new InMemoryGameDatabase())
     const notStarted = service.createLobby('socket-1', 'session-1')
     const ended = startedGame(service)
@@ -76,10 +95,32 @@ describe('Сборка забытых партий', () => {
     await service.saveGame(notStarted.id)
     await service.saveGame(ended.id)
 
-    vi.advanceTimersByTime(INACTIVITY_TIMEOUT_MS * 10)
-    expect(await service.deleteStaleGames(INACTIVITY_TIMEOUT_MS)).toEqual([])
+    vi.advanceTimersByTime(FINISHED_RETENTION_MS + 60_000)
+
+    expect(await service.cleanupGames(CLEANUP_OPTIONS)).toEqual([
+      { gameId: ended.id, reason: 'expired' },
+    ])
     expect(service.getGame(notStarted.id)).toBeDefined()
-    expect(service.getGame(ended.id)).toBeDefined()
+    expect(service.getGame(ended.id)).toBeUndefined()
+  })
+
+  it('удаляет просроченную завершённую партию по сводке без загрузки', async () => {
+    const db = new InMemoryGameDatabase()
+    const source = new GameService(db)
+    const ended = startedGame(source)
+    ended.gameIsEnded = true
+    await source.saveGame(ended.id)
+
+    const restarted = new GameService(db)
+    await restarted.loadSavedGames()
+    expect(restarted.getGame(ended.id)).toBeUndefined()
+
+    vi.advanceTimersByTime(FINISHED_RETENTION_MS + 60_000)
+
+    expect(await restarted.cleanupGames(CLEANUP_OPTIONS)).toEqual([
+      { gameId: ended.id, reason: 'expired' },
+    ])
+    expect(await db.getGame(ended.id)).toBeNull()
   })
 })
 
@@ -204,6 +245,30 @@ describe('Удаление партии', () => {
 
     expect(await db.getGame(game.id)).toBeNull()
     expect(service.getGame(game.id)).toBeUndefined()
+  })
+
+  it('не оставляет сводку от сохранения, завершившегося во время удаления', async () => {
+    const { db, service } = serviceWithGame()
+    const game = startedGame(service)
+    await service.saveGame(game.id)
+
+    const gate = new Promise<void>((resolve) => setTimeout(resolve, 20))
+    const originalSave = db.saveGame.bind(db)
+    db.saveGame = async (gameId, state, summary) => {
+      await gate
+      await originalSave(gameId, state, summary)
+    }
+
+    const inFlightSave = service.saveGame(game.id)
+    const deletion = service.deleteGame(game.id)
+
+    await Promise.all([inFlightSave, deletion])
+
+    expect(
+      (await service.getGameSummaries()).some(
+        (summary) => summary.id === game.id
+      )
+    ).toBe(false)
   })
 
   it('удаляет партию, даже если сохранение в полёте упало', async () => {
@@ -379,6 +444,65 @@ describe('Список партий', () => {
     const summaries = await service.getGameSummaries()
 
     expect(summaries.filter(({ id }) => id === game.id)).toHaveLength(1)
+  })
+})
+
+describe('Ленивая загрузка партий', () => {
+  it('поднимает незавершённые партии и оставляет завершённые в сводках', async () => {
+    const db = new InMemoryGameDatabase()
+    const source = new GameService(db)
+    const lobby = source.createLobby('socket-1', 'session-1')
+    const active = startedGame(source)
+    const ended = startedGame(source)
+    ended.gameIsEnded = true
+
+    await source.saveGame(lobby.id)
+    await source.saveGame(active.id)
+    await source.saveGame(ended.id)
+
+    const restarted = new GameService(db)
+    await restarted.loadSavedGames()
+
+    expect(restarted.getGame(lobby.id)).toBeDefined()
+    expect(restarted.getGame(active.id)).toBeDefined()
+    expect(restarted.getGame(ended.id)).toBeUndefined()
+    expect((await restarted.getGameSummaries()).map(({ id }) => id)).toContain(
+      ended.id
+    )
+
+    const loaded = await restarted.resolveGame(ended.id)
+
+    expect(loaded?.gameIsEnded).toBe(true)
+    expect(restarted.getGame(ended.id)).toBeDefined()
+  })
+})
+
+describe('Владелец лобби', () => {
+  it('передаёт права следующему игроку после выхода создателя', () => {
+    const { service } = serviceWithGame()
+    const game = service.createLobby('socket-1', 'session-1')
+    service.addPlayer(game.id, 1, {
+      name: 'Игрок 2',
+      socketId: 'socket-2',
+      sessionId: 'session-2',
+    })
+
+    service.releasePlayer(game.id, 'socket-1', null)
+
+    expect(service.reassignLobbyOwner(game.id)).toBe('session-2')
+    expect(game.ownerSessionId).toBe('session-2')
+    expect(service.canStartLobby(game.id, 'session-2')).toBe(true)
+    expect(service.canStartLobby(game.id, 'session-1')).toBe(false)
+  })
+
+  it('снимает владельца, если в лобби не осталось игроков', () => {
+    const { service } = serviceWithGame()
+    const game = service.createLobby('socket-1', 'session-1')
+
+    service.releasePlayer(game.id, 'socket-1', null)
+
+    expect(service.reassignLobbyOwner(game.id)).toBeNull()
+    expect(game.ownerSessionId).toBeNull()
   })
 })
 

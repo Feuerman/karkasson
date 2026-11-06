@@ -115,7 +115,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         return
       }
 
-      const existingGame = service.getGameByIdentifier(gameId)
+      const existingGame = await service.resolveGame(gameId)
       const resolvedGameId = existingGame?.id
       if (!existingGame || !resolvedGameId) {
         const failure = guard.recordJoinFailure(ip)
@@ -253,17 +253,29 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
 
       if (!game.gameIsStarted) {
         const previousState = game.captureRollbackState()
+        const previousOwner = game.ownerSessionId
         service.releasePlayer(gameId, socket.id, null)
         if (game.players.every((p) => !p.socketId && !p.sessionId)) {
           try {
             await service.deleteGame(gameId)
           } catch (error) {
             game.restoreRollbackState(previousState)
+            service.setLobbyOwner(gameId, previousOwner)
             callback?.(errorResponse(CommonErrors.SaveFailed))
             return
           }
-          events.publishGameDeleted(gameId)
+          events.publishGameDeleted(gameId, 'owner_left')
           events.publishGamesList(service.formatGamesList())
+        } else {
+          service.reassignLobbyOwner(gameId)
+          try {
+            await service.saveGame(gameId)
+          } catch (error) {
+            game.restoreRollbackState(previousState)
+            service.setLobbyOwner(gameId, previousOwner)
+            callback?.(errorResponse(CommonErrors.SaveFailed))
+            return
+          }
         }
       } else if (!game.gameIsEnded) {
         // Явный выход меняет участие в партии, поэтому фиксируется в хранилище

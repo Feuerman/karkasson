@@ -20,6 +20,7 @@ import type {
   DragonMovePayload,
   FairyMovePayload,
   RemovePlayerPayload,
+  GameDeletedPayload,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
 
@@ -467,6 +468,10 @@ export class GameService implements IGameService {
 
   onGameUpdated(callback: (game: GameData) => void) {
     return this.onSocketEvent(SocketEvents.GameUpdated, callback)
+  }
+
+  onGameDeleted(callback: (payload: GameDeletedPayload) => void) {
+    return this.onSocketEvent(SocketEvents.GameDeleted, callback)
   }
 
   async selectPlacingPoint({

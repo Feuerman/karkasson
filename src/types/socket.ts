@@ -1,5 +1,12 @@
 import type { GameSummary, GameData } from '@server/services/GameService'
-import type { PlayerId, PlacementConflict, Point } from '@server/modules/types'
+import type {
+  GameDeletedPayload,
+  PlayerId,
+  PlacementConflict,
+  Point,
+} from '@server/modules/types'
+
+export type { GameDeletedPayload }
 
 export interface SocketAckBase {
   error?: string

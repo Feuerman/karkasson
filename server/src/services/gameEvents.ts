@@ -1,3 +1,4 @@
+import type { GameDeletionReason } from '../modules/types'
 import type { GameData, GameSummary } from './GameService'
 
 /**
@@ -13,7 +14,7 @@ export interface GameEventsPublisher {
   /** Сообщает участникам комнаты о неудаче хода, не обрывая их сессию. */
   publishGameError(gameId: string, message: string): void
   /** Уведомляет комнату, что партия удалена и её нужно покинуть. */
-  publishGameDeleted(gameId: string): void
+  publishGameDeleted(gameId: string, reason: GameDeletionReason): void
   /** Обновляет список партий у всех клиентов, включая наблюдателей лобби. */
   publishGamesList(games: GameSummary[]): void
 }

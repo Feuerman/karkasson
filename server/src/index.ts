@@ -1,5 +1,6 @@
 import {
-  GAME_INACTIVITY_TIMEOUT_MS,
+  FINISHED_GAME_RETENTION_MS,
+  GAME_ABANDONED_TIMEOUT_MS,
   PORT,
   STALE_GAMES_CHECK_MS,
 } from './config'
@@ -28,21 +29,24 @@ process.on('unhandledRejection', (reason: unknown) => {
   void shutdown(1)
 })
 
-function startStaleGamesCleanup() {
+function startGamesCleanup() {
   const timer = setInterval(() => {
     void gameService
-      .deleteStaleGames(GAME_INACTIVITY_TIMEOUT_MS)
-      .then((deletedGameIds) => {
-        deletedGameIds.forEach((gameId) => {
-          events.publishGameDeleted(gameId)
+      .cleanupGames({
+        abandonedTimeoutMs: GAME_ABANDONED_TIMEOUT_MS,
+        finishedRetentionMs: FINISHED_GAME_RETENTION_MS,
+      })
+      .then((deletedGames) => {
+        deletedGames.forEach(({ gameId, reason }) => {
+          events.publishGameDeleted(gameId, reason)
         })
 
-        if (deletedGameIds.length) {
+        if (deletedGames.length) {
           events.publishGamesList(gameService.formatGamesList())
         }
       })
       .catch((error: unknown) => {
-        logger.error('Failed to clean stale games:', error)
+        logger.error('Failed to clean games:', error)
       })
   }, STALE_GAMES_CHECK_MS)
   return timer
@@ -81,7 +85,10 @@ async function startServer() {
 
   try {
     await gameService.loadSavedGames()
-    logger.info(`Loaded ${gameService.allGames().length} saved game(s)`)
+    logger.info(
+      `Loaded ${gameService.allGames().length} active game(s), ` +
+        `${(await gameService.getGameSummaries()).length} known game(s)`
+    )
     gameService.computerMoves.resumeAll(events, gameService)
   } catch (error: unknown) {
     logger.error('Failed to load saved games:', error)
@@ -89,7 +96,7 @@ async function startServer() {
     return
   }
 
-  cleanupTimer = startStaleGamesCleanup()
+  cleanupTimer = startGamesCleanup()
   process.once('SIGINT', () => void shutdown(0))
   process.once('SIGTERM', () => void shutdown(0))
 }

@@ -1,4 +1,4 @@
-import { COMPUTER_MOVE_DELAY_MS, PLAYER_RECONNECT_TIMEOUT_MS } from '../config'
+import { COMPUTER_MOVE_DELAY_MS } from '../config'
 import type { GameManager } from '../modules/GameManager'
 import { GameSaveError, MutationCancelled } from '../modules/errors'
 import { type Player, type PlayerId } from '../modules/types'
@@ -31,57 +31,34 @@ export class ComputerMoveScheduler {
    */
   private readonly pendingMoveTimers = new Map<string, NodeJS.Timeout>()
   private readonly runningMoveChains = new Set<string>()
-  private readonly reconnectTimers = new Map<string, NodeJS.Timeout>()
 
   /** Возобновляет ходы компьютера во всех партиях после перезапуска сервера. */
-  resumeAll(
-    events: GameEventsPublisher,
-    service: GameService,
-    reconnectTimeoutMs?: number
-  ): void {
+  resumeAll(events: GameEventsPublisher, service: GameService): void {
     service.allGames().forEach((game) => {
       if (!game.id) return
       if (!game.gameIsStarted || game.gameIsEnded) return
-      this.continueGame(events, service, game.id, reconnectTimeoutMs)
+      this.continueGame(events, service, game.id)
     })
   }
 
   /**
    * Продолжает партию: если ход принадлежит компьютеру, ход запланирован, а
-   * если один из игроков отключился — ждём переподключения.
+   * если один из игроков отключился — партия ждёт переподключения. Удаление
+   * заброшенной партии делает общая очистка по сроку, а не таймер игрока:
+   * короткое отключение не должно уничтожать сохранение.
    */
   continueGame(
     events: GameEventsPublisher,
     service: GameService,
-    gameId: string,
-    reconnectTimeoutMs?: number
+    gameId: string
   ): void {
     const game = service.getGame(gameId)
     if (!game || !game.gameIsStarted || game.gameIsEnded) return
 
     if (this.hasDisconnectedHuman(game)) {
       this.cancelMove(gameId)
-      const existingTimer = this.reconnectTimers.get(gameId)
-      if (existingTimer && reconnectTimeoutMs === undefined) return
-      if (existingTimer) clearTimeout(existingTimer)
-      const timer = setTimeout(() => {
-        this.reconnectTimers.delete(gameId)
-        const currentGame = service.getGame(gameId)
-        if (!currentGame || !this.hasDisconnectedHuman(currentGame)) return
-        this.deleteComputerGame(
-          events,
-          service,
-          gameId,
-          'players did not reconnect'
-        )
-      }, reconnectTimeoutMs ?? PLAYER_RECONNECT_TIMEOUT_MS)
-      this.reconnectTimers.set(gameId, timer)
       return
     }
-
-    const reconnectTimer = this.reconnectTimers.get(gameId)
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    this.reconnectTimers.delete(gameId)
 
     if (!game.currentPlayer) {
       this.deleteComputerGame(events, service, gameId, 'missing current player')
@@ -197,14 +174,11 @@ export class ComputerMoveScheduler {
     reason: string
   ): void {
     this.cancelMove(gameId)
-    const reconnectTimer = this.reconnectTimers.get(gameId)
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    this.reconnectTimers.delete(gameId)
 
     void service
       .deleteGame(gameId)
       .then(() => {
-        events.publishGameDeleted(gameId)
+        events.publishGameDeleted(gameId, 'failed')
         events.publishGamesList(service.formatGamesList())
       })
       .catch((error: unknown) => {

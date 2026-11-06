@@ -297,7 +297,7 @@ describe('Отключение и переподключение игроков'
     )
   })
 
-  it('удаляет смешанную партию, если человек не переподключился за отведённое время', async () => {
+  it('не удаляет смешанную партию, пока человек не вернулся', async () => {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)
     clients.push(lobby.creator, lobby.joiner)
@@ -324,14 +324,17 @@ describe('Отключение и переподключение игроков'
     server.handle.gameService.computerMoves.continueGame(
       server.handle.events,
       server.handle.gameService,
-      lobby.gameId,
-      100
+      lobby.gameId
     )
-    await waitForCondition(
-      () => server?.handle.gameService.getGame(lobby.gameId) === undefined,
-      'удаление партии после окончания срока переподключения'
-    )
-    expect(await server.db.getGame(lobby.gameId)).toBeNull()
+    const pausedGame = server.handle.gameService.getGame(lobby.gameId)
+    if (!pausedGame) throw new Error('Игра исчезла на паузе')
+    const tilesBeforePause = countPlacedTiles(pausedGame.tilePlacesStats)
+    await sleep(250)
+
+    const stillPaused = server.handle.gameService.getGame(lobby.gameId)
+    if (!stillPaused) throw new Error('Игра удалена во время паузы')
+    expect(countPlacedTiles(stillPaused.tilePlacesStats)).toBe(tilesBeforePause)
+    expect(await server.db.getGame(lobby.gameId)).not.toBeNull()
   })
 
   it('освобождает слот игрока во всех партиях, где он состоял', async () => {
@@ -358,10 +361,13 @@ describe('Отключение и переподключение игроков'
     await waitForCondition(() => {
       const ownSlot = slot(own.gameId, 0)
       const foreignSlot = slot(foreign.gameId, 1)
+      // Своё лобби осталось без игроков и удалено; в чужом слот освобождён.
       // Обрабатывается только первая партия, если сокет ищут по одной игре.
+      const ownReleased =
+        !server?.handle.gameService.getGame(own.gameId) ||
+        (ownSlot?.socketId === null && ownSlot.sessionId === null)
       return (
-        ownSlot?.socketId === null &&
-        ownSlot.sessionId === null &&
+        ownReleased &&
         foreignSlot?.socketId === null &&
         foreignSlot.sessionId === null
       )
