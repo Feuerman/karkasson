@@ -157,18 +157,25 @@ export const FIREBASE_RETRY_BASE_DELAY_MS = readPositiveNumber(
 // быстрой серии команд бесконечно наращивать очередь при медленном хранилище.
 export const MAX_PENDING_SAVES_PER_GAME = 20
 
-// Игра удаляется, если её не обновляли дольше получаса
-export const GAME_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
+// Партия без подключённых игроков удаляется, если её не обновляли сутки.
+export const GAME_ABANDONED_TIMEOUT_MS = readPositiveNumber(
+  'GAME_ABANDONED_TIMEOUT_MS',
+  24 * 60 * 60 * 1000
+)
 
-// Как часто проверять «зависшие» игры
+// Завершённые партии хранятся неделю: за это время игрок успевает посмотреть
+// результат, а хранилище не растёт бесконечно.
+export const FINISHED_GAME_RETENTION_MS = readPositiveNumber(
+  'FINISHED_GAME_RETENTION_MS',
+  7 * 24 * 60 * 60 * 1000
+)
+
+// Как часто проверять заброшенные и просроченные игры
 export const STALE_GAMES_CHECK_MS = 10_000
 
 // Пауза перед ходом компьютерного игрока
 export const COMPUTER_MOVE_DELAY_MS =
   Number(process.env.COMPUTER_MOVE_DELAY_MS) || 1000
-
-// Время на восстановление соединения всеми реальными игроками партии.
-export const PLAYER_RECONNECT_TIMEOUT_MS = 15 * 60 * 1000
 
 // Верхняя граница размера одного Socket.IO-пакета.
 export const MAX_HTTP_BUFFER_SIZE = 64 * 1024

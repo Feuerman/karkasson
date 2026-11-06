@@ -192,12 +192,36 @@ describe('Лобби', () => {
     // creator (последний активный игрок) уходит тоже — лобби пустеет,
     // сервер удаляет игру, шлёт gameDeleted и обновляет updateGamesList.
     lobby.creator.emit(SocketEvents.LeaveGame, { gameId: lobby.gameId })
-    await lobby.creator.waitForEvent(SocketEvents.GameDeleted)
+    const deleted = await lobby.creator.waitForEvent<{ reason: string }>(
+      SocketEvents.GameDeleted
+    )
+    expect(deleted.reason).toBe('owner_left')
 
     const { games } = await lobby.creator.emitAck<{
       games: Array<{ id: string }>
     }>(SocketEvents.GetGamesList)
     expect(games.find((g) => g.id === lobby.gameId)).toBeFalsy()
+  })
+
+  it('передаёт права владельца следующему игроку при выходе создателя', async () => {
+    server = await startTestServer()
+    const lobby = await createLobbyWithPlayers(server.url)
+    clients.push(lobby.creator, lobby.joiner)
+
+    await lobby.creator.emitAck(SocketEvents.LeaveGame, {
+      gameId: lobby.gameId,
+    })
+
+    const updated = await latestGame(
+      lobby.joiner,
+      (g) => g.ownerSessionId === lobby.joiner.sessionId
+    )
+    expect(updated.ownerSessionId).toBe(lobby.joiner.sessionId)
+    expect(updated.players[0].sessionId).toBeNull()
+
+    await expect(
+      lobby.joiner.emitAck(SocketEvents.StartGame, { gameId: lobby.gameId })
+    ).resolves.toBeDefined()
   })
 
   it('удаляет игрока из лобби', async () => {

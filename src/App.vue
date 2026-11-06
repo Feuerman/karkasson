@@ -93,6 +93,7 @@ import {
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import { SocketEvents, type PlayerView } from '@server/modules/types'
+import type { GameDeletedPayload } from './types/socket'
 import type { RulesDocument } from './rules/types'
 
 const RulesPanel = defineAsyncComponent(
@@ -184,6 +185,9 @@ const onGameStart = (gameData: IGame) => {
 const onGameUpdated = (updatedGame: IGame) => {
   if (!updatedGame.gameIsStarted) {
     playersList.value = updatedGame.players
+    if (currentGame.value?.id === updatedGame.id) {
+      currentGame.value = updatedGame
+    }
     return
   }
 
@@ -272,6 +276,28 @@ const clearSession = () => {
   previousIsMyTurn.value = null
   showResultPanel.value = false
   showRoom.value = false
+}
+
+const gameDeletedMessages: Record<GameDeletedPayload['reason'], string> = {
+  stale: 'Партия удалена: все игроки давно отключились',
+  owner_left: 'Лобби закрыто: владелец вышел из комнаты',
+  expired: 'Срок хранения завершённой партии истёк',
+  failed: 'Партия закрыта из-за ошибки сервера',
+}
+
+const onGameDeleted = (payload: GameDeletedPayload) => {
+  const deletedGameId =
+    activeGameId ?? currentGame.value?.id ?? gameState.value.id
+  notificationService.warning(gameDeletedMessages[payload.reason])
+
+  if (deletedGameId && localStorage.getItem('lastGameId') === deletedGameId) {
+    localStorage.removeItem('lastGameId')
+  }
+
+  clearSession()
+  gameState.value = {} as IGameBoard
+  showLobby.value = true
+  getGamesList()
 }
 
 const leaveGame = async () => {
@@ -375,12 +401,9 @@ const startGame = async () => {
 }
 
 const isLobbyCreator = computed(() => {
-  const creator = currentGame.value?.players[0]
-  if (!creator) return false
-
-  return Boolean(
-    creator.sessionId && creator.sessionId === GameService.sessionId.value
-  )
+  const ownerSessionId = currentGame.value?.ownerSessionId
+  if (!ownerSessionId) return false
+  return ownerSessionId === GameService.sessionId.value
 })
 
 const playersReconnectProcess = computed(() => {
@@ -455,6 +478,7 @@ onMounted(() => {
   GameService.connect()
 
   const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
+  const unsubscribeGameDeleted = GameService.onGameDeleted(onGameDeleted)
   const onGamesListUpdated = (gamesList: GameSummary[]) => {
     updateLocalGamesList(gamesList)
   }
@@ -471,6 +495,7 @@ onMounted(() => {
 
   cleanupSocketListeners = () => {
     unsubscribeGameUpdated()
+    unsubscribeGameDeleted()
     unsubscribeGamesList()
     unsubscribeConnect()
   }
