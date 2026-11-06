@@ -252,11 +252,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       if (!game.gameIsStarted) {
+        const previousState = game.captureRollbackState()
         service.releasePlayer(gameId, socket.id, null)
         if (game.players.every((p) => !p.socketId && !p.sessionId)) {
           try {
             await service.deleteGame(gameId)
           } catch (error) {
+            game.restoreRollbackState(previousState)
             callback?.(errorResponse(CommonErrors.SaveFailed))
             return
           }
@@ -264,7 +266,19 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           events.publishGamesList(service.formatGamesList())
         }
       } else if (!game.gameIsEnded) {
-        service.releasePlayer(gameId, socket.id)
+        // Явный выход меняет участие в партии, поэтому фиксируется в хранилище
+        // до подтверждения: после перезапуска сервер не должен вернуть игрока
+        // в слот по устаревшему сохранению.
+        try {
+          await service.runGameCommand(gameId, () =>
+            service.mutateAndSave(gameId, async () => {
+              service.releasePlayer(gameId, socket.id)
+            })
+          )
+        } catch (error) {
+          callback?.(errorResponse(CommonErrors.SaveFailed))
+          return
+        }
         scheduler.continueGame(events, service, gameId)
       }
 

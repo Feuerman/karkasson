@@ -13,6 +13,7 @@ import {
   MAX_ACTIVE_AI_GAMES,
   MAX_ACTIVE_AI_GAMES_PER_SESSION,
   MAX_OWNED_LOBBIES,
+  MAX_PENDING_SAVES_PER_GAME,
   MAX_TOTAL_GAMES,
 } from '../config'
 import { playerNameKey } from '../modules/playerName'
@@ -47,6 +48,7 @@ export interface GameServiceLimits {
   maxOwnedLobbies: number
   maxActiveAiGames: number
   maxActiveAiGamesPerSession: number
+  maxPendingSavesPerGame: number
 }
 
 /**
@@ -57,12 +59,21 @@ export interface GameServiceLimits {
 export interface StorageStatus {
   games: number
   pendingSaves: number
+  pendingSaveOperations: number
+  oldestSaveAgeMs: number
+  saveFailures: number
   pendingCommands: number
   unreadableSaves: number
 }
 
 /** ������� ��� ����� ����� ��������� �������� ������� ����������. */
 const FLUSH_MAX_ROUNDS = 8
+
+/** Сколько помнить успешные команды, чтобы отсечь повтор после таймаута ack. */
+const COMMAND_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000
+
+/** Верхняя граница памяти на идемпотентность одной партии. */
+const MAX_COMPLETED_COMMANDS_PER_GAME = 200
 
 function ignoreResult(): void {}
 
@@ -82,9 +93,15 @@ export class GameService {
   private socketToSessionMap: Record<string, string> = {}
   private lobbyOwners: Record<string, string> = {}
   private readonly pendingSaves = new Map<string, Promise<void>>()
+  private readonly pendingDeletions = new Map<string, Promise<void>>()
+  private readonly saveQueueDepth = new Map<string, number>()
+  private readonly saveQueueSince = new Map<string, number>()
+  private readonly completedCommands = new Map<string, Map<string, number>>()
   private readonly gameCommands = new Map<string, { tail: Promise<void> }>()
   /** Сколько сохранений не удалось прочитать при последней загрузке. */
   private unreadableSaves = 0
+  /** Сколько записей в хранилище завершились ошибкой. */
+  private saveFailureCount = 0
   private readonly limits: GameServiceLimits
 
   constructor(
@@ -98,6 +115,8 @@ export class GameService {
       maxActiveAiGames: limits.maxActiveAiGames ?? MAX_ACTIVE_AI_GAMES,
       maxActiveAiGamesPerSession:
         limits.maxActiveAiGamesPerSession ?? MAX_ACTIVE_AI_GAMES_PER_SESSION,
+      maxPendingSavesPerGame:
+        limits.maxPendingSavesPerGame ?? MAX_PENDING_SAVES_PER_GAME,
     }
   }
 
@@ -134,6 +153,43 @@ export class GameService {
   /** Число партий, у которых команда стоит в очереди или выполняется. */
   pendingGameCommandCount(): number {
     return this.gameCommands.size
+  }
+
+  /** Уже применена ли команда с этим ключом в партии. */
+  isCommandCompleted(gameId: string, commandKey: string): boolean {
+    const commands = this.completedCommands.get(gameId)
+    if (!commands) return false
+
+    const completedAt = commands.get(commandKey)
+    if (completedAt === undefined) return false
+    if (Date.now() - completedAt > COMMAND_IDEMPOTENCY_TTL_MS) {
+      commands.delete(commandKey)
+      return false
+    }
+    return true
+  }
+
+  /** Запоминает успешно применённую команду; ключ включает имя команды. */
+  rememberCompletedCommand(gameId: string, commandKey: string): void {
+    const now = Date.now()
+    let commands = this.completedCommands.get(gameId)
+    if (!commands) {
+      commands = new Map()
+      this.completedCommands.set(gameId, commands)
+    }
+
+    for (const [key, completedAt] of commands) {
+      if (now - completedAt <= COMMAND_IDEMPOTENCY_TTL_MS) break
+      commands.delete(key)
+    }
+
+    commands.delete(commandKey)
+    commands.set(commandKey, now)
+    while (commands.size > MAX_COMPLETED_COMMANDS_PER_GAME) {
+      const oldestKey = commands.keys().next().value
+      if (oldestKey === undefined) break
+      commands.delete(oldestKey)
+    }
   }
 
   /**
@@ -291,8 +347,13 @@ export class GameService {
   }
 
   async deleteGame(gameId: string): Promise<void> {
+    const existingDeletion = this.pendingDeletions.get(gameId)
+    if (existingDeletion) return existingDeletion
+
     // Убираем партию из реестра сразу: пока она там лежит, новый saveGame
     // встаёт в очередь после удаления и воскрешает запись в хранилище.
+    const game = this.games[gameId]
+    const owner = this.lobbyOwners[gameId]
     delete this.games[gameId]
     delete this.lobbyOwners[gameId]
 
@@ -302,14 +363,26 @@ export class GameService {
     const deletion: Promise<void> = previousSave
       .catch(() => undefined)
       .then(() => this.db.deleteGame(gameId))
+      .catch((error: unknown) => {
+        // Хранилище не удалило запись: возвращаем партию в память, иначе
+        // после перезапуска она «воскреснет» из базы без живого состояния.
+        if (game && !this.games[gameId]) this.games[gameId] = game
+        if (owner && !this.lobbyOwners[gameId]) this.lobbyOwners[gameId] = owner
+        throw error
+      })
       .finally(() => {
         if (this.pendingSaves.get(gameId) === deletion) {
           this.pendingSaves.delete(gameId)
         }
+        if (this.pendingDeletions.get(gameId) === deletion) {
+          this.pendingDeletions.delete(gameId)
+        }
       })
     this.pendingSaves.set(gameId, deletion)
+    this.pendingDeletions.set(gameId, deletion)
 
     await deletion
+    this.completedCommands.delete(gameId)
   }
 
   saveGame(gameId: string): Promise<void> {
@@ -318,6 +391,12 @@ export class GameService {
     if (game.id !== gameId) {
       return Promise.reject(new Error(SaveErrors.StorageKeyMismatch))
     }
+
+    const depth = this.saveQueueDepth.get(gameId) ?? 0
+    if (depth >= this.limits.maxPendingSavesPerGame) {
+      return Promise.reject(new Error(CommonErrors.SaveFailed))
+    }
+
     // Метку обновляем на живом объекте, а не только на снимке: по ней
     // deleteStaleGames отсеивает активные партии, а она не должна замерзать
     // после первого сохранения.
@@ -326,10 +405,29 @@ export class GameService {
     // неизменяемым к моменту, когда очередь сохранений дойдёт до хранилища.
     const serializedState: GameSavePayload = serializeGameState(game)
     const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
-    const save = previousSave.then(() =>
-      this.db.saveGame(gameId, serializedState)
-    )
+    this.saveQueueDepth.set(gameId, depth + 1)
+    if (depth === 0) this.saveQueueSince.set(gameId, Date.now())
+
+    const save = previousSave
+      // Ошибка прошлой записи не должна блокировать следующую: хранилище могло
+      // восстановиться, а новая команда заслуживает собственной попытки.
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          await this.db.saveGame(gameId, serializedState)
+        } catch (error) {
+          this.saveFailureCount += 1
+          throw error
+        }
+      })
     const trackedSave = save.finally(() => {
+      const remaining = (this.saveQueueDepth.get(gameId) ?? 1) - 1
+      if (remaining <= 0) {
+        this.saveQueueDepth.delete(gameId)
+        this.saveQueueSince.delete(gameId)
+      } else {
+        this.saveQueueDepth.set(gameId, remaining)
+      }
       if (this.pendingSaves.get(gameId) === trackedSave) {
         this.pendingSaves.delete(gameId)
       }
@@ -695,9 +793,21 @@ export class GameService {
 
   /** Сведения о состоянии хранилища для health-endpoint. */
   storageStatus(): StorageStatus {
+    const pendingSaveOperations = [...this.saveQueueDepth.values()].reduce(
+      (total, depth) => total + depth,
+      0
+    )
+    const oldestSaveSince = this.saveQueueSince.size
+      ? Math.min(...this.saveQueueSince.values())
+      : null
+
     return {
       games: Object.keys(this.games).length,
       pendingSaves: this.pendingSaves.size,
+      pendingSaveOperations,
+      oldestSaveAgeMs:
+        oldestSaveSince === null ? 0 : Date.now() - oldestSaveSince,
+      saveFailures: this.saveFailureCount,
       pendingCommands: this.gameCommands.size,
       unreadableSaves: this.unreadableSaves,
     }

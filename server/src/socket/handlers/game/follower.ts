@@ -21,11 +21,12 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.InvalidRequest))
         return
       }
-      const { gameId, place, followerType } = request
+      const { gameId, place, followerType, commandId } = request
 
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.PlaceFollower,
+        commandId,
         callback,
         execute: async ({ game }) => {
           if (game.princessChoice || game.dragonMove) {
@@ -76,11 +77,12 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.InvalidRequest))
         return
       }
-      const { gameId } = request
+      const { gameId, commandId } = request
 
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.RecallAbbot,
+        commandId,
         callback,
         execute: async ({ game }) => {
           if (!game.recallAbbot()) {
@@ -104,11 +106,12 @@ export function registerFollowerHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.InvalidRequest))
         return
       }
-      const { gameId } = request
+      const { gameId, commandId } = request
 
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.SkipFollower,
+        commandId,
         callback,
         execute: async ({ game }) => {
           if (game.princessChoice || game.dragonMove) {

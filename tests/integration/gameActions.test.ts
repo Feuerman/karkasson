@@ -218,7 +218,7 @@ describe('Действия в игре: валидация ходов', () => {
         rotation: move.tile.rotation,
         position: { rowIndex: move.rowIndex, tileIndex: move.tileIndex },
       })
-    ).rejects.toThrow(CommonErrors.InternalFailure)
+    ).rejects.toThrow(CommonErrors.SaveFailed)
 
     const current = running.handle.gameService.getGame(gameId)
     expect(current?.tilePlacesStats[move.rowIndex]?.[move.tileIndex]).toBe(
@@ -271,6 +271,10 @@ describe('Действия в игре: валидация ходов', () => {
     expect(started.gameIsStarted).toBe(true)
 
     // Боб «покидает» уже начатую игру
+    let leaveSaves = 0
+    running.db.beforeSave = async () => {
+      leaveSaves += 1
+    }
     joiner.emit(SocketEvents.LeaveGame, { gameId })
     const afterLeave = await latestGame(
       creator,
@@ -280,6 +284,11 @@ describe('Действия в игре: валидация ходов', () => {
     expect(afterLeave.gameIsStarted).toBe(true)
     expect(afterLeave.players[1].sessionId).toBe(joiner.sessionId)
     expect(afterLeave.players[1].name).toBe('Bob')
+
+    // Выход зафиксирован в хранилище до подтверждения, а не только в памяти.
+    expect(leaveSaves).toBeGreaterThan(0)
+    const savedAfterLeave = await running.db.getGame(gameId)
+    expect(savedAfterLeave?.players[1]?.sessionId).toBe(joiner.sessionId)
 
     // Игра не удалена
     expect(running.handle.gameService.getGame(gameId)).toBeTruthy()

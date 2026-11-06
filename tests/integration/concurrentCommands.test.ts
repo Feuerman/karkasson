@@ -82,6 +82,47 @@ describe('Конкурентные команды одной партии', () =
     expect(live?.currentPlayerIndex).toBe(state.currentPlayerIndex)
   })
 
+  it('повтор команды с тем же commandId не применяет ход дважды', async () => {
+    const { server, gameId, lobby } = await startedGameWithTwoHumans()
+    const live = server.handle.gameService.getGame(gameId)
+    const placement = live ? findPlacement(live) : undefined
+    if (!placement) throw new Error('Нет подходящей клетки для тайла')
+
+    const payload = {
+      gameId,
+      rotation: placement.rotation,
+      position: {
+        rowIndex: placement.rowIndex,
+        tileIndex: placement.tileIndex,
+      },
+      commandId: 'retry-after-timeout',
+    }
+
+    const first = await lobby.creator.emitAck<GameAck>(
+      SocketEvents.PlaceTile,
+      payload
+    )
+    expect(first.success).toBe(true)
+    const afterFirst = server.handle.gameService.getGame(gameId)
+    const firstMoveCounter = afterFirst?.moveCounter
+    const firstPlacedId =
+      afterFirst?.tilePlacesStats[placement.rowIndex]?.[placement.tileIndex]?.id
+    expect(firstPlacedId).toBeDefined()
+
+    const second = await lobby.creator.emitAck<GameAck>(
+      SocketEvents.PlaceTile,
+      payload
+    )
+    expect(second.success).toBe(true)
+
+    const afterSecond = server.handle.gameService.getGame(gameId)
+    expect(afterSecond?.moveCounter).toBe(firstMoveCounter)
+    expect(
+      afterSecond?.tilePlacesStats[placement.rowIndex]?.[placement.tileIndex]
+        ?.id
+    ).toBe(firstPlacedId)
+  })
+
   /**
    * Клетка и поворот, на которых тайл встанет: размещение проверяет сам
    * сервер, поэтому ищется тем же правилом.
@@ -141,7 +182,7 @@ describe('Конкурентные команды одной партии', () =
       point,
     })
 
-    await expect(placing).rejects.toThrow(CommonErrors.InternalFailure)
+    await expect(placing).rejects.toThrow(CommonErrors.SaveFailed)
     await expect(selecting).resolves.toMatchObject({ success: true })
     await gate
 

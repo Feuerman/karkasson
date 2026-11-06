@@ -15,12 +15,16 @@ import {
 } from 'firebase/database'
 import {
   getFirebaseConfig,
+  FIREBASE_OPERATION_ATTEMPTS,
+  FIREBASE_OPERATION_TIMEOUT_MS,
+  FIREBASE_RETRY_BASE_DELAY_MS,
   type FirebaseConfig,
   type FirebaseServiceAccount,
 } from '../config'
 import type { IGameState } from './gameState'
 import { deserializeGameState, readGameSummary } from './gameSave'
 import { createServerCustomToken } from './firebaseAuth'
+import { runDatabaseOperation } from './databaseRetry'
 
 /** Строка сохранения в том виде, в каком она лежит в хранилище. */
 export type GameSavePayload = string
@@ -131,17 +135,30 @@ class GameDatabase implements IGameDatabase {
     return this.authPromise
   }
 
+  /** Повторяет операцию с таймаутом и не повторяет отказы прав и данных. */
+  private run<T>(operation: () => Promise<T>): Promise<T> {
+    return runDatabaseOperation(operation, {
+      attempts: FIREBASE_OPERATION_ATTEMPTS,
+      timeoutMs: FIREBASE_OPERATION_TIMEOUT_MS,
+      baseDelayMs: FIREBASE_RETRY_BASE_DELAY_MS,
+    })
+  }
+
   async saveGame(
     gameId: string,
     serializedState: GameSavePayload
   ): Promise<void> {
-    await this.ensureAuthenticated()
-    await set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
+    await this.run(() => this.ensureAuthenticated())
+    await this.run(() =>
+      set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
+    )
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
-    await this.ensureAuthenticated()
-    const snapshot = await get(ref(this.firebaseDatabase, `games/${gameId}`))
+    await this.run(() => this.ensureAuthenticated())
+    const snapshot = await this.run(() =>
+      get(ref(this.firebaseDatabase, `games/${gameId}`))
+    )
     if (!snapshot.exists()) {
       return null
     }
@@ -149,8 +166,10 @@ class GameDatabase implements IGameDatabase {
   }
 
   async getAllGameSaves(): Promise<RawGameSave[]> {
-    await this.ensureAuthenticated()
-    const snapshot = await get(ref(this.firebaseDatabase, 'games'))
+    await this.run(() => this.ensureAuthenticated())
+    const snapshot = await this.run(() =>
+      get(ref(this.firebaseDatabase, 'games'))
+    )
     if (!snapshot.exists()) {
       return []
     }
@@ -168,8 +187,8 @@ class GameDatabase implements IGameDatabase {
   }
 
   async deleteGame(gameId: string): Promise<void> {
-    await this.ensureAuthenticated()
-    await remove(ref(this.firebaseDatabase, `games/${gameId}`))
+    await this.run(() => this.ensureAuthenticated())
+    await this.run(() => remove(ref(this.firebaseDatabase, `games/${gameId}`)))
   }
 }
 

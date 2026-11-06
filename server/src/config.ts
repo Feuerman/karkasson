@@ -137,6 +137,26 @@ export function getSocketAdminUIOptions(
   }
 }
 
+// Сколько попыток и времени отводится одной операции с Firebase. Повторы
+// сглаживают краткие сетевые сбои, не превращая недоступное хранилище в
+// бесконечное ожидание.
+export const FIREBASE_OPERATION_TIMEOUT_MS = readPositiveNumber(
+  'FIREBASE_OPERATION_TIMEOUT_MS',
+  10_000
+)
+export const FIREBASE_OPERATION_ATTEMPTS = readPositiveInteger(
+  'FIREBASE_OPERATION_ATTEMPTS',
+  3
+)
+export const FIREBASE_RETRY_BASE_DELAY_MS = readPositiveNumber(
+  'FIREBASE_RETRY_BASE_DELAY_MS',
+  250
+)
+
+// Сколько сохранений одной партии может ждать записи. Ограничение не даёт
+// быстрой серии команд бесконечно наращивать очередь при медленном хранилище.
+export const MAX_PENDING_SAVES_PER_GAME = 20
+
 // Игра удаляется, если её не обновляли дольше получаса
 export const GAME_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
 
@@ -198,6 +218,16 @@ function readEnv(
 ): string | undefined {
   const value = environment[name]?.trim()
   return value ? value : undefined
+}
+
+function readPositiveNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name])
+  return Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function readPositiveInteger(name: string, fallback: number): number {
+  const value = Math.floor(readPositiveNumber(name, fallback))
+  return value > 0 ? value : fallback
 }
 
 function requireEnv(environment: NodeJS.ProcessEnv, name: string): string {

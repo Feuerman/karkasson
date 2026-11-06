@@ -24,11 +24,12 @@ export function registerDragonHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.InvalidRequest))
         return
       }
-      const { gameId, position } = request
+      const { gameId, position, commandId } = request
 
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.MoveDragon,
+        commandId,
         callback,
         guard: requireDragonTurn,
         execute: async ({ game }) => {

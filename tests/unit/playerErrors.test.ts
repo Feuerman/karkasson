@@ -4,7 +4,12 @@ import {
   describePlacementConflicts,
   PLACEMENT_FAILURE_MESSAGE,
 } from '@server/socket/handlers/placementErrors'
-import { CommonErrors, GameErrors, LobbyErrors } from '@server/modules/errors'
+import {
+  CommonErrors,
+  GameErrors,
+  GameSaveError,
+  LobbyErrors,
+} from '@server/modules/errors'
 import { SideName, TileSideType } from '@server/modules/types'
 
 describe('Текст ошибки для игрока', () => {
@@ -46,6 +51,12 @@ describe('Текст ошибки для игрока', () => {
     expect(
       toPlayerErrorMessage(new Error('Game save has no players array'))
     ).toBe(CommonErrors.InternalFailure)
+  })
+
+  it('ошибка записи партии объясняет, что изменения не сохранены', () => {
+    expect(
+      toPlayerErrorMessage(new GameSaveError('game-1', new Error('offline')))
+    ).toBe(CommonErrors.SaveFailed)
   })
 
   it('неизвестный отказ без сообщения тоже заменяется общим отказом', () => {

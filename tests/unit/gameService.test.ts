@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryGameDatabase } from '@server/modules/Database'
-import { LobbyErrors } from '@server/modules/errors'
+import { CommonErrors, LobbyErrors } from '@server/modules/errors'
 import { GameService } from '@server/services/GameService'
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000
@@ -150,6 +150,25 @@ describe('Очередь команд партии', () => {
 
     expect(service.pendingGameCommandCount()).toBe(0)
   })
+
+  it('не применяет повтор команды с тем же ключом', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+    try {
+      const { service } = serviceWithGame()
+      const game = startedGame(service)
+
+      expect(service.isCommandCompleted(game.id, 'PlaceTile:one')).toBe(false)
+      service.rememberCompletedCommand(game.id, 'PlaceTile:one')
+      expect(service.isCommandCompleted(game.id, 'PlaceTile:one')).toBe(true)
+      expect(service.isCommandCompleted(game.id, 'PlaceTile:two')).toBe(false)
+
+      vi.advanceTimersByTime(11 * 60 * 1000)
+      expect(service.isCommandCompleted(game.id, 'PlaceTile:one')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('Удаление партии', () => {
@@ -204,6 +223,75 @@ describe('Удаление партии', () => {
     await expect(failedSave).rejects.toThrow('storage unavailable')
     expect(service.getGame(game.id)).toBeUndefined()
     expect(await db.getGame(game.id)).toBeNull()
+  })
+
+  it('возвращает партию в память, если хранилище не удалило запись', async () => {
+    const { db, service } = serviceWithGame()
+    const game = startedGame(service)
+    await service.saveGame(game.id)
+
+    db.deleteGame = async () => {
+      throw new Error('storage unavailable')
+    }
+
+    await expect(service.deleteGame(game.id)).rejects.toThrow(
+      'storage unavailable'
+    )
+
+    expect(service.getGame(game.id)).toBe(game)
+    expect(await db.getGame(game.id)).toBeTruthy()
+  })
+
+  it('продолжает сохранения после ошибки хранилища', async () => {
+    const db = new InMemoryGameDatabase()
+    const service = new GameService(db)
+    const game = startedGame(service)
+    const originalSave = db.saveGame.bind(db)
+    let calls = 0
+    db.saveGame = async (gameId, state) => {
+      calls += 1
+      if (calls === 1) throw new Error('storage unavailable')
+      await originalSave(gameId, state)
+    }
+
+    await expect(service.saveGame(game.id)).rejects.toThrow(
+      'storage unavailable'
+    )
+    await service.saveGame(game.id)
+
+    expect(calls).toBe(2)
+    expect(await db.getGame(game.id)).toBeTruthy()
+    expect(service.storageStatus().saveFailures).toBe(1)
+  })
+
+  it('отклоняет переполнение очереди сохранений партии', async () => {
+    const db = new InMemoryGameDatabase()
+    const service = new GameService(db, undefined, {
+      maxPendingSavesPerGame: 1,
+    })
+    const game = startedGame(service)
+    const originalSave = db.saveGame.bind(db)
+    let release: (() => void) | undefined
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve
+    })
+
+    db.saveGame = async (gameId, state) => {
+      markStarted?.()
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      await originalSave(gameId, state)
+    }
+
+    const first = service.saveGame(game.id)
+    await started
+    await expect(service.saveGame(game.id)).rejects.toThrow(
+      CommonErrors.SaveFailed
+    )
+    release?.()
+    await first
   })
 })
 

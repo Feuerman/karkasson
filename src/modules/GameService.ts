@@ -81,6 +81,23 @@ const SOCKET_ACK_TIMEOUT_MS = 15_000
 const CONNECTION_INTERRUPTED_ERROR =
   'Соединение с сервером прервано, попробуйте отправить команду ещё раз'
 
+let commandSequence = 0
+
+/**
+ * Ключ идемпотентности игровой команды. Повторная доставка того же запроса
+ * после таймаута ack не должна применить ход дважды.
+ */
+function createCommandId(): string {
+  const cryptoApi = globalThis.crypto
+  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+    return cryptoApi.randomUUID()
+  }
+  commandSequence = (commandSequence + 1) % 1_000_000
+  return `cmd-${Date.now().toString(36)}-${commandSequence.toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`
+}
+
 function readStoredSessionToken(): string {
   try {
     return localStorage.getItem(SESSION_TOKEN_STORAGE_KEY) ?? ''
@@ -205,6 +222,20 @@ export class GameService implements IGameService {
     const pending = [...this.pendingAcks]
     this.pendingAcks.clear()
     pending.forEach((cancel) => cancel(error))
+  }
+
+  /**
+   * Изменяющая игровая команда: к запросу добавляется ключ идемпотентности.
+   * Транзиентный предпросмотр его не получает — он не сохраняется.
+   */
+  private emitGameCommand<T extends object>(
+    event: string,
+    payload: SocketPayload
+  ): Promise<T> {
+    return this.emitAck<T>(event, {
+      ...payload,
+      commandId: createCommandId(),
+    })
   }
 
   /**
@@ -462,7 +493,7 @@ export class GameService implements IGameService {
     tile: Tile | GridTile,
     position: { rowIndex: number; tileIndex: number }
   ) {
-    return this.emitAck<GameAck>(SocketEvents.PlaceTile, {
+    return this.emitGameCommand<GameAck>(SocketEvents.PlaceTile, {
       gameId: this.gameId,
       rotation: tile.rotation,
       position,
@@ -473,7 +504,7 @@ export class GameService implements IGameService {
     place: AvailableFollowerPlace,
     followerType: FollowerTypeValue = FollowerType.Follower
   ) {
-    return this.emitAck<GameAck>(SocketEvents.PlaceFollower, {
+    return this.emitGameCommand<GameAck>(SocketEvents.PlaceFollower, {
       gameId: this.gameId,
       place: {
         point: place.point,
@@ -484,7 +515,7 @@ export class GameService implements IGameService {
   }
 
   recallAbbot() {
-    return this.emitAck<GameAck>(SocketEvents.RecallAbbot, {
+    return this.emitGameCommand<GameAck>(SocketEvents.RecallAbbot, {
       gameId: this.gameId,
     })
   }
@@ -494,7 +525,7 @@ export class GameService implements IGameService {
       gameId: this.gameId,
       position,
     }
-    return this.emitAck<GameAck>(SocketEvents.MoveDragon, payload)
+    return this.emitGameCommand<GameAck>(SocketEvents.MoveDragon, payload)
   }
 
   choosePrincessFollower(
@@ -506,7 +537,7 @@ export class GameService implements IGameService {
       cityId,
       point,
     }
-    return this.emitAck<GameAck>(SocketEvents.ChoosePrincess, payload)
+    return this.emitGameCommand<GameAck>(SocketEvents.ChoosePrincess, payload)
   }
 
   moveFairy(point: Point) {
@@ -514,11 +545,11 @@ export class GameService implements IGameService {
       gameId: this.gameId,
       point,
     }
-    return this.emitAck<GameAck>(SocketEvents.MoveFairy, payload)
+    return this.emitGameCommand<GameAck>(SocketEvents.MoveFairy, payload)
   }
 
   skipFollower() {
-    return this.emitAck<GameAck>(SocketEvents.SkipFollower, {
+    return this.emitGameCommand<GameAck>(SocketEvents.SkipFollower, {
       gameId: this.gameId,
     })
   }

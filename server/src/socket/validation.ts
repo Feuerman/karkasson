@@ -18,6 +18,7 @@ import type { SocketCallback } from './types'
 
 const MAX_GAME_ID_LENGTH = 64
 const MAX_IDENTIFIER_LENGTH = 128
+const MAX_COMMAND_ID_LENGTH = 128
 const MAX_PLAYER_INDEX = 5
 
 export interface BoardPosition {
@@ -32,6 +33,8 @@ export interface FollowerPlaceRequest {
 
 export interface GameRequest {
   gameId: string
+  /** Ключ идемпотентности: повтор с тем же ключом не применяет ход дважды. */
+  commandId?: string
 }
 
 export interface AddPlayerRequest extends GameRequest {
@@ -112,6 +115,22 @@ function readIdentifier(value: unknown, maxLength: number): string | undefined {
 
 export function readGameId(value: unknown): string | undefined {
   return readIdentifier(value, MAX_GAME_ID_LENGTH)
+}
+
+/**
+ * Разбирает необязательный ключ идемпотентности. `null` означает, что ключ
+ * передан, но некорректен: такой запрос нельзя молча выполнять без защиты от
+ * повтора.
+ */
+function readCommandId(
+  record: Record<string, unknown> | undefined
+): string | null | undefined {
+  if (!record || record.commandId === undefined) return undefined
+  return readIdentifier(record.commandId, MAX_COMMAND_ID_LENGTH) ?? null
+}
+
+function commandIdField(commandId: string | undefined): { commandId?: string } {
+  return commandId === undefined ? {} : { commandId }
 }
 
 function readPlayerIndex(value: unknown): number | undefined {
@@ -306,8 +325,11 @@ export function parseJoinGame(value: unknown): GameRequest | undefined {
 
 export function parseGameRequest(value: unknown): GameRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  return gameId ? { gameId } : undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const commandId = readCommandId(record)
+  if (!gameId || commandId === null) return undefined
+  return { gameId, ...commandIdField(commandId) }
 }
 
 export function parseAddPlayer(value: unknown): AddPlayerRequest | undefined {
@@ -340,9 +362,12 @@ export function parsePositionRequest(
   value: unknown
 ): PositionRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  const position = readBoardPosition(record?.position)
-  return gameId && position ? { gameId, position } : undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const position = readBoardPosition(record.position)
+  const commandId = readCommandId(record)
+  if (!gameId || !position || commandId === null) return undefined
+  return { gameId, position, ...commandIdField(commandId) }
 }
 
 export function parseSelectPlacingPoint(
@@ -379,36 +404,49 @@ export function parseUpdateCurrentTile(
 
 export function parsePlaceTile(value: unknown): PlaceTileRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  const position = readBoardPosition(record?.position)
-  if (!record || !gameId || !position) return undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const position = readBoardPosition(record.position)
+  const commandId = readCommandId(record)
+  if (!gameId || !position || commandId === null) return undefined
   const rotation = readRotationRequest(record)
-  return rotation ? { gameId, position, ...rotation } : undefined
+  return rotation
+    ? { gameId, position, ...rotation, ...commandIdField(commandId) }
+    : undefined
 }
 
 export function parsePlaceFollower(
   value: unknown
 ): PlaceFollowerRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  const place = readFollowerPlace(record?.place)
-  const followerType = readFollowerType(record?.followerType)
-  return gameId && place && followerType
-    ? { gameId, place, followerType }
-    : undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const place = readFollowerPlace(record.place)
+  const followerType = readFollowerType(record.followerType)
+  const commandId = readCommandId(record)
+  if (!gameId || !place || !followerType || commandId === null) {
+    return undefined
+  }
+  return { gameId, place, followerType, ...commandIdField(commandId) }
 }
 
 export function parsePointRequest(value: unknown): PointRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  const point = readPoint(record?.point)
-  return gameId && point ? { gameId, point } : undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const point = readPoint(record.point)
+  const commandId = readCommandId(record)
+  if (!gameId || !point || commandId === null) return undefined
+  return { gameId, point, ...commandIdField(commandId) }
 }
 
 export function parseCityRequest(value: unknown): CityRequest | undefined {
   const record = asRecord(value)
-  const gameId = readGameId(record?.gameId)
-  const cityId = readIdentifier(record?.cityId, MAX_IDENTIFIER_LENGTH)
-  const point = readPoint(record?.point)
-  return gameId && cityId && point ? { gameId, cityId, point } : undefined
+  if (!record) return undefined
+  const gameId = readGameId(record.gameId)
+  const cityId = readIdentifier(record.cityId, MAX_IDENTIFIER_LENGTH)
+  const point = readPoint(record.point)
+  const commandId = readCommandId(record)
+  if (!gameId || !cityId || !point || commandId === null) return undefined
+  return { gameId, cityId, point, ...commandIdField(commandId) }
 }
