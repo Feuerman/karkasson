@@ -17,11 +17,12 @@ export function registerPrincessHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.InvalidRequest))
         return
       }
-      const { gameId, cityId, point } = request
+      const { gameId, cityId, point, commandId } = request
 
       await runGameCommand(context, {
         gameId,
         command: SocketEvents.ChoosePrincess,
+        commandId,
         callback,
         execute: async ({ game }) => {
           if (!game.princessChoice) {

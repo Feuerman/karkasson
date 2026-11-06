@@ -15,11 +15,12 @@ export function registerFairyHandlers(context: SocketHandlerContext) {
       callback?.(errorResponse(CommonErrors.InvalidRequest))
       return
     }
-    const { gameId, point } = request
+    const { gameId, point, commandId } = request
 
     await runGameCommand(context, {
       gameId,
       command: SocketEvents.MoveFairy,
+      commandId,
       callback,
       execute: async ({ game }) => {
         if (game.princessChoice || game.dragonMove) {

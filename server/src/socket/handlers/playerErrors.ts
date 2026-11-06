@@ -11,6 +11,7 @@
 import {
   CommonErrors,
   GameErrors,
+  GameSaveError,
   LobbyErrors,
   errorCodeForMessage,
 } from '../../modules/errors'
@@ -25,6 +26,7 @@ const PLAYER_MESSAGES: ReadonlySet<string> = new Set<string>([
 
 /** Текст ошибки для игрока: известное сообщение или общий отказ. */
 export function toPlayerErrorMessage(error: unknown): string {
+  if (error instanceof GameSaveError) return CommonErrors.SaveFailed
   const message = getErrorMessage(error)
   if (
     PLAYER_MESSAGES.has(message) ||

@@ -28,6 +28,11 @@ export interface GameCommandRequest {
   gameId: string
   /** Имя команды для журнала: по нему видно, какая именно команда отклонена. */
   command: SocketEvent
+  /**
+   * Необязательный клиентский ключ идемпотентности. Повтор с тем же ключом
+   * после таймаута ack возвращает текущее состояние, но не применяет ход снова.
+   */
+  commandId?: string
   callback?: SocketCallback
   /** По умолчанию — «сейчас ход вызывающего». */
   guard?: GameCommandGuard
@@ -98,6 +103,7 @@ export async function runGameCommand(
   {
     gameId,
     command,
+    commandId,
     callback,
     guard = requirePlayersTurn,
     execute,
@@ -105,10 +111,21 @@ export async function runGameCommand(
     transient = false,
   }: GameCommandRequest
 ): Promise<void> {
+  const dedupeKey = commandId ? `${command}:${commandId}` : undefined
+
   await service.runGameCommand(gameId, async () => {
     const game = service.getGame(gameId)
     if (!game) {
       callback?.(errorResponse(CommonErrors.GameNotFound))
+      return
+    }
+
+    if (
+      !transient &&
+      dedupeKey &&
+      service.isCommandCompleted(gameId, dedupeKey)
+    ) {
+      ackGameUpdated(events, gameId, game, callback)
       return
     }
 
@@ -137,6 +154,9 @@ export async function runGameCommand(
       return
     }
 
+    if (!transient && dedupeKey) {
+      service.rememberCompletedCommand(gameId, dedupeKey)
+    }
     ackGameUpdated(events, gameId, game, callback)
     afterSave?.(game)
   })

@@ -134,11 +134,12 @@ export function registerTileHandlers(context: SocketHandlerContext) {
       callback?.(errorResponse(GameErrors.InvalidTileRotation))
       return
     }
-    const { gameId, position, rotation } = request
+    const { gameId, position, rotation, commandId } = request
 
     await runGameCommand(context, {
       gameId,
       command: SocketEvents.PlaceTile,
+      commandId,
       callback,
       execute: async ({ game }) => {
         if (
