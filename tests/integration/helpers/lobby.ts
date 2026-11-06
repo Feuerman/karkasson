@@ -31,6 +31,7 @@ export interface GameSummaryPlayer {
 export interface TestGameData {
   id: string
   roomCode?: string
+  ownerSessionId?: string | null
   players: GameSummaryPlayer[]
   currentPlayerIndex: number
   currentPlayer?: {

@@ -252,15 +252,20 @@ export function createGameServer(
    * Полная остановка сервера.
    *
    * Порядок важен: сначала закрываются сокеты (новых команд больше не будет),
-   * затем останавливаются таймеры ходов компьютера, и только после этого
-   * сбрасываются партии на диск. Иначе очередь сохранений могла бы пополняться
-   * во время сброса, и последние записи остались бы в памяти.
+   * затем дожидаемся уже принятых команд и останавливаем таймеры компьютера,
+   * и только после этого сбрасываем партии на диск. Иначе очередь сохранений
+   * могла бы пополняться во время сброса, и последние записи остались бы в памяти.
    */
   const close = async () => {
     await io.close()
     gameService.computerMoves.cancelAll(
       gameService.allGames().flatMap((game) => game.id ?? [])
     )
+    try {
+      await gameService.drainCommands()
+    } catch (error: unknown) {
+      logger.error('Failed to drain game commands on shutdown:', error)
+    }
     try {
       await gameService.flushGames()
     } catch (error: unknown) {

@@ -71,11 +71,16 @@ describe('База данных сервера', () => {
     const savedGames = await database.getAllGameSaves()
     expect(savedGames).toHaveLength(1)
     expect(await database.getGame(game.id)).toMatchObject({ id: game.id })
-    expect(await database.getGameSummaries()).toMatchObject([{ id: game.id }])
+    expect(await database.getGameSummaries()).toMatchObject({
+      summaries: [{ id: game.id }],
+    })
 
     await database.deleteGame(game.id)
     expect(await database.getAllGameSaves()).toEqual([])
-    expect(await database.getGameSummaries()).toEqual([])
+    expect(await database.getGameSummaries()).toEqual({
+      summaries: [],
+      unreadable: 0,
+    })
   })
 })
 

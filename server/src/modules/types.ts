@@ -246,6 +246,16 @@ export const SocketEvents = {
 
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]
 
+/**
+ * Причина, по которой сервер закрыл партию. Клиент показывает её игроку и не
+ * пытается восстановить удалённую комнату.
+ */
+export type GameDeletionReason = 'stale' | 'owner_left' | 'expired' | 'failed'
+
+export interface GameDeletedPayload {
+  reason: GameDeletionReason
+}
+
 export interface GameRules {
   expansions: {
     innsAndCathedrals: boolean

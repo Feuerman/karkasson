@@ -6,6 +6,13 @@
       "$gameId": {
         ".validate": "newData.isString()"
       }
+    },
+    "gameSummaries": {
+      ".read": "auth != null && auth.token.server === true",
+      ".write": "auth != null && auth.token.server === true",
+      "$gameId": {
+        ".validate": "newData.child('id').isString()"
+      }
     }
   }
 }

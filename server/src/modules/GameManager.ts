@@ -148,6 +148,11 @@ export class GameManager implements IGameState {
   moveCounter: number
   actionsHistory: GameAction[]
   lastUpdate = 0
+  /**
+   * Сессия владельца лобби. Runtime-поле: переживает перезапуск не через
+   * сохранение, а восстанавливается по первому занятому слоту.
+   */
+  ownerSessionId: string | null = null
   placingPoint?: { rowIndex: number; tileIndex: number }
   dragonMove?: DragonMoveState
   princessChoice?: PrincessChoiceState
