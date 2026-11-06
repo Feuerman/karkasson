@@ -10,9 +10,10 @@ import {
   ref,
   set,
   get,
-  remove,
+  update,
   type Database,
 } from 'firebase/database'
+
 import {
   getFirebaseConfig,
   FIREBASE_OPERATION_ATTEMPTS,
@@ -56,14 +57,36 @@ export interface GameSummaryRecord {
  * `gameSave.ts`. Так партия записывается ровно один раз, а список лобби
  * читается без проверки и миграции всех сохранений целиком.
  */
+export interface GameSummariesResult {
+  summaries: GameSummaryRecord[]
+  /**
+   * Сколько сохранений не удалось превратить в сводку. Для Firebase это
+   * значение равно нулю: индекс пишется вместе с сохранением и нечитаемых
+   * записей в нём нет.
+   */
+  unreadable: number
+}
+
 export interface IGameDatabase {
-  /** Сохраняет уже сериализованное состояние партии. */
-  saveGame(gameId: string, serializedState: GameSavePayload): Promise<void>
+  /**
+   * Сохраняет состояние партии вместе с заголовком для списка лобби.
+   *
+   * Сводка передаётся отдельно, потому что формат сохранения знает сервис,
+   * а база хранит строки и индекс. Запись индекса не должна требовать разбора
+   * всего узла игр.
+   */
+  saveGame(
+    gameId: string,
+    serializedState: GameSavePayload,
+    summary?: GameSummaryRecord
+  ): Promise<void>
+  /** Записывает только заголовки: используется миграцией старого хранилища. */
+  saveGameSummaries(summaries: GameSummaryRecord[]): Promise<void>
   getGame(gameId: string): Promise<IGameState | null>
   /** Все сохранения без разбора: разбор делает вызывающий, чтобы видеть отказы. */
   getAllGameSaves(): Promise<RawGameSave[]>
   /** Заголовки партий для списка лобби без полного разбора сохранений. */
-  getGameSummaries(): Promise<GameSummaryRecord[]>
+  getGameSummaries(): Promise<GameSummariesResult>
   deleteGame(gameId: string): Promise<void>
 }
 
@@ -72,9 +95,15 @@ export class InMemoryGameDatabase implements IGameDatabase {
 
   async saveGame(
     gameId: string,
-    serializedState: GameSavePayload
+    serializedState: GameSavePayload,
+    _summary?: GameSummaryRecord
   ): Promise<void> {
     this.games.set(gameId, serializedState)
+  }
+
+  async saveGameSummaries(_summaries: GameSummaryRecord[]): Promise<void> {
+    // In-memory хранилище выводит сводки из самих сохранений: отдельный
+    // индекс здесь не нужен и не может разойтись с данными.
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
@@ -86,13 +115,15 @@ export class InMemoryGameDatabase implements IGameDatabase {
     return [...this.games.values()]
   }
 
-  async getGameSummaries(): Promise<GameSummaryRecord[]> {
+  async getGameSummaries(): Promise<GameSummariesResult> {
     const summaries: GameSummaryRecord[] = []
+    let unreadable = 0
     for (const payload of this.games.values()) {
       const summary = readGameSummary(payload)
       if (summary) summaries.push(summary)
+      else unreadable += 1
     }
-    return summaries
+    return { summaries, unreadable }
   }
 
   async deleteGame(gameId: string): Promise<void> {
@@ -146,12 +177,35 @@ class GameDatabase implements IGameDatabase {
 
   async saveGame(
     gameId: string,
-    serializedState: GameSavePayload
+    serializedState: GameSavePayload,
+    summary?: GameSummaryRecord
   ): Promise<void> {
     await this.run(() => this.ensureAuthenticated())
+    if (!summary) {
+      await this.run(() =>
+        set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
+      )
+      return
+    }
+
+    // Состояние и заголовок пишутся одной операцией: список лобби не должен
+    // на время показывать устаревший заголовок или терять партию.
     await this.run(() =>
-      set(ref(this.firebaseDatabase, `games/${gameId}`), serializedState)
+      update(ref(this.firebaseDatabase), {
+        [`games/${gameId}`]: serializedState,
+        [`gameSummaries/${gameId}`]: summary,
+      })
     )
+  }
+
+  async saveGameSummaries(summaries: GameSummaryRecord[]): Promise<void> {
+    if (summaries.length === 0) return
+    await this.run(() => this.ensureAuthenticated())
+    const updates: Record<string, GameSummaryRecord> = {}
+    for (const summary of summaries) {
+      updates[`gameSummaries/${summary.id}`] = summary
+    }
+    await this.run(() => update(ref(this.firebaseDatabase), updates))
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
@@ -176,19 +230,28 @@ class GameDatabase implements IGameDatabase {
     return Object.values(snapshot.val() as Record<string, unknown>)
   }
 
-  async getGameSummaries(): Promise<GameSummaryRecord[]> {
-    const saves = await this.getAllGameSaves()
-    const summaries: GameSummaryRecord[] = []
-    for (const save of saves) {
-      const summary = readGameSummary(save)
-      if (summary) summaries.push(summary)
+  async getGameSummaries(): Promise<GameSummariesResult> {
+    await this.run(() => this.ensureAuthenticated())
+    const snapshot = await this.run(() =>
+      get(ref(this.firebaseDatabase, 'gameSummaries'))
+    )
+    if (!snapshot.exists()) {
+      return { summaries: [], unreadable: 0 }
     }
-    return summaries
+    const summaries = Object.values(
+      snapshot.val() as Record<string, GameSummaryRecord>
+    )
+    return { summaries, unreadable: 0 }
   }
 
   async deleteGame(gameId: string): Promise<void> {
     await this.run(() => this.ensureAuthenticated())
-    await this.run(() => remove(ref(this.firebaseDatabase, `games/${gameId}`)))
+    await this.run(() =>
+      update(ref(this.firebaseDatabase), {
+        [`games/${gameId}`]: null,
+        [`gameSummaries/${gameId}`]: null,
+      })
+    )
   }
 }
 

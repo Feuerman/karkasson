@@ -61,6 +61,8 @@ export interface GameData {
   fieldFollowers: IGameState['fieldFollowers']
   winnerPlayerIds: IGameState['winnerPlayerIds']
   lastUpdate: number
+  /** Сессия владельца лобби; после старта партии поле сохраняется для сведений. */
+  ownerSessionId: string | null
 }
 
 /**
@@ -110,6 +112,7 @@ export function formatGameData(game: GameManager): GameData {
     fieldFollowers: game.fieldFollowers,
     winnerPlayerIds: game.winnerPlayerIds,
     lastUpdate: game.lastUpdate,
+    ownerSessionId: game.ownerSessionId,
   }
 }
 

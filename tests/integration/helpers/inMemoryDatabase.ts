@@ -1,5 +1,6 @@
 import type {
   GameSavePayload,
+  GameSummariesResult,
   GameSummaryRecord,
   IGameDatabase,
   RawGameSave,
@@ -50,11 +51,16 @@ export class InMemoryDatabase implements IGameDatabase {
 
   async saveGame(
     gameId: string,
-    serializedState: GameSavePayload
+    serializedState: GameSavePayload,
+    _summary?: GameSummaryRecord
   ): Promise<void> {
     if (this.beforeSave) await this.beforeSave(gameId, serializedState)
     if (this.saveError) throw this.saveError
     this.store.games[gameId] = serializedState
+  }
+
+  async saveGameSummaries(_summaries: GameSummaryRecord[]): Promise<void> {
+    // Сводки выводятся из сохранений, отдельный индекс не нужен.
   }
 
   async getGame(gameId: string): Promise<IGameState | null> {
@@ -67,14 +73,16 @@ export class InMemoryDatabase implements IGameDatabase {
     return Object.values(this.store.games)
   }
 
-  async getGameSummaries(): Promise<GameSummaryRecord[]> {
+  async getGameSummaries(): Promise<GameSummariesResult> {
     if (this.readError) throw this.readError
     const summaries: GameSummaryRecord[] = []
+    let unreadable = 0
     for (const payload of Object.values(this.store.games)) {
       const summary = readGameSummary(payload)
       if (summary) summaries.push(summary)
+      else unreadable += 1
     }
-    return summaries
+    return { summaries, unreadable }
   }
 
   async deleteGame(gameId: string): Promise<void> {

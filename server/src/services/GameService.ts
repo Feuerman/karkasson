@@ -1,6 +1,10 @@
 import { GameManager } from '../modules/GameManager'
-import { deserializeGameState, serializeGameState } from '../modules/gameSave'
-import type { GameSavePayload, IGameDatabase } from '../modules/Database'
+import { readGameSummary, serializeGameState } from '../modules/gameSave'
+import type {
+  GameSavePayload,
+  GameSummaryRecord,
+  IGameDatabase,
+} from '../modules/Database'
 import {
   CommonErrors,
   GameSaveError,
@@ -30,6 +34,7 @@ import {
   playerColorForIndex,
   playerNameForIndex,
   expansionOptionsFromRules,
+  type GameDeletionReason,
   type GameOptions,
   type Player,
 } from '../modules/types'
@@ -49,6 +54,18 @@ export interface GameServiceLimits {
   maxActiveAiGames: number
   maxActiveAiGamesPerSession: number
   maxPendingSavesPerGame: number
+}
+
+export interface GameCleanupOptions {
+  /** Возраст партии без подключённых игроков, после которого её удаляют. */
+  abandonedTimeoutMs: number
+  /** Срок хранения завершённых партий. */
+  finishedRetentionMs: number
+}
+
+export interface DeletedGameInfo {
+  gameId: string
+  reason: GameDeletionReason
 }
 
 /**
@@ -92,6 +109,16 @@ export class GameService {
   /** Обратная карта: сокет → сессия. Заполняется при регистрации. */
   private socketToSessionMap: Record<string, string> = {}
   private lobbyOwners: Record<string, string> = {}
+  /**
+   * Заголовки всех сохранённых партий. Живые партии берутся из реестра, а этот
+   * кэш нужен для списка лобби и ленивой загрузки: читать и разбирать все
+   * сохранения при старте больше не требуется.
+   */
+  private readonly savedSummaries = new Map<string, GameSummaryRecord>()
+  private readonly pendingHydrations = new Map<
+    string,
+    Promise<GameManager | undefined>
+  >()
   private readonly pendingSaves = new Map<string, Promise<void>>()
   private readonly pendingDeletions = new Map<string, Promise<void>>()
   private readonly saveQueueDepth = new Map<string, number>()
@@ -153,6 +180,20 @@ export class GameService {
   /** Число партий, у которых команда стоит в очереди или выполняется. */
   pendingGameCommandCount(): number {
     return this.gameCommands.size
+  }
+
+  /**
+   * Дожидается завершения уже принятых команд. Нужен при остановке сервера:
+   * команда, начатая до закрытия сокетов, должна успеть сохранить состояние.
+   */
+  async drainCommands(): Promise<void> {
+    for (let round = 0; round < FLUSH_MAX_ROUNDS; round += 1) {
+      if (this.gameCommands.size === 0) return
+      await Promise.all(
+        [...this.gameCommands.values()].map((entry) => entry.tail)
+      )
+    }
+    throw new Error('Game commands did not settle while shutting down')
   }
 
   /** Уже применена ли команда с этим ключом в партии. */
@@ -354,20 +395,31 @@ export class GameService {
     // встаёт в очередь после удаления и воскрешает запись в хранилище.
     const game = this.games[gameId]
     const owner = this.lobbyOwners[gameId]
+    const summary = this.savedSummaries.get(gameId)
     delete this.games[gameId]
     delete this.lobbyOwners[gameId]
+    this.savedSummaries.delete(gameId)
 
     // Удаление встаёт в ту же очередь, что и сохранения, поэтому выполняется
     // после всех них. Ошибка прошлого сохранения удалению не мешает.
     const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
     const deletion: Promise<void> = previousSave
       .catch(() => undefined)
-      .then(() => this.db.deleteGame(gameId))
+      .then(async () => {
+        await this.db.deleteGame(gameId)
+        // Сохранение, начатое до удаления, могло завершиться уже после того,
+        // как сводку убрали из кэша. Удаляем её ещё раз, иначе список лобби
+        // навсегда сохранит ссылку на удалённую партию.
+        this.savedSummaries.delete(gameId)
+      })
       .catch((error: unknown) => {
         // Хранилище не удалило запись: возвращаем партию в память, иначе
         // после перезапуска она «воскреснет» из базы без живого состояния.
         if (game && !this.games[gameId]) this.games[gameId] = game
         if (owner && !this.lobbyOwners[gameId]) this.lobbyOwners[gameId] = owner
+        if (summary && !this.savedSummaries.has(gameId)) {
+          this.savedSummaries.set(gameId, summary)
+        }
         throw error
       })
       .finally(() => {
@@ -398,12 +450,13 @@ export class GameService {
     }
 
     // Метку обновляем на живом объекте, а не только на снимке: по ней
-    // deleteStaleGames отсеивает активные партии, а она не должна замерзать
+    // cleanupGames отсеивает активные партии, а она не должна замерзать
     // после первого сохранения.
     game.lastUpdate = Date.now()
     // Сериализация сразу, а не глубокая копия: снимок для записи должен быть
     // неизменяемым к моменту, когда очередь сохранений дойдёт до хранилища.
     const serializedState: GameSavePayload = serializeGameState(game)
+    const summary = readGameSummary(serializedState)
     const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
     this.saveQueueDepth.set(gameId, depth + 1)
     if (depth === 0) this.saveQueueSince.set(gameId, Date.now())
@@ -414,7 +467,8 @@ export class GameService {
       .catch(() => undefined)
       .then(async () => {
         try {
-          await this.db.saveGame(gameId, serializedState)
+          await this.db.saveGame(gameId, serializedState, summary)
+          if (summary) this.savedSummaries.set(gameId, summary)
         } catch (error) {
           this.saveFailureCount += 1
           throw error
@@ -515,6 +569,7 @@ export class GameService {
     })
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
+    game.ownerSessionId = sessionId
     this.games[gameId] = game
     this.lobbyOwners[gameId] = sessionId
     return game as GameManager & { id: string }
@@ -635,6 +690,8 @@ export class GameService {
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
+    newGame.ownerSessionId =
+      this.lobbyOwners[gameId] ?? game.ownerSessionId ?? null
     this.games[gameId] = newGame
     return newGame
   }
@@ -665,6 +722,38 @@ export class GameService {
     })
   }
 
+  /**
+   * Передаёт права владельца незапущенного лобби следующему оставшемуся
+   * игроку. Если игроков нет, владелец просто снимается.
+   */
+  /** Восстанавливает владельца при откате лобби. */
+  setLobbyOwner(gameId: string, sessionId: string | null): void {
+    const game = this.games[gameId]
+    if (game) game.ownerSessionId = sessionId
+    if (sessionId) {
+      this.lobbyOwners[gameId] = sessionId
+    } else {
+      delete this.lobbyOwners[gameId]
+    }
+  }
+
+  reassignLobbyOwner(gameId: string): string | null {
+    const game = this.games[gameId]
+    if (!game || game.gameIsStarted) {
+      return this.lobbyOwners[gameId] ?? null
+    }
+
+    const nextOwner = game.players.find((player) => player.sessionId)
+    const sessionId = nextOwner?.sessionId ?? null
+    if (sessionId) {
+      this.lobbyOwners[gameId] = sessionId
+    } else {
+      delete this.lobbyOwners[gameId]
+    }
+    game.ownerSessionId = sessionId
+    return sessionId
+  }
+
   rejoinGame(
     gameId: string,
     sessionId: string,
@@ -692,7 +781,11 @@ export class GameService {
   // ------------------------------------------------------------------ persistence
 
   /**
-   * Восстанавливает партии из хранилища.
+   * Восстанавливает из хранилища только незавершённые партии.
+   *
+   * Завершённую партию игрок открывает редко, поэтому её состояние
+   * загружается лениво в `resolveGame()`. Список лобби и так берёт сводки из
+   * отдельного индекса и не требует разбора доски.
    *
    * Нормализацию состояния целиком делает `deserializeGameState`: правила,
    * сады, пулы подданных и список лидеров нормализуются там же, где проверяются.
@@ -703,61 +796,144 @@ export class GameService {
    * количество попадает в счётчик и в журнал.
    */
   async loadSavedGames(): Promise<void> {
-    const rawSaves = await this.db.getAllGameSaves()
-    const updatedGameIds: string[] = []
+    let { summaries, unreadable } = await this.db.getGameSummaries()
+
+    // Пустой индекс в старом хранилище означает, что сводок ещё нет. Если же
+    // хранилище вернуло нечитаемые записи, это уже его собственный счётчик:
+    // повторный разбор всех сохранений только удвоил бы число отказов.
+    if (summaries.length === 0 && unreadable === 0) {
+      const migrated = await this.migrateSavedGameSummaries()
+      summaries = migrated.summaries
+      unreadable += migrated.unreadable
+    }
+
+    this.savedSummaries.clear()
+    summaries.forEach((summary) => {
+      this.savedSummaries.set(summary.id, summary)
+    })
+
     const failures: Array<{ reason: string }> = []
-    // Коды комнат собираются один раз: пересборка на каждую партию делала
-    // загрузку сохранений квадратичной.
-    const roomCodes = new Set(
-      this.allGames()
-        .map((game) => game.roomCode)
-        .filter((code): code is string => Boolean(code))
-    )
-
-    rawSaves.forEach((rawSave) => {
+    for (const summary of summaries) {
+      // Конец партии почти всегда означает архив: читать его при старте
+      // сервера дороже, чем при одном открытии результата.
+      if (summary.gameIsEnded) continue
       try {
-        const savedGame = deserializeGameState(rawSave)
-        const gameId = savedGame.id
-        if (!gameId) return
-
-        const game = GameManager.restore(savedGame)
-        if (!game.roomCode || roomCodes.has(game.roomCode)) {
-          game.roomCode = this.createUniqueRoomCode(roomCodes)
-          updatedGameIds.push(gameId)
-        }
-        if (game.roomCode) roomCodes.add(game.roomCode)
-        const owner = game.players.find((player) => player.sessionId)
-        if (owner?.sessionId) {
-          this.lobbyOwners[gameId] = owner.sessionId
-        }
-        game.players.forEach((player) => {
-          player.socketId = null
-        })
-        if (game.currentPlayer) game.currentPlayer.socketId = null
-        this.games[gameId] = game
+        await this.hydrateSavedGame(summary)
       } catch (error) {
         failures.push({ reason: getErrorMessage(error) })
       }
-    })
+    }
 
-    this.unreadableSaves = failures.length
+    this.unreadableSaves = unreadable + failures.length
     if (failures.length) {
       logger.error(
         `Ignoring ${failures.length} invalid saved game(s):`,
         failures
       )
     }
+  }
 
-    await Promise.all(updatedGameIds.map((gameId) => this.saveGame(gameId)))
+  /**
+   * Возвращает партию по id или коду комнаты, при необходимости загружая
+   * сохранение в память. Нужен для старых завершённых партий: в реестре при
+   * старте их нет.
+   */
+  async resolveGame(identifier: string): Promise<GameManager | undefined> {
+    const loaded = this.getGameByIdentifier(identifier)
+    if (loaded) return loaded
+
+    const normalizedIdentifier = identifier.trim().toUpperCase()
+    const summary = [...this.savedSummaries.values()].find(
+      (candidate) =>
+        candidate.id === identifier ||
+        candidate.roomCode?.toUpperCase() === normalizedIdentifier
+    )
+    if (!summary) return undefined
+
+    const pending = this.pendingHydrations.get(summary.id)
+    if (pending) return pending
+
+    const hydration: Promise<GameManager | undefined> = this.hydrateSavedGame(
+      summary
+    ).finally(() => {
+      if (this.pendingHydrations.get(summary.id) === hydration) {
+        this.pendingHydrations.delete(summary.id)
+      }
+    })
+    this.pendingHydrations.set(summary.id, hydration)
+    return hydration
+  }
+
+  private async hydrateSavedGame(
+    summary: GameSummaryRecord
+  ): Promise<GameManager | undefined> {
+    const savedGame = await this.db.getGame(summary.id)
+    if (!savedGame) {
+      // Сводка осталась без состояния: убираем обе записи, иначе «мёртвая»
+      // комната будет вечно висеть в списке.
+      await this.deleteGame(summary.id)
+      return undefined
+    }
+
+    const game = GameManager.restore(savedGame)
+    const gameId = game.id
+    if (!gameId) {
+      await this.deleteGame(summary.id)
+      return undefined
+    }
+
+    game.players.forEach((player) => {
+      player.socketId = null
+    })
+    if (game.currentPlayer) game.currentPlayer.socketId = null
+
+    const owner = game.players.find((player) => player.sessionId)
+    game.ownerSessionId = owner?.sessionId ?? null
+    if (owner?.sessionId) {
+      this.lobbyOwners[gameId] = owner.sessionId
+    }
+
+    if (!game.roomCode || this.isRoomCodeTakenByOther(game.roomCode, gameId)) {
+      game.roomCode = this.createUniqueRoomCode()
+    }
+
+    this.games[gameId] = game
+    if (game.roomCode !== summary.roomCode) {
+      await this.saveGame(gameId)
+    }
+    return game
+  }
+
+  private async migrateSavedGameSummaries(): Promise<{
+    summaries: GameSummaryRecord[]
+    unreadable: number
+  }> {
+    const rawSaves = await this.db.getAllGameSaves()
+    const summaries: GameSummaryRecord[] = []
+    let unreadable = 0
+
+    for (const rawSave of rawSaves) {
+      const summary = readGameSummary(rawSave)
+      if (summary) summaries.push(summary)
+      else unreadable += 1
+    }
+
+    if (summaries.length > 0) {
+      await this.db.saveGameSummaries(summaries)
+    }
+    return { summaries, unreadable }
   }
 
   private createUniqueRoomCode(existingCodes?: Set<string>): string {
     const codes =
       existingCodes ??
       new Set(
-        this.allGames()
-          .map((game) => game.roomCode)
-          .filter((code): code is string => Boolean(code))
+        [
+          ...this.allGames().map((game) => game.roomCode),
+          ...[...this.savedSummaries.values()].map(
+            (summary) => summary.roomCode
+          ),
+        ].filter((code): code is string => Boolean(code))
       )
     let roomCode: string
     do {
@@ -767,28 +943,73 @@ export class GameService {
     return roomCode
   }
 
-  /** Удаляет игры, которые не обновлялись дольше указанного времени */
-  async deleteStaleGames(timeoutMs: number): Promise<string[]> {
-    const deletedGameIds: string[] = []
+  private isRoomCodeTakenByOther(roomCode: string, gameId: string): boolean {
+    return (
+      this.allGames().some(
+        (game) => game.id !== gameId && game.roomCode === roomCode
+      ) ||
+      [...this.savedSummaries.values()].some(
+        (summary) => summary.id !== gameId && summary.roomCode === roomCode
+      )
+    )
+  }
 
-    for (const [gameId, game] of Object.entries(this.games)) {
-      if (!game.gameIsStarted || game.gameIsEnded) continue
+  /**
+   * Удаляет заброшенные и просроченные партии.
+   *
+   * Активная партия удаляется только когда в ней нет подключённых людей:
+   * пока кто-то в сети, это не заброшенная комната, а просто пауза.
+   * Завершённые партии удаляются по сроку хранения независимо от сокетов.
+   */
+  async cleanupGames(options: GameCleanupOptions): Promise<DeletedGameInfo[]> {
+    const deleted: DeletedGameInfo[] = []
+    const now = Date.now()
 
-      if (!game.lastUpdate) {
-        game.lastUpdate = Date.now()
+    // Завершённые партии при старте не загружаются, поэтому срок хранения
+    // проверяется по сводкам: иначе архив в хранилище рос бы бесконечно.
+    for (const [gameId, summary] of [...this.savedSummaries]) {
+      if (!summary.gameIsEnded) continue
+      const lastUpdate = summary.lastUpdate ?? 0
+      if (!lastUpdate || now - lastUpdate <= options.finishedRetentionMs) {
+        continue
       }
-      if (Date.now() - game.lastUpdate > timeoutMs) {
-        logger.info('Deleting stale game:', gameId)
-        await this.deleteGame(gameId)
-        deletedGameIds.push(gameId)
-      }
+      logger.info('Deleting expired game:', gameId)
+      await this.deleteGame(gameId)
+      deleted.push({ gameId, reason: 'expired' })
     }
 
-    return deletedGameIds
+    for (const [gameId, game] of Object.entries(this.games)) {
+      if (!game.lastUpdate) game.lastUpdate = now
+      const age = now - game.lastUpdate
+
+      if (game.gameIsEnded) {
+        if (age <= options.finishedRetentionMs) continue
+        logger.info('Deleting expired game:', gameId)
+        await this.deleteGame(gameId)
+        deleted.push({ gameId, reason: 'expired' })
+        continue
+      }
+
+      if (!game.gameIsStarted) continue
+      if (game.players.some((player) => player.socketId)) continue
+      if (age <= options.abandonedTimeoutMs) continue
+
+      logger.info('Deleting abandoned game:', gameId)
+      await this.deleteGame(gameId)
+      deleted.push({ gameId, reason: 'stale' })
+    }
+
+    return deleted
   }
 
   formatGamesList(games: GameManager[] = this.allGames()): GameSummary[] {
-    return sortGameSummaries(games.map((game) => toGameSummary(game)))
+    const memoryIds = new Set(games.map((game) => game.id))
+    const summaries: GameSummary[] = games.map((game) => toGameSummary(game))
+    for (const savedSummary of this.savedSummaries.values()) {
+      if (memoryIds.has(savedSummary.id)) continue
+      summaries.push(toGameSummary(savedSummary))
+    }
+    return sortGameSummaries(summaries)
   }
 
   /** Сведения о состоянии хранилища для health-endpoint. */
@@ -814,25 +1035,12 @@ export class GameService {
   }
 
   /**
-   * Список игр: сохранённые из базы, дополненные играми из памяти.
+   * Список игр: живые партии, дополненные сохранёнными сводками.
    *
-   * Из хранилища берутся сводки, а не состояния целиком: список запрашивается
-   * при каждом входе клиента, а полный разбор сохранения запускает проверки и
-   * миграцию всех тайлов и объектов доски заново.
+   * В хранилище не ходим: заголовки уже лежат в памяти и обновляются при
+   * каждом сохранении. Иначе каждый вход клиента читал бы весь индекс.
    */
   async getGameSummaries(): Promise<GameSummary[]> {
-    const memoryGames = this.allGames()
-    const savedSummaries = await this.db.getGameSummaries()
-    const memoryIds = new Set(memoryGames.map((game) => game.id))
-    const mergedGames: GameSummary[] = memoryGames.map((game) =>
-      toGameSummary(game)
-    )
-
-    savedSummaries.forEach((savedSummary) => {
-      if (memoryIds.has(savedSummary.id)) return
-      mergedGames.push(toGameSummary(savedSummary))
-    })
-
-    return sortGameSummaries(mergedGames)
+    return this.formatGamesList()
   }
 }

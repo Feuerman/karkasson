@@ -62,7 +62,24 @@ async function releaseGameAfterDisconnect(
       scheduler.continueGame(events, service, gameId)
     } else {
       // В лобби слот освобождается сразу: сессия уходит вместе с сокетом.
+      const previousState = game.captureRollbackState()
+      const previousOwner = game.ownerSessionId
       service.releasePlayer(gameId, socket.id, null)
+      if (game.players.every((p) => !p.socketId && !p.sessionId)) {
+        try {
+          await service.deleteGame(gameId)
+        } catch (error: unknown) {
+          game.restoreRollbackState(previousState)
+          service.setLobbyOwner(gameId, previousOwner)
+          logger.error('Failed to delete empty lobby:', error)
+          return
+        }
+        events.publishGameDeleted(gameId, 'owner_left')
+        events.publishGamesList(service.formatGamesList())
+        return
+      }
+      service.reassignLobbyOwner(gameId)
+      await saveGameOnDisconnect(service, gameId)
     }
 
     ackGameUpdated(events, gameId, game)
@@ -79,6 +96,7 @@ async function releaseGameAfterDisconnect(
 
   if (service.hasOtherConnectedPlayers(game, socket.id)) {
     service.releasePlayer(gameId, socket.id, null)
+    service.reassignLobbyOwner(gameId)
     await saveGameOnDisconnect(service, gameId)
     ackGameUpdated(events, gameId, game)
     return
@@ -90,7 +108,7 @@ async function releaseGameAfterDisconnect(
     logger.error('Failed to delete game:', error)
     return
   }
-  events.publishGameDeleted(gameId)
+  events.publishGameDeleted(gameId, 'owner_left')
   events.publishGamesList(service.formatGamesList())
 }
 
@@ -163,7 +181,14 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
           return
         }
 
-        const result = service.rejoinGame(gameId, sessionId, socket.id)
+        const resolvedGame = await service.resolveGame(gameId)
+        if (!resolvedGame?.id) {
+          socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+          callback?.(errorResponse(CommonErrors.GameNotFound))
+          return
+        }
+
+        const result = service.rejoinGame(resolvedGame.id, sessionId, socket.id)
         if (!result) {
           socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
           callback?.(errorResponse(CommonErrors.GameNotFound))
@@ -172,15 +197,17 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
 
         const { game, players } = result
         if (players.length > 0) {
-          await socket.join(gameId)
-          ackGameUpdated(context.events, gameId, game, callback)
+          await socket.join(game.id ?? gameId)
+          ackGameUpdated(context.events, game.id ?? gameId, game, callback)
         } else {
           socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
           callback?.(errorResponse(CommonErrors.PlayerNotFoundInGame))
           return
         }
 
-        if (game.gameIsStarted) scheduler.continueGame(events, service, gameId)
+        if (game.gameIsStarted) {
+          scheduler.continueGame(events, service, game.id ?? gameId)
+        }
       })
     }
   )
