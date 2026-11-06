@@ -17,6 +17,74 @@ Chromium — подробности и проверки по слоям прив
 наблюдаемое поведение. Продуктовые изменения также требуют записи в
 `CHANGELOG.md`; правила подготовки версии описаны в `AGENTS.md`.
 
+## CI и защита ветки `main`
+
+Проверки на pull request выполняет workflow `CI`
+(`.github/workflows/ci.yml`): форматирование, lint, типы клиента и сервера,
+unit/integration-тесты, production-сборка и браузерный smoke. Деплой на GitHub
+Pages запускается только при push в `main` и больше не прогоняет тесты, поэтому
+PR нужно смёржить только с зелёным `CI`. Чтобы GitHub не позволил обойти
+проверки, включите защиту ветки.
+
+Нужны права администратора репозитория. Если раздела `Settings` нет, попросите
+владельца репозитория или организации выдать роль Admin.
+
+### Вариант 1: Rulesets (новый интерфейс)
+
+1. Откройте репозиторий на GitHub и перейдите в `Settings`.
+2. В левом меню нажмите `Rulesets` (группа `Code, planning, and automation`),
+   затем `Rulesets`.
+3. Нажмите `New ruleset` → `New branch ruleset`.
+4. В поле `Ruleset name` введите `main-protection`.
+5. В поле `Enforcement status` откройте список и выберите `Active`. Если
+   оставить `Disabled`, правило не будет действовать.
+6. `Bypass list` оставьте пустым. Тогда правило действует и на администраторов.
+   Если хотите разрешить кому-то обходить правила, добавьте его сюда, но для
+   защиты ветки лучше этого не делать.
+7. В блоке `Target branches` нажмите `Add a target` (или
+   `Add targeting criteria`) → `Include default branch`. Для защиты именно
+   `main` можно вместо этого выбрать `Include by pattern`, ввести `main` и
+   нажать `Add inclusion pattern`.
+8. В блоке `Rules` → `Branch rules` поставьте галочки:
+   - `Require a pull request before merging` — если работаете один, задайте
+     `Required approvals` = 0, иначе мёрж потребует одобрения второго человека;
+   - `Require status checks to pass`;
+   - при желании `Block force pushes` и `Restrict deletions`.
+     Не включайте `Restrict creations` и `Restrict updates`: они запрещают любые
+     обновления и создание ветки без bypass-прав.
+9. После включения `Require status checks to pass` появится блок настроек
+   проверок. В поле поиска введите `Check`, выберите проверку `CI / Check` и
+   нажмите кнопку с плюсом, чтобы добавить её в обязательные. Если доступен
+   пункт `Require branches to be up to date before merging`, включите его.
+   Если workflow ещё ни разу не запускался на pull request, готовой проверки в
+   списке нет и GitHub предложит `Add manually: Check`. Это нормально: нажмите
+   её, имя должно быть точно `Check` (это имя job в `ci.yml`). Либо сохраните
+   правило, прогоните CI на тестовом PR, а затем вернитесь в редактор и
+   выберите появившийся `Check`.
+10. Нажмите `Create`. Правило для `main` начнёт действовать сразу.
+
+### Вариант 2: классическая защита ветки
+
+1. Откройте `Settings` → в группе `Code, planning, and automation` нажмите
+   `Branches`.
+2. В блоке `Branch protection rules` нажмите
+   `Add classic branch protection rule`.
+3. В поле `Branch name pattern` укажите `main`.
+4. В блоке `Protect matching branches` включите
+   `Require a pull request before merging`. При необходимости задайте
+   обязательные одобрения.
+5. Включите `Require status checks to pass before merging`. В поле поиска
+   введите `Check`, дождитесь появления проверки `CI / Check` и выберите её.
+6. Включите `Require branches to be up to date before merging`, чтобы проверка
+   выполнялась на актуальном состоянии `main`.
+7. Чтобы правила действовали и для администраторов, включите
+   `Do not allow bypassing the above settings`.
+8. Нажмите `Create` (при редактировании — `Save changes`).
+
+Проверка `CI / Check` появляется в списке только после того, как workflow `CI`
+хотя бы один раз выполнился на pull request. Если её нет, создайте тестовый PR
+или перезапустите workflow, а затем вернитесь к настройке.
+
 ## Изменения и сообщения коммитов
 
 Делайте небольшие связанные изменения и не включайте несвязанный рефакторинг.
