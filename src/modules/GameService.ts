@@ -23,6 +23,11 @@ import type {
   GameDeletedPayload,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
+import {
+  classifyConnectError,
+  type ConnectionErrorCode,
+  type ConnectionPhase,
+} from './connectionStatus'
 
 const logger = createLogger('GameService')
 
@@ -54,11 +59,18 @@ type ClientSocketEvent =
 /** Ошибка ack-ответа сервера; conflicts описывает причину отказа размещения. */
 export class SocketAckError extends Error {
   readonly conflicts: PlacementConflict[]
+  /** Стабильный машинный код отказа, если сервер его прислал. */
+  readonly code?: string
 
-  constructor(message: string, conflicts: PlacementConflict[] = []) {
+  constructor(
+    message: string,
+    conflicts: PlacementConflict[] = [],
+    code?: string
+  ) {
     super(message)
     this.name = 'SocketAckError'
     this.conflicts = conflicts
+    this.code = code
   }
 }
 
@@ -116,6 +128,11 @@ function storeSessionToken(token: string): void {
   }
 }
 
+/** Состояние сети браузера; вне браузера считаем сеть доступной. */
+function readOnlineState(): boolean {
+  return typeof navigator === 'undefined' ? true : navigator.onLine !== false
+}
+
 export class GameService implements IGameService {
   socket: Socket | null
   gameId: string
@@ -125,12 +142,25 @@ export class GameService implements IGameService {
   isConnected = ref(false)
   /** Идентификатор текущего сокета: меняется при каждом переподключении. */
   socketId = ref<string | null>(null)
+  /** Текущая фаза соединения для индикатора и экрана восстановления. */
+  connectionPhase = ref<ConnectionPhase>('connecting')
+  /** Есть ли у браузера доступ к сети. */
+  isOnline = ref(readOnlineState())
+  /** Номер текущей попытки переподключения. */
+  reconnectAttempt = ref(0)
+  /** Причина последнего обрыва из Socket.IO: помогает отличить сервер. */
+  lastDisconnectReason = ref<string | null>(null)
+  /** Категория последней ошибки рукопожатия. */
+  connectionErrorCode = ref<ConnectionErrorCode | null>(null)
+  /** Сервер подтвердил сессию для текущего сокета. */
+  sessionReady = ref(false)
   private serverUrl: string
   private sessionToken: string
-  /** Сервер подтвердил сессию для текущего сокета. */
+  /** Сервер подтвердил сессию для текущего сокета (внутренний флаг). */
   private sessionRegistered = false
   /** Готовность регистрации: команды не должны опережать выдачу сессии. */
-  private sessionReady: Promise<void> = Promise.resolve()
+  private sessionReadyPromise: Promise<void> = Promise.resolve()
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private readonly pendingAcks = new Set<(error: Error) => void>()
   /**
    * Подписки вызывающего кода: сокет переподключается, а они должны остаться
@@ -144,6 +174,25 @@ export class GameService implements IGameService {
     this.gamesList = []
     this.serverUrl = options.serverUrl ?? DEFAULT_SERVER_URL
     this.sessionToken = options.sessionToken ?? readStoredSessionToken()
+
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('online', this.handleBrowserOnline)
+      window.addEventListener('offline', this.handleBrowserOffline)
+    }
+  }
+
+  private handleBrowserOnline = (): void => {
+    this.isOnline.value = true
+    if (this.isConnected.value) return
+    this.connectionPhase.value = 'reconnecting'
+    this.reconnectNow()
+  }
+
+  private handleBrowserOffline = (): void => {
+    this.isOnline.value = false
+    if (!this.isConnected.value) {
+      this.connectionPhase.value = 'offline'
+    }
   }
 
   private getNotConnectedError(): string {
@@ -158,7 +207,7 @@ export class GameService implements IGameService {
   private async whenSessionReady(): Promise<void> {
     if (this.sessionRegistered) return
     if (!this.socket?.connected) throw new Error(this.getNotConnectedError())
-    await this.sessionReady
+    await this.sessionReadyPromise
     if (!this.sessionRegistered) {
       throw new Error(
         'Не удалось установить сессию. Переподключитесь к серверу'
@@ -203,7 +252,11 @@ export class GameService implements IGameService {
             this.pendingAcks.delete(cancel)
             if (response.error) {
               reject(
-                new SocketAckError(response.error, response.conflicts ?? [])
+                new SocketAckError(
+                  response.error,
+                  response.conflicts ?? [],
+                  response.code
+                )
               )
             } else {
               resolve(response as T)
@@ -268,13 +321,30 @@ export class GameService implements IGameService {
     })
   }
 
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) return
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
+  }
+
+  /** Повторяет попытку так же, как это делает Socket.IO для обрывов. */
+  private scheduleReconnect(): void {
+    this.clearReconnectTimer()
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      if (!this.socket || this.socket.connected) return
+      this.socket.connect()
+    }, 1000)
+  }
+
   /**
    * Обменивает сохранённый токен на подтверждённую сессию. Сервер сам решает,
    * принимать старый токен или выдать новый; клиент только сохраняет ответ.
    */
   private registerSession(socket: Socket): void {
     this.sessionRegistered = false
-    this.sessionReady = new Promise<void>((resolve) => {
+    this.sessionReady.value = false
+    this.sessionReadyPromise = new Promise<void>((resolve) => {
       const finish = (response?: { token?: unknown; sessionId?: unknown }) => {
         clearTimeout(timer)
         const token =
@@ -289,6 +359,7 @@ export class GameService implements IGameService {
           this.sessionRegistered = true
           storeSessionToken(token)
         }
+        this.sessionReady.value = this.sessionRegistered
         resolve()
       }
 
@@ -304,6 +375,25 @@ export class GameService implements IGameService {
     })
   }
 
+  /**
+   * Ручная попытка восстановить соединение. Нужна, когда игрок увидел
+   * «сервер недоступен» и не хочет ждать следующей автоматической попытки.
+   */
+  reconnectNow(): void {
+    this.isOnline.value = readOnlineState()
+    this.connectionErrorCode.value = null
+    this.reconnectAttempt.value = 0
+    this.connectionPhase.value = this.isOnline.value
+      ? 'reconnecting'
+      : 'offline'
+    if (this.isConnected.value) return
+    if (this.socket) {
+      this.socket.connect()
+    } else {
+      this.connect()
+    }
+  }
+
   connect() {
     logger.debug('Attempting to connect to server...')
     if (this.socket?.connected) {
@@ -315,9 +405,18 @@ export class GameService implements IGameService {
     // и подписки вызывающего кода. Новый сокет означал бы потерю подписок.
     if (this.socket) {
       logger.debug('Reusing existing socket for reconnection')
+      this.connectionErrorCode.value = null
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
       this.socket.connect()
       return
     }
+
+    this.connectionPhase.value = 'connecting'
+    this.connectionErrorCode.value = null
+    this.lastDisconnectReason.value = null
+    this.reconnectAttempt.value = 0
 
     const SERVER_URL = this.serverUrl
     const isSecure = SERVER_URL.startsWith('https')
@@ -345,7 +444,12 @@ export class GameService implements IGameService {
 
     socket.on('connect', () => {
       logger.info('Connected to server')
+      this.clearReconnectTimer()
       this.isConnected.value = true
+      this.connectionPhase.value = 'connected'
+      this.connectionErrorCode.value = null
+      this.lastDisconnectReason.value = null
+      this.reconnectAttempt.value = 0
       this.socketId.value = socket.id ?? null
       this.registerSession(socket)
     })
@@ -354,16 +458,20 @@ export class GameService implements IGameService {
       logger.info('Disconnected from server:', reason)
       this.isConnected.value = false
       this.sessionRegistered = false
+      this.sessionReady.value = false
       this.socketId.value = null
+      this.lastDisconnectReason.value = reason
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
       this.rejectPendingAcks(
         new Error('Соединение с сервером прервано, команда не доставлена')
       )
-      if (
-        reason === 'io server disconnect' ||
-        reason === 'io client disconnect'
-      ) {
-        logger.debug('Attempting to reconnect after disconnect...')
-        socket.connect()
+      // Socket.IO сам повторяет только транспортные обрывы. Явное
+      // отключение сервером (например, при выкатке) требует ручного
+      // перезапуска с той же паузой, что и обычные попытки.
+      if (reason === 'io server disconnect') {
+        this.scheduleReconnect()
       }
     })
 
@@ -371,10 +479,19 @@ export class GameService implements IGameService {
       logger.warn('Connection error:', error)
       this.isConnected.value = false
       this.socketId.value = null
+      this.reconnectAttempt.value += 1
+      this.connectionErrorCode.value = classifyConnectError(error.message)
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
     })
 
     socket.on('reconnect_attempt', (attemptNumber: number) => {
       logger.debug('Attempting to reconnect:', attemptNumber)
+      this.reconnectAttempt.value = attemptNumber
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
     })
 
     socket.on('reconnect', (attemptNumber: number) => {
@@ -387,12 +504,23 @@ export class GameService implements IGameService {
       logger.warn('Reconnection error:', error)
       this.isConnected.value = false
       this.socketId.value = null
+      this.connectionErrorCode.value = classifyConnectError(error.message)
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
     })
 
     socket.on('reconnect_failed', () => {
       logger.error('Failed to reconnect after all attempts')
       this.isConnected.value = false
       this.socketId.value = null
+      this.connectionPhase.value = this.isOnline.value
+        ? 'reconnecting'
+        : 'offline'
+      this.connectionErrorCode.value = 'unknown'
+      // На случай неожиданного исчерпания попыток не оставляем игрока без
+      // возможности восстановиться: продолжаем попытки с паузой.
+      this.scheduleReconnect()
     })
 
     socket.on(SocketEvents.Error, (error: Error) => {
@@ -561,6 +689,7 @@ export class GameService implements IGameService {
 
   disconnect() {
     logger.debug('Manual disconnect called. Current gameId:', this.gameId)
+    this.clearReconnectTimer()
     if (this.socket) {
       const gameId = this.gameId
       this.socket.disconnect()
