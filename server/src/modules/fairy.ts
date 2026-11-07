@@ -4,6 +4,7 @@ import type {
   FairyState,
   ObjectFollower,
   PlayerId,
+  Point,
   ScoreDetailLine,
   ScoreForObject,
   Scores,
@@ -98,9 +99,12 @@ export function fairyBonusDetail(): ScoreDetailLine {
  */
 export function applyFairyBonus(
   fairy: FairyState | undefined,
-  followers: ReadonlyArray<
-    Pick<ObjectFollower, 'playerId' | 'point' | 'isAbbot' | 'isBigFollower'>
-  >,
+  followers: ReadonlyArray<{
+    playerId: PlayerId
+    point: Point
+    isAbbot?: boolean
+    isBigFollower?: boolean
+  }>,
   score: ScoreForObject,
   scores: Scores
 ): boolean {

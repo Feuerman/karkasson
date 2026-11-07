@@ -11,7 +11,7 @@
 
 import type { ScoringBoard } from './boardState'
 import { applyFairyBonus, fairyBonusDetail } from './fairy'
-import { buildFieldComponents } from './fieldComponents'
+import { buildFieldComponents, type FieldComponent } from './fieldComponents'
 import { NEIGHBOR_SIDES, neighborCoordinates } from './gameGeometry'
 import { sideOfFieldPort } from '../data/fieldTopology'
 import {
@@ -262,28 +262,11 @@ export function scoreFields(state: ScoringBoard): void {
 
   const components = buildFieldComponents(state.tilePlacesStats)
   const cityIndex = cityPointIndex(state.completedObjects.cities)
-
-  const nodeToComponent = new Map<string, string>()
-  for (const component of components) {
-    for (const region of component.regions) {
-      nodeToComponent.set(
-        `${region.rowIndex},${region.tileIndex},${region.regionIndex}`,
-        component.id
-      )
-    }
-  }
-
-  const followersByComponent = new Map<string, FieldFollower[]>()
-  for (const follower of fieldFollowers) {
-    const p = follower.point
-    const componentId = nodeToComponent.get(
-      `${p.rowIndex ?? p.y},${p.tileIndex ?? p.x},${p.regionIndex ?? 0}`
-    )
-    if (!componentId) continue
-    const list = followersByComponent.get(componentId) ?? []
-    list.push(follower)
-    followersByComponent.set(componentId, list)
-  }
+  const nodeToComponent = indexFieldComponents(components)
+  const followersByComponent = groupFollowersByComponent(
+    fieldFollowers,
+    nodeToComponent
+  )
 
   const pointsPerCity = 3
   for (const [componentId, followers] of followersByComponent) {
@@ -297,15 +280,10 @@ export function scoreFields(state: ScoringBoard): void {
     )
     if (!cityIds.size) continue
 
-    const weightByPlayer = new Map<string, number>()
-    for (const follower of followers) {
-      const weight = follower.isBigFollower ? 2 : 1
-      const key = String(follower.playerId)
-      weightByPlayer.set(key, (weightByPlayer.get(key) ?? 0) + weight)
-    }
-
+    const weightByPlayer = countFollowerWeight(followers)
     const maxWeight = Math.max(...weightByPlayer.values())
     const pointsPerLeader = pointsPerCity * cityIds.size
+
     const players: Partial<Record<PlayerId, number>> = {}
     let total = 0
 
@@ -338,7 +316,16 @@ export function scoreFields(state: ScoringBoard): void {
       actionType: ActionTypes.ADDING_SCORES,
       actionData: {
         objectType: ObjectTypes.FIELD,
-        objectData: { id: componentId, points: [], followers: [] },
+        objectData: {
+          id: componentId,
+          points: [],
+          followers: followers.map((follower) => ({
+            playerId: follower.playerId,
+            objectId: componentId,
+            point: follower.point,
+            isBigFollower: follower.isBigFollower,
+          })),
+        },
         score,
         details,
         modifiers: [],
@@ -346,4 +333,50 @@ export function scoreFields(state: ScoringBoard): void {
       },
     })
   }
+}
+
+/** Маппит каждый узел поля (строка, колонка, регион) на идентификатор компонента. */
+function indexFieldComponents(
+  components: FieldComponent[]
+): Map<string, string> {
+  const index = new Map<string, string>()
+  for (const component of components) {
+    for (const region of component.regions) {
+      index.set(
+        `${region.rowIndex},${region.tileIndex},${region.regionIndex}`,
+        component.id
+      )
+    }
+  }
+  return index
+}
+
+/** Распределяет подданных по компонентам полей через ключ узла. */
+function groupFollowersByComponent(
+  fieldFollowers: FieldFollower[],
+  nodeToComponent: Map<string, string>
+): Map<string, FieldFollower[]> {
+  const grouped = new Map<string, FieldFollower[]>()
+  for (const follower of fieldFollowers) {
+    const p = follower.point
+    const componentId = nodeToComponent.get(
+      `${p.rowIndex ?? p.y},${p.tileIndex ?? p.x},${p.regionIndex ?? 0}`
+    )
+    if (!componentId) continue
+    const list = grouped.get(componentId) ?? []
+    list.push(follower)
+    grouped.set(componentId, list)
+  }
+  return grouped
+}
+
+/** Считает вес подданных по игрокам (большой подданный — за двух). */
+function countFollowerWeight(followers: FieldFollower[]): Map<string, number> {
+  const weightByPlayer = new Map<string, number>()
+  for (const follower of followers) {
+    const weight = follower.isBigFollower ? 2 : 1
+    const key = String(follower.playerId)
+    weightByPlayer.set(key, (weightByPlayer.get(key) ?? 0) + weight)
+  }
+  return weightByPlayer
 }
