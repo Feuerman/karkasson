@@ -31,6 +31,9 @@ import { registerSocketHandlers } from './socket/router'
 import { createGameEventsPublisher } from './socket/publisher'
 import type { GameEventsPublisher } from './services/gameEvents'
 import { createLogger } from './utils/logger'
+import { metrics } from './metrics/registry'
+import { httpMetricsMiddleware } from './metrics/httpMiddleware'
+import { requestIdMiddleware } from './middleware/requestId'
 
 const logger = createLogger('app')
 
@@ -52,6 +55,7 @@ export interface CreateGameServerOptions {
   maxHttpBufferSize?: number
   gameLimits?: Partial<GameServiceLimits>
   abuseGuard?: SocketAbuseGuardOptions
+  readyCheck?: () => boolean
 }
 
 /**
@@ -168,6 +172,9 @@ export function createGameServer(
     next()
   })
 
+  app.use(requestIdMiddleware())
+  app.use(httpMetricsMiddleware())
+
   const adminUIOptions = adminUI ? getSocketAdminUIOptions() : null
   if (adminUI && !adminUIOptions) {
     logger.warn(
@@ -224,8 +231,46 @@ export function createGameServer(
    * Отвечает 200, пока сервер работает, даже если часть сохранений не читается:
    * нечитаемое сохранение — потеря одной партии, а не отказ хранилища.
    */
+  /**
+   * Проверка живости (liveness). Сервер считается живым, пока отвечает, даже
+   * если часть сохранений не читается: потеря одной партии не делает сервер
+   * неработоспособным. Публично не раскрываются детали хранилища — они
+   * доступны только на защищённом /health/details.
+   *
+   * Признак проблем с хранилищем: застрявшее сохранение (очередь не
+   * опускается дольше порога). Тогда endpoint отвечает 503 со статусом
+   * 'degraded', чтобы балансер нагрузки перестал направлять трафик.
+   */
+  const STUCK_SAVE_AGE_MS = 60_000
   app.get('/health', (_request, response) => {
-    response.json({ status: 'ok' })
+    const status = gameService.storageStatus()
+    const degraded = status.oldestSaveAgeMs > STUCK_SAVE_AGE_MS
+    response.status(degraded ? 503 : 200).json({
+      status: degraded ? 'degraded' : 'ok',
+    })
+  })
+
+  /**
+   * Проверка готовности (readiness). Отвечает 200 только после того, как
+   * инстанс захватил блокировку и загрузил активные партии. До этого
+   * возвращает 503, чтобы балансер не присылал запросы не готовому серверу.
+   */
+  app.get('/ready', (_request, response) => {
+    const ready = options.readyCheck ? options.readyCheck() : true
+    if (ready) {
+      response.json({ status: 'ready' })
+    } else {
+      response.status(503).json({ status: 'not ready' })
+    }
+  })
+
+  /**
+   * Метрики в формате Prometheus (текстовое представление). Доступны для
+   * сбора мониторинг-системой. Без персональных данных.
+   */
+  app.get('/metrics', (_request, response) => {
+    response.set('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
+    response.send(metrics.metrics())
   })
 
   /**
