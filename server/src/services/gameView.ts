@@ -55,7 +55,15 @@ export interface GameData {
   lastPlacement: IGameState['lastPlacement']
   availablePlacesTiles: IGameState['availablePlacesTiles']
   playersFollowers: IGameState['playersFollowers']
-  actionsHistory: IGameState['actionsHistory']
+  /** История действий: полная при снимке, отсутствует при дельте. */
+  actionsHistory?: IGameState['actionsHistory']
+  /**
+   * Дельта истории: только действия с индексом > lastActionIndex получателя.
+   * Присутствует вместо `actionsHistory` при инкрементальном обновлении.
+   */
+  actionsHistoryDelta?: IGameState['actionsHistory']
+  /** Индекс последнего действия на сервере (0-based, -1 если действий нет). */
+  lastActionIndex: number
   currentPlayer: PlayerView | null
   placedFollowers: IGameState['placedFollowers']
   fieldFollowers: IGameState['fieldFollowers']
@@ -71,9 +79,18 @@ export interface GameData {
  * `tileHistory` сюда не входит: клиент его нигде не читает, а список растёт
  * с каждым ходом и раздувал бы каждое широковещательное сообщение. История
  * тайлов остаётся в сохранении, где она и нужна.
+ *
+ * При `options.fromActionIndex` возвращается только дельта — действия с
+ * индексом большим, чем переданный, плюс `lastActionIndex`. Без опции
+ * возвращается полный снимок с полной `actionsHistory`.
  */
-export function formatGameData(game: GameManager): GameData {
-  return {
+export function formatGameData(
+  game: GameManager,
+  options?: { fromActionIndex?: number }
+): GameData {
+  const fromIndex = options?.fromActionIndex
+  const lastActionIndex = game.actionsHistory.length - 1
+  const base = {
     placingPoint: game.placingPoint,
     tilePlacesStats: game.tilePlacesStats,
     fieldComponents: buildFieldComponents(game.tilePlacesStats),
@@ -106,13 +123,25 @@ export function formatGameData(game: GameManager): GameData {
     lastPlacement: game.lastPlacement,
     availablePlacesTiles: game.availablePlacesTiles,
     playersFollowers: game.playersFollowers,
-    actionsHistory: game.actionsHistory,
+    lastActionIndex,
     currentPlayer: game.currentPlayer ? toPlayerView(game.currentPlayer) : null,
     placedFollowers: game.placedFollowers,
     fieldFollowers: game.fieldFollowers,
     winnerPlayerIds: game.winnerPlayerIds,
     lastUpdate: game.lastUpdate,
     ownerSessionId: game.ownerSessionId,
+  }
+
+  if (fromIndex !== undefined) {
+    return {
+      ...base,
+      actionsHistoryDelta: game.actionsHistory.slice(fromIndex + 1),
+    }
+  }
+
+  return {
+    ...base,
+    actionsHistory: game.actionsHistory,
   }
 }
 

@@ -355,6 +355,96 @@ describe('Лобби', () => {
     expect(ids[2]).toBe(active.id)
   })
 
+  it('возвращает список игр постранично с первой страницы', async () => {
+    server = await startTestServer()
+    const creator = new TestClient(server.url, 'device-pagination')
+    clients.push(creator)
+    await creator.connect()
+    await creator.registerSession()
+
+    const first = server.handle.gameService.createLobby(
+      'socket-first',
+      'session-first'
+    )
+    const second = server.handle.gameService.createLobby(
+      'socket-second',
+      'session-second'
+    )
+    const third = server.handle.gameService.createLobby(
+      'socket-third',
+      'session-third'
+    )
+
+    const page1 = await creator.emitAck<{
+      games: Array<{ id: string }>
+      total: number
+      page: number
+      pageSize: number
+      hasMore: boolean
+    }>(SocketEvents.GetGamesList, { page: 1, pageSize: 2 })
+
+    expect(page1.games).toHaveLength(2)
+    expect(page1.total).toBe(3)
+    expect(page1.page).toBe(1)
+    expect(page1.pageSize).toBe(2)
+    expect(page1.hasMore).toBe(true)
+    expect(page1.games.map((g) => g.id)).toEqual([first.id, second.id])
+
+    const page2 = await creator.emitAck<{
+      games: Array<{ id: string }>
+      total: number
+      hasMore: boolean
+    }>(SocketEvents.GetGamesList, { page: 2, pageSize: 2 })
+
+    expect(page2.games).toHaveLength(1)
+    expect(page2.total).toBe(3)
+    expect(page2.hasMore).toBe(false)
+    expect(page2.games.map((g) => g.id)).toEqual([third.id])
+  })
+
+  it('фильтрует список игр по статусу партии', async () => {
+    server = await startTestServer()
+    const creator = new TestClient(server.url, 'device-filter')
+    clients.push(creator)
+    await creator.connect()
+    await creator.registerSession()
+
+    const first = server.handle.gameService.createLobby(
+      'socket-first',
+      'session-first'
+    )
+    const second = server.handle.gameService.createLobby(
+      'socket-second',
+      'session-second'
+    )
+
+    const endedGame = server.handle.gameService.getGame(first.id)
+    if (!endedGame) throw new Error('Лобби не создано')
+    endedGame.gameIsEnded = true
+    await server.handle.gameService.saveGame(first.id)
+
+    const ended = await creator.emitAck<{
+      games: Array<{ id: string; gameIsEnded: boolean }>
+    }>(SocketEvents.GetGamesList, { filter: 'ended' })
+
+    expect(ended.games).toHaveLength(1)
+    expect(ended.games[0].id).toBe(first.id)
+    expect(ended.games[0].gameIsEnded).toBe(true)
+
+    const waiting = await creator.emitAck<{
+      games: Array<{ id: string }>
+    }>(SocketEvents.GetGamesList, { filter: 'waiting' })
+
+    expect(waiting.games).toHaveLength(1)
+    expect(waiting.games[0].id).toBe(second.id)
+
+    const started = await creator.emitAck<{
+      games: Array<{ id: string }>
+    }>(SocketEvents.GetGamesList, { filter: 'started' })
+
+    expect(started.games).toHaveLength(0)
+  })
+
   it('removePlayer с keepAsComputer оставляет слот компьютерным игроком', async () => {
     server = await startTestServer()
     const lobby = await createLobbyWithPlayers(server.url)

@@ -265,7 +265,7 @@ describe('Удаление партии', () => {
     await Promise.all([inFlightSave, deletion])
 
     expect(
-      (await service.getGameSummaries()).some(
+      (await service.getGameSummaries()).games.some(
         (summary) => summary.id === game.id
       )
     ).toBe(false)
@@ -403,7 +403,7 @@ describe('Список партий', () => {
     game.roomCode = '111222'
     await service.saveGame(game.id)
 
-    const summaries = await service.getGameSummaries()
+    const { games: summaries } = await service.getGameSummaries()
 
     expect(summaries).toHaveLength(1)
     expect(summaries[0]).toMatchObject({
@@ -431,7 +431,7 @@ describe('Список партий', () => {
     }
     await service.saveGame(game.id)
 
-    const summaries = await service.getGameSummaries()
+    const { games: summaries } = await service.getGameSummaries()
 
     expect(summaries[0]).toMatchObject({ id: game.id, roomCode: '333444' })
   })
@@ -441,7 +441,7 @@ describe('Список партий', () => {
     const game = startedGame(service)
     await service.saveGame(game.id)
 
-    const summaries = await service.getGameSummaries()
+    const { games: summaries } = await service.getGameSummaries()
 
     expect(summaries.filter(({ id }) => id === game.id)).toHaveLength(1)
   })
@@ -466,9 +466,9 @@ describe('Ленивая загрузка партий', () => {
     expect(restarted.getGame(lobby.id)).toBeDefined()
     expect(restarted.getGame(active.id)).toBeDefined()
     expect(restarted.getGame(ended.id)).toBeUndefined()
-    expect((await restarted.getGameSummaries()).map(({ id }) => id)).toContain(
-      ended.id
-    )
+    expect(
+      (await restarted.getGameSummaries()).games.map(({ id }) => id)
+    ).toContain(ended.id)
 
     const loaded = await restarted.resolveGame(ended.id)
 

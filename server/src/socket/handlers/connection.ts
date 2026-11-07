@@ -211,7 +211,11 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
         const { game, players } = result
         if (players.length > 0) {
           await socket.join(game.id ?? gameId)
-          ackGameUpdated(context.events, game.id ?? gameId, game, callback)
+          // Реконнект клиента отдаёт полный снимок истории, а не дельту:
+          // клиент мог пропустить много обновлений во время разрыва.
+          ackGameUpdated(context.events, game.id ?? gameId, game, callback, {
+            forceSnapshot: true,
+          })
         } else {
           socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
           callback?.(errorResponse(CommonErrors.PlayerNotFoundInGame))
