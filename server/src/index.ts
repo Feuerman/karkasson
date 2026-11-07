@@ -12,6 +12,7 @@ import {
   InMemoryGameDatabase,
 } from './modules/Database'
 import { createLogger } from './utils/logger'
+import { metrics } from './metrics/registry'
 
 const logger = createLogger('server')
 
@@ -28,7 +29,47 @@ const lock = createInstanceLock({
 
 let handle: Awaited<ReturnType<typeof createGameServer>> | undefined
 let isShuttingDown = false
+let isReady = false
 let cleanupTimer: NodeJS.Timeout | undefined
+let metricsTimer: NodeJS.Timeout | undefined
+
+const processMemoryRss = metrics.gauge(
+  'process_memory_rss_bytes',
+  'Resident set size in bytes'
+)
+const processMemoryHeapUsed = metrics.gauge(
+  'process_memory_heap_used_bytes',
+  'Heap used in bytes'
+)
+const processMemoryHeapTotal = metrics.gauge(
+  'process_memory_heap_total_bytes',
+  'Heap total in bytes'
+)
+const processMemoryExternal = metrics.gauge(
+  'process_memory_external_bytes',
+  'External memory in bytes'
+)
+const processEventLoopLag = metrics.gauge(
+  'process_event_loop_lag_seconds',
+  'Event loop lag in seconds'
+)
+
+function startProcessMetrics(): void {
+  let last = process.hrtime.bigint()
+  metricsTimer = setInterval(() => {
+    const now = process.hrtime.bigint()
+    const expected = 1_000_000_000n
+    const lag = Math.max(0, Number(now - last - expected) / 1e9)
+    processEventLoopLag.set(lag)
+    last = now
+    const memory = process.memoryUsage()
+    processMemoryRss.set(memory.rss)
+    processMemoryHeapUsed.set(memory.heapUsed)
+    processMemoryHeapTotal.set(memory.heapTotal)
+    processMemoryExternal.set(memory.external)
+  }, 1000)
+  metricsTimer.unref?.()
+}
 
 /**
  * Полная остановка сервера: сначала перестаём принимать команды и досылаем
@@ -39,6 +80,7 @@ async function shutdown(exitCode: number): Promise<void> {
   if (isShuttingDown) return
   isShuttingDown = true
   clearInterval(cleanupTimer)
+  clearInterval(metricsTimer)
   if (handle) {
     try {
       await handle.close()
@@ -91,6 +133,9 @@ async function startServer() {
     return
   }
 
+  isReady = true
+  logger.info('Server ready to serve traffic')
+
   cleanupTimer = startGamesCleanup()
   process.once('SIGINT', () => void shutdown(0))
   process.once('SIGTERM', () => void shutdown(0))
@@ -105,7 +150,7 @@ async function bootstrap(): Promise<void> {
     return
   }
 
-  handle = createGameServer(database)
+  handle = createGameServer(database, { readyCheck: () => isReady })
   const { server } = handle
 
   process.on('uncaughtException', (error: unknown) => {
@@ -119,6 +164,7 @@ async function bootstrap(): Promise<void> {
 
   server.listen(PORT, () => {
     void startServer()
+    void startProcessMetrics()
   })
 }
 

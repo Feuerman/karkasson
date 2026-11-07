@@ -1,13 +1,28 @@
 import type { GameManager } from '../../modules/GameManager'
 import { CommonErrors, GameErrors } from '../../modules/errors'
 import type { SocketEvent } from '../../modules/types'
-import { createLogger } from '../../utils/logger'
+import { createLogger, runWithContext } from '../../utils/logger'
+import { metrics } from '../../metrics/registry'
+import { randomUUID } from 'node:crypto'
 import type { SocketCallback, SocketHandlerContext } from '../types'
 import { errorResponse } from './errorResponse'
 import { toPlayerError } from './playerErrors'
 import { ackGameUpdated } from './shared'
 
 const logger = createLogger('gameCommand')
+
+const commandsTotal = metrics.counter(
+  'game_commands_total',
+  'Total number of processed game commands'
+)
+const commandDuration = metrics.histogram(
+  'game_command_duration_seconds',
+  'Game command duration in seconds'
+)
+const commandErrors = metrics.counter(
+  'game_command_errors_total',
+  'Total number of failed game commands'
+)
 
 type GameErrorMessage = (typeof GameErrors)[keyof typeof GameErrors]
 
@@ -111,53 +126,65 @@ export async function runGameCommand(
     transient = false,
   }: GameCommandRequest
 ): Promise<void> {
-  const dedupeKey = commandId ? `${command}:${commandId}` : undefined
+  const requestId = randomUUID()
+  const start = process.hrtime.bigint()
+  commandsTotal.inc(1, { command })
 
-  await service.runGameCommand(gameId, async () => {
-    const game = service.getGame(gameId)
-    if (!game) {
-      callback?.(errorResponse(CommonErrors.GameNotFound))
-      return
-    }
-
-    if (
-      !transient &&
-      dedupeKey &&
-      service.isCommandCompleted(gameId, dedupeKey)
-    ) {
-      ackGameUpdated(events, gameId, game, callback)
-      return
-    }
-
-    const guardError = guard(game, socket.id)
-    if (guardError) {
-      callback?.(errorResponse(guardError))
-      return
-    }
-
-    const mutate = (currentGame: GameManager) => execute({ game: currentGame })
-
+  return runWithContext({ requestId, gameId, command }, async () => {
     try {
-      // Транзиентная команда меняет только предпросмотр: она не сохраняется и
-      // не снимает снимок состояния — правка атомарна.
-      if (transient) {
-        await service.mutateWithoutSaving(gameId, mutate)
-      } else {
-        await service.mutateAndSave(gameId, mutate)
-      }
-    } catch (error) {
-      logger.error(`Ошибка команды ${command}:`, error)
-      callback?.({
-        ...toPlayerError(error),
-        ...commandErrorDetails(error),
-      })
-      return
-    }
+      const dedupeKey = commandId ? `${command}:${commandId}` : undefined
 
-    if (!transient && dedupeKey) {
-      service.rememberCompletedCommand(gameId, dedupeKey)
+      await service.runGameCommand(gameId, async () => {
+        const game = service.getGame(gameId)
+        if (!game) {
+          callback?.(errorResponse(CommonErrors.GameNotFound))
+          return
+        }
+
+        if (
+          !transient &&
+          dedupeKey &&
+          service.isCommandCompleted(gameId, dedupeKey)
+        ) {
+          ackGameUpdated(events, gameId, game, callback)
+          return
+        }
+
+        const guardError = guard(game, socket.id)
+        if (guardError) {
+          callback?.(errorResponse(guardError))
+          return
+        }
+
+        const mutate = (currentGame: GameManager) =>
+          execute({ game: currentGame })
+
+        try {
+          // Транзиентная команда меняет только предпросмотр: она не сохраняется и
+          // не снимает снимок состояния — правка атомарна.
+          if (transient) {
+            await service.mutateWithoutSaving(gameId, mutate)
+          } else {
+            await service.mutateAndSave(gameId, mutate)
+          }
+        } catch (error) {
+          logger.error(`Ошибка команды ${command}:`, error)
+          commandErrors.inc(1, { command })
+          callback?.({
+            ...toPlayerError(error),
+            ...commandErrorDetails(error),
+          })
+          return
+        }
+
+        if (!transient && dedupeKey) {
+          service.rememberCompletedCommand(gameId, dedupeKey)
+        }
+        ackGameUpdated(events, gameId, game, callback)
+        afterSave?.(game)
+      })
+    } finally {
+      commandDuration.observe(Number(process.hrtime.bigint() - start) / 1e9)
     }
-    ackGameUpdated(events, gameId, game, callback)
-    afterSave?.(game)
   })
 }

@@ -642,20 +642,72 @@ Handoff:
 
 ### 3.2. Наблюдаемость — P1
 
-- **[Добавить] Структурные логи (JSON)** с уровнями, `requestId`,
-  `gameId`, типом команды, длительностью; без персональных данных.
-- **[Добавить] Метрики:** число сокетов, игр, лобби, ошибок команд,
-  задержка ack, длина очереди, время сохранения, ошибки Firebase, размер
-  памяти, event-loop lag.
-- **[Добавить] Трейсинг** хотя бы для цепочки «команда → сохранение → ack →
-  публикация».
+- **[Сделано] Структурные логи (JSON)** на сервере и клиенте с уровнями,
+  `requestId`, `gameId`, типом команды, длительностью; без персональных
+  данных (токены, `deviceId`, payload'ы). Контекст запроса распространяется
+  через `AsyncLocalStorage` (`server/src/utils/logger.ts`), клиент — через
+  `src/utils/logger.ts`. Формат управляется `LOG_FORMAT` (JSON по
+  умолчанию в production).
+- **[Сделано] Метрики** в формате Prometheus на endpoint `/metrics`:
+  число сокетов (`wsocket_connections_active/total`), игр и лобби
+  (`game_games_total`, `game_lobbies_total`), ошибок команд
+  (`game_command_errors_total`), длительность команд и сохранений
+  (`game_command_duration_seconds`, `game_save_duration_seconds`),
+  ошибки сохранения (`game_save_errors_total`), размер памяти и
+  event-loop lag (`process_memory_*`, `process_event_loop_lag_seconds`).
+  Реестр без внешних зависимостей (`server/src/metrics/registry.ts`).
+- **[Сделано] Корреляция цепочки «команда → сохранение → ack → публикация»**
+  через `requestId` + `gameId` + `command` в контексте логов
+  (`runGameCommand` в `server/src/socket/handlers/gameCommand.ts`) и
+  метрики длительности. Полноценная система распределённого трейсинга
+  (OpenTelemetry и др.) не внедрена.
 - **[Добавить] Error tracking (Sentry или аналог)** для сервера и клиента,
-  с фильтрацией секретов.
+  с фильтрацией секретов — инфраструктурное решение, остаётся на этапе
+  эксплуатации.
 - **[Добавить] Алерты** на рост ошибок, недоступность БД, переполнение
-  очереди, event-loop lag, падение healthcheck.
-- **[Добавить] Осмысленный `/health`:** проверка БД, но без публичных
-  деталей; отдельный `/ready`.
-- **[Добавить] Дашборд стоимости Firebase** и лимитов; контроль чтений.
+  очереди, event-loop lag, падение healthcheck — настраиваются на стороне
+  мониторинга по метрикам `/metrics` и endpoint'у `/health`.
+- **[Сделано] Осмысленный `/health`:** проверка состояния сохранений
+  (застрявшее сохранение → 503 `degraded`), без публичных деталей
+  хранилища; отдельный `/ready` (200 после захвата блокировки инстанса и
+  загрузки партий, иначе 503). Подробная диагностика остаётся на
+  защищённом `/health/details`.
+- **[Добавить] Дашборд стоимости Firebase** и лимитов; контроль чтений —
+  настраивается в консоли Firebase и операционно.
+
+Инварианты этапа:
+
+- Логи не содержат персональных данных: токены сессий, `deviceId`, полные
+  payload'ы и содержимое сохранений не попадают в запись.
+- `requestId` генерируется на каждый HTTP-запрос (заголовок
+  `X-Request-Id` откликается в ответе) и на каждую игровую команду;
+  контекст lebt в пределах обработки запроса/команды.
+- `/health` не раскрывает состояние хранилища públicно; детали
+  (`storageStatus`, uptime) только на `/health/details` по `HEALTH_TOKEN`.
+- Метрики не содержат идентификаторов конкретных игроков и партий; только
+  агрегированные счётчики и гейджи.
+- Сервер считается готовым к трафику только после успешного `/ready`;
+  до этого балансер должен получать 503.
+
+Handoff:
+
+- В production задать `LOG_FORMAT=json` (по умолчанию), `LOG_LEVEL` и,
+  для `/health/details`, `HEALTH_TOKEN`.
+- Метрики собираются с `/metrics` мониторинг-системой; алерты
+  настраиваются операционно (вне кода).
+- Ошибки серверного процесса по-прежнему приводят к штатной остановке
+  через `handle.close()` (см. п. 1.2).
+- Распределённый трейсинг и error tracking (Sentry) добавляются
+  отдельно, если потребуются для эксплуатации.
+- Проверено: `pnpm test`, `pnpm run type-check`, `pnpm run lint`,
+  `pnpm run build`, `pnpm --filter server run build`.
+
+Файлы: `server/src/utils/logger.ts`, `server/src/metrics/registry.ts`,
+`server/src/metrics/httpMiddleware.ts`, `server/src/middleware/requestId.ts`,
+`server/src/app.ts`, `server/src/index.ts`, `server/src/services/GameService.ts`,
+`server/src/socket/router.ts`, `server/src/socket/handlers/gameCommand.ts`,
+`src/utils/logger.ts`, `tests/unit/logger.test.ts`,
+`tests/unit/metrics.test.ts`, `tests/integration/app.test.ts`.
 
 ### 3.3. Деплой и окружения — P1
 
