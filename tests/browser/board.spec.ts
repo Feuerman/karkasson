@@ -24,11 +24,12 @@ async function listenOnRandomPort(server: import('node:http').Server) {
   return address.port
 }
 
-/** Создаёт комнату и начинает партию одним игроком. */
-async function startSinglePlayerGame(page: Page, url: string) {
+/** Создаёт комнату и начинает партию с двумя игроками. */
+async function startGameWithTwoPlayers(page: Page, url: string) {
   await page.goto(url)
   await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
   await page.getByTestId(TEST_IDS.createGameSubmit).click()
+  await page.getByTestId(TEST_IDS.playerSlotCheckbox).nth(1).click()
   await page.getByTestId(TEST_IDS.lobbyStartGame).click()
   await expect(page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)).toContainText(
     'Ваш ход'
@@ -80,7 +81,7 @@ test('доступные клетки подсвечены, а причину о
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // Стартовый тайл лежит в центре, а соседние клетки — доступные места.
     for (const [rowIndex, tileIndex] of [
@@ -125,7 +126,7 @@ test('тайл можно повернуть после выбора клетк�
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     const previewImage = page
       .getByTestId(TEST_IDS.pendingTilePreview)
@@ -161,7 +162,7 @@ test('отменённый выбор не оставляет следов на 
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // Прежде чем клетка выбрана, панель подсказывает, что делать.
     await expect(page.getByTestId(TEST_IDS.pendingTilePreview)).toBeVisible()
@@ -243,7 +244,7 @@ test('показывает ход, сводку действия и управл
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     const tracker = page.getByTestId(TEST_IDS.turnTracker)
     await expect(tracker).toBeVisible()
@@ -283,7 +284,7 @@ test('доска управляется с клавиатуры', async ({ page 
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // Фокус стоит на клетке, стрелки перемещают его по доске.
     await page.getByTestId(boardCellTestId(15, 15)).focus()
