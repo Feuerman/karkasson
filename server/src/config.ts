@@ -352,6 +352,21 @@ function readStringValue(value: unknown): string | undefined {
 }
 
 /**
+ * Проверяет окружение перед стартом сервера. В production обязательны
+ * SESSION_SECRET и полная конфигурация Firebase; иначе сервер не должен
+ * запускаться — в частности, он не должен молча переключиться на in-memory
+ * хранилище. Выбрасывает ошибку с понятным сообщением, если требуемая
+ * переменная окружения отсутствует.
+ */
+export function validateProductionEnvironment(
+  environment: NodeJS.ProcessEnv = process.env
+): void {
+  if (environment.NODE_ENV !== 'production') return
+  getSessionSecret(environment)
+  getFirebaseConfig(environment)
+}
+
+/**
  * Конфигурация Firebase Realtime Database. Значения приходят из окружения:
  * обязательны FIREBASE_API_KEY, FIREBASE_DATABASE_URL и
  * FIREBASE_SERVICE_ACCOUNT. Нужен только production-серверу, в разработке и

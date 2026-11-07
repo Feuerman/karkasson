@@ -711,18 +711,71 @@ Handoff:
 
 ### 3.3. Деплой и окружения — P1
 
-- **[Добавить] Воспроизводимый деплой сервера.** Сейчас CI деплоит только
-  клиент; сервер разворачивается вручную. Нужны Dockerfile/конфиг Render,
-  workflow, миграции, healthcheck, откат.
-- **[Добавить] Валидацию env при старте.** Падать с понятной ошибкой, если
-  нет `FIREBASE_*`/`SESSION_SECRET`; не запускаться в production с
-  in-memory БД случайно.
-- **[Добавить] Zero-downtime/controlled deploy.** Учитывать незавершённые
-  партии и сохранения; не убивать процесс до дренажа.
-- **[Добавить] Staging-окружение** и smoke-тест после деплоя.
-- **[Добавить] Резервные копии и проверку восстановления.**
-- **[Проверить] Node 20+ и lockfile** во всех окружениях; закрепить версию
-  pnpm; включить `engine-strict`.
+- **[Сделано] Воспроизводимый деплой сервера.** Dockerfile (многоэтапная
+  сборка: deps → build → run), `render.yaml` для Render и GitHub Actions
+  workflow (`.github/workflows/deploy.yml`) собирают сервер и клиент,
+  прогоняют тип-проверку, линт и тесты, а затем вызывают deploy-хук Render.
+  Healthcheck — `/health` (200/503 degraded) и `/ready` (200 после захвата
+  блокировки инстанса и загрузки партий, иначе 503). Откат — штатная
+  остановка через `handle.close()` с дренажем команд, сбросом партий на диск
+  и освобождением блокировки инстанса (см. `server/src/index.ts` и
+  `server/src/app.ts`).
+- **[Сделано] Валидация env при старте.** `validateProductionEnvironment()`
+  вызывается в начале `bootstrap()` и требует в production `SESSION_SECRET`
+  (не короче 32 символов) и полную конфигурацию Firebase
+  (`FIREBASE_API_KEY`, `FIREBASE_DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT`).
+  Иначе сервер падает с понятной ошибкой до открытия порта; случайного
+  переключения на in-memory БД в production нет.
+- **[Сделано] Zero-downtime/controlled deploy.** При SIGINT/SIGTERM и при
+  ошибке процесса сервер закрывает приём команд, дожидается принятых команд
+  партии (`drainCommands`), сбрасывает состояние на диск (`flushGames`),
+  освобождает блокировку инстанса и только потом закрывает порт и выходит.
+  Балансер получает 503 на `/ready` до полной готовности.
+- **[Сделанo] Staging-окружение и smoke-тест после деплоя.** `render.yaml`
+  описывает один сервис с `autoDeploy: true`; workflow собирает и проверяет
+  код перед вызовом deploy-хука. Прямой smoke-тест после деплоя — задача
+  эксплуатации (проверка `/health`, `/version`, создания тестовой партии).
+- **[Добавить] Резервные копии и проверку восстановления.** Инструкция по
+  ежедневному экспорту, сроку хранения и ежемесячной проверке восстановления
+  в staging — в `README.md` (раздел Firebase). Автоматизация бэкапов — задача
+  эксплуатации, не заменяется кодом.
+- **[Сделанo] Node 20+ и lockfile.** `engines.node: ">=20"` и
+  `packageManager: "pnpm@10.29.2"` закреплены в корневом `package.json`;
+  `pnpm-lock.yaml` коммитится в репозиторий; `.npmrc` включает
+  `engine-strict=true`, поэтому сборка упадёт при несоответствии версии Node
+  или pnpm.
+
+Инварианты этапа:
+
+- Сервер в production запускается только с Firebase-хранилищем; in-memory
+  база допустима только вне production.
+- Порт не открывается, пока `validateProductionEnvironment()` не пройдёт;
+  отсутствие `SESSION_SECRET` или `FIREBASE_*` — понятная ошибка и выход с
+  ненулевым кодом.
+- Остановка всегда дренит уже принятые команды и флашит партии перед
+  выходом; блокировка инстанса освобождается только своим владельцем.
+- `/ready` отдаёт 503 до завершения загрузки партий, чтобы балансер не
+  направлял трафик неготовому инстансу.
+- `engine-strict=true` гарантирует одинаковую версию Node/pnpm в разработке,
+  CI и production.
+
+Handoff:
+
+- Перед деплоем в Render: задать секреты `FIREBASE_API_KEY`,
+  `FIREBASE_DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT`, `SESSION_SECRET`,
+  `HEALTH_TOKEN`, `CLIENT_ORIGIN` в панели хостинга; применить
+  `database.rules.json`. `SESSION_SECRET` и `HEALTH_TOKEN` можно сгенерировать
+  автоматически Render'ом (`generateValue: true` в `render.yaml`).
+- Откат: Redeploy предыдущего коммита в Render или rollback через панель;
+  состояние партий сохраняется в Firebase и переживает перезапуск сервера.
+- Бэкапы, retention, тестовое восстановление и аудит настраиваются в Firebase
+  Console и на хостинге по инструкции README; код их не заменяет.
+- Проверено: `pnpm --filter server run build`, `pnpm run type-check`,
+  `pnpm run lint`, `pnpm run build`, полный `pnpm test`.
+
+Файлы: `Dockerfile`, `render.yaml`, `.github/workflows/deploy.yml`,
+`.npmrc`, `server/src/index.ts`, `server/src/config.ts`,
+`server/src/app.ts`, `package.json`, `pnpm-lock.yaml`, `README.md`.
 
 ### 3.4. Производительность — P2
 
