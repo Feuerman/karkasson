@@ -492,12 +492,21 @@ onMounted(() => {
     onGamesListUpdated
   )
   const unsubscribeConnect = GameService.onSocketEvent('connect', onConnect)
+  const unsubscribeSessionReplaced = GameService.onSocketEvent(
+    SocketEvents.SessionReplaced,
+    () => {
+      notificationService.warning(
+        'Партия открыта в другой вкладке. Здесь управление больше недоступно'
+      )
+    }
+  )
 
   cleanupSocketListeners = () => {
     unsubscribeGameUpdated()
     unsubscribeGameDeleted()
     unsubscribeGamesList()
     unsubscribeConnect()
+    unsubscribeSessionReplaced()
   }
 })
 </script>

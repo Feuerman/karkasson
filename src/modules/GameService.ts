@@ -129,6 +129,12 @@ export class GameService implements IGameService {
   private sessionToken: string
   /** Сервер подтвердил сессию для текущего сокета. */
   private sessionRegistered = false
+  /**
+   * Сессию забрала другая вкладка. Старый сокет отключён сервером и не должен
+   * автоматически переподключаться, иначе вкладки будут бесконечно отбирать
+   * управление друг у друга.
+   */
+  private sessionReplaced = false
   /** Готовность регистрации: команды не должны опережать выдачу сессии. */
   private sessionReady: Promise<void> = Promise.resolve()
   private readonly pendingAcks = new Set<(error: Error) => void>()
@@ -306,6 +312,7 @@ export class GameService implements IGameService {
 
   connect() {
     logger.debug('Attempting to connect to server...')
+    this.sessionReplaced = false
     if (this.socket?.connected) {
       logger.debug('Socket already connected, skipping connection')
       return
@@ -362,9 +369,21 @@ export class GameService implements IGameService {
         reason === 'io server disconnect' ||
         reason === 'io client disconnect'
       ) {
+        // Сессию забрала другая вкладка: сервер уже передал ей управление.
+        // Автоматически переподключаться нельзя, иначе вкладки будут
+        // бесконечно забирать сессию друг у друга.
+        if (this.sessionReplaced) return
         logger.debug('Attempting to reconnect after disconnect...')
         socket.connect()
       }
+    })
+
+    socket.on(SocketEvents.SessionReplaced, () => {
+      logger.warn('Session was taken over by another tab')
+      this.sessionReplaced = true
+      this.sessionRegistered = false
+      this.isConnected.value = false
+      this.socketId.value = null
     })
 
     socket.on('connect_error', (error: Error) => {
