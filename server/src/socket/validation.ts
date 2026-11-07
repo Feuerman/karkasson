@@ -278,7 +278,7 @@ function readFollowerPlace(value: unknown): FollowerPlaceRequest | undefined {
 
 export function parseRegisterSession(
   value: unknown
-): { token?: string } | undefined {
+): { token?: string; protocolVersion?: string } | undefined {
   if (value === undefined || value === null) return {}
   const record = asRecord(value)
   if (!record) return undefined
@@ -293,7 +293,21 @@ export function parseRegisterSession(
   ) {
     return undefined
   }
-  return { token }
+  const protocolVersion = readProtocolVersion(record.protocolVersion)
+  return protocolVersion === undefined ? { token } : { token, protocolVersion }
+}
+
+function readProtocolVersion(value: unknown): string | undefined {
+  if (value === undefined) return undefined
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.length > 64 ||
+    hasControlOrFormatCharacters(value)
+  ) {
+    return undefined
+  }
+  return value
 }
 
 export function parseCreateGame(value: unknown): CreateGameRequest | undefined {
