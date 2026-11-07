@@ -23,6 +23,7 @@ import {
 import { playerNameKey } from '../modules/playerName'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
+import { metrics } from '../metrics/registry'
 import { ComputerMoveScheduler, isComputerPlayer } from './computerPlayer'
 import { createSessionToken, verifySessionToken } from './sessionToken'
 import {
@@ -43,6 +44,27 @@ export type { GameData } from './gameView'
 export type { GameSummary, GameSummaryPlayer } from './gameSummary'
 
 const logger = createLogger('GameService')
+
+const gamesTotal = metrics.gauge(
+  'game_games_total',
+  'Number of active games in memory'
+)
+const lobbiesTotal = metrics.gauge(
+  'game_lobbies_total',
+  'Number of non-started lobbies in memory'
+)
+const pendingSavesGauge = metrics.gauge(
+  'game_pending_saves',
+  'Number of games with pending save operations'
+)
+const saveDuration = metrics.histogram(
+  'game_save_duration_seconds',
+  'Game save duration in seconds'
+)
+const saveErrors = metrics.counter(
+  'game_save_errors_total',
+  'Total number of failed game saves'
+)
 
 export interface JoinResult {
   error: string
@@ -436,6 +458,9 @@ export class GameService {
     delete this.games[gameId]
     delete this.lobbyOwners[gameId]
     this.savedSummaries.delete(gameId)
+    gamesTotal.dec(1)
+    if (game && !game.gameIsStarted) lobbiesTotal.dec(1)
+    pendingSavesGauge.set(this.pendingSaves.size)
 
     // Удаление встаёт в ту же очередь, что и сохранения, поэтому выполняется
     // после всех них. Ошибка прошлого сохранения удалению не мешает.
@@ -497,18 +522,25 @@ export class GameService {
     const previousSave = this.pendingSaves.get(gameId) ?? Promise.resolve()
     this.saveQueueDepth.set(gameId, depth + 1)
     if (depth === 0) this.saveQueueSince.set(gameId, Date.now())
+    pendingSavesGauge.set(this.pendingSaves.size)
 
     const save = previousSave
       // Ошибка прошлой записи не должна блокировать следующую: хранилище могло
       // восстановиться, а новая команда заслуживает собственной попытки.
       .catch(() => undefined)
       .then(async () => {
+        const saveStart = process.hrtime.bigint()
         try {
           await this.db.saveGame(gameId, serializedState, summary)
           if (summary) this.savedSummaries.set(gameId, summary)
         } catch (error) {
           this.saveFailureCount += 1
+          saveErrors.inc(1)
           throw error
+        } finally {
+          saveDuration.observe(
+            Number(process.hrtime.bigint() - saveStart) / 1e9
+          )
         }
       })
     const trackedSave = save.finally(() => {
@@ -522,6 +554,7 @@ export class GameService {
       if (this.pendingSaves.get(gameId) === trackedSave) {
         this.pendingSaves.delete(gameId)
       }
+      pendingSavesGauge.set(this.pendingSaves.size)
     })
     this.pendingSaves.set(gameId, trackedSave)
     return trackedSave
@@ -614,6 +647,8 @@ export class GameService {
     game.ownerSessionId = sessionId
     this.games[gameId] = game
     this.lobbyOwners[gameId] = sessionId
+    gamesTotal.inc(1)
+    lobbiesTotal.inc(1)
     return game as GameManager & { id: string }
   }
 
@@ -765,6 +800,7 @@ export class GameService {
     newGame.ownerSessionId =
       this.lobbyOwners[gameId] ?? game.ownerSessionId ?? null
     this.games[gameId] = newGame
+    lobbiesTotal.dec(1)
     return newGame
   }
 

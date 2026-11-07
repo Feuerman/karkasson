@@ -3,15 +3,29 @@ import { CommonErrors } from '../modules/errors'
 import type { GameService } from '../services/GameService'
 import type { GameEventsPublisher } from '../services/gameEvents'
 import { createLogger } from '../utils/logger'
+import { metrics } from '../metrics/registry'
 import type { SocketAbuseGuard } from './abuseGuard'
 import { errorResponse } from './handlers/errorResponse'
 import { registerConnectionHandlers } from './handlers/connection'
-import { registerGameHandlers } from './handlers/game'
 import { registerLobbyHandlers } from './handlers/lobby'
 import { registerSlotHandlers } from './handlers/slots'
+import { registerGameHandlers } from './handlers/game'
 import type { SocketCallback } from './types'
 
 const logger = createLogger('socket')
+
+const connectionsTotal = metrics.counter(
+  'wsocket_connections_total',
+  'Total number of WebSocket connections'
+)
+const connectionsActive = metrics.gauge(
+  'wsocket_connections_active',
+  'Number of active WebSocket connections'
+)
+const commandsRateLimited = metrics.counter(
+  'wsocket_command_rate_limited_total',
+  'Total number of rate-limited commands'
+)
 
 export function registerSocketHandlers(
   io: Server,
@@ -32,7 +46,12 @@ export function registerSocketHandlers(
   io.on('connection', (socket) => {
     const ip = guard.clientIp(socket)
     guard.addConnection(socket.id, ip)
-    socket.once('disconnect', () => guard.removeConnection(socket.id))
+    connectionsTotal.inc(1)
+    connectionsActive.inc(1)
+    socket.once('disconnect', () => {
+      guard.removeConnection(socket.id)
+      connectionsActive.dec(1)
+    })
 
     socket.use((packet, next) => {
       const event = typeof packet[0] === 'string' ? packet[0] : ''
@@ -50,6 +69,7 @@ export function registerSocketHandlers(
       logger.warn(`Command rate limit exceeded for "${event}"`, {
         reason: limit.reason,
       })
+      commandsRateLimited.inc(1, { reason: limit.reason })
       callback?.(errorResponse(CommonErrors.TooManyRequests))
     })
 
