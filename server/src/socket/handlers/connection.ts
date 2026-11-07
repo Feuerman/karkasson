@@ -1,6 +1,6 @@
 import type { SocketHandlerContext } from '../types'
 import type { GameManager } from '../../modules/GameManager'
-import { SocketEvents } from '../../modules/types'
+import { SocketEvents, PROTOCOL_VERSION } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
 import { createLogger } from '../../utils/logger'
 import {
@@ -161,6 +161,7 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
       success: true,
       token: session.token,
       sessionId: session.sessionId,
+      protocolVersion: PROTOCOL_VERSION,
     })
   })
 

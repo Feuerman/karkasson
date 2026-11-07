@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
+import { version as serverVersion } from '../package.json'
 import express from 'express'
 import http from 'http'
 import { Server } from 'socket.io'
@@ -21,6 +22,7 @@ import {
   TRUST_PROXY,
 } from './config'
 import type { IGameDatabase } from './modules/Database'
+import { PROTOCOL_VERSION } from './modules/types'
 import type { GameServiceLimits } from './services/GameService'
 import { GameService } from './services/GameService'
 import { SocketAbuseGuard } from './socket/abuseGuard'
@@ -245,6 +247,17 @@ export function createGameServer(
       status: 'ok',
       storage: gameService.storageStatus(),
       uptimeSeconds: Math.round(process.uptime()),
+    })
+  })
+
+  /**
+   * Версия сервера и протокола для диагностики. Без токена — чтобы любой
+   * экземпляр мог свериться с клиентом после выкатки.
+   */
+  app.get('/version', (_request, response) => {
+    response.json({
+      server: serverVersion,
+      protocol: PROTOCOL_VERSION,
     })
   })
 

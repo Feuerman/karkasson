@@ -5,6 +5,7 @@ import type { GameSummary, GameData } from '@server/services/GameService'
 import {
   FollowerType,
   SocketEvents,
+  PROTOCOL_VERSION,
   type GridTile,
   type Tile,
   type FollowerType as FollowerTypeValue,
@@ -91,6 +92,10 @@ const DEFAULT_SERVER_URL =
   import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
 const SESSION_TOKEN_STORAGE_KEY = 'sessionToken'
 const SOCKET_ACK_TIMEOUT_MS = 15_000
+/** Версия протокола этого клиента: сверяется с ответом сервера. */
+const CLIENT_PROTOCOL_VERSION = PROTOCOL_VERSION
+const PROTOCOL_MISMATCH_ERROR =
+  'Требуется перезагрузка страницы: версия протокола клиента и сервера не совпадают'
 const CONNECTION_INTERRUPTED_ERROR =
   'Соединение с сервером прервано, попробуйте отправить команду ещё раз'
 
@@ -154,6 +159,14 @@ export class GameService implements IGameService {
   connectionErrorCode = ref<ConnectionErrorCode | null>(null)
   /** Сервер подтвердил сессию для текущего сокета. */
   sessionReady = ref(false)
+  /** Версия серверного протокола, полученная при регистрации сессии. */
+  serverProtocolVersion = ref<string | null>(null)
+  /** Протокол клиента и сервера не совпадают: нужна перезагрузка страницы. */
+  protocolMismatch = ref(false)
+  /** Версия клиентской сборки для диагностики (из VITE_APP_VERSION). */
+  get clientVersion(): string {
+    return (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'dev'
+  }
   private serverUrl: string
   private sessionToken: string
   /** Сервер подтвердил сессию для текущего сокета (внутренний флаг). */
@@ -226,6 +239,9 @@ export class GameService implements IGameService {
     event: string,
     payload?: SocketPayload
   ): Promise<T> {
+    if (this.protocolMismatch.value) {
+      return Promise.reject(new Error(PROTOCOL_MISMATCH_ERROR))
+    }
     const wasConnected = Boolean(this.socket?.connected)
     return this.whenSessionReady().then(
       () =>
@@ -351,7 +367,11 @@ export class GameService implements IGameService {
     this.sessionRegistered = false
     this.sessionReady.value = false
     this.sessionReadyPromise = new Promise<void>((resolve) => {
-      const finish = (response?: { token?: unknown; sessionId?: unknown }) => {
+      const finish = (response?: {
+        token?: unknown
+        sessionId?: unknown
+        protocolVersion?: unknown
+      }) => {
         clearTimeout(timer)
         const token =
           typeof response?.token === 'string' ? response.token : undefined
@@ -359,6 +379,10 @@ export class GameService implements IGameService {
           typeof response?.sessionId === 'string'
             ? response.sessionId
             : undefined
+        const serverProtocolVersion =
+          typeof response?.protocolVersion === 'string'
+            ? response.protocolVersion
+            : null
         if (token && sessionId) {
           this.sessionToken = token
           this.sessionId.value = sessionId
@@ -366,6 +390,13 @@ export class GameService implements IGameService {
           storeSessionToken(token)
         }
         this.sessionReady.value = this.sessionRegistered
+        this.serverProtocolVersion.value = serverProtocolVersion
+        // Сервер ещё не отдаёт версию (старый деплой) — не можем обнаружить
+        // несовпадение, поэтому не блокируем. При наличии версии сервера и
+        // несовпадении с клиентом требуется перезагрузка страницы.
+        this.protocolMismatch.value =
+          serverProtocolVersion !== null &&
+          serverProtocolVersion !== CLIENT_PROTOCOL_VERSION
         resolve()
       }
 
@@ -375,7 +406,10 @@ export class GameService implements IGameService {
       const timer = setTimeout(() => finish(), 10_000)
       socket.emit(
         SocketEvents.RegisterSession,
-        this.sessionToken ? { token: this.sessionToken } : {},
+        {
+          ...(this.sessionToken ? { token: this.sessionToken } : {}),
+          protocolVersion: CLIENT_PROTOCOL_VERSION,
+        },
         finish
       )
     })

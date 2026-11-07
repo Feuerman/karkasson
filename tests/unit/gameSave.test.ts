@@ -363,6 +363,27 @@ describe('Схема сохранения игры', () => {
     })
   })
 
+  it('мигрирует сохранение версии 8: новые флаги выключаются по умолчанию', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'schema-eight-game'
+    game.pendingDragonMovement = true
+    game.isPlacingFairy = true
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    delete legacyState.pendingDragonMovement
+    delete legacyState.isPlacingFairy
+
+    const restored = deserializeGameState({
+      schemaVersion: 8,
+      state: legacyState,
+    })
+
+    expect(restored.pendingDragonMovement).toBe(false)
+    expect(restored.isPlacingFairy).toBe(false)
+  })
+
   it('восстанавливает legacy-лобби, сохранённое до появления полного состояния', () => {
     const player: Record<string, unknown> = {
       id: 1,
