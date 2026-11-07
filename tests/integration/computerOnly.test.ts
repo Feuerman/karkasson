@@ -79,12 +79,19 @@ describe('Полностью автоматическая партия (4 ком
       )
       expect(ended.gameIsEnded).toBe(true)
 
+      // Финальное состояние с полной историей действий — из хранилища.
+      // Создатель лобби в режиме computerOnly не игрок (освободил слот),
+      // поэтому RejoinGame для него не подходит.
+      const saved = await server.db.getGame(gameId)
+      expect(saved).not.toBeNull()
+      const finalState = saved as unknown as GameStateSnapshot
+
       // Победителя присылает сервер, и он совпадает с максимумом в таблице очков
-      const winnerIds = ended.winnerPlayerIds ?? []
+      const winnerIds = finalState.winnerPlayerIds ?? []
       expect(winnerIds.length).toBeGreaterThan(0)
-      const scores = Object.entries(ended.scores ?? {})
+      const scores = Object.entries(finalState.scores ?? {})
       const best = scores.reduce(
-        (max, [, score]) => Math.max(max, score),
+        (max: number, [, score]) => Math.max(max, score),
         -Infinity
       )
       expect(winnerIds.length).toBe(scores.filter(([, s]) => s === best).length)
@@ -92,10 +99,12 @@ describe('Полностью автоматическая партия (4 ком
         expect(scores.find(([key]) => key === String(id))?.[1]).toBe(best)
       })
 
-      expect(countPlacedTiles(ended.tilePlacesStats)).toBeGreaterThan(72)
-      expect(countPlacedTiles(ended.tilePlacesStats)).toBeLessThanOrEqual(102)
-      const placedTiles = Object.values(ended.tilePlacesStats).flatMap((row) =>
-        Object.values(row ?? {})
+      expect(countPlacedTiles(finalState.tilePlacesStats)).toBeGreaterThan(72)
+      expect(countPlacedTiles(finalState.tilePlacesStats)).toBeLessThanOrEqual(
+        102
+      )
+      const placedTiles = Object.values(finalState.tilePlacesStats).flatMap(
+        (row) => Object.values(row ?? {})
       )
       expect(
         placedTiles.filter((tile) => tile.id.startsWith('PAD_')).length
@@ -104,7 +113,7 @@ describe('Полностью автоматическая партия (4 ком
         placedTiles.filter((tile) => tile.id.startsWith('PAD_')).length
       ).toBeLessThanOrEqual(30)
       expect(
-        ended.actionsHistory?.filter(
+        (finalState.actionsHistory ?? finalState.actionsHistoryDelta)?.filter(
           (action) =>
             action.actionType === ActionTypes.PLACE_FOLLOWER &&
             !action.initiator?.socketId &&
@@ -113,8 +122,8 @@ describe('Полностью автоматическая партия (4 ком
       ).toBeGreaterThan(0)
 
       // Очки согласуются с завершёнными строениями, фишки не потеряны
-      verifyScoresFromHistory(ended)
-      assertFollowerInvariants(ended)
+      verifyScoresFromHistory(finalState)
+      assertFollowerInvariants(finalState)
 
       // Общий список игр обновлён: игра помечена как завершённая
       const { games } = await creator.emitAck<{
@@ -124,10 +133,8 @@ describe('Полностью автоматическая партия (4 ком
       expect(summary?.gameIsEnded).toBe(true)
 
       // Финальное состояние сохранено в базе
-      const saved = await server.db.getGame(gameId)
-      expect(saved).not.toBeNull()
       expect(saved!.gameIsEnded).toBe(true)
-      expect(saved!.moveCounter).toBe(ended.moveCounter)
+      expect(saved!.moveCounter).toBe(finalState.moveCounter)
     },
     180_000
   )

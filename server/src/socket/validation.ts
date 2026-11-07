@@ -15,6 +15,7 @@ import {
 import { hasControlOrFormatCharacters } from '../modules/text'
 import { MAX_SESSION_TOKEN_LENGTH } from '../services/sessionToken'
 import type { SocketCallback } from './types'
+import type { GamesListFilter } from '../services/gameSummary'
 
 const MAX_GAME_ID_LENGTH = 64
 const MAX_IDENTIFIER_LENGTH = 128
@@ -84,6 +85,14 @@ export interface CallbackRequest {
   payload: unknown
   callback: SocketCallback | undefined
 }
+
+export interface GetGamesListRequest {
+  page?: number
+  pageSize?: number
+  filter?: GamesListFilter
+}
+
+const MAX_GAMES_LIST_PAGE_SIZE = 100
 
 export function payloadAndCallback(
   first: unknown,
@@ -344,6 +353,34 @@ export function parseGameRequest(value: unknown): GameRequest | undefined {
   const commandId = readCommandId(record)
   if (!gameId || commandId === null) return undefined
   return { gameId, ...commandIdField(commandId) }
+}
+
+export function parseGetGamesList(value: unknown): GetGamesListRequest {
+  const request: GetGamesListRequest = {}
+  const record = asRecord(value)
+  if (!record) return request
+
+  const page = readOptionalInteger(record.page, 1, Number.MAX_SAFE_INTEGER)
+  if (page !== undefined) request.page = page
+
+  const pageSize = readOptionalInteger(
+    record.pageSize,
+    1,
+    MAX_GAMES_LIST_PAGE_SIZE
+  )
+  if (pageSize !== undefined) request.pageSize = pageSize
+
+  const filter = record.filter
+  if (
+    filter === 'all' ||
+    filter === 'waiting' ||
+    filter === 'started' ||
+    filter === 'ended'
+  ) {
+    request.filter = filter
+  }
+
+  return request
 }
 
 export function parseAddPlayer(value: unknown): AddPlayerRequest | undefined {

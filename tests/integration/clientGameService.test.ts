@@ -176,7 +176,7 @@ describe('Клиентское приложение (GameService)', () => {
 
     await addPlayers(alice, ['Alice'])
 
-    const games = await alice.getGamesList()
+    const { games } = await alice.getGamesList()
     const found = games.find((g) => g.id === alice.gameId)
     expect(found?.players[0].name).toBe('Alice')
   })

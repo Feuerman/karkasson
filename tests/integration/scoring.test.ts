@@ -83,9 +83,11 @@ describe('Подсчёт очков и полная партия', () => {
     // легально поставить. Проверяем согласованность доски с историей ходов и
     // то, что число тайлов не превышает размер базовой колоды.
     const placedTiles = countPlacedTiles(endState.tilePlacesStats)
-    const tilePlacementActions = (endState.actionsHistory ?? []).filter(
-      (action) => action.actionType === ActionTypes.PLACE_TILE
-    )
+    const tilePlacementActions = (
+      endState.actionsHistory ??
+      endState.actionsHistoryDelta ??
+      []
+    ).filter((action) => action.actionType === ActionTypes.PLACE_TILE)
     expect(placedTiles).toBe(tilePlacementActions.length)
     expect(placedTiles).toBeLessThanOrEqual(72)
 

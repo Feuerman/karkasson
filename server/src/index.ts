@@ -126,7 +126,7 @@ async function startServer() {
     await gameService.computerMoves.resumeAll(events, gameService)
     logger.info(
       `Loaded ${gameService.allGames().length} active game(s), ` +
-        `${(await gameService.getGameSummaries()).length} known game(s)`
+        `${(await gameService.getGameSummaries()).total} known game(s)`
     )
   } catch (error: unknown) {
     logger.error('Failed to load saved games:', error)

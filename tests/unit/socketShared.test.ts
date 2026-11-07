@@ -19,7 +19,7 @@ function createHarness() {
     events,
     callback,
     gameData,
-    game: { id: 'game-1' } as unknown as GameManager,
+    game: { id: 'game-1', actionsHistory: [] } as unknown as GameManager,
   }
 }
 

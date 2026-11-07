@@ -27,9 +27,11 @@ import { metrics } from '../metrics/registry'
 import { ComputerMoveScheduler, isComputerPlayer } from './computerPlayer'
 import { createSessionToken, verifySessionToken } from './sessionToken'
 import {
+  filterGameSummaries,
   sortGameSummaries,
   toGameSummary,
   type GameSummary,
+  type GamesListFilter,
 } from './gameSummary'
 import {
   playerColorForIndex,
@@ -41,9 +43,31 @@ import {
 } from '../modules/types'
 
 export type { GameData } from './gameView'
-export type { GameSummary, GameSummaryPlayer } from './gameSummary'
+export type {
+  GameSummary,
+  GameSummaryPlayer,
+  GamesListFilter,
+} from './gameSummary'
 
 const logger = createLogger('GameService')
+
+const DEFAULT_PAGE_SIZE = 20
+const MAX_PAGE_SIZE = 100
+
+/** Результат постраничного получения списка партий. */
+export interface PaginatedGamesList {
+  games: GameSummary[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
+
+interface GetGamesListOptions {
+  page?: number
+  pageSize?: number
+  filter?: GamesListFilter
+}
 
 const gamesTotal = metrics.gauge(
   'game_games_total',
@@ -1148,7 +1172,27 @@ export class GameService {
    * В хранилище не ходим: заголовки уже лежат в памяти и обновляются при
    * каждом сохранении. Иначе каждый вход клиента читал бы весь индекс.
    */
-  async getGameSummaries(): Promise<GameSummary[]> {
-    return this.formatGamesList()
+  async getGameSummaries(
+    options: GetGamesListOptions = {}
+  ): Promise<PaginatedGamesList> {
+    const all = sortGameSummaries(this.formatGamesList())
+    const filtered = filterGameSummaries(all, options.filter ?? 'all')
+    const total = filtered.length
+
+    const page = Math.max(1, options.page ?? 1)
+    const pageSize = Math.max(
+      1,
+      Math.min(options.pageSize ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
+    )
+    const start = (page - 1) * pageSize
+    const games = filtered.slice(start, start + pageSize)
+
+    return {
+      games,
+      total,
+      page,
+      pageSize,
+      hasMore: start + pageSize < total,
+    }
   }
 }
