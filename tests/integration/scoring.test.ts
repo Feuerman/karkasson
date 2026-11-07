@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { IGameState } from '@server/modules/gameState'
-import { ActionTypes } from '@server/modules/types'
+import { ActionTypes, ObjectTypes } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
 import {
@@ -153,13 +153,16 @@ describe('Подсчёт очков и полная партия', () => {
     ).toBe(true)
 
     // Начисления по итогам партии помечены флагом и образуют хвост истории.
-    // В этом лобби финальный подсчёт выключен, поэтому помеченных записей
-    // быть не должно вовсе (проверка самого флага — в finalScoring.test.ts).
-    const finalScoringFlags = scoreActions.map(
-      (action) => action.actionData?.isFinalScoring === true
+    // Финальный подсчёт выключен: дороги, города, монастыри и сады в конце не
+    // начислены. Поля — базовая механика, они считаются всегда, поэтому среди
+    // помеченных записей могут быть только поля.
+    const nonFieldFinal = scoreActions.filter(
+      (action) =>
+        action.actionData?.isFinalScoring === true &&
+        action.actionData?.objectType !== ObjectTypes.FIELD
     )
     expect(endState.finalScoringEnabled).toBe(false)
-    expect(finalScoringFlags.some(Boolean)).toBe(false)
+    expect(nonFieldFinal).toHaveLength(0)
 
     // Итоговые очки равны сумме очков за завершённые строения
     verifyScoringAgainstServer(endState)
