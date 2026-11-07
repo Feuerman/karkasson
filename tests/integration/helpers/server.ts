@@ -19,10 +19,12 @@ export interface RunningServer {
 }
 
 /**
- * Поднимает настоящий игровой сервер (Socket.IO + HTTP) на случайном порту
- * с файрбезовским хранилищем, заменённым на in-memory.
+ * Поднимает настоящий игровой сервер (Socket.IO + HTTP) на указанном порту
+ * с файрбезовским хранилищем, заменённым на in-memory. Порт 0 означает
+ * случайный свободный порт.
  */
-export async function startTestServer(
+export async function startTestServerAtPort(
+  port: number,
   store: InMemoryStore = createInMemoryStore(),
   options: Omit<CreateGameServerOptions, 'adminUI'> = {}
 ): Promise<RunningServer> {
@@ -30,14 +32,22 @@ export async function startTestServer(
   const handle = createGameServer(db, { ...options, adminUI: false })
 
   await new Promise<void>((resolve) => {
-    handle.server.listen(0, '127.0.0.1', resolve)
+    handle.server.listen(port, '127.0.0.1', resolve)
   })
 
   const address = handle.server.address() as AddressInfo
-  const port = address.port
-  const url = `http://127.0.0.1:${port}`
+  const actualPort = address.port
+  const url = `http://127.0.0.1:${actualPort}`
 
-  return { handle, port, url, db, store }
+  return { handle, port: actualPort, url, db, store }
+}
+
+/** Поднимает сервер на случайном свободном порту. */
+export async function startTestServer(
+  store: InMemoryStore = createInMemoryStore(),
+  options: Omit<CreateGameServerOptions, 'adminUI'> = {}
+): Promise<RunningServer> {
+  return startTestServerAtPort(0, store, options)
 }
 
 export async function stopTestServer(running: RunningServer): Promise<void> {
