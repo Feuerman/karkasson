@@ -411,9 +411,15 @@ export class ComputerMoveScheduler {
           // Партию могли удалить watchdog или остановка сервера: не рассылаем
           // событие об уже несуществующей игре.
           if (!service.getGame(gameId)) return
-          // Публикуем ровно то, что лежит в хранилище: сохранение тоже ждёт,
-          // и за это время очередь могла перейти к человеку.
-          events.publishGameUpdated(gameId, formatGameData(savedGame))
+          // Публикуем дельту истории: все клиенты в комнате получают только
+          // новые действия с момента последней рассылки.
+          const fromIndex = savedGame.lastPublishedActionIndex
+          const gameData = formatGameData(savedGame, {
+            fromActionIndex: fromIndex,
+          })
+          events.publishGameUpdated(gameId, gameData)
+          savedGame.lastPublishedActionIndex =
+            savedGame.actionsHistory.length - 1
         }
       )
     } catch (error) {

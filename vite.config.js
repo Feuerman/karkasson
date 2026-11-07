@@ -86,7 +86,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
-      vueDevTools(),
+      ...(mode === 'production' ? [] : [vueDevTools()]),
       contentSecurityPolicy(serverUrl),
     ],
     resolve: {

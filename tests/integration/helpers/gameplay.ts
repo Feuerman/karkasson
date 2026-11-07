@@ -11,6 +11,7 @@ import {
   type SideName as SideNameType,
   type TileSideType as TileSideTypeType,
 } from '@server/modules/types'
+import type { GameData } from '@server/services/GameService'
 import { scoreFields } from '@server/modules/finalScoring'
 import type { ScoringBoard } from '@server/modules/boardState'
 import { latestGame, type GameSummaryPlayer } from './lobby'
@@ -156,6 +157,26 @@ export interface GameStateSnapshot {
   completedObjects?: CompletedObjectsSnapshot
   placingPoint?: { rowIndex: number; tileIndex: number }
   actionsHistory?: Array<{
+    actionType: ActionTypes
+    initiator?: { socketId?: string | null; sessionId?: string | null } | null
+    moveNumber?: number
+    actionData?: {
+      objectType?: string
+      score?: { total: number; players: Record<string, number> }
+      follower?: { playerId: PlayerId }
+      points?: number
+      details?: Array<{
+        label: string
+        count: number
+        pointsPerUnit: number
+        total: number
+      }>
+      modifiers?: string[]
+      isFinalScoring?: boolean
+    }
+  }>
+  /** Дельта истории: только действия с индексом > последнего полученного. */
+  actionsHistoryDelta?: Array<{
     actionType: ActionTypes
     initiator?: { socketId?: string | null; sessionId?: string | null } | null
     moveNumber?: number
@@ -924,6 +945,13 @@ export async function playFullGame(
     throw new Error('Игра не завершилась за отведённое число ходов')
   }
 
+  // Реконнект даёт полный снимок с полной историей действий
+  // (в GameUpdated приходит только дельта после последнего publicados индекса).
+  const { game: fullState } = await client.emitAck<{ game: GameData }>(
+    SocketEvents.RejoinGame,
+    { gameId }
+  )
+  state = fullState as unknown as GameStateSnapshot
   stats.endState = state
   stats.aliceFollowedObjects = aliceEverFollowedObjects.size
   stats.aliceFollowersOnBoardAtEnd = aliceFollowersOnBoard.size

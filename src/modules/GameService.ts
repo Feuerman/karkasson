@@ -16,6 +16,7 @@ import type {
   SocketAck,
   GameAck,
   GamesListResponse,
+  GetGamesListRequest,
   CreateGameResponse,
   PrincessChoicePayload,
   DragonMovePayload,
@@ -144,6 +145,14 @@ export class GameService implements IGameService {
   /** Публичный идентификатор сессии: по нему клиент узнаёт свои фишки. */
   sessionId = ref<string | null>(null)
   gamesList: GameSummary[] = []
+  /** Всего партий после применения фильтра. */
+  gamesListTotal = 0
+  /** Текущая страница (начиная с 1). */
+  gamesListPage = 1
+  /** Размер страницы. */
+  gamesListPageSize = 0
+  /** Есть ли следующая страница. */
+  gamesListHasMore = false
   isConnected = ref(false)
   /** Идентификатор текущего сокета: меняется при каждом переподключении. */
   socketId = ref<string | null>(null)
@@ -589,12 +598,23 @@ export class GameService implements IGameService {
     this.attachSubscriptions(socket)
   }
 
-  async getGamesList() {
+  async getGamesList(options: GetGamesListRequest = {}) {
     const response = await this.emitAck<GamesListResponse>(
-      SocketEvents.GetGamesList
+      SocketEvents.GetGamesList,
+      options as SocketPayload
     )
     this.gamesList = response.games ?? []
-    return this.gamesList
+    this.gamesListTotal = response.total ?? 0
+    this.gamesListPage = response.page ?? 1
+    this.gamesListPageSize = response.pageSize ?? 0
+    this.gamesListHasMore = response.hasMore ?? false
+    return {
+      games: this.gamesList,
+      total: this.gamesListTotal,
+      page: this.gamesListPage,
+      pageSize: this.gamesListPageSize,
+      hasMore: this.gamesListHasMore,
+    }
   }
 
   async createGame(options: CreateGameOptions = {}) {

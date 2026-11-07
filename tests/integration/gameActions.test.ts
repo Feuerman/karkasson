@@ -58,8 +58,11 @@ describe('Действия в игре: валидация ходов', () => {
 
     // Клиент историю тайлов не читает, а список растёт всю партию.
     expect(state).not.toHaveProperty('tileHistory')
-    // История действий нужна интерфейсу и остаётся в состоянии.
-    expect(Array.isArray(state.actionsHistory)).toBe(true)
+    // История действий нужна интерфейсу и остаётся в состоянии (полная при
+    // старте, дельта — при последующих обновлениях).
+    expect(
+      Array.isArray(state.actionsHistory ?? state.actionsHistoryDelta)
+    ).toBe(true)
   })
 
   it('сервер отклоняет чужие ходы: selectPlacingPoint, updateCurrentTile, placeFollower, skipFollower', async () => {

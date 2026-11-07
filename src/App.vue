@@ -80,14 +80,12 @@ import GameBoard from './components/GameBoard'
 import GameTurnTracker from './components/GameTurnTracker.vue'
 import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
-import GameResultPanel from './components/GameResultPanel.vue'
 import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import ConnectionStatus from './components/ConnectionStatus.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError } from './utils/common'
 import notificationService from './plugins/notification'
-import GameLobby from './components/GameLobby'
 import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
 import { describeConnectionStatus } from './modules/connectionStatus'
@@ -104,6 +102,12 @@ import type { RulesDocument } from './rules/types'
 
 const RulesPanel = defineAsyncComponent(
   () => import('./components/rules/RulesPanel.vue')
+)
+
+const GameLobby = defineAsyncComponent(() => import('./components/GameLobby'))
+
+const GameResultPanel = defineAsyncComponent(
+  () => import('./components/GameResultPanel.vue')
 )
 
 const gameState = ref<IGameBoard>({} as IGameBoard)
@@ -169,7 +173,15 @@ const applyGameState = (game: IGame) => {
   const isMyTurn =
     Boolean(GameService.sessionId.value) &&
     game.currentPlayer?.sessionId === GameService.sessionId.value
-  gameState.value = { ...game, isMyTurn } as IGameBoard
+  const previousHistory = gameState.value.actionsHistory ?? []
+  const mergedHistory = game.actionsHistoryDelta
+    ? [...previousHistory, ...game.actionsHistoryDelta]
+    : (game.actionsHistory ?? previousHistory)
+  gameState.value = {
+    ...game,
+    isMyTurn,
+    actionsHistory: mergedHistory,
+  } as IGameBoard
 }
 
 let activeGameId: string | undefined
@@ -227,7 +239,7 @@ const updateLocalGamesList = (gamesList: GameSummary[]) => {
 const getGamesList = async () => {
   isGamesListLoading.value = true
   try {
-    const gamesList = await GameService.getGamesList()
+    const { games: gamesList } = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
     notifyError(error, 'Произошла ошибка при получении списка игр')

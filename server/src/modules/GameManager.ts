@@ -147,6 +147,12 @@ export class GameManager implements IGameState {
   tileHistory: Tile[]
   moveCounter: number
   actionsHistory: GameAction[]
+  /**
+   * Индекс последнего действия, уже отправленного клиентам через GameUpdated.
+   * Runtime-поле: не входит в сохранение, сбрасывается при рестарте сервера.
+   * Используется для дельты истории вместо полной retransмиссии.
+   */
+  lastPublishedActionIndex = -1
   lastUpdate = 0
   /**
    * Сессия владельца лобби. Runtime-поле: переживает перезапуск не через
