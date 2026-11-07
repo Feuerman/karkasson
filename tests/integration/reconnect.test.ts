@@ -337,6 +337,40 @@ describe('Отключение и переподключение игроков'
     expect(await server.db.getGame(lobby.gameId)).not.toBeNull()
   })
 
+  it('вторая вкладка забирает сессию и не создаёт второй слот', async () => {
+    server = await startTestServer()
+    const { gameId, creator } = await createLobby(server.url, {
+      identity: 'device-shared',
+      humans: 1,
+      computers: 0,
+    })
+    clients.push(creator)
+
+    const secondTab = new TestClient(server.url, 'device-shared')
+    clients.push(secondTab)
+    await secondTab.connect()
+
+    const replaced = creator.waitForEvent(SocketEvents.SessionReplaced)
+    await secondTab.registerSession()
+    await replaced
+    await waitForCondition(
+      () => !creator.connected(),
+      'отключение первой вкладки после передачи управления'
+    )
+
+    expect(secondTab.sessionId).toBe(creator.sessionId)
+    await secondTab.emitAck(SocketEvents.JoinGame, { gameId })
+
+    const game = server.handle.gameService.getGame(gameId)
+    if (!game) throw new Error('Лобби не найдено')
+    const ownSlots = game.players.filter(
+      (player) => player.sessionId === secondTab.sessionId
+    )
+    expect(ownSlots).toHaveLength(1)
+    expect(ownSlots[0]?.socketId).toBe(secondTab.id)
+    expect(game.ownerSessionId).toBe(secondTab.sessionId)
+  })
+
   it('освобождает слот игрока во всех партиях, где он состоял', async () => {
     server = await startTestServer()
     const own = await createLobby(server.url, {

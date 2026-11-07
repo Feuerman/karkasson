@@ -24,11 +24,12 @@ async function listenOnRandomPort(server: import('node:http').Server) {
   return address.port
 }
 
-/** Создаёт комнату и начинает партию одним игроком. */
-async function startSinglePlayerGame(page: Page, url: string) {
+/** Создаёт комнату и начинает партию с двумя игроками. */
+async function startGameWithTwoPlayers(page: Page, url: string) {
   await page.goto(url)
   await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
   await page.getByTestId(TEST_IDS.createGameSubmit).click()
+  await page.getByTestId(TEST_IDS.playerSlotCheckbox).nth(1).click()
   await page.getByTestId(TEST_IDS.lobbyStartGame).click()
   await expect(page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)).toContainText(
     'Ваш ход'
@@ -49,7 +50,7 @@ test('доска панорамируется касанием', async ({ browse
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
     const page = await context.newPage()
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     const scrollLeft = await page.evaluate(() => {
       const board = document.querySelector('.board-surface')
@@ -101,7 +102,7 @@ test('окно перетаскивается касанием', async ({ browse
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
     const page = await context.newPage()
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // Окна перетаскиваются в режиме настройки.
     await page.getByRole('button', { name: 'Настроить окна' }).click()

@@ -53,7 +53,12 @@ function object(id: string, followers: ObjectFollower[]): BaseObject {
 }
 
 function withoutGeneratedIds(value: unknown): unknown {
-  return JSON.parse(JSON.stringify(value).replace(/id0\.\d+/g, 'generated-id'))
+  return JSON.parse(
+    JSON.stringify(value).replace(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
+      'generated-id'
+    )
+  )
 }
 
 describe('calculateHeuristicScore', () => {

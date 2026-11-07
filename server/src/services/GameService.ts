@@ -92,6 +92,9 @@ const COMMAND_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000
 /** Верхняя граница памяти на идемпотентность одной партии. */
 const MAX_COMPLETED_COMMANDS_PER_GAME = 200
 
+/** Минимум игроков с именем, при котором партию можно начать. */
+const MIN_PLAYERS = 2
+
 function ignoreResult(): void {}
 
 /**
@@ -108,6 +111,8 @@ export class GameService {
   private games: Record<string, GameManager> = {}
   /** Обратная карта: сокет → сессия. Заполняется при регистрации. */
   private socketToSessionMap: Record<string, string> = {}
+  /** Обратная карта: сессия → активный сокет (последняя вкладка/устройство). */
+  private sessionToSocketMap = new Map<string, string>()
   private lobbyOwners: Record<string, string> = {}
   /**
    * Заголовки всех сохранённых партий. Живые партии берутся из реестра, а этот
@@ -348,8 +353,24 @@ export class GameService {
     return { ...issued, isNew: true }
   }
 
-  registerSession(sessionId: string, socketId: string): void {
+  /**
+   * Привязывает сессию к сокету. Если сессия уже была активна в другой вкладке,
+   * управление переходит новому сокету: старый отключается вызывающим кодом, а
+   * занятые слоты переезжают на новый сокет, чтобы в партии не появился второй
+   * слот той же сессии.
+   *
+   * Возвращает прежний сокет сессии, если он был заменён.
+   */
+  registerSession(sessionId: string, socketId: string): string | undefined {
+    const previousSocketId = this.sessionToSocketMap.get(sessionId)
+    if (previousSocketId && previousSocketId !== socketId) {
+      delete this.socketToSessionMap[previousSocketId]
+      this.transferSessionSlots(sessionId, socketId)
+    }
+
     this.socketToSessionMap[socketId] = sessionId
+    this.sessionToSocketMap.set(sessionId, socketId)
+    return previousSocketId === socketId ? undefined : previousSocketId
   }
 
   getSessionBySocketId(socketId: string): string | undefined {
@@ -358,7 +379,23 @@ export class GameService {
 
   /** Забывает сокет при отключении: карта не должна расти бесконечно. */
   unregisterSocket(socketId: string): void {
+    const sessionId = this.socketToSessionMap[socketId]
     delete this.socketToSessionMap[socketId]
+    if (sessionId && this.sessionToSocketMap.get(sessionId) === socketId) {
+      this.sessionToSocketMap.delete(sessionId)
+    }
+  }
+
+  /** Переносит занятые сессией слоты на новый сокет при смене вкладки. */
+  private transferSessionSlots(sessionId: string, socketId: string): void {
+    this.allGames().forEach((game) => {
+      game.players.forEach((player) => {
+        if (player.sessionId === sessionId) player.socketId = socketId
+      })
+      if (game.currentPlayer?.sessionId === sessionId) {
+        game.currentPlayer.socketId = socketId
+      }
+    })
   }
 
   // ------------------------------------------------------------------ registry
@@ -546,6 +583,11 @@ export class GameService {
     return undefined
   }
 
+  /** Глобальный предел одновременных автоматических партий. */
+  activeAiGameLimit(): number {
+    return this.limits.maxActiveAiGames
+  }
+
   createLobby(
     socketId: string,
     sessionId: string,
@@ -652,9 +694,21 @@ export class GameService {
     gameId: string,
     socketId: string,
     sessionId: string
-  ): JoinResult | { game: GameManager; playerIndex: number } {
+  ):
+    | JoinResult
+    | { game: GameManager; playerIndex: number; alreadyJoined?: boolean } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
+
+    // Та же сессия уже занимает слот: повторный вход (в том числе из второй
+    // вкладки после передачи управления) не должен создавать второй слот.
+    const ownPlayerIndex = game.players.findIndex(
+      (player) => player.sessionId === sessionId
+    )
+    if (ownPlayerIndex !== -1) {
+      return { game, playerIndex: ownPlayerIndex, alreadyJoined: true }
+    }
+
     if (game.gameIsStarted) return { error: LobbyErrors.GameAlreadyStarted }
     if (game.players.some((player) => player.socketId === socketId)) {
       return { error: LobbyErrors.AlreadyJoinedGame }
@@ -678,11 +732,29 @@ export class GameService {
     return { game, playerIndex }
   }
 
+  /** Причина отказа начать лобби или `undefined`, если старт допустим. */
+  lobbyStartError(gameId: string): string | undefined {
+    const game = this.games[gameId]
+    if (!game) return CommonErrors.GameNotFound
+    if (!game.gameIsStarted && this.namedPlayers(game).length < MIN_PLAYERS) {
+      return LobbyErrors.NotEnoughPlayers
+    }
+    return undefined
+  }
+
+  private namedPlayers(game: GameManager): Player[] {
+    return game.players.filter((player) => Boolean(player.name))
+  }
+
   startGame(gameId: string): GameManager | undefined {
     const game = this.games[gameId]
     if (!game) return undefined
 
-    const activePlayers = game.players.filter((p) => Boolean(p.name))
+    const activePlayers = this.namedPlayers(game)
+    // Минимум два игрока проверяется и здесь: обработчик даёт понятную ошибку,
+    // а сервис не создаёт заведомо недопустимую партию при прямом вызове.
+    if (activePlayers.length < MIN_PLAYERS) return undefined
+
     const newGame = new GameManager({
       players: activePlayers,
       finalScoringEnabled: game.finalScoringEnabled,

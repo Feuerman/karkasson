@@ -24,11 +24,12 @@ async function listenOnRandomPort(server: import('node:http').Server) {
   return address.port
 }
 
-/** Создаёт комнату, занимает слот и начинает партию одним игроком. */
-async function startSinglePlayerGame(page: Page, url: string) {
+/** Создаёт комнату, занимает слот и начинает партию с двумя игроками. */
+async function startGameWithTwoPlayers(page: Page, url: string) {
   await page.goto(url)
   await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
   await page.getByTestId(TEST_IDS.createGameSubmit).click()
+  await page.getByTestId(TEST_IDS.playerSlotCheckbox).nth(1).click()
   await page.getByTestId(TEST_IDS.lobbyStartGame).click()
   await expect(page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)).toContainText(
     'Ваш ход'
@@ -46,7 +47,7 @@ test('панель партии показывает прогресс и отм�
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // На доске стоит стартовый тайл, в колоде ждут остальные.
     await expect(
@@ -76,7 +77,7 @@ test('масштаб доски меняется кнопками', async ({ pag
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     const zoomValue = page.getByTestId(TEST_IDS.zoomValue)
     await expect(zoomValue).toHaveText('100%')
@@ -107,7 +108,7 @@ test('расположение окон сохраняется и восстан
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // Окна перетаскиваются в режиме настройки.
     await page.getByRole('button', { name: 'Настроить окна' }).click()
@@ -129,12 +130,14 @@ test('расположение окон сохраняется и восстан
     const saved = await page.evaluate(() => localStorage.getItem('panelLayout'))
     expect(saved).toContain('player-stats')
 
-    // После перезагрузки окно возвращается на своё место.
+    // После перезагрузки партия восстанавливается сама, а окно возвращается
+    // на своё место.
     await page.reload()
-    await page.getByRole('button', { name: 'Продолжить' }).click()
-    await expect(
-      page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)
-    ).toBeVisible()
+    await expect(page.getByTestId(TEST_IDS.gameStatsCurrentPlayer)).toBeVisible(
+      {
+        timeout: 20_000,
+      }
+    )
 
     const restored = await panel.boundingBox()
     if (!restored) throw new Error('Панель партии не появилась')
@@ -155,7 +158,7 @@ test('окно панели сворачивается и разворачива
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     const progress = page.getByTestId(TEST_IDS.gameStatsTilesProgress)
     await expect(progress).toBeVisible()
@@ -187,7 +190,7 @@ test('на узком экране окна сворачиваются сами'
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
     const page = await context.newPage()
-    await startSinglePlayerGame(page, frontend.url)
+    await startGameWithTwoPlayers(page, frontend.url)
 
     // На узком экране панели мешают доске, поэтому свёрнуты.
     const progress = page.getByTestId(TEST_IDS.gameStatsTilesProgress)

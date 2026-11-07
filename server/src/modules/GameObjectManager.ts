@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { CENTRAL_OBJECT_NAMES, describeCompletedCentralObject } from './scoring'
 import { applyFairyBonus, clearFairyFollower, fairyBonusDetail } from './fairy'
 import {
@@ -145,7 +146,7 @@ export class GameObjectManager {
     if (hasFeature) {
       this.state.temporaryObjects[CENTRAL_OBJECT_COLLECTIONS[kind]].push({
         followers: [],
-        id: 'id' + Math.random(),
+        id: randomUUID(),
         ...CENTRAL_OBJECT_FLAGS[kind],
         points: [
           {
@@ -346,7 +347,7 @@ export class GameObjectManager {
 
     if (connectedIds.length === 0) {
       const object: BaseObject = {
-        id: 'id' + Math.random(),
+        id: randomUUID(),
         points: newPoints,
         followers: [],
         hasInn: hasInn || undefined,
@@ -382,7 +383,7 @@ export class GameObjectManager {
       connectedIdSet.has(id)
     )
     const mergedObject: BaseObject = {
-      id: 'id' + Math.random(),
+      id: randomUUID(),
       points: connectedObjects
         .flatMap(({ points }) => points)
         .concat(newPoints),

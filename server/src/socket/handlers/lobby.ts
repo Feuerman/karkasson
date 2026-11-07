@@ -159,6 +159,12 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         return
       }
 
+      if (result.alreadyJoined) {
+        await socket.join(resolvedGameId)
+        ackGameUpdated(events, resolvedGameId, result.game, callback)
+        return
+      }
+
       await socket.join(resolvedGameId)
       try {
         await service.saveWithRollback(resolvedGameId, () => {
@@ -193,6 +199,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       if (!sessionId || !service.canStartLobby(gameId, sessionId)) {
         socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
         callback?.(errorResponse(LobbyErrors.OnlyLobbyOwnerCanStart))
+        return
+      }
+
+      const startError = service.lobbyStartError(gameId)
+      if (startError) {
+        socket.emit(SocketEvents.Error, startError)
+        callback?.(errorResponse(startError))
         return
       }
 

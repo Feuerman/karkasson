@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import {
   EXPANSION_TILE_SETS,
   findTileDefinition,
@@ -59,7 +60,7 @@ interface RiverState {
 
 function shuffleTiles(tilesToShuffle: Tile[]): Tile[] {
   for (let index = tilesToShuffle.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1))
+    const randomIndex = randomInt(index + 1)
     const tile = tilesToShuffle[index]
     tilesToShuffle[index] = tilesToShuffle[randomIndex]
     tilesToShuffle[randomIndex] = tile
@@ -213,9 +214,7 @@ export class GameTileManager {
           ...rejectedTiles,
         ]
         for (const dragonTile of rejectedDragonTiles) {
-          const randomIndex = Math.floor(
-            Math.random() * (remainingTiles.length + 1)
-          )
+          const randomIndex = randomInt(remainingTiles.length + 1)
           remainingTiles.splice(randomIndex, 0, dragonTile)
         }
         const selectedTileIndex = remainingTiles.indexOf(tile)

@@ -2,8 +2,6 @@
   <div
     class="absolute inset-0 z-[3000] flex h-full w-full flex-col items-center overflow-y-auto bg-overlay/75 p-6 text-text backdrop-blur-[2px]"
   >
-    <ConnectionBadge :is-connected="isConnected" />
-
     <!-- Лобби: выбор игры -->
     <div
       v-if="!currentGame?.id || !showRoom"
@@ -198,7 +196,6 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UEmpty from '@nuxt/ui/components/Empty.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
-import ConnectionBadge from './internal/ConnectionBadge.vue'
 import LobbyHeader from './internal/LobbyHeader.vue'
 import LoadingState from './internal/LoadingState.vue'
 import GameCard from './internal/GameCard.vue'

@@ -31,6 +31,7 @@ export const LobbyErrors = {
   InvalidPrincessAndDragonOption:
     'Некорректный параметр дополнения «Принцесса и дракон»',
   StartFailed: 'Не удалось начать игру',
+  NotEnoughPlayers: 'Для начала игры нужно минимум два игрока',
   GameAlreadyStarted: 'Игра уже началась',
   AlreadyJoinedGame: 'Вы уже присоединились к игре',
   TooManyGames: 'Слишком много активных партий на сервере. Попробуйте позже',

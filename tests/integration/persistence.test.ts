@@ -240,7 +240,7 @@ describe('Сохранение данных лобби', () => {
     await stopTestServer(server)
     server = await startTestServer(snapshot)
     await server.handle.gameService.loadSavedGames()
-    server.handle.gameService.computerMoves.resumeAll(
+    await server.handle.gameService.computerMoves.resumeAll(
       server.handle.events,
       server.handle.gameService
     )
@@ -283,7 +283,7 @@ describe('Сохранение данных лобби', () => {
     expect(restored?.gameIsStarted).toBe(true)
     expect(restored?.gameIsEnded).toBe(false)
 
-    server.handle.gameService.computerMoves.resumeAll(
+    await server.handle.gameService.computerMoves.resumeAll(
       server.handle.events,
       server.handle.gameService
     )
@@ -306,7 +306,7 @@ describe('Сохранение данных лобби', () => {
       throw new Error('simulated computer move failure')
     }
 
-    server.handle.gameService.computerMoves.resumeAll(
+    await server.handle.gameService.computerMoves.resumeAll(
       server.handle.events,
       server.handle.gameService
     )
