@@ -3,8 +3,10 @@ import type {
   GameSummariesResult,
   GameSummaryRecord,
   IGameDatabase,
+  InstanceLockRecord,
   RawGameSave,
 } from '@server/modules/Database'
+import { INSTANCE_LOCK_STALE_MS } from '@server/config'
 import type { IGameState } from '@server/modules/gameState'
 import {
   deserializeGameState,
@@ -39,6 +41,7 @@ export function readStoredGame(
 export class InMemoryDatabase implements IGameDatabase {
   saveError: Error | null = null
   readError: Error | null = null
+  private instanceLock: InstanceLockRecord | null = null
   /**
    * Хук перед записью. Нужен тестам, которые управляют временем записи:
    * задержать её, чтобы поймать следующую команду, или провалить, чтобы
@@ -87,6 +90,40 @@ export class InMemoryDatabase implements IGameDatabase {
 
   async deleteGame(gameId: string): Promise<void> {
     delete this.store.games[gameId]
+  }
+
+  // ----------------------------------------------------------- instance lock
+
+  async getInstanceLock(): Promise<InstanceLockRecord | null> {
+    return this.instanceLock
+  }
+
+  async acquireInstanceLock(
+    record: InstanceLockRecord,
+    staleMs: number = INSTANCE_LOCK_STALE_MS
+  ): Promise<boolean> {
+    const current = this.instanceLock
+    if (current && Date.now() - current.heartbeatAt > staleMs) {
+      // Блокировка оставлена предыдущим процессом: забираем её.
+    } else if (current) {
+      return false
+    }
+    this.instanceLock = record
+    return true
+  }
+
+  async renewInstanceLockHeartbeat(instanceId: string): Promise<boolean> {
+    if (!this.instanceLock || this.instanceLock.instanceId !== instanceId) {
+      return false
+    }
+    this.instanceLock = { ...this.instanceLock, heartbeatAt: Date.now() }
+    return true
+  }
+
+  async releaseInstanceLock(instanceId: string): Promise<void> {
+    if (this.instanceLock?.instanceId === instanceId) {
+      this.instanceLock = null
+    }
   }
 }
 
