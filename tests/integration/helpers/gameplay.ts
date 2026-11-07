@@ -11,6 +11,8 @@ import {
   type SideName as SideNameType,
   type TileSideType as TileSideTypeType,
 } from '@server/modules/types'
+import { scoreFields } from '@server/modules/finalScoring'
+import type { ScoringBoard } from '@server/modules/boardState'
 import { latestGame, type GameSummaryPlayer } from './lobby'
 
 /**
@@ -729,6 +731,31 @@ export function verifyScoringAgainstServer(state: GameStateSnapshot): void {
     state.tilePlacesStats,
     state.players ?? []
   )
+
+  // Поля всегда подсчитываются в конце партии: это базовая механика, она не
+  // зависит от опции «финальный подсчёт». Добавляем очки полей к ожидаемому
+  // счёту только в завершённой партии (в ходе игры очки за поля не даются).
+  if (state.gameIsEnded) {
+    const fieldScores: Record<string, number> = {}
+    const board = {
+      tilePlacesStats: state.tilePlacesStats,
+      fieldFollowers: state.fieldFollowers ?? [],
+      completedObjects: {
+        cities: completed.cities,
+        roads: [],
+        monasteries: [],
+        gardens: [],
+      },
+      scores: fieldScores,
+      fairy: undefined,
+      recordAction: () => {},
+    } as unknown as ScoringBoard
+    scoreFields(board)
+    for (const [pid, value] of Object.entries(fieldScores)) {
+      expected[pid] = (expected[pid] ?? 0) + value
+    }
+  }
+
   expect(state.scores ?? {}).toEqual(expected)
 
   for (const road of completed.roads) {

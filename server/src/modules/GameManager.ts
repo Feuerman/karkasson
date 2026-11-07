@@ -29,7 +29,7 @@ import {
   isSameFairyFollower,
   FAIRY_TURN_POINTS,
 } from './fairy'
-import { finalizeScoring } from './finalScoring'
+import { finalizeScoring, scoreFields } from './finalScoring'
 import { getDragonTurnNumber, getPlayerTurnNumber } from './turnNumber'
 import type { IGameState } from './gameState'
 import {
@@ -1023,7 +1023,14 @@ export class GameManager implements IGameState {
     this.availablePlacesTiles = []
     this.currentPlayer = null
     this.tilesList = []
-    if (this.finalScoringEnabled) finalizeScoring(this)
+    if (this.finalScoringEnabled) {
+      // Дороги, города, монастыри и сады считаются в конце только когда
+      // включена опция финального подсчёта.
+      finalizeScoring(this)
+    }
+    // Поля считаются в конце партии всегда: это базовая механика, она не
+    // зависит от опции «финальный подсчёт».
+    scoreFields(this)
     // Победителя считаем здесь, после финального подсчёта: клиент только
     // отображает готовый список лидеров и не пересчитывает очки.
     this.winnerPlayerIds = leaderPlayerIds(this.scores)
