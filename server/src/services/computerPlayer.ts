@@ -1,4 +1,4 @@
-import { COMPUTER_MOVE_DELAY_MS } from '../config'
+import { COMPUTER_MOVE_DELAY_MS, COMPUTER_MOVE_WATCHDOG_MS } from '../config'
 import type { GameManager } from '../modules/GameManager'
 import { GameSaveError, MutationCancelled } from '../modules/errors'
 import { type Player, type PlayerId } from '../modules/types'
@@ -10,8 +10,27 @@ import { formatGameData } from './gameView'
 
 const logger = createLogger('computerPlayer')
 
+/** Ход компьютера не уложился в watchdog: партия уже удалена планировщиком. */
+class ComputerMoveTimeoutError extends Error {
+  constructor(gameId: string) {
+    super(`Computer move timed out for game ${gameId}`)
+    this.name = 'ComputerMoveTimeoutError'
+  }
+}
+
 export function isComputerPlayer(player: Player): boolean {
   return !player.socketId && !player.sessionId
+}
+
+function isComputerOnlyGame(game: GameManager): boolean {
+  return game.players.length > 0 && game.players.every(isComputerPlayer)
+}
+
+export interface ComputerMoveSchedulerOptions {
+  /** Пауза перед ходом компьютера. */
+  moveDelayMs?: number
+  /** Сколько может длиться один ход до срабатывания watchdog. */
+  watchdogTimeoutMs?: number
 }
 
 /**
@@ -31,14 +50,66 @@ export class ComputerMoveScheduler {
    */
   private readonly pendingMoveTimers = new Map<string, NodeJS.Timeout>()
   private readonly runningMoveChains = new Set<string>()
+  /**
+   * Партии, ход которых прерван watchdog. Их нельзя возобновлять: состояние
+   * могло быть частично изменено фоновой задачей, а игрок уже получил отказ.
+   */
+  private readonly haltedGames = new Set<string>()
+  private readonly moveDelayMs: number
+  private readonly watchdogTimeoutMs: number
 
-  /** Возобновляет ходы компьютера во всех партиях после перезапуска сервера. */
-  resumeAll(events: GameEventsPublisher, service: GameService): void {
-    service.allGames().forEach((game) => {
-      if (!game.id) return
-      if (!game.gameIsStarted || game.gameIsEnded) return
-      this.continueGame(events, service, game.id)
+  constructor(options: ComputerMoveSchedulerOptions = {}) {
+    this.moveDelayMs = options.moveDelayMs ?? COMPUTER_MOVE_DELAY_MS
+    this.watchdogTimeoutMs =
+      options.watchdogTimeoutMs ?? COMPUTER_MOVE_WATCHDOG_MS
+  }
+
+  /**
+   * Возобновляет ходы компьютера во всех партиях после перезапуска сервера.
+   *
+   * Полностью автоматические партии некому наблюдать: после рестарта у них нет
+   * владельца и подключённых людей. Их число ограничено тем же глобальным
+   * пределом, что и запуск новых, а лишние удаляются, чтобы не занимать память
+   * и цикл событий бесконечно.
+   */
+  async resumeAll(
+    events: GameEventsPublisher,
+    service: GameService
+  ): Promise<void> {
+    const activeGames = service
+      .allGames()
+      .filter((game) => game.id && game.gameIsStarted && !game.gameIsEnded)
+    const aiGames = activeGames.filter(isComputerOnlyGame)
+    const humanGames = activeGames.filter((game) => !isComputerOnlyGame(game))
+
+    humanGames.forEach((game) => {
+      if (game.id) this.continueGame(events, service, game.id)
     })
+
+    const limit = service.activeAiGameLimit()
+    for (const game of aiGames.slice(0, limit)) {
+      if (game.id) this.continueGame(events, service, game.id)
+    }
+
+    const excessGames = aiGames.slice(limit)
+    if (excessGames.length > 0) {
+      logger.warn(
+        `Removing ${excessGames.length} AI-only game(s) after restart: ` +
+          `active AI game limit is ${limit}`
+      )
+    }
+    for (const game of excessGames) {
+      if (!game.id) continue
+      try {
+        await service.deleteGame(game.id)
+        events.publishGameDeleted(game.id, 'stale')
+      } catch (error: unknown) {
+        logger.error(`Failed to remove excess AI game ${game.id}:`, error)
+      }
+    }
+    if (excessGames.length > 0) {
+      events.publishGamesList(service.formatGamesList())
+    }
   }
 
   /**
@@ -52,6 +123,8 @@ export class ComputerMoveScheduler {
     service: GameService,
     gameId: string
   ): void {
+    if (this.haltedGames.has(gameId)) return
+
     const game = service.getGame(gameId)
     if (!game || !game.gameIsStarted || game.gameIsEnded) return
 
@@ -87,8 +160,9 @@ export class ComputerMoveScheduler {
     events: GameEventsPublisher,
     service: GameService,
     gameId: string,
-    delay = COMPUTER_MOVE_DELAY_MS
+    delay?: number
   ): void {
+    if (this.haltedGames.has(gameId)) return
     if (
       this.pendingMoveTimers.has(gameId) ||
       this.runningMoveChains.has(gameId)
@@ -99,7 +173,7 @@ export class ComputerMoveScheduler {
     const timer = setTimeout(() => {
       this.pendingMoveTimers.delete(gameId)
       void this.runMoves(events, service, gameId)
-    }, delay)
+    }, delay ?? this.moveDelayMs)
 
     this.pendingMoveTimers.set(gameId, timer)
   }
@@ -128,6 +202,7 @@ export class ComputerMoveScheduler {
     service: GameService,
     gameId: string
   ): Promise<void> {
+    if (this.haltedGames.has(gameId)) return
     if (this.runningMoveChains.has(gameId)) return
     const game = service.getGame(gameId)
     if (!game || game.gameIsEnded || !game.currentPlayer) return
@@ -143,6 +218,11 @@ export class ComputerMoveScheduler {
       await this.processMoves(events, service, gameId)
     } catch (error) {
       failed = true
+      if (error instanceof ComputerMoveTimeoutError) {
+        // Watchdog уже удалил партию и сообщил игрокам; повторять удаление и
+        // запускать следующие ходы нельзя.
+        return
+      }
       if (error instanceof GameSaveError) {
         // Хранилище недоступно: ход уже откатан в playComputerMove, но
         // партию игроков удалять нельзя — она переживёт восстановление связи.
@@ -157,6 +237,7 @@ export class ComputerMoveScheduler {
       const currentGame = service.getGame(gameId)
       if (
         !failed &&
+        !this.haltedGames.has(gameId) &&
         currentGame?.currentPlayer &&
         isComputerPlayer(currentGame.currentPlayer) &&
         !currentGame.gameIsEnded &&
@@ -209,11 +290,61 @@ export class ComputerMoveScheduler {
     // может быть затёрт откатом. Пауза между ходами очередь не держит.
     for (;;) {
       const nextIsComputer = await service.runGameCommand(gameId, () =>
-        this.playMove(events, service, gameId)
+        this.runWithWatchdog(events, service, gameId, () =>
+          this.playMove(events, service, gameId)
+        )
       )
       if (!nextIsComputer) return
-      await sleep(COMPUTER_MOVE_DELAY_MS)
+      await sleep(this.moveDelayMs)
     }
+  }
+
+  /**
+   * Ограничивает один ход компьютера по времени. Watchdog не может прервать
+   * синхронный расчёт, зато не даёт зависшему ожиданию (например, хранилищу)
+   * оставить партию заблокированной навсегда.
+   */
+  private runWithWatchdog<T>(
+    events: GameEventsPublisher,
+    service: GameService,
+    gameId: string,
+    task: () => Promise<T>
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.haltedGames.add(gameId)
+        this.cancelMove(gameId)
+        logger.error(`Computer move watchdog timed out for game ${gameId}`)
+        events.publishGameError(
+          gameId,
+          'Ход компьютера занял слишком много времени'
+        )
+        void service
+          .deleteGame(gameId)
+          .then(() => {
+            events.publishGameDeleted(gameId, 'failed')
+            events.publishGamesList(service.formatGamesList())
+          })
+          .catch((error: unknown) => {
+            logger.error(
+              `Failed to delete game after watchdog timeout (${gameId}):`,
+              error
+            )
+          })
+        reject(new ComputerMoveTimeoutError(gameId))
+      }, this.watchdogTimeoutMs)
+
+      task().then(
+        (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        (error: unknown) => {
+          clearTimeout(timer)
+          reject(error)
+        }
+      )
+    })
   }
 
   /**
@@ -277,6 +408,9 @@ export class ComputerMoveScheduler {
           return Boolean(nextPlayer && isComputerPlayer(nextPlayer))
         },
         (savedGame) => {
+          // Партию могли удалить watchdog или остановка сервера: не рассылаем
+          // событие об уже несуществующей игре.
+          if (!service.getGame(gameId)) return
           // Публикуем ровно то, что лежит в хранилище: сохранение тоже ждёт,
           // и за это время очередь могла перейти к человеку.
           events.publishGameUpdated(gameId, formatGameData(savedGame))

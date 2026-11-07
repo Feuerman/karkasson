@@ -138,8 +138,12 @@ describe('Клиентское приложение (GameService)', () => {
   })
 
   /** Поднимает сервер, если он ещё не запущен, и подключает клиента. */
-  async function connectClient(): Promise<GameService> {
+  async function connectClient(freshSession = false): Promise<GameService> {
     server ??= await startTestServer()
+    // Второй игрок в тесте — другое устройство: без сброса токена он получил бы
+    // ту же сессию, и сервер по политике одной активной вкладки отключил бы
+    // первого клиента.
+    if (freshSession) localStorage.removeItem('sessionToken')
     const client = new GameService({ serverUrl: server.url })
     services.push(client)
     client.connect()
@@ -362,7 +366,7 @@ describe('Клиентское приложение (GameService)', () => {
 
   it('играет ход через клиентский сервис и получает отказ вне очереди', async () => {
     const alice = await connectClient()
-    const bob = await connectClient()
+    const bob = await connectClient(true)
 
     // Лобби: Алиса создаёт, Боб присоединяется, добавляем компьютерных
     await alice.createGame()
