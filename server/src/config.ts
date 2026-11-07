@@ -199,6 +199,34 @@ export const HTTP_HEADERS_TIMEOUT_MS = 15_000
 // Сколько сокетов с одного IP может держать сервер одновременно.
 export const MAX_SOCKETS_PER_IP = 20
 
+// Частота обновления heartbeat блокировки инстанса. Второй процесс,
+// не обновивший heartbeat за INSTANCE_LOCK_STALE_MS, считается оставшимся,
+// и его блокировку может забрать новый процесс.
+export const INSTANCE_LOCK_HEARTBEAT_MS = readPositiveNumber(
+  'INSTANCE_LOCK_HEARTBEAT_MS',
+  15_000
+)
+
+// Порог устаревания блокировки инстанса. Если heartbeat старше этого,
+// блокировка считается оставшейся после аварийного завершения процесса.
+export const INSTANCE_LOCK_STALE_MS = readPositiveNumber(
+  'INSTANCE_LOCK_STALE_MS',
+  45_000
+)
+
+/**
+ * Идентификатор инстанса сервера. Каждый процесс сервера должен иметь свой;
+ * используется для блокировки инстанса и подписи heartbeat.
+ * В окружении задаётся через INSTANCE_ID, иначе генерируется при старте.
+ */
+export function getInstanceId(
+  environment: NodeJS.ProcessEnv = process.env
+): string {
+  const value = readEnv(environment, 'INSTANCE_ID')
+  if (value) return value
+  return globalThis.crypto.randomUUID()
+}
+
 // Общее число партий в памяти и число лобби, созданных одной сессией.
 export const MAX_TOTAL_GAMES = 500
 export const MAX_OWNED_LOBBIES = 5
