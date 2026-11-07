@@ -139,9 +139,10 @@ const tileSources: Record<TileId, string> = {
  * resolved URL изображения. Ключ — относительный путь из `tileSources`.
  */
 const tileModules = import.meta.glob('../assets/tiles/**/*.{png,jpg}', {
-  as: 'url',
+  query: '?url',
+  import: 'default',
   eager: false,
-}) as Record<string, () => Promise<{ default: string }>>
+}) as Record<string, () => Promise<string>>
 
 /** Кэш загруженных URL тайлов: ключ — id тайла, значение — resolved URL. */
 const loadedTileUrls: Map<TileId, string> = new Map()
@@ -178,8 +179,7 @@ export async function loadTileImage(
 
   loadingTiles.add(tileId)
   try {
-    const module = await load()
-    const url = module.default
+    const url = await load()
     loadedTileUrls.set(tileId, url)
     return url
   } finally {
