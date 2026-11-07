@@ -1,4 +1,8 @@
-import type { GameSummary, GameData } from '@server/services/GameService'
+import type {
+  GameSummary,
+  GameData,
+  GamesListFilter,
+} from '@server/services/GameService'
 import type {
   GameDeletedPayload,
   PlayerId,
@@ -26,8 +30,18 @@ export interface GameAck extends SocketAckBase {
   game: GameData
 }
 
+export interface GetGamesListRequest {
+  page?: number
+  pageSize?: number
+  filter?: GamesListFilter
+}
+
 export interface GamesListResponse {
   games: GameSummary[]
+  total: number
+  page: number
+  pageSize: number
+  hasMore: boolean
   error?: string
   code?: string
 }

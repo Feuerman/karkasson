@@ -7,14 +7,21 @@ import { toPlayerError } from './playerErrors'
 
 const logger = createLogger('socket')
 
-/** Форматирует состояние один раз, публикует gameUpdated и подтверждает ack. */
+/** Форматирует состояние, публикует gameUpdated и подтверждает ack. */
 export function ackGameUpdated(
   events: GameEventsPublisher,
   gameId: string,
   game: GameManager,
-  callback?: SocketCallback
+  callback?: SocketCallback,
+  options: { forceSnapshot?: boolean } = {}
 ): void {
-  const gameData = formatGameData(game)
+  const fromIndex = options.forceSnapshot
+    ? undefined
+    : game.lastPublishedActionIndex
+  const gameData = formatGameData(game, { fromActionIndex: fromIndex })
+  if (!options.forceSnapshot) {
+    game.lastPublishedActionIndex = game.actionsHistory.length - 1
+  }
   events.publishGameUpdated(gameId, gameData)
   callback?.({ success: true, game: gameData })
 }

@@ -7,6 +7,7 @@ import { CommonErrors, LobbyErrors } from '../../modules/errors'
 import {
   parseCreateGame,
   parseGameRequest,
+  parseGetGamesList,
   payloadAndCallback,
 } from '../validation'
 import { errorResponse } from './errorResponse'
@@ -39,10 +40,17 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
   socket.on(
     SocketEvents.GetGamesList,
     async (first: unknown, second: unknown) => {
-      const { callback } = payloadAndCallback(first, second)
+      const { callback, payload } = payloadAndCallback(first, second)
       await runLobbyCommand(callback, async () => {
-        const games = await service.getGameSummaries()
-        callback?.({ games })
+        const request = parseGetGamesList(payload)
+        const result = await service.getGameSummaries(request)
+        callback?.({
+          games: result.games,
+          total: result.total,
+          page: result.page,
+          pageSize: result.pageSize,
+          hasMore: result.hasMore,
+        })
       })
     }
   )

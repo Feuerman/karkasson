@@ -18,6 +18,9 @@ import { toPlayerView } from './playerView'
 
 export type GameSummaryPlayer = PlayerView
 
+/** Фильтр списка партий в лобби. */
+export type GamesListFilter = 'all' | 'waiting' | 'started' | 'ended'
+
 export interface GameSummary {
   id: string | undefined
   roomCode: string
@@ -77,5 +80,19 @@ export function sortGameSummaries(games: GameSummary[]): GameSummary[] {
     }
     if (left.gameIsEnded) return right.lastUpdate - left.lastUpdate
     return 0
+  })
+}
+
+/** Фильтрует сводки по статусу партии. */
+export function filterGameSummaries(
+  games: GameSummary[],
+  filter: GamesListFilter
+): GameSummary[] {
+  if (filter === 'all') return games
+  return games.filter((game) => {
+    if (filter === 'waiting') return !game.gameIsStarted && !game.gameIsEnded
+    if (filter === 'started') return game.gameIsStarted && !game.gameIsEnded
+    if (filter === 'ended') return game.gameIsEnded
+    return true
   })
 }
