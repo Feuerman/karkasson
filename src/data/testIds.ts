@@ -54,6 +54,9 @@ export const TEST_IDS = {
   gameResultClose: 'game-result-close',
   gameResultGoLobby: 'game-result-go-lobby',
   gameResultPlayAgain: 'game-result-play-again',
+  connectionStatus: 'connection-status',
+  connectionOverlay: 'connection-overlay',
+  connectionRetry: 'connection-retry',
 } as const
 
 export const boardCellTestId = (rowIndex: number, tileIndex: number): string =>
