@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: karkasson-server
+    env: docker
+    dockerfile: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: TRUST_PROXY
+        value: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: HEALTH_TOKEN
+        generateValue: true
+    healthCheckPath: /health
+    autoDeploy: true
