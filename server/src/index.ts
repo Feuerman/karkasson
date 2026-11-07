@@ -4,6 +4,7 @@ import {
   getInstanceId,
   PORT,
   STALE_GAMES_CHECK_MS,
+  validateProductionEnvironment,
 } from './config'
 import { createGameServer } from './app'
 import { createInstanceLock } from './modules/instanceLock'
@@ -142,6 +143,8 @@ async function startServer() {
 }
 
 async function bootstrap(): Promise<void> {
+  validateProductionEnvironment()
+
   const acquired = await lock.acquire()
   if (!acquired) {
     // Блокировку hält другой инстанс: этот процесс не стартует, чтобы не
