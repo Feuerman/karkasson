@@ -98,6 +98,9 @@ export default defineConfig(({ mode }) => {
     build: {
       copyPublicDir: true,
       publicDir: 'public',
+      // Предупреждение о слишком большом чанке: помогает следить за размером
+      // бандла при добавлении новых зависимостей и компонентов.
+      chunkSizeWarningLimit: 40_000,
       rolldownOptions: {
         output: {
           codeSplitting: {
