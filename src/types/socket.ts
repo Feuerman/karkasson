@@ -13,6 +13,8 @@ export interface SocketAckBase {
   /** Стабильный машинный код отказа; текст может меняться. */
   code?: string
   success?: boolean
+  /** Версия серверного протокола (приходит в ответе на RegisterSession). */
+  protocolVersion?: string
   /** Конфликтующие соседние клетки при неудачном размещении тайла. */
   conflicts?: PlacementConflict[]
 }
