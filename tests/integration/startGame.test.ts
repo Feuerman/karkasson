@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { LobbyErrors } from '@server/modules/errors'
+import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
-import { createLobbyWithPlayers } from './helpers/lobby'
+import { createLobby, createLobbyWithPlayers } from './helpers/lobby'
 import { startGame } from './helpers/gameplay'
 import { startTestServer, type RunningServer } from './helpers/server'
 
@@ -59,5 +61,20 @@ describe('Запуск игры', () => {
     expect(saved?.tilePlacesStats[15]?.[15]?.id).toBe(
       started.tilePlacesStats[15]?.[15]?.id
     )
+  })
+
+  it('не начинает партию с одним игроком и понятно объясняет причину', async () => {
+    server = await startTestServer()
+    const lobby = await createLobby(server.url, { humans: 1, computers: 0 })
+    clients.push(lobby.creator)
+
+    await expect(
+      lobby.creator.emitAck(SocketEvents.StartGame, { gameId: lobby.gameId })
+    ).rejects.toThrow(LobbyErrors.NotEnoughPlayers)
+
+    const game = server.handle.gameService.getGame(lobby.gameId)
+    expect(game?.gameIsStarted).toBe(false)
+    const saved = await server.db.getGame(lobby.gameId)
+    expect(saved?.gameIsStarted).toBe(false)
   })
 })

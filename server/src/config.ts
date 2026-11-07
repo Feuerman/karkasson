@@ -177,6 +177,14 @@ export const STALE_GAMES_CHECK_MS = 10_000
 export const COMPUTER_MOVE_DELAY_MS =
   Number(process.env.COMPUTER_MOVE_DELAY_MS) || 1000
 
+// Сколько может длиться один ход компьютера, прежде чем сработает watchdog.
+// Ограничение не прерывает синхронный расчёт (цикл событий занят), но не даёт
+// зависшему ожиданию хранилища оставить партию заблокированной навсегда.
+export const COMPUTER_MOVE_WATCHDOG_MS = readPositiveNumber(
+  'COMPUTER_MOVE_WATCHDOG_MS',
+  30_000
+)
+
 // Верхняя граница размера одного Socket.IO-пакета.
 export const MAX_HTTP_BUFFER_SIZE = 64 * 1024
 

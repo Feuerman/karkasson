@@ -2,6 +2,10 @@
   <UApp class="h-full" :toaster="{ ui: { viewport: 'sm:w-[30rem]' } }">
     <ToastBridge />
     <div class="relative flex h-full flex-col bg-surface-muted text-text">
+      <ConnectionStatus
+        :view="connectionView"
+        @retry="GameService.reconnectNow()"
+      />
       <ReconnectingOverlay
         v-if="playersReconnectProcess"
         :players="reconnectingPlayers"
@@ -78,13 +82,15 @@ import type { GameMenuItem } from './components/GameMenu.vue'
 import BottomToolbar from './components/BottomToolbar.vue'
 import GameResultPanel from './components/GameResultPanel.vue'
 import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
+import ConnectionStatus from './components/ConnectionStatus.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import ToastBridge from './components/ToastBridge.vue'
 import { notifyError } from './utils/common'
 import notificationService from './plugins/notification'
 import GameLobby from './components/GameLobby'
-import GameService from './modules/GameService'
+import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
+import { describeConnectionStatus } from './modules/connectionStatus'
 import { resetPanelLayout } from './modules/panelLayout'
 import {
   pendingActionKeys,
@@ -199,12 +205,18 @@ const onGameUpdated = (updatedGame: IGame) => {
   applyGameState(updatedGame)
 }
 
+const LAST_GAME_STORAGE_KEY = 'lastGameId'
+
+const forgetLastGame = () => {
+  localStorage.removeItem(LAST_GAME_STORAGE_KEY)
+}
+
 const handleGameCreated = (gameId: string) => {
-  localStorage.setItem('lastGameId', gameId)
+  localStorage.setItem(LAST_GAME_STORAGE_KEY, gameId)
 }
 
 const updateLocalGamesList = (gamesList: GameSummary[]) => {
-  const savedGameId = localStorage.getItem('lastGameId')
+  const savedGameId = localStorage.getItem(LAST_GAME_STORAGE_KEY)
 
   games.value = gamesList.map((game) => ({
     ...game,
@@ -261,7 +273,12 @@ const joinGame = async (gameId: string) => {
 const rejoinGame = async (gameId: string) => {
   await runPending(pendingActionKeys.rejoinGame(gameId), async () => {
     try {
-      enterGame(await GameService.rejoinGame(gameId))
+      const game = await GameService.rejoinGame(gameId)
+      if (game.gameIsStarted) {
+        onGameStart(game)
+      } else {
+        enterGame(game)
+      }
     } catch (error) {
       notifyError(error)
     }
@@ -278,6 +295,45 @@ const clearSession = () => {
   showRoom.value = false
 }
 
+/**
+ * Возвращает игрока в последнюю начатую партию после перезагрузки страницы
+ * или восстановления связи. Серверная сессия уже подтверждена, поэтому
+ * остаётся только заново привязать сокет к своему слоту.
+ */
+let restoreInFlight = false
+
+const restoreLastGame = async () => {
+  if (restoreInFlight) return
+  const gameId = activeGameId ?? localStorage.getItem(LAST_GAME_STORAGE_KEY)
+  if (!gameId) return
+
+  restoreInFlight = true
+  try {
+    const game = await GameService.rejoinGame(gameId)
+    if (game.gameIsStarted) {
+      onGameStart(game)
+    } else {
+      enterGame(game)
+    }
+  } catch (error) {
+    // Партия удалена или игрок вышел из неё на другом устройстве: держать
+    // устаревшую метку незачем. Сетевые ошибки не трогают её — следующая
+    // попытка после восстановления соединения повторится.
+    if (
+      error instanceof SocketAckError &&
+      (error.code === 'common.game_not_found' ||
+        error.code === 'common.player_not_found_in_game')
+    ) {
+      forgetLastGame()
+      clearSession()
+      gameState.value = {} as IGameBoard
+      showLobby.value = true
+    }
+  } finally {
+    restoreInFlight = false
+  }
+}
+
 const gameDeletedMessages: Record<GameDeletedPayload['reason'], string> = {
   stale: 'Партия удалена: все игроки давно отключились',
   owner_left: 'Лобби закрыто: владелец вышел из комнаты',
@@ -290,8 +346,11 @@ const onGameDeleted = (payload: GameDeletedPayload) => {
     activeGameId ?? currentGame.value?.id ?? gameState.value.id
   notificationService.warning(gameDeletedMessages[payload.reason])
 
-  if (deletedGameId && localStorage.getItem('lastGameId') === deletedGameId) {
-    localStorage.removeItem('lastGameId')
+  if (
+    deletedGameId &&
+    localStorage.getItem(LAST_GAME_STORAGE_KEY) === deletedGameId
+  ) {
+    forgetLastGame()
   }
 
   clearSession()
@@ -304,6 +363,7 @@ const leaveGame = async () => {
   await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
       await GameService.leaveGame()
+      forgetLastGame()
       clearSession()
       getGamesList()
     } catch (error) {
@@ -316,6 +376,7 @@ const goInLobby = async () => {
   await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
       await GameService.leaveGame()
+      forgetLastGame()
       clearSession()
       showLobby.value = true
       gameState.value = {} as IGameBoard
@@ -351,6 +412,7 @@ const playAgain = async () => {
   const left = await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
       await GameService.leaveGame()
+      forgetLastGame()
       clearSession()
       showLobby.value = true
       return true
@@ -405,6 +467,17 @@ const isLobbyCreator = computed(() => {
   if (!ownerSessionId) return false
   return ownerSessionId === GameService.sessionId.value
 })
+
+/** Состояние связи для индикатора и полноэкранного восстановления. */
+const connectionView = computed(() =>
+  describeConnectionStatus({
+    phase: GameService.connectionPhase.value,
+    isOnline: GameService.isOnline.value,
+    reconnectAttempt: GameService.reconnectAttempt.value,
+    lastDisconnectReason: GameService.lastDisconnectReason.value,
+    errorCode: GameService.connectionErrorCode.value,
+  })
+)
 
 const playersReconnectProcess = computed(() => {
   return !gameState.value.gameIsEnded && reconnectingPlayers.value?.length > 0
@@ -475,8 +548,6 @@ onBeforeUnmount(() => {
 })
 
 onMounted(() => {
-  GameService.connect()
-
   const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
   const unsubscribeGameDeleted = GameService.onGameDeleted(onGameDeleted)
   const onGamesListUpdated = (gamesList: GameSummary[]) => {
@@ -492,12 +563,34 @@ onMounted(() => {
     onGamesListUpdated
   )
   const unsubscribeConnect = GameService.onSocketEvent('connect', onConnect)
+  const unsubscribeSessionReplaced = GameService.onSocketEvent(
+    SocketEvents.SessionReplaced,
+    () => {
+      notificationService.warning(
+        'Партия открыта в другой вкладке. Здесь управление больше недоступно'
+      )
+    }
+  )
+
+  // После подтверждения сессии — и при первом запуске, и после разрыва —
+  // возвращаем игрока в его незавершённую партию.
+  const stopSessionWatch = watch(
+    () => GameService.sessionReady.value,
+    (ready) => {
+      if (ready) void restoreLastGame()
+    },
+    { immediate: true }
+  )
+
+  GameService.connect()
 
   cleanupSocketListeners = () => {
     unsubscribeGameUpdated()
     unsubscribeGameDeleted()
     unsubscribeGamesList()
     unsubscribeConnect()
+    unsubscribeSessionReplaced()
+    stopSessionWatch()
   }
 })
 </script>

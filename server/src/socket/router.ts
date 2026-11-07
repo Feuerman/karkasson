@@ -58,6 +58,7 @@ export function registerSocketHandlers(
       service,
       scheduler: service.computerMoves,
       socket,
+      io,
       guard,
     }
 

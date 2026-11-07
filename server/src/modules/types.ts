@@ -229,6 +229,7 @@ export const SocketEvents = {
   LeaveGame: 'leaveGame',
   RejoinGame: 'rejoinGame',
   PlayerTemporaryDisconnected: 'playerTemporaryDisconnected',
+  SessionReplaced: 'sessionReplaced',
   SelectPlacingPoint: 'selectPlacingPoint',
   UpdateCurrentTile: 'updateCurrentTile',
   PlaceTile: 'placeTile',

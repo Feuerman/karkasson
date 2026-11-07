@@ -133,7 +133,7 @@ async function handleDisconnect(
 }
 
 export function registerConnectionHandlers(context: SocketHandlerContext) {
-  const { events, service, scheduler, socket } = context
+  const { events, service, scheduler, socket, io } = context
 
   socket.on(SocketEvents.RegisterSession, (first: unknown, second: unknown) => {
     const { payload, callback } = payloadAndCallback(first, second)
@@ -144,7 +144,19 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
     }
 
     const session = service.resolveSession(request.token)
-    service.registerSession(session.sessionId, socket.id)
+    // Сессия одна на устройство: новая вкладка забирает управление, а старая
+    // получает явное событие и отключается, чтобы две вкладки не управляли
+    // одной партией и не занимали два слота.
+    const replacedSocketId = service.registerSession(
+      session.sessionId,
+      socket.id
+    )
+    if (replacedSocketId) {
+      const previousSocket = io.sockets.sockets.get(replacedSocketId)
+      previousSocket?.emit(SocketEvents.SessionReplaced)
+      previousSocket?.disconnect(true)
+    }
+
     callback?.({
       success: true,
       token: session.token,
