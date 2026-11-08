@@ -179,6 +179,23 @@ describe('Описание причины отказа в размещении',
         'на восточной стороне у вас — дорога, а у соседнего тайла на западе — поле.'
     )
   })
+
+  it('переводит connecting слова на английский для locale en', () => {
+    const message = describePlacementConflicts(
+      [northConflict, eastConflict],
+      'en'
+    )
+
+    expect(message).toBe(
+      'Unable to place the tile at this position: on the north side you have field, while the neighboring tile on the south has city; on the east side you have road, while the neighboring tile on the west has field.'
+    )
+  })
+
+  it('возвращает английский общий отказ без конфликтов для locale en', () => {
+    expect(describePlacementConflicts([], 'en')).toBe(
+      'Unable to place the tile at this position'
+    )
+  })
 })
 
 describe('Описание причины отказа по реке', () => {

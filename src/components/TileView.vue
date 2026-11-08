@@ -7,7 +7,7 @@
         :src="tileSrc"
         :class="rotateClass"
         class="block h-full w-full scale-[1.08] object-cover transition-transform duration-200 ease-in-out"
-        :alt="props.tile?.imgUrl"
+        :alt="t('tile_image_alt', { id: props.tile?.id ?? '' })"
         @load="drawTile"
       />
       <canvas
@@ -104,6 +104,7 @@ import {
 import { playerColorValue } from '@/utils/colors'
 import { loadTileImage } from '@/utils/tileImages'
 import type { RulesTileRef } from '@/rules/types'
+import { t } from '@/utils/i18n'
 
 const props = withDefaults(
   defineProps<{

@@ -1,5 +1,6 @@
 import { ActionTypes } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
+import { t } from '@/utils/i18n'
 
 /** Фильтр истории по типу действия. */
 export const HistoryFilters = {
@@ -35,26 +36,62 @@ export const HISTORY_FILTERS: ReadonlyArray<{
   label: string
   icon: string
 }> = [
-  { value: HistoryFilters.ALL, label: 'Все', icon: 'i-lucide-list' },
-  { value: HistoryFilters.TILE, label: 'Тайлы', icon: 'i-lucide-layout-grid' },
+  {
+    value: HistoryFilters.ALL,
+    get label() {
+      return t('history_filter_all')
+    },
+    icon: 'i-lucide-list',
+  },
+  {
+    value: HistoryFilters.TILE,
+    get label() {
+      return t('history_filter_tiles')
+    },
+    icon: 'i-lucide-layout-grid',
+  },
   {
     value: HistoryFilters.FOLLOWER,
-    label: 'Подданные',
+    get label() {
+      return t('history_filter_followers')
+    },
     icon: 'i-lucide-person-standing',
   },
-  { value: HistoryFilters.SCORES, label: 'Очки', icon: 'i-lucide-coins' },
+  {
+    value: HistoryFilters.SCORES,
+    get label() {
+      return t('history_filter_scores')
+    },
+    icon: 'i-lucide-coins',
+  },
   {
     value: HistoryFilters.RETURN,
-    label: 'Возвраты',
+    get label() {
+      return t('history_filter_returns')
+    },
     icon: 'i-lucide-rotate-ccw',
   },
-  { value: HistoryFilters.DRAGON, label: 'Дракон', icon: 'i-lucide-flame' },
+  {
+    value: HistoryFilters.DRAGON,
+    get label() {
+      return t('history_filter_dragon')
+    },
+    icon: 'i-lucide-flame',
+  },
   {
     value: HistoryFilters.PRINCESS,
-    label: 'Принцесса',
+    get label() {
+      return t('history_filter_princess')
+    },
     icon: 'i-lucide-crown',
   },
-  { value: HistoryFilters.FAIRY, label: 'Фея', icon: 'i-lucide-sparkles' },
+  {
+    value: HistoryFilters.FAIRY,
+    get label() {
+      return t('history_filter_fairy')
+    },
+    icon: 'i-lucide-sparkles',
+  },
 ]
 
 export const matchesHistoryFilter = (

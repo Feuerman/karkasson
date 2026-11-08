@@ -1,5 +1,6 @@
 import type { Server } from 'socket.io'
 import { SocketEvents, type GameDeletionReason } from '../modules/types'
+import { errorCodeForMessage } from '../modules/errors'
 import type { GameData, GameSummary } from '../services/GameService'
 import type { GameEventsPublisher } from '../services/gameEvents'
 
@@ -14,7 +15,10 @@ export function createGameEventsPublisher(io: Server): GameEventsPublisher {
     },
 
     publishGameError(gameId: string, message: string): void {
-      io.to(gameId).emit(SocketEvents.GameError, { message })
+      io.to(gameId).emit(SocketEvents.GameError, {
+        message,
+        code: errorCodeForMessage(message),
+      })
     },
 
     publishGameDeleted(gameId: string, reason: GameDeletionReason): void {

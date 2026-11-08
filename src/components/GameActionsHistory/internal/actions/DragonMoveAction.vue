@@ -1,14 +1,14 @@
 <template>
   <ActionRow icon="i-lucide-flame">
-    <strong class="mr-[3px] text-text">Дракон переместился.</strong>
+    <strong class="mr-[3px] text-text">{{ t('action_dragon_moved') }}</strong>
     <span class="text-text">
-      С клетки
+      {{ t('action_from_cell') }}
       <ActionCoordinates
         :row="action.actionData.from.rowIndex"
         :col="action.actionData.from.tileIndex"
         @zoom="forwardZoom"
       />
-      на клетку
+      {{ t('action_to_cell') }}
       <ActionCoordinates
         :row="action.actionData.to.rowIndex"
         :col="action.actionData.to.tileIndex"
@@ -16,10 +16,14 @@
       />
     </span>
     <span class="text-text-muted">
-      Осталось шагов: {{ action.actionData.remainingSteps }}.
+      {{
+        t('action_steps_left', {
+          steps: action.actionData.remainingSteps,
+        })
+      }}
     </span>
     <template v-if="hasEatenFollowers">
-      <span class="text-text"> Съедены подданные: </span>
+      <span class="text-text"> {{ t('action_eaten_followers') }} </span>
       <span v-for="group in eatenByPlayer" :key="group.playerId">
         <PlayerNameById :player-id="group.playerId" :title="bigFollowerHint">
           — {{ group.names.join(', ') }}&nbsp;
@@ -37,10 +41,11 @@ import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerNameById from '../PlayerNameById.vue'
 import {
-  BIG_FOLLOWER_HINT,
+  bigFollowerHint as bigFollowerHintText,
   groupFollowerNamesByPlayer,
   hasBigFollower,
 } from '../followerNames'
+import { t } from '@/utils/i18n'
 
 const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.DRAGON_MOVE }>
@@ -58,7 +63,7 @@ const hasEatenFollowers = computed(() => eatenByPlayer.value.length > 0)
 
 const bigFollowerHint = computed(() =>
   hasBigFollower(action.actionData.eatenFollowers)
-    ? BIG_FOLLOWER_HINT
+    ? bigFollowerHintText()
     : undefined
 )
 

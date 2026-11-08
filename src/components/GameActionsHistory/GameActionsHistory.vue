@@ -19,24 +19,24 @@
             class="h-4 w-4 text-secondary-dark"
           />
           <span class="title-medieval text-label leading-none">
-            История ходов
+            {{ t('history_title') }}
           </span>
         </span>
         <div class="flex items-center gap-1.5">
           <span class="flex flex-col items-end leading-none">
             <span class="text-xl font-semibold text-text-muted">
               {{ currentTurnNumber }}
-              <span class="text-sm">ход</span>
+              <span class="text-sm">{{ t('history_turn_short') }}</span>
             </span>
             <span class="mt-0.5 text-caption text-text-muted/80">
-              раунд {{ gameBoard.moveCounter ?? 0 }}
+              {{ t('history_round', { number: gameBoard.moveCounter ?? 0 }) }}
             </span>
           </span>
           <PanelCollapseButton
             panel-id="game-actions-history"
             :collapsed="isCollapsed"
-            expand-label="Развернуть историю"
-            collapse-label="Свернуть историю"
+            :expand-label="t('history_expand')"
+            :collapse-label="t('history_collapse')"
             @toggle="togglePanel"
           />
         </div>
@@ -50,7 +50,7 @@
       <div
         class="flex flex-wrap gap-1"
         role="group"
-        aria-label="Фильтр истории"
+        :aria-label="t('history_filter_aria')"
       >
         <UButton
           v-for="item in HISTORY_FILTERS"
@@ -81,7 +81,7 @@
         v-if="!visibleActions.length"
         class="px-1 py-3 text-center text-label text-text-muted"
       >
-        Нет действий этого типа
+        {{ t('history_empty') }}
       </p>
       <HistoryGroupBlock
         v-for="(group, index) in visibleGroups"
@@ -116,6 +116,7 @@ import { groupActionsHistory } from './internal/historyGroups'
 import { HISTORY_PLAYERS_KEY } from './internal/players'
 import { getCurrentTurnNumber } from '@/utils/turnNumber'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
+import { t } from '@/utils/i18n'
 
 const { gameBoard } = defineProps<{
   gameBoard: IGameBoard

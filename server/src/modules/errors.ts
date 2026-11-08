@@ -72,8 +72,93 @@ export const SaveErrors = {
   SaveInvalidFollowerPool: 'Game save contains an invalid follower pool',
 } as const
 
+/**
+ * Английские переводы пользовательских ошибок из каталогов.
+ * Ключ — русский текст из CommonErrors / LobbyErrors / GameErrors,
+ * значение — английский эквивалент. Клиент имеет собственные переводы и
+ * предпочитает машинный код, поэтому это преимущественно страховка для
+ * сообщений, которые сервер отдаёт без кода.
+ */
+export const ERROR_MESSAGES_EN: Readonly<Record<string, string>> = {
+  [CommonErrors.GameNotFound]: 'Game not found',
+  [CommonErrors.PlayerNotFoundInGame]: 'Player not found in this game',
+  [CommonErrors.SessionRequired]:
+    'Session is not ready. Reconnect to the server',
+  [CommonErrors.InternalFailure]: 'Something went wrong. Try again',
+  [CommonErrors.SaveFailed]: 'Failed to save changes. Try again',
+  [CommonErrors.InvalidRequest]:
+    'Invalid request. Check the data and try again',
+  [CommonErrors.TooManyRequests]:
+    'Too many requests. Wait a moment and try again',
+  [CommonErrors.TooManyConnections]: 'Too many connections. Try again later',
+  [CommonErrors.JoinAttemptsExceeded]:
+    'Too many failed join attempts. Try again later',
+  [LobbyErrors.AllSlotsTaken]: 'All slots are taken',
+  [LobbyErrors.SlotEditForbidden]: 'Not enough rights to change this slot',
+  [LobbyErrors.OnlyLobbyOwnerCanStart]:
+    'Only the lobby creator can start the game',
+  [LobbyErrors.InvalidFinalScoringOption]: 'Invalid "Final scoring" option',
+  [LobbyErrors.InvalidInnsAndCathedralsOption]:
+    'Invalid "Inns and Cathedrals" expansion option',
+  [LobbyErrors.InvalidRiverOption]: 'Invalid "River" expansion option',
+  [LobbyErrors.InvalidPrincessAndDragonOption]:
+    'Invalid "Princess and the Dragon" expansion option',
+  [LobbyErrors.StartFailed]: 'Failed to start the game',
+  [LobbyErrors.NotEnoughPlayers]:
+    'At least two players are required to start the game',
+  [LobbyErrors.GameAlreadyStarted]: 'The game has already started',
+  [LobbyErrors.AlreadyJoinedGame]: 'You have already joined the game',
+  [LobbyErrors.TooManyGames]:
+    'Too many active games on the server. Try again later',
+  [LobbyErrors.TooManyOwnedLobbies]:
+    'You have created too many lobbies. Finish old games',
+  [LobbyErrors.TooManyAiGames]:
+    'Too many computer games on the server. Try again later',
+  [LobbyErrors.TooManyOwnedAiGames]:
+    'You already have computer games. Wait for them to finish',
+  [LobbyErrors.PlayerNameTooLong]: 'Player name is too long',
+  [LobbyErrors.PlayerNameInvalid]: 'Player name contains invalid characters',
+  [LobbyErrors.PlayerNameProfanity]: 'Player name contains prohibited words',
+  [LobbyErrors.PlayerNameTaken]:
+    'A player with this name is already in the lobby',
+  [GameErrors.NotPlayersTurn]:
+    "It's another player's turn — wait for your turn",
+  [GameErrors.InvalidTileRotation]: 'Invalid tile rotation',
+  [GameErrors.ResolveExpansionActionFirst]:
+    'Finish the current expansion action first',
+  [GameErrors.NoTileWaiting]: 'There is no tile to place',
+  [GameErrors.NotPlacingFollower]: 'You cannot place followers now',
+  [GameErrors.InvalidFollowerPlacement]: 'Invalid follower placement',
+  [GameErrors.FollowerPlacementUnavailable]:
+    'Placing followers is no longer available',
+  [GameErrors.NoAbbotOnBoard]: 'The player has no abbot on the board',
+  [GameErrors.InvalidDragonTurn]: 'You cannot move the dragon now',
+  [GameErrors.InvalidDragonDestination]: 'The dragon cannot be moved there',
+  [GameErrors.NotPlacingFairy]: 'You cannot move the fairy now',
+  [GameErrors.InvalidFairyTarget]:
+    'The fairy can only stand next to your own follower',
+  [GameErrors.PrincessChoiceNotPending]:
+    "The princess isn't waiting for a city choice",
+  [GameErrors.InvalidPrincessCity]: 'Invalid city for the princess',
+} as const
+
+/**
+ * Переводит текст ошибки на язык игрока, если известен перевод.
+ * Локаль 'en' включает английский, иначе возвращается исходный русский текст.
+ */
+export function translateErrorMessage(
+  message: string,
+  locale?: string
+): string {
+  if (locale === 'en') {
+    return ERROR_MESSAGES_EN[message] ?? message
+  }
+  return message
+}
+
 function toErrorCode(prefix: string, key: string): string {
-  return `${prefix}.${key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)}`
+  const snake = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
+  return `${prefix}.${snake}`
 }
 
 function buildErrorCodeMap(): Record<string, string> {

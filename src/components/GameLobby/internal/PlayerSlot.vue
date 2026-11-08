@@ -12,7 +12,7 @@
 
     <UInput
       :model-value="player.name ?? ''"
-      :placeholder="`Игрок ${index + 1}`"
+      :placeholder="t('lobby_player_placeholder', { index: index + 1 })"
       :maxlength="MAX_PLAYER_NAME_LENGTH"
       :disabled="Boolean(player.isConnected || !player.name)"
       :ui="{
@@ -27,7 +27,7 @@
       v-if="!player.sessionId && player.name"
       class="text-base font-semibold text-text-muted"
     >
-      ИИ
+      {{ t('lobby_ai') }}
     </div>
     <UButton
       variant="outline"
@@ -50,7 +50,7 @@
         class="h-5 w-5 animate-spin"
       />
       <template v-else>
-        {{ player.isConnected ? 'Освободить' : 'Занять' }}
+        {{ player.isConnected ? t('lobby_release') : t('lobby_take') }}
       </template>
     </UButton>
   </div>
@@ -65,6 +65,7 @@ import UInput from '@nuxt/ui/components/Input.vue'
 import { MAX_PLAYER_NAME_LENGTH, type PlayerView } from '@server/modules/types'
 import { TEST_IDS } from '@/data/testIds'
 import { playerBorderColorClass, playerTextColorClass } from '@/utils/colors'
+import { t } from '@/utils/i18n'
 import { canToggleSlot } from './helpers'
 
 const props = withDefaults(

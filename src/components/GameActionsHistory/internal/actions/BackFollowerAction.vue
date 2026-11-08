@@ -1,6 +1,8 @@
 <template>
   <ActionRow icon="i-lucide-rotate-ccw">
-    <strong class="mr-[3px] text-text">Возврат подданных.</strong>
+    <strong class="mr-[3px] text-text">{{
+      t('action_returned_followers')
+    }}</strong>
     <span v-for="group in followersByPlayer" :key="group.playerId">
       <PlayerNameById :player-id="group.playerId" :title="bigFollowerHint">
         — {{ group.names.join(', ') }},&nbsp;
@@ -17,8 +19,9 @@ import PlayerNameById from '../PlayerNameById.vue'
 import {
   groupFollowerNamesByPlayer,
   hasBigFollower,
-  BIG_FOLLOWER_HINT,
+  bigFollowerHint as bigFollowerHintText,
 } from '../followerNames'
+import { t } from '@/utils/i18n'
 import { computed } from 'vue'
 
 const { action } = defineProps<{
@@ -30,6 +33,8 @@ const followersByPlayer = computed(() =>
 )
 
 const bigFollowerHint = computed(() =>
-  hasBigFollower(action.actionData.followers) ? BIG_FOLLOWER_HINT : undefined
+  hasBigFollower(action.actionData.followers)
+    ? bigFollowerHintText()
+    : undefined
 )
 </script>

@@ -9,7 +9,7 @@ import {
   payloadAndCallback,
 } from '../validation'
 import { errorResponse } from './errorResponse'
-import { ackGameUpdated, runLobbyCommand } from './shared'
+import { ackGameUpdated, runLobbyCommand, emitSocketError } from './shared'
 
 const logger = createLogger('connection')
 
@@ -149,7 +149,8 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
     // одной партией и не занимали два слота.
     const replacedSocketId = service.registerSession(
       session.sessionId,
-      socket.id
+      socket.id,
+      request.locale
     )
     if (replacedSocketId) {
       const previousSocket = io.sockets.sockets.get(replacedSocketId)
@@ -163,6 +164,17 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
       sessionId: session.sessionId,
       protocolVersion: PROTOCOL_VERSION,
     })
+  })
+
+  socket.on(SocketEvents.SetLocale, (payload: unknown) => {
+    const record =
+      typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : undefined
+    const locale = record?.locale
+    if (locale === 'ru' || locale === 'en') {
+      service.setSessionLocale(socket.id, locale)
+    }
   })
 
   socket.on('disconnect', (reason: string) => {
@@ -189,21 +201,21 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
       await runLobbyCommand(callback, async () => {
         const sessionId = service.getSessionBySocketId(socket.id)
         if (!sessionId) {
-          socket.emit(SocketEvents.Error, CommonErrors.SessionRequired)
+          emitSocketError(socket, service, CommonErrors.SessionRequired)
           callback?.(errorResponse(CommonErrors.SessionRequired))
           return
         }
 
         const resolvedGame = await service.resolveGame(gameId)
         if (!resolvedGame?.id) {
-          socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+          emitSocketError(socket, service, CommonErrors.GameNotFound)
           callback?.(errorResponse(CommonErrors.GameNotFound))
           return
         }
 
         const result = service.rejoinGame(resolvedGame.id, sessionId, socket.id)
         if (!result) {
-          socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+          emitSocketError(socket, service, CommonErrors.GameNotFound)
           callback?.(errorResponse(CommonErrors.GameNotFound))
           return
         }
@@ -217,7 +229,7 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
             forceSnapshot: true,
           })
         } else {
-          socket.emit(SocketEvents.Error, CommonErrors.PlayerNotFoundInGame)
+          emitSocketError(socket, service, CommonErrors.PlayerNotFoundInGame)
           callback?.(errorResponse(CommonErrors.PlayerNotFoundInGame))
           return
         }
