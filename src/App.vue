@@ -1,7 +1,15 @@
 <template>
   <UApp class="h-full" :toaster="{ ui: { viewport: 'sm:w-[30rem]' } }">
     <ToastBridge />
-    <div class="relative flex h-full flex-col bg-surface-muted text-text">
+    <ErrorScreen
+      v-if="criticalError"
+      :message="criticalError.message"
+      @reload="reloadApp"
+    />
+    <div
+      v-else
+      class="relative flex h-full flex-col bg-surface-muted text-text"
+    >
       <ConnectionStatus
         :view="connectionView"
         @retry="GameService.reconnectNow()"
@@ -18,6 +26,9 @@
         :is-connected="GameService.isConnected.value"
         :is-creator="isLobbyCreator"
         :is-games-list-loading="isGamesListLoading"
+        :games-list-error="gamesListError"
+        :room-code-error="roomCodeError"
+        :create-game-error="createGameError"
         :pending-actions="pendingList"
         :show-room="showRoom"
         :session-id="GameService.sessionId.value ?? ''"
@@ -29,6 +40,7 @@
         @create-game="createGame"
         @add-player="addPlayer"
         @remove-player="removePlayer"
+        @retry-games-list="retryGamesList"
       />
       <GameTurnTracker
         v-if="gameState.gameIsStarted && !showLobby"
@@ -84,7 +96,7 @@ import ReconnectingOverlay from './components/ReconnectingOverlay.vue'
 import ConnectionStatus from './components/ConnectionStatus.vue'
 import UApp from '@nuxt/ui/components/App.vue'
 import ToastBridge from './components/ToastBridge.vue'
-import { notifyError } from './utils/common'
+import { notifyError, errorMessage } from './utils/common'
 import notificationService from './plugins/notification'
 import GameService, { SocketAckError } from './modules/GameService'
 import type { CreateGameOptions } from './modules/GameService'
@@ -95,6 +107,8 @@ import {
   usePendingActions,
 } from './composables/usePendingActions'
 import { t, getLocale, setLocale } from './utils/i18n'
+import { criticalError } from './modules/criticalError'
+import ErrorScreen from './components/ErrorScreen.vue'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import { SocketEvents, type PlayerView } from '@server/modules/types'
@@ -239,10 +253,12 @@ const updateLocalGamesList = (gamesList: GameSummary[]) => {
 
 const getGamesList = async () => {
   isGamesListLoading.value = true
+  gamesListError.value = null
   try {
     const { games: gamesList } = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
+    gamesListError.value = errorMessage(error, t('ui_error_games_list'))
     notifyError(error, t('ui_error_games_list'))
   } finally {
     isGamesListLoading.value = false
@@ -273,11 +289,18 @@ const backToList = () => {
   getGamesList()
 }
 
+const retryGamesList = () => {
+  gamesListError.value = null
+  void getGamesList()
+}
+
 const joinGame = async (gameId: string) => {
+  roomCodeError.value = null
   await runPending(pendingActionKeys.joinGame(gameId), async () => {
     try {
       enterGame(await GameService.joinGame(gameId))
     } catch (error) {
+      roomCodeError.value = errorMessage(error, t('ui_error_room_not_found'))
       notifyError(error)
     }
   })
@@ -368,7 +391,17 @@ const onGameDeleted = (payload: GameDeletedPayload) => {
   getGamesList()
 }
 
+/**
+ * Подтверждает выход, только если партия уже начата. Игрок не должен
+ * случайно потерять управление ходом в разыгранной партии.
+ */
+const confirmLeaveActiveGame = (): boolean => {
+  if (!gameState.value.gameIsStarted) return true
+  return window.confirm(t('ui_confirm_leave_active_game'))
+}
+
 const leaveGame = async () => {
+  if (!confirmLeaveActiveGame()) return
   await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
       await GameService.leaveGame()
@@ -382,6 +415,7 @@ const leaveGame = async () => {
 }
 
 const goInLobby = async () => {
+  if (!confirmLeaveActiveGame()) return
   await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
       await GameService.leaveGame()
@@ -397,6 +431,7 @@ const goInLobby = async () => {
 }
 
 const createGame = async (options: CreateGameOptions) => {
+  createGameError.value = null
   await runPending(pendingActionKeys.createGame(), async () => {
     try {
       const game = await GameService.createGame(options)
@@ -404,6 +439,7 @@ const createGame = async (options: CreateGameOptions) => {
       playersList.value = game.players
       showRoom.value = true
     } catch (error) {
+      createGameError.value = errorMessage(error, t('ui_error_create_game'))
       notifyError(error)
     }
   })
@@ -415,6 +451,7 @@ const createGame = async (options: CreateGameOptions) => {
  * Прежняя партия покидается: игрок не может остаться сразу в двух партиях.
  */
 const playAgain = async () => {
+  if (!confirmLeaveActiveGame()) return
   const rules = gameState.value.rules
   const finalScoringEnabled = gameState.value.finalScoringEnabled ?? false
 
@@ -503,6 +540,10 @@ const isGamesListLoading = ref(true)
 const playersList = ref<PlayerView[]>([])
 const currentGame = ref<IGame | null>(null)
 
+const gamesListError = ref<string | null>(null)
+const roomCodeError = ref<string | null>(null)
+const createGameError = ref<string | null>(null)
+
 const showRules = ref(false)
 const rulesDocument = ref<RulesDocument | null>(null)
 
@@ -583,6 +624,10 @@ onBeforeUnmount(() => {
   cleanupSocketListeners = undefined
 })
 
+const reloadApp = () => {
+  window.location.reload()
+}
+
 onMounted(() => {
   const unsubscribeGameUpdated = GameService.onGameUpdated(onGameUpdated)
   const unsubscribeGameDeleted = GameService.onGameDeleted(onGameDeleted)
@@ -618,7 +663,17 @@ onMounted(() => {
 
   GameService.connect()
 
+  // Предупреждение при закрытии страницы во время разыгранной партии.
+  const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (gameState.value.gameIsStarted) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+  }
+  window.addEventListener('beforeunload', onBeforeUnload)
+
   cleanupSocketListeners = () => {
+    window.removeEventListener('beforeunload', onBeforeUnload)
     unsubscribeGameUpdated()
     unsubscribeGameDeleted()
     unsubscribeGamesList()
