@@ -45,6 +45,11 @@
         </section>
       </div>
     </template>
+
+    <p v-if="error" class="mb-3 text-sm text-negative text-center">
+      {{ error }}
+    </p>
+
     <template #footer>
       <div class="flex w-full justify-end gap-3">
         <UButton
@@ -84,8 +89,10 @@ const props = withDefaults(
     open: boolean
     /** Команда создания игры выполняется: кнопка в состоянии ожидания. */
     pending: boolean
+    /** Ошибка создания сервера: показываем внутри модалки. */
+    error: string | null
   }>(),
-  { pending: false }
+  { pending: false, error: null }
 )
 
 const emit = defineEmits<{
