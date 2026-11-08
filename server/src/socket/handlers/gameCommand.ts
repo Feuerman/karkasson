@@ -171,7 +171,7 @@ export async function runGameCommand(
           logger.error(`Ошибка команды ${command}:`, error)
           commandErrors.inc(1, { command })
           callback?.({
-            ...toPlayerError(error),
+            ...toPlayerError(error, service.getSessionLocale(socket.id)),
             ...commandErrorDetails(error),
           })
           return

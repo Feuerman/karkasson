@@ -26,6 +26,9 @@ async function listenOnRandomPort(server: import('node:http').Server) {
 
 /** Создаёт комнату и начинает партию с двумя игроками. */
 async function startGameWithTwoPlayers(page: Page, url: string) {
+  await page.addInitScript(() => {
+    localStorage.setItem('locale', 'ru')
+  })
   await page.goto(url)
   await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
   await page.getByTestId(TEST_IDS.createGameSubmit).click()
@@ -210,6 +213,10 @@ test('о возврате хода сообщает уведомление', asy
 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
+
+    await page.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await page.goto(frontend.url)
     await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
     await page.getByTestId(TEST_IDS.createGameSubmit).click()
