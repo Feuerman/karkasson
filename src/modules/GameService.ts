@@ -24,7 +24,6 @@ import type {
   RemovePlayerPayload,
   GameDeletedPayload,
   GameErrorPayload,
-  SetLocalePayload,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
 import { t, getLocale, type Locale } from '@/utils/i18n'
