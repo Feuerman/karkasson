@@ -27,7 +27,6 @@ describe('t()', () => {
   it('переводит на текущий язык (по умолчанию русский)', () => {
     expect(t('ui_menu_rules')).toBe('Правила игры')
   })
-
   it('переключается на английский после setLocale', () => {
     setLocale('en')
     expect(t('ui_menu_rules')).toBe('Game rules')
@@ -148,5 +147,28 @@ describe('localizeScoreText()', () => {
     setLocale('en')
     expect(localizeScoreText('Тайлы дороги')).toBe('Road tiles')
     expect(localizeScoreText('unknown server text')).toBe('unknown server text')
+  })
+})
+
+describe('Новые ключи 4.2: есть и на русском, и на английском', () => {
+  const keys = [
+    'ui_error_critical',
+    'ui_error_reload',
+    'ui_confirm_leave_active_game',
+    'ui_error_room_not_found',
+    'ui_error_create_game',
+    'lobby_retry',
+  ]
+
+  it('каждый ключ переведён на оба языка и не совпадает с ключом', () => {
+    for (const key of keys) {
+      const ru = t(key)
+      setLocale('en')
+      const en = t(key)
+      setLocale('ru')
+      expect(ru).not.toBe(key)
+      expect(en).not.toBe(key)
+      expect(ru).not.toBe(en)
+    }
   })
 })

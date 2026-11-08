@@ -107,6 +107,8 @@ test('кнопка «Сыграть ещё» начинает новую пар�
     gameServer.events.publishGameUpdated(game.id, formatGameData(game))
 
     await expect(page.getByTestId(TEST_IDS.gameResultOverlay)).toBeVisible()
+    // playAgain спрашивает подтверждение выхода из активной партии.
+    page.on('dialog', (dialog) => dialog.accept())
     await page.getByTestId(TEST_IDS.gameResultPlayAgain).click()
 
     // Новая партия создаётся с теми же правилами, игрок снова в лобби комнаты.

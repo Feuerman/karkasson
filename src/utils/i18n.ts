@@ -28,6 +28,14 @@ const messages: Record<Locale, Messages> = {
       'Требуется перезагрузка страницы: версия протокола клиента и сервера не совпадают',
     ui_error_not_connected: 'Нет соединения с сервером',
     ui_error_leave_game: 'Не удалось покинуть партию',
+    ui_error_critical: 'Что-то пошло не так',
+    ui_error_reload: 'Перезагрузить страницу',
+    ui_confirm_leave_active_game:
+      'Партия уже начата. Действительно хотите выйти?',
+    ui_error_room_not_found:
+      'Комната не найдена. Проверьте код и попробуйте снова',
+    ui_error_create_game: 'Не удалось создать игру. Попробуйте снова',
+    lobby_retry: 'Повторить',
     ui_game_deleted_stale: 'Партия удалена: все игроки давно отключились',
     ui_game_deleted_owner_left: 'Лобби закрыто: владелец вышел из комнаты',
     ui_game_deleted_expired: 'Срок хранения завершённой партии истёк',
@@ -443,6 +451,13 @@ const messages: Record<Locale, Messages> = {
       'Page reload required: client and server protocol versions do not match',
     ui_error_not_connected: 'No connection to the server',
     ui_error_leave_game: 'Failed to leave the game',
+    ui_error_critical: 'Something went wrong',
+    ui_error_reload: 'Reload page',
+    ui_confirm_leave_active_game:
+      'The game has already started. Are you sure you want to leave?',
+    ui_error_room_not_found: 'Room not found. Check the code and try again',
+    ui_error_create_game: 'Failed to create the game. Try again',
+    lobby_retry: 'Try again',
     ui_game_deleted_stale: 'Game removed: all players disconnected long ago',
     ui_game_deleted_owner_left: 'Lobby closed: the owner left the room',
     ui_game_deleted_expired: 'Storage period for the finished game has expired',
