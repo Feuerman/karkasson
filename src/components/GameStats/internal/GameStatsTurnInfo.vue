@@ -5,7 +5,7 @@
         class="flex items-center gap-1.5 text-sm font-semibold text-tertiary-soft"
       >
         <UIcon name="i-lucide-hourglass" class="h-4 w-4 text-secondary-dark" />
-        Ход
+        {{ t('stats_turn') }}
       </span>
       <span
         :data-testid="TEST_IDS.gameStatsTurnTimer"
@@ -16,7 +16,7 @@
     </div>
     <div class="mt-1.5 flex items-center justify-between gap-2 text-sm">
       <span class="min-w-0 truncate text-text-muted">
-        Ходит:
+        {{ t('stats_current') }}
         <span class="font-semibold text-tertiary-soft">{{
           currentPlayerName
         }}</span>
@@ -30,7 +30,7 @@
           class="stats-thinking-dot h-2 w-2 rounded-pill bg-secondary-dark"
           aria-hidden="true"
         ></span>
-        думает
+        {{ t('stats_thinking') }}
       </span>
     </div>
     <div
@@ -38,12 +38,15 @@
       class="mt-1 flex items-center justify-between gap-2 text-sm"
     >
       <span class="min-w-0 truncate text-text-muted">
-        Далее:
+        {{ t('stats_next') }}
         <span class="font-semibold text-tertiary-soft">{{
           nextPlayerName
         }}</span>
       </span>
-      <ol class="flex shrink-0 items-center gap-1" aria-label="Очередь ходов">
+      <ol
+        class="flex shrink-0 items-center gap-1"
+        :aria-label="t('stats_turn_order')"
+      >
         <li
           v-for="(player, index) in turnOrder"
           :key="String(player.id)"
@@ -73,6 +76,7 @@ import {
   playerBackgroundColorClass,
   playerBackgroundTextColorClass,
 } from '@/utils/colors'
+import { getLocale, t } from '@/utils/i18n'
 
 withDefaults(
   defineProps<{
@@ -91,10 +95,12 @@ withDefaults(
 )
 
 const initialOf = (name?: string | null): string =>
-  name?.trim().charAt(0).toLocaleUpperCase('ru') || '?'
+  name?.trim().charAt(0).toLocaleUpperCase(getLocale()) || '?'
 
 const turnOrderTitle = (player: PlayerView, index: number): string => {
-  const name = player.name || 'Игрок'
-  return index === 0 ? `Ходит сейчас: ${name}` : `В очереди: ${name}`
+  const name = player.name || t('stats_player')
+  return index === 0
+    ? t('stats_playing_now', { name })
+    : t('stats_in_queue', { name })
 }
 </script>

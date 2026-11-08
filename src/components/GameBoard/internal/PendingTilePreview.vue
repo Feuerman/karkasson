@@ -25,8 +25,8 @@
             icon="i-lucide-rotate-ccw"
             class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
             :ui="{ leadingIcon: 'size-4' }"
-            title="Повернуть тайл против часовой стрелки"
-            aria-label="Повернуть тайл против часовой стрелки"
+            :title="t('board_rotate_ccw')"
+            :aria-label="t('board_rotate_ccw')"
             :data-testid="TEST_IDS.rotateTileCounterclockwise"
             @mousedown.stop
             @click.stop.prevent="
@@ -50,8 +50,8 @@
             icon="i-lucide-rotate-cw"
             class="btn-primary-action flex h-8 w-8 cursor-pointer !p-0 text-white shadow-soft"
             :ui="{ leadingIcon: 'size-4' }"
-            title="Повернуть тайл по часовой стрелке"
-            aria-label="Повернуть тайл по часовой стрелке"
+            :title="t('board_rotate_cw')"
+            :aria-label="t('board_rotate_cw')"
             :data-testid="TEST_IDS.rotateTileClockwise"
             @mousedown.stop
             @click.stop.prevent="
@@ -63,12 +63,12 @@
       <span
         class="rounded-lg bg-black/50 px-3 py-1 text-sm font-medium whitespace-nowrap text-amber-50 backdrop-blur-sm"
       >
-        Выберите клетку на поле
+        {{ t('board_choose_cell') }}
       </span>
       <span
         class="hidden rounded-card bg-black/40 px-3 py-1 text-caption whitespace-nowrap text-amber-50/80 backdrop-blur-sm sm:inline"
       >
-        Клавиши: R — повернуть, P — разместить, Esc — снять выбор
+        {{ t('board_keys_hint') }}
       </span>
     </div>
     <UButton
@@ -77,14 +77,14 @@
       :disabled="!hasSelectedCell"
       :title="
         hasSelectedCell
-          ? 'Разместить тайл на выбранной клетке'
-          : 'Сначала выберите клетку на поле'
+          ? t('board_place_on_selected')
+          : t('board_select_cell_first')
       "
       class="btn-primary-action min-h-12 cursor-pointer whitespace-nowrap rounded-xl px-6 py-2 text-base font-semibold shadow-strong"
       :data-testid="TEST_IDS.placeTile"
       @click="emit('place-tile', localCurrentTile, hoveredTile)"
     >
-      Разместить
+      {{ t('board_place') }}
     </UButton>
   </div>
 </template>
@@ -97,6 +97,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import TileView from '@/components/TileView.vue'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 
 defineProps<{
   placementError: string

@@ -1,18 +1,20 @@
 <template>
   <UModal
-    description="Настройте правила новой партии"
+    :description="t('lobby_create_description')"
     :open="open"
     @update:open="emit('update:open', $event)"
   >
     <template #title>
-      <span :data-testid="TEST_IDS.createGameModalTitle"> Создание игры </span>
+      <span :data-testid="TEST_IDS.createGameModalTitle">
+        {{ t('lobby_create_title') }}
+      </span>
     </template>
     <template #body>
       <div class="space-y-5">
         <OptionToggle
           v-model="finalScoringEnabled"
-          label="Финальный подсчёт очков"
-          description="Если включить опцию, в конце партии очки начислятся за незавершённые дороги, города, монастыри и сады."
+          :label="t('lobby_final_scoring')"
+          :description="t('lobby_final_scoring_description')"
           :test-id="TEST_IDS.createGameFinalScoring"
         />
 
@@ -22,22 +24,22 @@
           <h3
             class="text-sm font-semibold uppercase tracking-wide text-text-muted"
           >
-            Дополнения
+            {{ t('lobby_expansions') }}
           </h3>
           <OptionToggle
             v-model="innsAndCathedralsEnabled"
-            label="Таверны и соборы"
-            description="Добавляет 18 тайлов дополнения и большого подданного."
+            :label="t('expansion_inns')"
+            :description="t('expansion_inns_description')"
           />
           <OptionToggle
             v-model="riverEnabled"
-            label="Река"
-            description="В начале партии выкладывается река от истока до озера, затем идёт обычная колода."
+            :label="t('expansion_river')"
+            :description="t('expansion_river_description')"
           />
           <OptionToggle
             v-model="princessAndDragonEnabled"
-            label="Принцесса и дракон"
-            description="Добавляет тайлы с принцессой, драконом и вулканом."
+            :label="t('expansion_princess')"
+            :description="t('expansion_princess_description')"
             :test-id="TEST_IDS.createGamePrincessDragon"
           />
         </section>
@@ -52,7 +54,7 @@
           :disabled="pending"
           @click="close"
         >
-          Отмена
+          {{ t('lobby_cancel') }}
         </UButton>
         <UButton
           color="primary"
@@ -61,7 +63,7 @@
           class="btn-primary-action cursor-pointer"
           @click="create"
         >
-          Создать игру
+          {{ t('lobby_create_submit') }}
         </UButton>
       </div>
     </template>
@@ -74,6 +76,7 @@ import type { CreateGameOptions } from '@/modules/GameService'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import OptionToggle from './OptionToggle.vue'
 
 const props = withDefaults(

@@ -37,7 +37,9 @@
       v-if="!gameBoard.gameIsEnded"
       class="mt-1 flex items-center justify-center gap-1.5 px-3 text-sm font-bold"
     >
-      <span class="shrink-0 tabular-nums">ход {{ currentTurnNumber }}</span>
+      <span class="shrink-0 tabular-nums">{{
+        t('stats_turn_short', { number: currentTurnNumber })
+      }}</span>
       <span
         class="h-1 w-1 shrink-0 rounded-full bg-current"
         aria-hidden="true"
@@ -53,7 +55,7 @@
         v-if="isComputerTurn"
         class="shrink-0 rounded-sm bg-text/10 px-1 text-caption leading-4"
       >
-        ИИ
+        {{ t('stats_ai') }}
       </span>
     </div>
   </div>
@@ -64,6 +66,7 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import PanelCollapseButton from '@/components/PanelCollapseButton.vue'
 import type { IGameBoard } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import {
   playerBackgroundColorClass,
   playerBackgroundTextColorClass,

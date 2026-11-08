@@ -1,18 +1,18 @@
 <template>
   <ActionRow icon="i-lucide-crown">
-    <strong class="mr-[3px] text-text">Принцесса забрала подданного.</strong>
+    <strong class="mr-[3px] text-text">{{ t('action_princess_took') }}</strong>
     <span class="text-text">
-      Город на клетке
+      {{ t('action_city_on_cell') }}
       <ActionCoordinates
         :row="takenFollower.point.y"
         :col="takenFollower.point.x"
         @zoom="forwardZoom"
       />
     </span>
-    <span class="text-text"> Подданный: </span>
+    <span class="text-text"> {{ t('action_follower_label') }} </span>
     <PlayerNameById
       :player-id="takenFollower.playerId"
-      :title="takenFollower.isBigFollower ? BIG_FOLLOWER_HINT : undefined"
+      :title="takenFollower.isBigFollower ? bigFollowerHintText() : undefined"
     >
       — {{ takenFollowerName }}
     </PlayerNameById>
@@ -26,7 +26,11 @@ import { computed } from 'vue'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerNameById from '../PlayerNameById.vue'
-import { BIG_FOLLOWER_HINT, followerName } from '../followerNames'
+import {
+  bigFollowerHint as bigFollowerHintText,
+  followerName,
+} from '../followerNames'
+import { t } from '@/utils/i18n'
 
 const { action } = defineProps<{
   action: Extract<

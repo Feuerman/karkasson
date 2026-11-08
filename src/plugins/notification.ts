@@ -1,3 +1,5 @@
+import { t } from '@/utils/i18n'
+
 export const NotificationType = {
   Success: 'success',
   Error: 'error',
@@ -67,7 +69,7 @@ const notificationService = {
     notify(NotificationType.Success, message, options),
   error: (message: string, options?: NotificationOptions) =>
     notify(NotificationType.Error, message, {
-      title: 'Ошибка',
+      title: t('notification_error_title'),
       duration: ERROR_DURATION,
       ...options,
     }),

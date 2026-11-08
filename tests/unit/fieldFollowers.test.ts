@@ -424,4 +424,59 @@ describe('Финальный подсчёт полей', () => {
     expect(game.scores[P1]).toBe(0)
     expect(fieldScoreActions(game)).toHaveLength(0)
   })
+
+  it('при финальном подсчёте незавершённый город не приносит очков полю', () => {
+    const game = setupGame({ finalScoring: true })
+    const fieldTileA = fieldTile(10, 10, fields(field(['eastNorth'])), {
+      [SideName.East]: TileSideType.Field,
+    })
+    const cityTileB = gridTile({
+      x: 11,
+      y: 10,
+      rowIndex: 10,
+      tileIndex: 11,
+      id: 'B',
+      sides: { ...allFieldSides, [SideName.West]: TileSideType.City },
+    })
+    game.tilePlacesStats = { 10: { 10: fieldTileA, 11: cityTileB } }
+    game.fieldFollowers = [peasant(P1, 10, 10, 0)]
+    // Город остаётся незавершённым до самого конца партии.
+    game.temporaryObjects.cities = [
+      city('city-B', [{ x: 11, y: 10, direction: SideName.West }], []),
+    ]
+    game.scores = { [P1]: 0, [P2]: 0 }
+
+    game.tilesList = []
+    game.getRandomTileFromList()
+
+    expect(game.scores[P1]).toBe(0)
+    expect(fieldScoreActions(game)).toHaveLength(0)
+  })
+
+  it('при финальном подсчёте завершённый город приносит очки полю', () => {
+    const game = setupGame({ finalScoring: true })
+    const fieldTileA = fieldTile(10, 10, fields(field(['eastNorth'])), {
+      [SideName.East]: TileSideType.Field,
+    })
+    const cityTileB = gridTile({
+      x: 11,
+      y: 10,
+      rowIndex: 10,
+      tileIndex: 11,
+      id: 'B',
+      sides: { ...allFieldSides, [SideName.West]: TileSideType.City },
+    })
+    game.tilePlacesStats = { 10: { 10: fieldTileA, 11: cityTileB } }
+    game.fieldFollowers = [peasant(P1, 10, 10, 0)]
+    game.completedObjects.cities = [
+      city('city-B', [{ x: 11, y: 10, direction: SideName.West }], [1]),
+    ]
+    game.scores = { [P1]: 0, [P2]: 0 }
+
+    game.tilesList = []
+    game.getRandomTileFromList()
+
+    expect(game.scores[P1]).toBe(3)
+    expect(fieldScoreActions(game)).toHaveLength(1)
+  })
 })

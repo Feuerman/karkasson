@@ -103,8 +103,8 @@
                   icon="i-lucide-rotate-ccw"
                   class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
                   :ui="{ leadingIcon: 'size-4' }"
-                  title="Повернуть тайл против часовой стрелки"
-                  aria-label="Повернуть тайл против часовой стрелки"
+                  :title="t('board_rotate_ccw')"
+                  :aria-label="t('board_rotate_ccw')"
                   :data-testid="TEST_IDS.cellRotateTileCounterclockwise"
                   @mousedown.stop
                   @click.stop.prevent="
@@ -131,8 +131,8 @@
                   icon="i-lucide-rotate-cw"
                   class="btn-primary-action flex h-7 w-7 cursor-pointer !p-0 text-white shadow-soft"
                   :ui="{ leadingIcon: 'size-4' }"
-                  title="Повернуть тайл по часовой стрелке"
-                  aria-label="Повернуть тайл по часовой стрелке"
+                  :title="t('board_rotate_cw')"
+                  :aria-label="t('board_rotate_cw')"
                   :data-testid="TEST_IDS.cellRotateTileClockwise"
                   @mousedown.stop
                   @click.stop.prevent="
@@ -151,7 +151,7 @@
               "
               class="pointer-events-none absolute inset-0 flex items-center justify-center text-5xl drop-shadow-[0_2px_3px_rgba(0,0,0,0.8)]"
               role="img"
-              aria-label="Дракон"
+              :aria-label="t('board_dragon')"
             >
               🐉
             </div>
@@ -220,6 +220,7 @@ import {
 } from '../../utils/board'
 import { boardCellKey, buildAvailableCells } from '../../utils/availableCells'
 import { playerColorValue } from '../../utils/colors'
+import { t } from '../../utils/i18n'
 import { useBoardPan } from '../../composables/useBoardPan'
 import LastActionBubble from './internal/LastActionBubble.vue'
 import PendingTilePreview from './internal/PendingTilePreview.vue'
@@ -360,7 +361,9 @@ const cellLabel = (rowIndex: number, tileIndex: number): string => {
   const isBusy = Boolean(
     gameBoard.value.tilePlacesStats?.[rowIndex]?.[tileIndex]
   )
-  return `Клетка ${rowIndex + 1}, ${tileIndex + 1}${isBusy ? ', занята' : ''}`
+  return isBusy
+    ? t('board_cell_busy', { row: rowIndex + 1, col: tileIndex + 1 })
+    : t('board_cell', { row: rowIndex + 1, col: tileIndex + 1 })
 }
 
 /** Ставит фокус на клетку и показывает её на экране. */
@@ -463,11 +466,11 @@ const isFairyCell = (rowIndex: number, tileIndex: number): boolean =>
 
 const fairyLabel = computed(() => {
   const follower = gameBoard.value.fairy?.follower
-  if (!follower) return 'Фея, не связана с подданным'
+  if (!follower) return t('board_fairy_unbound')
   const player = gameBoard.value.players.find(
     ({ id }) => String(id) === String(follower.playerId)
   )
-  return `Фея у подданного игрока ${player?.name ?? ''}`
+  return t('board_fairy_at_player', { name: player?.name ?? '' })
 })
 
 /**
@@ -484,7 +487,7 @@ const isAvailableCell = (rowIndex: number, tileIndex: number): boolean =>
 const updateSelectedPlacingPoint = throttle(
   (value: { rowIndex: number; tileIndex: number }) => {
     void GameService.selectPlacingPoint(value).catch((error: unknown) => {
-      notifyError(error, 'Не удалось выбрать клетку')
+      notifyError(error, t('action_select_cell_error'))
     })
   },
   300
@@ -497,7 +500,7 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
   if (gameBoard.value.isMyTurn) {
     if (gameBoard.value.dragonMove) {
       void GameService.moveDragon({ rowIndex, tileIndex }).catch((error) => {
-        notifyError(error, 'Не удалось переместить дракона')
+        notifyError(error, t('action_move_dragon_error'))
       })
       return
     }
@@ -852,7 +855,7 @@ const rotateLocalTile = (tile: Tile | null, direction: RotationDirection) => {
   const newTile = rotateTileUtil(tile, direction)
   localCurrentTile.value = newTile
   void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
-    notifyError(error, 'Не удалось повернуть плитку на сервере')
+    notifyError(error, t('action_rotate_tile_error'))
   })
 }
 
@@ -862,7 +865,7 @@ const placeTile = async (
 ) => {
   if (!tile) return
   if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
-    notificationService.warning('Сначала выберите клетку для размещения')
+    notificationService.warning(t('action_select_cell_first'))
     return
   }
 
@@ -874,11 +877,8 @@ const placeTile = async (
     if (error instanceof SocketAckError) {
       placementConflicts.value = error.conflicts
     }
-    placementError.value = errorMessage(
-      error,
-      'Произошла ошибка при размещении плитки'
-    )
-    notifyError(error, 'Произошла ошибка при размещении плитки')
+    placementError.value = errorMessage(error, t('action_place_tile_error'))
+    notifyError(error, t('action_place_tile_error'))
   }
 }
 

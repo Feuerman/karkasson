@@ -1,16 +1,31 @@
 import notificationService from '@/plugins/notification'
+import { t, tError } from './i18n'
 
 /**
  * Текст ошибки для показа игроку.
  *
- * Сервер присылает причину отказа в сообщении, поэтому она и показывается
- * как есть; если текста нет, подставляется запасной вариант.
+ * Сервер присылает причину отказа вместе с машинным кодом (`code`). Если у
+ * ошибки есть код, текст берётся из переводов по этому коду — сервер не
+ * диктует язык, клиент показывает сообщение на выбранном игроком языке.
+ * Если кода нет, показывается текст ошибки как есть; при отсутствии текста
+ * — запасной вариант.
  */
 export const errorMessage = (
   error: unknown,
-  fallbackMessage = 'Произошла ошибка'
+  fallbackMessage = t('ui_error_generic')
 ): string => {
   if (error instanceof Error && error.message) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof (error as Record<string, unknown>).code === 'string'
+    ) {
+      return tError(
+        (error as Record<string, unknown>).code as string,
+        error.message
+      )
+    }
     return error.message
   }
   if (typeof error === 'string' && error) {
@@ -21,7 +36,7 @@ export const errorMessage = (
 
 export const notifyError = (
   error: unknown,
-  fallbackMessage = 'Произошла ошибка'
+  fallbackMessage = t('ui_error_generic')
 ): void => {
   notificationService.error(errorMessage(error, fallbackMessage))
 }

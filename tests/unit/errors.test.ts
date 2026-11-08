@@ -7,6 +7,7 @@ import {
   GameErrors,
   LobbyErrors,
   SaveErrors,
+  errorCodeForMessage,
 } from '@server/modules/errors'
 import { PLACEMENT_FAILURE_MESSAGE } from '@server/socket/handlers/placementErrors'
 
@@ -98,5 +99,28 @@ describe('Справочники сообщений об ошибках', () => 
 
     expect(unused).toEqual([])
     expect(placementReferences?.length ?? 0).toBeGreaterThan(1)
+  })
+})
+
+describe('Машинные коды ошибок', () => {
+  it('строит код из области и ключа в snake_case без ведущего подчёркивания', () => {
+    expect(errorCodeForMessage(CommonErrors.GameNotFound)).toBe(
+      'common.game_not_found'
+    )
+    expect(errorCodeForMessage(LobbyErrors.NotEnoughPlayers)).toBe(
+      'lobby.not_enough_players'
+    )
+    expect(errorCodeForMessage(GameErrors.NotPlayersTurn)).toBe(
+      'game.not_players_turn'
+    )
+    expect(
+      errorCodeForMessage(LobbyErrors.InvalidInnsAndCathedralsOption)
+    ).toBe('lobby.invalid_inns_and_cathedrals_option')
+  })
+
+  it('для неизвестного текста возвращает общий код внутренней ошибки', () => {
+    expect(errorCodeForMessage('Неизвестный текст')).toBe(
+      'common.internal_failure'
+    )
   })
 })

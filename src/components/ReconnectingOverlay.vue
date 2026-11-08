@@ -7,7 +7,7 @@
         name="i-lucide-loader-circle"
         class="h-10 w-10 animate-spin text-white"
       />
-      <div>Ожидание подключения игроков</div>
+      <div>{{ t('connection_waiting_players') }}</div>
     </div>
     <div class="flex flex-wrap justify-center gap-2.5">
       <UBadge
@@ -25,6 +25,7 @@
 <script setup lang="ts">
 import UBadge from '@nuxt/ui/components/Badge.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
+import { t } from '@/utils/i18n'
 import type { PlayerView } from '@server/modules/types'
 
 defineProps<{

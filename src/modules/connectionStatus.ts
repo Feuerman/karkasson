@@ -1,4 +1,6 @@
 /** Фаза соединения с сервером, которую показывает интерфейс. */
+import { t } from '@/utils/i18n'
+
 export type ConnectionPhase =
   'connecting' | 'connected' | 'reconnecting' | 'offline' | 'replaced'
 
@@ -45,7 +47,7 @@ export function classifyConnectError(message: string): ConnectionErrorCode {
 }
 
 function attemptSuffix(attempt: number): string {
-  return attempt > 0 ? ` Попытка ${attempt}.` : ''
+  return attempt > 0 ? ` ${t('connection_attempt', { attempt })}` : ''
 }
 
 /** Описание состояния соединения для индикатора и экрана восстановления. */
@@ -54,7 +56,7 @@ export function describeConnectionStatus(
 ): ConnectionStatusView {
   if (snapshot.phase === 'connected') {
     return {
-      label: 'Подключено',
+      label: t('connection_connected'),
       details: '',
       tone: 'success',
       overlay: false,
@@ -64,9 +66,8 @@ export function describeConnectionStatus(
 
   if (snapshot.phase === 'replaced') {
     return {
-      label: 'Партия открыта в другой вкладке',
-      details:
-        'Управление передано другой вкладке. Здесь можно вернуть его себе.',
+      label: t('connection_replaced_label'),
+      details: t('connection_replaced_details'),
       tone: 'warning',
       overlay: true,
       canRetry: true,
@@ -75,8 +76,8 @@ export function describeConnectionStatus(
 
   if (!snapshot.isOnline) {
     return {
-      label: 'Нет подключения',
-      details: 'Проверьте подключение к интернету, затем попробуйте снова.',
+      label: t('connection_offline_label'),
+      details: t('connection_offline_details'),
       tone: 'error',
       overlay: true,
       canRetry: true,
@@ -85,8 +86,8 @@ export function describeConnectionStatus(
 
   if (snapshot.phase === 'connecting') {
     return {
-      label: 'Подключение…',
-      details: 'Устанавливаем соединение с сервером.',
+      label: t('connection_connecting_label'),
+      details: t('connection_connecting_details'),
       tone: 'warning',
       overlay: false,
       canRetry: false,
@@ -97,8 +98,8 @@ export function describeConnectionStatus(
 
   if (snapshot.lastDisconnectReason === 'io server disconnect') {
     return {
-      label: 'Сервер закрыл соединение',
-      details: `Переподключаемся к серверу.${attempt}`,
+      label: t('connection_server_closed_label'),
+      details: `${t('connection_server_closed_details')}${attempt}`,
       tone: 'error',
       overlay: true,
       canRetry: true,
@@ -108,32 +109,32 @@ export function describeConnectionStatus(
   switch (snapshot.errorCode) {
     case 'timeout':
       return {
-        label: 'Сервер не отвечает',
-        details: `Ждём ответа сервера.${attempt}`,
+        label: t('connection_timeout_label'),
+        details: `${t('connection_timeout_details')}${attempt}`,
         tone: 'warning',
         overlay: true,
         canRetry: true,
       }
     case 'transport':
       return {
-        label: 'Сервер недоступен',
-        details: `Не удалось установить соединение.${attempt}`,
+        label: t('connection_transport_label'),
+        details: `${t('connection_transport_details')}${attempt}`,
         tone: 'warning',
         overlay: true,
         canRetry: true,
       }
     case 'server':
       return {
-        label: 'Сервер недоступен',
-        details: `Сервер временно недоступен.${attempt}`,
+        label: t('connection_server_down_label'),
+        details: `${t('connection_server_down_details')}${attempt}`,
         tone: 'warning',
         overlay: true,
         canRetry: true,
       }
     default:
       return {
-        label: 'Нет связи с сервером',
-        details: `Пытаемся восстановить соединение.${attempt}`,
+        label: t('connection_lost_label'),
+        details: `${t('connection_lost_details')}${attempt}`,
         tone: 'warning',
         overlay: true,
         canRetry: true,

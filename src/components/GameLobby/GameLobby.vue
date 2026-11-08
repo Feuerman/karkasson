@@ -9,24 +9,21 @@
     >
       <LobbyHeader
         icon="i-lucide-chess-knight"
-        title="Каркассон"
-        subtitle="Стройте средневековые земли вместе с друзьями"
+        :title="t('lobby_title')"
+        :subtitle="t('lobby_subtitle')"
       />
 
-      <LoadingState
-        v-if="!isConnected"
-        message="Идёт соединение с сервером..."
-      />
+      <LoadingState v-if="!isConnected" :message="t('lobby_connecting')" />
 
       <LoadingState
         v-else-if="isGamesListLoading"
-        message="Загрузка списка игр..."
+        :message="t('lobby_loading_games')"
       />
 
       <div v-else class="flex flex-col items-stretch gap-3">
         <div class="mb-1 flex flex-wrap items-center justify-between gap-4">
           <UCheckbox
-            label="Показать оконченные"
+            :label="t('lobby_show_ended')"
             color="primary"
             :model-value="Boolean(showEndedGames)"
             :ui="{ label: '!text-base' }"
@@ -42,14 +39,14 @@
             <template #leading>
               <UIcon name="i-lucide-plus" class="h-5 w-5" />
             </template>
-            Создать новую игру
+            {{ t('lobby_create_game') }}
           </UButton>
         </div>
 
         <label
           class="flex flex-col gap-1.5 text-sm font-medium text-text-muted"
         >
-          Найти комнату по номеру
+          {{ t('lobby_find_room') }}
           <input
             v-model="roomCodeSearch"
             :data-testid="TEST_IDS.lobbyRoomSearch"
@@ -57,7 +54,7 @@
             type="search"
             inputmode="numeric"
             autocomplete="off"
-            placeholder="Например, 482731"
+            :placeholder="t('lobby_room_placeholder')"
             class="min-h-11 rounded-lg border border-secondary-dark/40 bg-white/80 px-3 text-body text-text outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/30"
             @keydown.enter.prevent="joinByRoomCode"
           />
@@ -69,11 +66,11 @@
           <UEmpty
             v-if="computedGamesList.length === 0"
             icon="i-lucide-castle"
-            :title="roomCodeSearch ? 'Комната не найдена' : 'Нет текущих игр'"
+            :title="
+              roomCodeSearch ? t('lobby_room_not_found') : t('lobby_no_games')
+            "
             :description="
-              roomCodeSearch
-                ? 'Проверьте номер комнаты и попробуйте снова'
-                : 'Создайте новую игру или присоединитесь к существующей'
+              roomCodeSearch ? t('lobby_check_room') : t('lobby_create_or_join')
             "
             class="mx-auto my-auto opacity-80"
           />
@@ -105,8 +102,8 @@
     >
       <LobbyHeader
         icon="i-lucide-swords"
-        :title="`Комната № ${currentGame?.roomCode ?? '—'}`"
-        subtitle="Займите свободные слоты или оставьте их искусственному интеллекту"
+        :title="t('lobby_room_title', { code: currentGame?.roomCode ?? '—' })"
+        :subtitle="t('lobby_room_subtitle')"
         size="md"
         :data-testid="TEST_IDS.lobbyRoomHeading"
       />
@@ -126,16 +123,13 @@
         />
       </div>
 
-      <LoadingState
-        v-if="!isConnected"
-        message="Идёт соединение с сервером..."
-      />
+      <LoadingState v-if="!isConnected" :message="t('lobby_connecting')" />
 
       <div v-else class="flex flex-col items-center">
         <div class="my-4 mb-6 flex w-full max-w-[500px] flex-col gap-5">
           <PlayerSlotsList
             :slots="occupiedSlots"
-            title="Игроки"
+            :title="t('lobby_players')"
             :session-id="sessionId"
             :pending="isSlotPending"
             @toggle-checkbox="toggleCheckbox"
@@ -144,7 +138,7 @@
           />
           <PlayerSlotsList
             :slots="freeSlots"
-            title="Свободные слоты"
+            :title="t('lobby_free_slots')"
             :session-id="sessionId"
             :pending="isSlotPending"
             @toggle-checkbox="toggleCheckbox"
@@ -160,14 +154,14 @@
             :data-testid="TEST_IDS.lobbyLeaveRoom"
             @click="emit('leaveGame')"
           >
-            Выйти из комнаты
+            {{ t('lobby_leave_room') }}
           </UButton>
           <UButton
             class="btn-secondary min-h-12 min-w-[200px] px-7 py-3 text-base font-bold"
             :data-testid="TEST_IDS.lobbyBackToList"
             @click="emit('backToList')"
           >
-            Назад к списку
+            {{ t('lobby_back_to_list') }}
           </UButton>
           <UButton
             v-if="isCreator"
@@ -177,7 +171,7 @@
             :disabled="isStartGamePending"
             @click="emit('startGame')"
           >
-            Начать игру
+            {{ t('lobby_start_game') }}
           </UButton>
         </div>
       </div>
@@ -204,6 +198,7 @@ import RuleStatusLine from './internal/RuleStatusLine.vue'
 import CreateGameModal from './internal/CreateGameModal.vue'
 import RoomCodeCopy from './internal/RoomCodeCopy.vue'
 import { buildGameRules, isRejoinable } from './internal/helpers'
+import { t } from '@/utils/i18n'
 
 const props = withDefaults(
   defineProps<{
