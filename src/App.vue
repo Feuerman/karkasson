@@ -94,6 +94,7 @@ import {
   pendingActionKeys,
   usePendingActions,
 } from './composables/usePendingActions'
+import { t, getLocale, setLocale } from './utils/i18n'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import { SocketEvents, type PlayerView } from '@server/modules/types'
@@ -128,7 +129,7 @@ watch(
     previousIsMyTurn.value = isMyTurn
     if (previous === null) return
     if (isMyTurn && !previous) {
-      notificationService.info('Ваш ход')
+      notificationService.info(t('ui_your_turn'))
     }
   }
 )
@@ -242,7 +243,7 @@ const getGamesList = async () => {
     const { games: gamesList } = await GameService.getGamesList()
     updateLocalGamesList(gamesList)
   } catch (error) {
-    notifyError(error, 'Произошла ошибка при получении списка игр')
+    notifyError(error, t('ui_error_games_list'))
   } finally {
     isGamesListLoading.value = false
   }
@@ -346,17 +347,13 @@ const restoreLastGame = async () => {
   }
 }
 
-const gameDeletedMessages: Record<GameDeletedPayload['reason'], string> = {
-  stale: 'Партия удалена: все игроки давно отключились',
-  owner_left: 'Лобби закрыто: владелец вышел из комнаты',
-  expired: 'Срок хранения завершённой партии истёк',
-  failed: 'Партия закрыта из-за ошибки сервера',
-}
+const gameDeletedMessage = (reason: GameDeletedPayload['reason']): string =>
+  t(`ui_game_deleted_${reason}`)
 
 const onGameDeleted = (payload: GameDeletedPayload) => {
   const deletedGameId =
     activeGameId ?? currentGame.value?.id ?? gameState.value.id
-  notificationService.warning(gameDeletedMessages[payload.reason])
+  notificationService.warning(gameDeletedMessage(payload.reason))
 
   if (
     deletedGameId &&
@@ -429,7 +426,7 @@ const playAgain = async () => {
       showLobby.value = true
       return true
     } catch (error) {
-      notifyError(error, 'Не удалось покинуть партию')
+      notifyError(error, t('ui_error_leave_game'))
       return false
     }
   })
@@ -512,19 +509,42 @@ const rulesDocument = ref<RulesDocument | null>(null)
 /** Пункты меню: итоги партии появляются, когда партия закончилась. */
 const menuItems = computed<GameMenuItem[]>(() => {
   const items: GameMenuItem[] = [
-    { id: 'rules', label: 'Правила игры', icon: 'i-lucide-circle-help' },
+    { id: 'rules', label: t('ui_menu_rules'), icon: 'i-lucide-circle-help' },
+    {
+      id: 'language',
+      label: languageLabel.value,
+      icon: 'i-lucide-globe',
+    },
   ]
 
   if (gameState.value.gameIsEnded) {
     items.push({
       id: 'result',
-      label: 'Итоги партии',
+      label: t('ui_menu_result'),
       icon: 'i-lucide-trophy',
     })
   }
 
   return items
 })
+
+/** Надпись пункта смены языка: «Язык: Русский» / «Language: English». */
+const languageLabel = computed(() => {
+  const current = getLocale()
+  const name = current === 'ru' ? t('ui_language_ru') : t('ui_language_en')
+  return `${t('ui_menu_language')}: ${name}`
+})
+
+/** Переключает язык приложения и сохраняет выбор. */
+const toggleLanguage = async (): Promise<void> => {
+  setLocale(getLocale() === 'ru' ? 'en' : 'ru')
+  GameService.notifyLocaleChange(getLocale())
+  if (rulesDocument.value) {
+    const { getBaseGameRules } = await import('./rules/baseGame')
+    rulesDocument.value = getBaseGameRules()
+  }
+  notificationService.info(t('ui_language_changed'))
+}
 
 /**
  * Сброс расположения окон.
@@ -534,10 +554,14 @@ const menuItems = computed<GameMenuItem[]>(() => {
  */
 const onResetLayout = () => {
   resetPanelLayout()
-  notificationService.info('Расположение окон сброшено')
+  notificationService.info(t('ui_layout_reset'))
 }
 
 const onMenuSelect = async (id: string) => {
+  if (id === 'language') {
+    await toggleLanguage()
+    return
+  }
   if (id === 'result') {
     showResultPanel.value = true
     return
@@ -545,8 +569,8 @@ const onMenuSelect = async (id: string) => {
 
   if (id === 'rules') {
     try {
-      const { baseGameRules } = await import('./rules/baseGame')
-      rulesDocument.value = baseGameRules
+      const { getBaseGameRules } = await import('./rules/baseGame')
+      rulesDocument.value = getBaseGameRules()
       showRules.value = true
     } catch (error: unknown) {
       notifyError(error)
@@ -578,9 +602,7 @@ onMounted(() => {
   const unsubscribeSessionReplaced = GameService.onSocketEvent(
     SocketEvents.SessionReplaced,
     () => {
-      notificationService.warning(
-        'Партия открыта в другой вкладке. Здесь управление больше недоступно'
-      )
+      notificationService.warning(t('ui_session_replaced'))
     }
   )
 

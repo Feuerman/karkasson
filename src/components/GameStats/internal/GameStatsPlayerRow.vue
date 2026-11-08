@@ -21,19 +21,23 @@
         v-if="entry.isLeader"
         name="i-lucide-crown"
         class="inline h-4 w-4 align-[-1px] text-secondary-dark"
-        title="Лидер по очкам"
-        aria-label="Лидер по очкам"
+        :title="t('stats_leader')"
+        :aria-label="t('stats_leader')"
       />
       <span
         v-if="entry.isMe"
         class="ml-1 rounded-sm bg-secondary/30 px-1 text-caption font-bold tracking-wide text-tertiary uppercase"
       >
-        Вы
+        {{ t('stats_you') }}
       </span>
     </span>
     <span class="flex shrink-0 items-center gap-1.5 text-label tabular-nums">
       <span
-        :title="`${followers.ordinaryFollowers} подданных в запасе`"
+        :title="
+          t('stats_ordinary_in_supply', {
+            count: followers.ordinaryFollowers,
+          })
+        "
         class="flex items-center gap-1"
       >
         <span
@@ -45,7 +49,11 @@
       <span
         v-if="followers.bigFollowers !== undefined"
         class="flex items-center gap-1"
-        :title="`${followers.bigFollowers ?? 0} больших подданных в запасе`"
+        :title="
+          t('stats_big_in_supply', {
+            count: followers.bigFollowers ?? 0,
+          })
+        "
       >
         <UIcon
           name="i-lucide-users-round"
@@ -59,12 +67,16 @@
         :class="
           followers.monks > 0 ? 'text-secondary-dark' : 'text-text-muted/40'
         "
-        :title="followers.monks > 0 ? 'Аббат в запасе' : 'Аббат на поле'"
+        :title="
+          followers.monks > 0
+            ? t('stats_abbot_in_supply')
+            : t('stats_abbot_on_board')
+        "
       />
     </span>
     <span class="flex shrink-0 flex-col items-end gap-0.5">
       <span
-        :title="scoreBreakdownTitle"
+        :title="scoreBreakdownTitle ?? t('stats_game_points')"
         :data-testid="scoreChanged ? TEST_IDS.gameStatsScoreChanged : undefined"
         class="text-title font-bold tabular-nums text-text"
         :class="{ 'stats-score-bump': scoreChanged }"
@@ -74,7 +86,7 @@
       <span
         v-if="turnScore > 0"
         :data-testid="TEST_IDS.gameStatsTurnScore"
-        :title="`Очки за текущий ход: +${turnScore}`"
+        :title="t('stats_turn_score', { score: turnScore })"
         class="rounded-sm bg-success/15 px-1 text-caption leading-4 font-bold tabular-nums text-success-dark"
       >
         +{{ turnScore }}
@@ -89,6 +101,7 @@ import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { IGameBoard } from '@/types/game'
 import type { RankedPlayer } from '@/utils/players'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import { playerBackgroundColorClass } from '@/utils/colors'
 
 const props = withDefaults(
@@ -102,7 +115,7 @@ const props = withDefaults(
   {
     scoreChanged: false,
     turnScore: 0,
-    scoreBreakdownTitle: 'Очки за партию',
+    scoreBreakdownTitle: undefined,
   }
 )
 

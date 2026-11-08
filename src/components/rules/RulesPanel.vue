@@ -90,7 +90,7 @@
           class="btn-secondary min-h-10 rounded-lg px-4 py-2 font-medium"
           @click="onClose"
         >
-          Закрыть
+          {{ t('rules_close') }}
         </UButton>
       </div>
     </template>
@@ -104,6 +104,7 @@ import USlideover from '@nuxt/ui/components/Slideover.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import RulesBlockRenderer from './RulesBlockRenderer.vue'
 import type { RulesDocument } from '@/rules/types'
+import { t } from '@/utils/i18n'
 
 const props = defineProps<{
   doc: RulesDocument

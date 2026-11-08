@@ -2,6 +2,7 @@ import type { GameSummary } from '@server/services/GameService'
 import type { PlayerView } from '@server/modules/types'
 import type { IGame } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 
 export const joinButtonIcon = (game: GameSummary): string => {
   if (!game.gameIsStarted) return 'i-lucide-log-in'
@@ -10,9 +11,9 @@ export const joinButtonIcon = (game: GameSummary): string => {
 }
 
 export const joinButtonLabel = (game: GameSummary): string => {
-  if (!game.gameIsStarted) return 'Войти'
-  if (!game.gameIsEnded) return 'Продолжить'
-  return 'Загрузить'
+  if (!game.gameIsStarted) return t('lobby_join')
+  if (!game.gameIsEnded) return t('lobby_continue')
+  return t('lobby_load')
 }
 
 export const isRejoinable = (game: GameSummary, sessionId: string): boolean =>
@@ -32,22 +33,22 @@ export const buildGameRules = (game: IGame) => {
 
   return [
     {
-      label: 'Финальный подсчёт очков',
+      label: t('lobby_final_scoring'),
       enabled: Boolean(game.finalScoringEnabled),
       testId: undefined,
     },
     {
-      label: 'Таверны и соборы',
+      label: t('expansion_inns'),
       enabled: Boolean(expansions?.innsAndCathedrals),
       testId: undefined,
     },
     {
-      label: 'Река',
+      label: t('expansion_river'),
       enabled: Boolean(expansions?.river),
       testId: undefined,
     },
     {
-      label: 'Принцесса и дракон',
+      label: t('expansion_princess'),
       enabled: Boolean(expansions?.princessAndDragon),
       testId: TEST_IDS.lobbyPrincessDragonStatus,
     },

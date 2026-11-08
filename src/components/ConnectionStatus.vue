@@ -23,7 +23,7 @@
         :data-testid="TEST_IDS.connectionRetry"
         @click="emit('retry')"
       >
-        Переподключиться
+        {{ t('connection_reconnect') }}
       </UButton>
     </div>
   </div>
@@ -53,6 +53,7 @@ import UBadge from '@nuxt/ui/components/Badge.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import type { ConnectionStatusView } from '@/modules/connectionStatus'
 
 const props = defineProps<{

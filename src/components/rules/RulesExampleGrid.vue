@@ -61,7 +61,7 @@
               v-else-if="marker.kind === RulesMarkerKind.Dragon"
               class="flex h-6 min-w-6 items-center justify-center rounded-full bg-amber-600 px-1 text-xs font-bold text-white ring-2 ring-white shadow-soft"
             >
-              {{ marker.step === 0 ? 'Д' : marker.step }}
+              {{ marker.step === 0 ? t('rules_dragon_zero') : marker.step }}
             </span>
           </span>
         </div>
@@ -86,7 +86,7 @@
         :class="followerColorClass(color)"
         aria-hidden="true"
       ></span>
-      <span>Подданный возвращён в запас</span>
+      <span>{{ t('rules_follower_returned') }}</span>
     </div>
   </div>
 </template>
@@ -103,6 +103,7 @@ import {
   type RulesMarker,
   type RulesMarkerColor,
 } from '@/rules/types'
+import { t } from '@/utils/i18n'
 
 const props = defineProps({
   example: {

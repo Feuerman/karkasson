@@ -15,48 +15,95 @@ import {
   sideOfFieldPort,
 } from '@server/data/fieldTopology'
 import { getFollowerPlaceType } from './followerPlaces'
+import { getLocale, t } from './i18n'
 
 type LabeledPointType = PointType | ObjectTypes.MONASTERY | ObjectTypes.GARDEN
 
 export const OBJECT_TYPE_NAMES: Record<ObjectTypes, string> = {
-  [ObjectTypes.CITY]: 'город',
-  [ObjectTypes.ROAD]: 'дорога',
-  [ObjectTypes.MONASTERY]: 'монастырь',
-  [ObjectTypes.GARDEN]: 'сад',
-  [ObjectTypes.FIELD]: 'поле',
+  get [ObjectTypes.CITY]() {
+    return t('object_city')
+  },
+  get [ObjectTypes.ROAD]() {
+    return t('object_road')
+  },
+  get [ObjectTypes.MONASTERY]() {
+    return t('object_monastery')
+  },
+  get [ObjectTypes.GARDEN]() {
+    return t('object_garden')
+  },
+  get [ObjectTypes.FIELD]() {
+    return t('object_field')
+  },
 }
 
 const capitalize = (value: string): string =>
-  value.replace(/^./, (letter) => letter.toLocaleUpperCase('ru'))
+  value.replace(/^./, (letter) => letter.toLocaleUpperCase(getLocale()))
 
 const POINT_TYPE_TITLES: Record<LabeledPointType, string> = {
-  [TileSideType.City]: capitalize(OBJECT_TYPE_NAMES[ObjectTypes.CITY]),
-  [TileSideType.Road]: capitalize(OBJECT_TYPE_NAMES[ObjectTypes.ROAD]),
-  [TileSideType.Field]: 'Поле',
-  [ObjectTypes.MONASTERY]: capitalize(OBJECT_TYPE_NAMES[ObjectTypes.MONASTERY]),
-  [ObjectTypes.GARDEN]: capitalize(OBJECT_TYPE_NAMES[ObjectTypes.GARDEN]),
+  get [TileSideType.City]() {
+    return capitalize(OBJECT_TYPE_NAMES[ObjectTypes.CITY])
+  },
+  get [TileSideType.Road]() {
+    return capitalize(OBJECT_TYPE_NAMES[ObjectTypes.ROAD])
+  },
+  get [TileSideType.Field]() {
+    return capitalize(OBJECT_TYPE_NAMES[ObjectTypes.FIELD])
+  },
+  get [ObjectTypes.MONASTERY]() {
+    return capitalize(OBJECT_TYPE_NAMES[ObjectTypes.MONASTERY])
+  },
+  get [ObjectTypes.GARDEN]() {
+    return capitalize(OBJECT_TYPE_NAMES[ObjectTypes.GARDEN])
+  },
 }
 
 export const POINT_TYPE_OBJECT_CASE: Record<TileSideType, string> = {
-  [TileSideType.Field]: 'поле',
-  [TileSideType.Road]: 'дорогу',
-  [TileSideType.City]: OBJECT_TYPE_NAMES[ObjectTypes.CITY],
+  get [TileSideType.Field]() {
+    return t('object_field')
+  },
+  get [TileSideType.Road]() {
+    return t('object_road_accusative')
+  },
+  get [TileSideType.City]() {
+    return t('object_city')
+  },
 }
 
 export const OBJECT_TYPE_GENITIVES: Record<ObjectTypes, string> = {
-  [ObjectTypes.CITY]: 'города',
-  [ObjectTypes.ROAD]: 'дороги',
-  [ObjectTypes.MONASTERY]: 'монастыря',
-  [ObjectTypes.GARDEN]: 'сада',
-  [ObjectTypes.FIELD]: 'поля',
+  get [ObjectTypes.CITY]() {
+    return t('object_city_genitive')
+  },
+  get [ObjectTypes.ROAD]() {
+    return t('object_road_genitive')
+  },
+  get [ObjectTypes.MONASTERY]() {
+    return t('object_monastery_genitive')
+  },
+  get [ObjectTypes.GARDEN]() {
+    return t('object_garden_genitive')
+  },
+  get [ObjectTypes.FIELD]() {
+    return t('object_field_genitive')
+  },
 }
 
 const POINT_DIRECTION_TITLES: Record<PointDirection, string> = {
-  [PointDirection.North]: 'Север',
-  [PointDirection.South]: 'Юг',
-  [PointDirection.East]: 'Восток',
-  [PointDirection.West]: 'Запад',
-  [PointDirection.Center]: 'Центр',
+  get [PointDirection.North]() {
+    return t('direction_north')
+  },
+  get [PointDirection.South]() {
+    return t('direction_south')
+  },
+  get [PointDirection.East]() {
+    return t('direction_east')
+  },
+  get [PointDirection.West]() {
+    return t('direction_west')
+  },
+  get [PointDirection.Center]() {
+    return t('direction_center')
+  },
 }
 
 const PORT_QUADRANT: Record<
@@ -74,34 +121,52 @@ const PORT_QUADRANT: Record<
 }
 
 const QUADRANT_TITLES: Record<string, string> = {
-  'west-north': 'северо-запад',
-  'east-north': 'северо-восток',
-  'east-south': 'юго-восток',
-  'west-south': 'юго-запад',
+  get 'west-north'() {
+    return t('quadrant_west_north')
+  },
+  get 'east-north'() {
+    return t('quadrant_east_north')
+  },
+  get 'east-south'() {
+    return t('quadrant_east_south')
+  },
+  get 'west-south'() {
+    return t('quadrant_west_south')
+  },
 }
 
 const SIDE_TITLES: Record<SideName, string> = {
-  [SideName.North]: 'север',
-  [SideName.East]: 'восток',
-  [SideName.South]: 'юг',
-  [SideName.West]: 'запад',
+  get [SideName.North]() {
+    return t('direction_north_lower')
+  },
+  get [SideName.East]() {
+    return t('direction_east_lower')
+  },
+  get [SideName.South]() {
+    return t('direction_south_lower')
+  },
+  get [SideName.West]() {
+    return t('direction_west_lower')
+  },
 }
 
 /** Подпись региона поля по его граничным портам: угол, сторона, весь тайл или пустая строка. */
 function fieldRegionTitle(ports: FieldBoundaryPort[]): string {
-  if (ports.length === FIELD_BOUNDARY_PORTS.length) return 'вокруг всего тайла'
+  if (ports.length === FIELD_BOUNDARY_PORTS.length) {
+    return t('field_whole_tile')
+  }
 
   const quadrants = new Set(ports.map((port) => PORT_QUADRANT[port]))
   if (quadrants.size === 1) {
     const quadrant = [...quadrants][0]
     const title = QUADRANT_TITLES[quadrant]
-    return title ? `угол: ${title}` : ''
+    return title ? t('field_corner', { title }) : ''
   }
 
   const sides = new Set(ports.map(sideOfFieldPort))
   if (sides.size === 1) {
     const side = [...sides][0]
-    return `вдоль стороны: ${SIDE_TITLES[side]}`
+    return t('field_along_side', { side: SIDE_TITLES[side] })
   }
 
   return ''
@@ -157,7 +222,10 @@ export const disambiguateFollowerPlaceTitles = (
     ) {
       return title
     }
-    return `${title} (участок ${(place.point.regionIndex ?? 0) + 1})`
+    return t('field_region', {
+      title,
+      index: (place.point.regionIndex ?? 0) + 1,
+    })
   })
 
   const indexedTitleCounts = new Map<string, number>()
@@ -168,7 +236,7 @@ export const disambiguateFollowerPlaceTitles = (
   return indexedTitles.map((title, index) => {
     const place = places[index]
     if (indexedTitleCounts.get(title) === 1) return title
-    return `${title} (тайл ${place.point.x}, ${place.point.y})`
+    return t('field_tile', { title, x: place.point.x, y: place.point.y })
   })
 }
 

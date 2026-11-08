@@ -1,22 +1,28 @@
 <template>
   <ActionRow icon="i-lucide-sparkles">
     <template v-if="action.actionType === ActionTypes.MOVE_FAIRY">
-      <strong class="mr-[3px] text-text">Фея переместилась.</strong>
+      <strong class="mr-[3px] text-text">{{ t('action_fairy_moved') }}</strong>
       <span class="text-text">
         <PlayerNameById :player-id="action.actionData.follower.playerId">
           — {{ targetKind(action.actionData.follower) }}
         </PlayerNameById>
         <template v-if="action.actionData.from">
-          (с клетки {{ coordinateLabel(action.actionData.from) }})
+          ({{ t('action_from_cell').toLowerCase() }}
+          {{ coordinateLabel(action.actionData.from) }})
         </template>
       </span>
     </template>
     <template v-else>
-      <strong class="mr-[3px] text-text">Очко феи.</strong>
+      <strong class="mr-[3px] text-text">{{ t('action_fairy_point') }}</strong>
       <span class="text-text">
         <PlayerNameById :player-id="action.actionData.follower.playerId">
-          получает {{ action.actionData.points }} очко за
-          {{ targetKind(action.actionData.follower) }}.
+          {{
+            t('action_fairy_receives', {
+              points: action.actionData.points,
+              unit: pointsUnit(action.actionData.points),
+              kind: targetKind(action.actionData.follower),
+            })
+          }}
         </PlayerNameById>
       </span>
     </template>
@@ -29,6 +35,7 @@ import type { FairyFollowerRef } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import ActionRow from '../ActionRow.vue'
 import PlayerNameById from '../PlayerNameById.vue'
+import { plural, t } from '@/utils/i18n'
 
 defineProps<{
   action: Extract<
@@ -38,10 +45,21 @@ defineProps<{
 }>()
 
 function targetKind(follower: FairyFollowerRef): string {
-  if (follower.isAbbot) return 'аббата'
-  if (follower.isBigFollower) return 'большого подданного'
-  if (follower.point.pointType === TileSideType.Field) return 'крестьянина'
-  return 'подданного'
+  if (follower.isAbbot) return t('action_fairy_kind_abbot')
+  if (follower.isBigFollower) return t('action_fairy_kind_big')
+  if (follower.point.pointType === TileSideType.Field) {
+    return t('action_fairy_kind_peasant')
+  }
+  return t('action_fairy_kind_follower')
+}
+
+function pointsUnit(points: number): string {
+  return plural(points, {
+    one: t('action_points_one'),
+    two: t('action_points_two'),
+    five: t('action_points_five'),
+    other: t('action_points_other'),
+  })
 }
 
 function coordinateLabel(position: { rowIndex: number; tileIndex: number }) {

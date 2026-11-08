@@ -16,14 +16,13 @@
     @toggle="toggle"
   >
     <div v-if="gameBoard.princessFollowerPenalty" class="mb-2 text-text-muted">
-      Принцесса забрала подданного — на этот тайл свою фишку поставить нельзя.
-      Завершите ход.
+      {{ t('follower_penalty') }}
     </div>
     <div
       v-else-if="groupedPlaces.length === 0 && !gameBoard.isPlacingFairy"
       class="mb-2 text-text-muted"
     >
-      Нет доступных вариантов
+      {{ t('follower_no_options') }}
     </div>
     <div v-else class="flex flex-col gap-1.5">
       <div
@@ -66,8 +65,8 @@
       <p class="mb-1.5 text-sm text-text-muted">
         {{
           gameBoard.isPlacingFairy
-            ? 'Можно переместить фею к своему подданному или завершить ход.'
-            : 'Вместо выставления подданного можно переместить фею.'
+            ? t('follower_fairy_hint_placing')
+            : t('follower_fairy_hint_offer')
         }}
       </p>
       <div
@@ -94,7 +93,12 @@
         <a
           href="#"
           class="shrink-0 cursor-pointer text-primary underline underline-offset-2 hover:text-primary-dark"
-          :title="`Показать тайл ${target.point.x + 1}, ${target.point.y + 1}`"
+          :title="
+            t('follower_show_tile', {
+              x: target.point.x + 1,
+              y: target.point.y + 1,
+            })
+          "
           @click.stop.prevent="zoomToFairyTarget(target.point)"
         >
           {{ target.point.x + 1 }}, {{ target.point.y + 1 }}
@@ -110,8 +114,8 @@
     >
       {{
         gameBoard.princessFollowerPenalty || gameBoard.isPlacingFairy
-          ? 'Завершить ход'
-          : 'Пропустить выставление'
+          ? t('follower_finish_turn')
+          : t('follower_skip')
       }}
     </UButton>
   </GamePanel>
@@ -141,6 +145,7 @@ import { playerColorValue } from '@/utils/colors'
 import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
 import { useBoardZoom } from '@/composables/useBoardZoom'
+import { t } from '@/utils/i18n'
 import { computed, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
@@ -163,9 +168,15 @@ const { collapsed, toggle } = usePanelCollapse('placing-followers')
 
 /** Как называется фишка в кнопке выбора. */
 const FOLLOWER_TYPE_TITLES: Record<FollowerType, string> = {
-  [FollowerType.Follower]: '',
-  [FollowerType.Abbot]: 'аббат',
-  [FollowerType.BigFollower]: 'большой подданный',
+  get [FollowerType.Follower]() {
+    return ''
+  },
+  get [FollowerType.Abbot]() {
+    return t('follower_abbot')
+  },
+  get [FollowerType.BigFollower]() {
+    return t('follower_big')
+  },
 }
 
 const followerChoiceLabel = (
@@ -174,9 +185,14 @@ const followerChoiceLabel = (
   followerType: FollowerType
 ): string => {
   if (followerType === FollowerType.Follower) {
-    return place.temporaryObject.isMonastery ? `${title} — монах` : title
+    return place.temporaryObject.isMonastery
+      ? t('follower_label_monk', { title })
+      : title
   }
-  return `${title} — ${FOLLOWER_TYPE_TITLES[followerType]}`
+  return t('follower_label_typed', {
+    title,
+    type: FOLLOWER_TYPE_TITLES[followerType],
+  })
 }
 
 const followerChoiceIcon = (
@@ -224,21 +240,26 @@ const showFairyActions = computed(
 )
 
 const panelTitle = computed(() =>
-  props.gameBoard.isPlacingFairy ? 'Переместить фею' : 'Поставить подданного'
+  props.gameBoard.isPlacingFairy
+    ? t('follower_panel_move_fairy')
+    : t('follower_panel_place')
 )
 
 function fairyTargetDescription(target: FairyFollowerRef): string {
-  const kind = target.isAbbot
-    ? 'аббату'
-    : target.isBigFollower
-      ? 'большому подданному'
-      : target.point.pointType === TileSideType.Field
-        ? 'крестьянину'
-        : 'подданному'
   const player = props.gameBoard.players.find(
     ({ id }) => String(id) === String(target.playerId)
   )
-  return `Фея к ${kind} ${player?.name ?? 'игрока'}`
+  const playerName = player?.name ?? t('fairy_target_unknown_player')
+  if (target.isAbbot) {
+    return t('fairy_target_abbot', { player: playerName })
+  }
+  if (target.isBigFollower) {
+    return t('fairy_target_big', { player: playerName })
+  }
+  if (target.point.pointType === TileSideType.Field) {
+    return t('fairy_target_peasant', { player: playerName })
+  }
+  return t('fairy_target_follower', { player: playerName })
 }
 
 const {
@@ -315,19 +336,19 @@ const choiceGroups = computed<ChoiceGroup[]>(() => {
 
 const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
   void GameService.placeFollower(place, type).catch((error: unknown) => {
-    notifyError(error, 'Не удалось выставить подданного')
+    notifyError(error, t('action_place_follower_error'))
   })
 }
 
 const skipFollower = () => {
   void GameService.skipFollower().catch((error: unknown) => {
-    notifyError(error, 'Не удалось пропустить выставление')
+    notifyError(error, t('action_skip_follower_error'))
   })
 }
 
 const moveFairy = (point: Point) => {
   void GameService.moveFairy(point).catch((error: unknown) => {
-    notifyError(error, 'Не удалось переместить фею')
+    notifyError(error, t('action_move_fairy_error'))
   })
 }
 </script>

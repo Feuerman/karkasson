@@ -1,4 +1,4 @@
-import { pluralForm } from './common'
+import { plural, t } from './i18n'
 
 /**
  * Длительность в формате «мм:сс».
@@ -18,7 +18,7 @@ export const formatDuration = (seconds: number): string => {
  * Давность события: «только что», «5 минут назад», «вчера».
  *
  * Нужна в списке партий: по ней видно, какая комната живая, а какая
- * заброшена.
+ * заброшена. Склонения и порядок слов подстраиваются под текущий язык.
  */
 export const formatRelativeTime = (
   timestamp: number,
@@ -27,20 +27,40 @@ export const formatRelativeTime = (
   if (!timestamp) return ''
 
   const seconds = Math.max(0, Math.floor((now - timestamp) / 1000))
-  if (seconds < 60) return 'только что'
+  if (seconds < 60) return t('ui_just_now')
 
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) {
-    return `${minutes} ${pluralForm(minutes, 'минуту', 'минуты', 'минут')} назад`
+    const unit = plural(minutes, {
+      one: t('time_minute_one'),
+      two: t('time_minute_two'),
+      five: t('time_minute_five'),
+      other: t('time_minute_other'),
+    })
+    return `${minutes} ${unit} ${t('ui_ago')}`
   }
 
   const hours = Math.floor(minutes / 60)
   if (hours < 24) {
-    return `${hours} ${pluralForm(hours, 'час', 'часа', 'часов')} назад`
+    const unit = plural(hours, {
+      one: t('time_hour_one'),
+      two: t('time_hour_two'),
+      five: t('time_hour_five'),
+      other: t('time_hour_other'),
+    })
+    return `${hours} ${unit} ${t('ui_ago')}`
   }
 
   const days = Math.floor(hours / 24)
-  if (days === 1) return 'вчера'
+  if (days === 1) {
+    return t('ui_yesterday')
+  }
 
-  return `${days} ${pluralForm(days, 'день', 'дня', 'дней')} назад`
+  const unit = plural(days, {
+    one: t('time_day_one'),
+    two: t('time_day_two'),
+    five: t('time_day_five'),
+    other: t('time_day_other'),
+  })
+  return `${days} ${unit} ${t('ui_ago')}`
 }

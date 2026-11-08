@@ -14,7 +14,7 @@
       class="title-medieval mb-1.5 flex items-center gap-1.5 px-1 text-caption leading-none text-secondary-dark"
     >
       <UIcon name="i-lucide-flag" class="h-3.5 w-3.5" />
-      Финальный подсчёт
+      {{ t('history_final_scoring') }}
     </h3>
     <h3
       v-else-if="group.turnNumber !== null"
@@ -22,7 +22,7 @@
       class="title-medieval mb-1.5 flex items-center gap-1.5 border-b border-secondary-dark/20 px-1 pb-1 text-caption leading-none text-text-muted"
     >
       <UIcon name="i-lucide-hash" class="h-3.5 w-3.5 text-secondary-dark" />
-      Ход {{ group.turnNumber }}
+      {{ t('history_move', { number: group.turnNumber }) }}
       <span
         v-if="groupPlayer"
         class="ml-1 truncate"
@@ -84,6 +84,7 @@ import type { TileCoordinates } from '@/utils/board'
 import { playerTextColorClass } from '@/utils/colors'
 import { TEST_IDS } from '@/data/testIds'
 import type { HistoryGroup } from './historyGroups'
+import { t } from '@/utils/i18n'
 import PlaceTileAction from './actions/PlaceTileAction.vue'
 import PlaceFollowerAction from './actions/PlaceFollowerAction.vue'
 import AddingScoresAction from './actions/AddingScoresAction.vue'

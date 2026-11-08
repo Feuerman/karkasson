@@ -243,6 +243,7 @@ export const SocketEvents = {
   GameDeleted: 'gameDeleted',
   GameError: 'gameError',
   Error: 'error',
+  SetLocale: 'setLocale',
 } as const
 
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]

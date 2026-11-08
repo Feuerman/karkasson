@@ -1029,14 +1029,16 @@ export class GameManager implements IGameState {
     this.availablePlacesTiles = []
     this.currentPlayer = null
     this.tilesList = []
+    // Поля считаются в конце партии всегда: это базовая механика, она не
+    // зависит от опции «финальный подсчёт». Важно сделать это до
+    // finalizeScoring: он переносит незавершённые города в completedObjects,
+    // а крестьяне получают очки только за города, завершённые в ходе партии.
+    scoreFields(this)
     if (this.finalScoringEnabled) {
       // Дороги, города, монастыри и сады считаются в конце только когда
       // включена опция финального подсчёта.
       finalizeScoring(this)
     }
-    // Поля считаются в конце партии всегда: это базовая механика, она не
-    // зависит от опции «финальный подсчёт».
-    scoreFields(this)
     // Победителя считаем здесь, после финального подсчёта: клиент только
     // отображает готовый список лидеров и не пересчитывает очки.
     this.winnerPlayerIds = leaderPlayerIds(this.scores)

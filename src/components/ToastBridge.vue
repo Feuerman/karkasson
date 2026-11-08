@@ -7,6 +7,7 @@ import {
   type NotificationOptions,
   type NotificationType as NotificationTypeValue,
 } from '@/plugins/notification'
+import { t } from '@/utils/i18n'
 
 const { add, toasts, update } = useToast()
 
@@ -58,7 +59,8 @@ const unregisterNotificationBridge = registerNotificationBridge({
   show(type, message, options: NotificationOptions = {}) {
     const isError = type === NotificationType.Error
     const sticky = options.sticky ?? false
-    const title = options.title ?? (isError ? 'Ошибка' : undefined)
+    const title =
+      options.title ?? (isError ? t('notification_error_title') : undefined)
     const toast = {
       title: title ?? message,
       ...(title ? { description: message } : {}),
