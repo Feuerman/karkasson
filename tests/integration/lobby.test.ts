@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LobbyErrors } from '@server/modules/errors'
+import { LobbyErrors, errorCodeForMessage } from '@server/modules/errors'
 import { SocketEvents } from '@server/modules/types'
 import { TestClient } from './helpers/client'
 import { registerIntegrationCleanup } from './helpers/cleanup'
@@ -163,8 +163,11 @@ describe('Лобби', () => {
     await extra.registerSession()
     extra.emit(SocketEvents.JoinGame, { gameId })
 
-    const error = await extra.waitForEvent(SocketEvents.Error)
-    expect(error).toBe(LobbyErrors.AllSlotsTaken)
+    const error = await extra.waitForEvent<{ message: string; code: string }>(
+      SocketEvents.Error
+    )
+    expect(error.message).toBe(LobbyErrors.AllSlotsTaken)
+    expect(error.code).toBe(errorCodeForMessage(LobbyErrors.AllSlotsTaken))
   })
 
   it('leaveGame удаляет пустое лобби и обновляет список игр', async () => {
