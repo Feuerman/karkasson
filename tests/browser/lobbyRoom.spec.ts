@@ -37,6 +37,9 @@ test('карточка партии показывает дополнение, �
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
+    await page.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await page.goto(frontend.url)
     await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
     await page.getByTestId(TEST_IDS.createGamePrincessDragon).check()
@@ -78,6 +81,9 @@ test('выход из комнаты отключает игрока, а сло�
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
+    await page.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await page.goto(frontend.url)
     await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
     await page.getByTestId(TEST_IDS.createGameSubmit).click()

@@ -36,6 +36,9 @@ test('игрок создаёт лобби, занимает слот и нач�
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
+    await page.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await page.goto(frontend.url)
     const createGameButton = page.getByTestId(TEST_IDS.lobbyCreateGame)
     await expect(createGameButton).toBeVisible()
@@ -114,6 +117,9 @@ test('игрок находит комнату и подключается по 
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
     const creatorPage = await creatorContext.newPage()
+    await creatorPage.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await creatorPage.goto(frontend.url)
     await creatorPage.getByTestId(TEST_IDS.lobbyCreateGame).click()
     await creatorPage.getByTestId(TEST_IDS.createGameSubmit).click()
@@ -132,6 +138,9 @@ test('игрок находит комнату и подключается по 
     const guestPage = await guestContext.newPage()
     await guestPage.addInitScript(() => {
       localStorage.setItem('sessionToken', 'unrelated-guest-session-token')
+    })
+    await guestPage.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
     })
     await guestPage.goto(frontend.url)
     const roomSearch = guestPage.getByTestId(TEST_IDS.lobbyRoomSearch)
