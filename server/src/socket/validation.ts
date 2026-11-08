@@ -285,9 +285,13 @@ function readFollowerPlace(value: unknown): FollowerPlaceRequest | undefined {
   return { point, temporaryObject: { id: objectId } }
 }
 
+export type ClientLocale = 'ru' | 'en'
+
 export function parseRegisterSession(
   value: unknown
-): { token?: string; protocolVersion?: string } | undefined {
+):
+  | { token?: string; protocolVersion?: string; locale?: ClientLocale }
+  | undefined {
   if (value === undefined || value === null) return {}
   const record = asRecord(value)
   if (!record) return undefined
@@ -303,7 +307,23 @@ export function parseRegisterSession(
     return undefined
   }
   const protocolVersion = readProtocolVersion(record.protocolVersion)
-  return protocolVersion === undefined ? { token } : { token, protocolVersion }
+  const locale = readLocale(record.locale)
+  const result: {
+    token: string
+    protocolVersion?: string
+    locale?: ClientLocale
+  } = {
+    token,
+  }
+  if (protocolVersion !== undefined) result.protocolVersion = protocolVersion
+  if (locale !== undefined) result.locale = locale
+  return result
+}
+
+function readLocale(value: unknown): ClientLocale | undefined {
+  if (value === undefined) return undefined
+  if (value === 'ru' || value === 'en') return value
+  return undefined
 }
 
 function readProtocolVersion(value: unknown): string | undefined {

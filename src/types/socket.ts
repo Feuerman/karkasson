@@ -91,3 +91,16 @@ export interface RemovePlayerPayload {
 export interface PlayerTemporaryDisconnectedPayload {
   playerIds: PlayerId[]
 }
+
+/** Ошибка партии, разосланная всем участникам комнаты. */
+export interface GameErrorPayload {
+  /** Русский текст из серверного каталога ошибок. */
+  message: string
+  /** Стабильный машинный код отказа, по которому клиент переводит сообщение. */
+  code: string
+}
+
+/** Смена языка интерфейса, отправляемая клиентом серверу. */
+export interface SetLocalePayload {
+  locale: 'ru' | 'en'
+}

@@ -7,7 +7,7 @@
       <UButton
         color="primary"
         icon="i-lucide-scroll-text"
-        label="Меню"
+        :label="t('ui_menu')"
         class="btn-primary-action min-h-11 cursor-pointer gap-2 rounded-full px-5 font-semibold shadow-soft"
       />
     </UDropdownMenu>
@@ -16,6 +16,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { t } from '@/utils/i18n'
 import UDropdownMenu from '@nuxt/ui/components/DropdownMenu.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import type { DropdownMenuItem } from '@nuxt/ui/components/DropdownMenu.vue'

@@ -3,7 +3,7 @@
     <button
       type="button"
       class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-secondary-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-secondary/15"
-      :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
+      :title="copied ? t('lobby_room_copied') : t('lobby_copy_room_code')"
       :data-testid="testId"
       @click="copy"
     >
@@ -11,7 +11,7 @@
         :name="copied ? 'i-lucide-check' : 'i-lucide-copy'"
         class="h-4 w-4"
       />
-      {{ copied ? 'Номер скопирован' : 'Скопировать номер' }}
+      {{ copied ? t('lobby_room_copied') : t('lobby_copy_room_number') }}
     </button>
   </div>
 </template>
@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
+import { t } from '@/utils/i18n'
 
 const props = withDefaults(
   defineProps<{

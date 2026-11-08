@@ -5,7 +5,7 @@
         class="flex items-center gap-2 text-sm font-semibold text-tertiary-soft"
       >
         <UIcon name="i-lucide-layers" class="h-4 w-4 text-secondary-dark" />
-        Прогресс
+        {{ t('stats_progress') }}
       </span>
       <span
         :data-testid="TEST_IDS.gameStatsTilesProgress"
@@ -22,7 +22,7 @@
       ></div>
     </div>
     <p class="mt-1.5 text-xs text-text-muted">
-      В колоде: {{ progress.remainingTiles }}
+      {{ t('stats_in_deck', { count: progress.remainingTiles }) }}
     </p>
     <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-text-muted">
       <span
@@ -43,6 +43,7 @@
 <script setup lang="ts">
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 
 withDefaults(
   defineProps<{

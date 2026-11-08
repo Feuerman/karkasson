@@ -36,6 +36,9 @@ test('после перезагрузки игрок возвращается в
   try {
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
+    await page.addInitScript(() => {
+      localStorage.setItem('locale', 'ru')
+    })
     await page.goto(frontend.url)
     await expect(page.getByTestId(TEST_IDS.connectionStatus)).toBeVisible()
 

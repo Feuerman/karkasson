@@ -31,6 +31,9 @@ async function listenOnRandomPort(server: import('node:http').Server) {
 
 /** Создаёт комнату с игроком и компьютером и начинает партию. */
 async function startGameWithComputer(page: Page, url: string) {
+  await page.addInitScript(() => {
+    localStorage.setItem('locale', 'ru')
+  })
   await page.goto(url)
   await page.getByTestId(TEST_IDS.lobbyCreateGame).click()
   await page.getByTestId(TEST_IDS.createGameSubmit).click()

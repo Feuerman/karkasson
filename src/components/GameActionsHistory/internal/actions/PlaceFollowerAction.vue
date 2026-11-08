@@ -1,25 +1,25 @@
 <template>
   <ActionRow icon="i-lucide-person-standing">
     <strong class="mr-[3px] text-text" :title="followerTitle">
-      Выставлен
+      {{ t('action_placed_follower_prefix') }}
       {{ followerName }}.
     </strong>
     <PlayerName :color="action.initiator?.color">
       {{ action.initiator?.name }}.
     </PlayerName>
     <span class="text-text">
-      На клетку
+      {{ t('action_on_cell') }}
       <ActionCoordinates
         :row="action.actionData.point.y"
         :col="action.actionData.point.x"
         @zoom="forwardZoom"
       />
-      на объект
+      {{ t('action_on_object') }}
       <button
         type="button"
         class="cursor-pointer font-bold text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary-dark hover:decoration-primary"
         :data-testid="TEST_IDS.historyObjectFocus"
-        title="Показать объект на доске"
+        :title="t('action_show_object')"
         @click="emit('focus', [followerCell])"
       >
         {{ objectName }}
@@ -39,8 +39,12 @@ import { TEST_IDS } from '@/data/testIds'
 import ActionRow from '../ActionRow.vue'
 import ActionCoordinates from '../ActionCoordinates.vue'
 import PlayerName from '../PlayerName.vue'
-import { BIG_FOLLOWER_HINT, placedFollowerName } from '../followerNames'
+import {
+  bigFollowerHint as bigFollowerHintText,
+  placedFollowerName,
+} from '../followerNames'
 import { OBJECT_TYPE_GENITIVES, POINT_TYPE_OBJECT_CASE } from '@/utils/labels'
+import { t } from '@/utils/i18n'
 
 const { action } = defineProps<{
   action: Extract<GameAction, { actionType: ActionTypes.PLACE_FOLLOWER }>
@@ -60,14 +64,14 @@ const objectName = computed(() =>
       ? OBJECT_TYPE_GENITIVES[ObjectTypes.GARDEN]
       : action.actionData.point.pointType
         ? POINT_TYPE_OBJECT_CASE[action.actionData.point.pointType]
-        : 'объект'
+        : t('action_object_generic')
 )
 
 const followerName = computed(() => placedFollowerName(action.actionData))
 
 const followerTitle = computed(() =>
   action.actionData.followerType === FollowerType.BigFollower
-    ? BIG_FOLLOWER_HINT
+    ? bigFollowerHintText()
     : undefined
 )
 

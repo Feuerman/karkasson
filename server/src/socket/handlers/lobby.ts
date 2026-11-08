@@ -11,7 +11,7 @@ import {
   payloadAndCallback,
 } from '../validation'
 import { errorResponse } from './errorResponse'
-import { ackGameUpdated, runLobbyCommand } from './shared'
+import { ackGameUpdated, runLobbyCommand, emitSocketError } from './shared'
 import { formatGameData } from '../../services/gameView'
 
 function isComputerOnlyGame(game: GameManager): boolean {
@@ -118,7 +118,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
     await runLobbyCommand(callback, async () => {
       const ip = guard.clientIp(socket)
       if (guard.isJoinBlocked(ip)) {
-        socket.emit(SocketEvents.Error, CommonErrors.JoinAttemptsExceeded)
+        emitSocketError(socket, service, CommonErrors.JoinAttemptsExceeded)
         callback?.(errorResponse(CommonErrors.JoinAttemptsExceeded))
         return
       }
@@ -131,7 +131,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         const error = failure.blocked
           ? CommonErrors.JoinAttemptsExceeded
           : CommonErrors.GameNotFound
-        socket.emit(SocketEvents.Error, error)
+        emitSocketError(socket, service, error)
         callback?.(errorResponse(error))
         return
       }
@@ -151,7 +151,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       const sessionId = service.getSessionBySocketId(socket.id)
       if (!sessionId) {
         const error = CommonErrors.SessionRequired
-        socket.emit(SocketEvents.Error, error)
+        emitSocketError(socket, service, error)
         callback?.(errorResponse(error))
         return
       }
@@ -162,7 +162,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       )
 
       if ('error' in result) {
-        socket.emit(SocketEvents.Error, result.error)
+        emitSocketError(socket, service, result.error)
         callback?.(errorResponse(result.error))
         return
       }
@@ -199,20 +199,20 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
     await runLobbyCommand(callback, async () => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        emitSocketError(socket, service, CommonErrors.GameNotFound)
         callback?.(errorResponse(CommonErrors.GameNotFound))
         return
       }
       const sessionId = service.getSessionBySocketId(socket.id)
       if (!sessionId || !service.canStartLobby(gameId, sessionId)) {
-        socket.emit(SocketEvents.Error, LobbyErrors.OnlyLobbyOwnerCanStart)
+        emitSocketError(socket, service, LobbyErrors.OnlyLobbyOwnerCanStart)
         callback?.(errorResponse(LobbyErrors.OnlyLobbyOwnerCanStart))
         return
       }
 
       const startError = service.lobbyStartError(gameId)
       if (startError) {
-        socket.emit(SocketEvents.Error, startError)
+        emitSocketError(socket, service, startError)
         callback?.(errorResponse(startError))
         return
       }
@@ -220,12 +220,12 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       if (isComputerOnlyGame(game)) {
         const limitError = service.aiGameStartError(sessionId)
         if (limitError) {
-          socket.emit(SocketEvents.Error, limitError)
+          emitSocketError(socket, service, limitError)
           callback?.(errorResponse(limitError))
           return
         }
         if (!guard.tryConsumeAiGameStart(guard.clientIp(socket))) {
-          socket.emit(SocketEvents.Error, CommonErrors.TooManyRequests)
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
           callback?.(errorResponse(CommonErrors.TooManyRequests))
           return
         }
@@ -267,7 +267,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
     await runLobbyCommand(callback, async () => {
       const game = service.getGame(gameId)
       if (!game) {
-        socket.emit(SocketEvents.Error, CommonErrors.GameNotFound)
+        emitSocketError(socket, service, CommonErrors.GameNotFound)
         callback?.(errorResponse(CommonErrors.GameNotFound))
         return
       }

@@ -23,8 +23,11 @@ import type {
   FairyMovePayload,
   RemovePlayerPayload,
   GameDeletedPayload,
+  GameErrorPayload,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
+import { t, getLocale, type Locale } from '@/utils/i18n'
+import { notifyError } from '@/utils/common'
 import {
   classifyConnectError,
   type ConnectionErrorCode,
@@ -95,10 +98,6 @@ const SESSION_TOKEN_STORAGE_KEY = 'sessionToken'
 const SOCKET_ACK_TIMEOUT_MS = 15_000
 /** Версия протокола этого клиента: сверяется с ответом сервера. */
 const CLIENT_PROTOCOL_VERSION = PROTOCOL_VERSION
-const PROTOCOL_MISMATCH_ERROR =
-  'Требуется перезагрузка страницы: версия протокола клиента и сервера не совпадают'
-const CONNECTION_INTERRUPTED_ERROR =
-  'Соединение с сервером прервано, попробуйте отправить команду ещё раз'
 
 let commandSequence = 0
 
@@ -224,7 +223,7 @@ export class GameService implements IGameService {
   }
 
   private getNotConnectedError(): string {
-    return 'Нет соединения с сервером'
+    return t('ui_error_connection')
   }
 
   /**
@@ -237,9 +236,7 @@ export class GameService implements IGameService {
     if (!this.socket?.connected) throw new Error(this.getNotConnectedError())
     await this.sessionReadyPromise
     if (!this.sessionRegistered) {
-      throw new Error(
-        'Не удалось установить сессию. Переподключитесь к серверу'
-      )
+      throw new Error(t('ui_error_session_failed'))
     }
   }
 
@@ -249,7 +246,7 @@ export class GameService implements IGameService {
     payload?: SocketPayload
   ): Promise<T> {
     if (this.protocolMismatch.value) {
-      return Promise.reject(new Error(PROTOCOL_MISMATCH_ERROR))
+      return Promise.reject(new Error(t('ui_error_protocol_mismatch')))
     }
     const wasConnected = Boolean(this.socket?.connected)
     return this.whenSessionReady().then(
@@ -258,7 +255,7 @@ export class GameService implements IGameService {
           if (!this.socket?.connected) {
             reject(
               wasConnected
-                ? new Error(CONNECTION_INTERRUPTED_ERROR)
+                ? new Error(t('ui_error_connection_interrupted'))
                 : this.getNotConnectedError()
             )
             return
@@ -275,7 +272,7 @@ export class GameService implements IGameService {
           this.pendingAcks.add(cancel)
 
           const timeout = setTimeout(() => {
-            cancel(new Error('Сервер не ответил вовремя. Повторите действие'))
+            cancel(new Error(t('ui_error_server_timeout')))
           }, SOCKET_ACK_TIMEOUT_MS)
 
           const callback = (response: SocketAck) => {
@@ -418,6 +415,7 @@ export class GameService implements IGameService {
         {
           ...(this.sessionToken ? { token: this.sessionToken } : {}),
           protocolVersion: CLIENT_PROTOCOL_VERSION,
+          locale: getLocale(),
         },
         finish
       )
@@ -519,9 +517,7 @@ export class GameService implements IGameService {
         : this.isOnline.value
           ? 'reconnecting'
           : 'offline'
-      this.rejectPendingAcks(
-        new Error('Соединение с сервером прервано, команда не доставлена')
-      )
+      this.rejectPendingAcks(new Error(t('ui_error_command_not_delivered')))
       // Socket.IO сам повторяет только транспортные обрывы. Явное
       // отключение сервером (например, при выкатке) требует ручного
       // перезапуска с той же паузой, что и обычные попытки.
@@ -591,8 +587,16 @@ export class GameService implements IGameService {
       this.scheduleReconnect()
     })
 
-    socket.on(SocketEvents.Error, (error: Error) => {
-      logger.error('Server error:', error)
+    socket.on(SocketEvents.Error, (payload: GameErrorPayload) => {
+      const error = new Error(payload.message) as Error & { code?: string }
+      error.code = payload.code
+      notifyError(error)
+    })
+
+    socket.on(SocketEvents.GameError, (payload: GameErrorPayload) => {
+      const error = new Error(payload.message) as Error & { code?: string }
+      error.code = payload.code
+      notifyError(error)
     })
 
     this.attachSubscriptions(socket)
@@ -764,6 +768,11 @@ export class GameService implements IGameService {
     return this.emitGameCommand<GameAck>(SocketEvents.SkipFollower, {
       gameId: this.gameId,
     })
+  }
+
+  /** Сообщает серверу выбранный язык интерфейса (при ручной смене языка). */
+  notifyLocaleChange(locale: Locale): void {
+    this.socket?.emit(SocketEvents.SetLocale, { locale })
   }
 
   disconnect() {

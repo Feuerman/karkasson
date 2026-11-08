@@ -1,17 +1,19 @@
 <template>
   <ActionRow icon="i-lucide-coins">
-    <strong class="mr-[3px] text-text">Завершён объект.</strong>
+    <strong class="mr-[3px] text-text">{{
+      t('action_completed_object')
+    }}</strong>
     <button
       type="button"
       class="cursor-pointer font-bold text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary-dark hover:decoration-primary disabled:cursor-default disabled:text-text disabled:no-underline"
       :disabled="!objectCells.length"
       :data-testid="TEST_IDS.historyObjectFocus"
-      title="Показать объект на доске"
+      :title="t('action_show_object')"
       @click="emit('focus', objectCells)"
     >
       {{ objectLabel }}
     </button>
-    <span class="text-text">Начислено очков:</span>
+    <span class="text-text">{{ t('action_points_awarded') }}</span>
     <UTooltip
       :content="{ side: 'left', sideOffset: 8 }"
       :disabled="!hasDetails"
@@ -28,7 +30,14 @@
           <PlayerNameById :player-id="playerId" />
           <strong class="font-bold text-text">
             — {{ score ?? 0 }}
-            {{ pluralForm(score ?? 0, 'очко', 'очка', 'очков') }},
+            {{
+              plural(score ?? 0, {
+                one: t('action_points_one'),
+                two: t('action_points_two'),
+                five: t('action_points_five'),
+                other: t('action_points_other'),
+              })
+            }},
           </strong>
         </span>
         <UIcon
@@ -49,7 +58,7 @@
               class="flex items-baseline justify-between gap-2 text-caption"
             >
               <span class="min-w-0 flex-1">
-                {{ line.label }}
+                {{ localizeScoreText(line.label) }}
                 <span class="opacity-70"
                   >— {{ line.count }} × {{ line.pointsPerUnit }}</span
                 >
@@ -63,7 +72,7 @@
             class="flex items-center gap-1 text-caption opacity-90"
           >
             <UIcon name="i-lucide-sparkles" class="h-3 w-3 shrink-0" />
-            {{ modifier }}
+            {{ localizeScoreText(modifier) }}
           </p>
         </div>
       </template>
@@ -80,7 +89,7 @@ import type { GameAction } from '@server/modules/gameActions'
 import type { TileCoordinates } from '@/utils/board'
 import { cellsOfPoints } from '@/utils/board'
 import { TEST_IDS } from '@/data/testIds'
-import { pluralForm } from '@/utils/common'
+import { plural, t, localizeScoreText } from '@/utils/i18n'
 import { OBJECT_TYPE_NAMES } from '@/utils/labels'
 import ActionRow from '../ActionRow.vue'
 import PlayerNameById from '../PlayerNameById.vue'
@@ -98,7 +107,9 @@ const TOOLTIP_CONTENT_CLASS =
   'block h-auto max-w-64 rounded-card border border-secondary-dark/40 bg-surface px-2 py-1.5 text-text shadow-card'
 
 const objectLabel = computed(
-  () => OBJECT_TYPE_NAMES[action.actionData.objectType] ?? 'объект'
+  () =>
+    OBJECT_TYPE_NAMES[action.actionData.objectType] ??
+    t('action_object_generic')
 )
 
 const objectCells = computed(() =>

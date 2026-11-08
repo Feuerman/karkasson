@@ -2,12 +2,16 @@
   <p class="text-center text-sm text-text-muted" :data-testid="testId">
     {{ label }}:
     <strong class="text-text">{{
-      enabled ? enabledText : disabledText
+      enabled
+        ? (enabledText ?? t('lobby_rule_on'))
+        : (disabledText ?? t('lobby_rule_off'))
     }}</strong>
   </p>
 </template>
 
 <script setup lang="ts">
+import { t } from '@/utils/i18n'
+
 withDefaults(
   defineProps<{
     label: string
@@ -17,8 +21,8 @@ withDefaults(
     testId?: string
   }>(),
   {
-    enabledText: 'вкл',
-    disabledText: 'выкл',
+    enabledText: undefined,
+    disabledText: undefined,
   }
 )
 </script>

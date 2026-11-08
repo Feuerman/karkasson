@@ -6,15 +6,15 @@
       <div class="flex items-center gap-2 text-text-surface-light">
         <UIcon name="i-lucide-flag" class="h-[18px] w-[18px] text-secondary" />
         <span class="title-medieval text-base tracking-wide">
-          Партия «{{ lobbyName }}»
+          {{ t('lobby_game_party', { name: lobbyName }) }}
         </span>
       </div>
 
       <button
         type="button"
         class="cursor-pointer rounded-md border border-secondary/40 bg-secondary/10 px-2 py-0.5 font-mono text-sm tracking-widest text-secondary transition-colors hover:bg-secondary/25"
-        :aria-label="`Скопировать номер комнаты ${game.roomCode}`"
-        :title="copied ? 'Номер скопирован' : 'Скопировать номер комнаты'"
+        :aria-label="t('lobby_copy_room_code_aria', { code: game.roomCode })"
+        :title="copied ? t('lobby_room_copied') : t('lobby_copy_room_code')"
         :data-testid="TEST_IDS.lobbyCardCopyRoomCode"
         @click.stop="copyRoomCode"
       >
@@ -25,7 +25,7 @@
         v-if="copied"
         class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
-        Скопировано
+        {{ t('lobby_copied') }}
       </span>
 
       <span
@@ -33,7 +33,7 @@
         class="flex items-center gap-1 rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption uppercase tracking-wide text-secondary"
       >
         <UIcon name="i-lucide-history" class="h-3.5 w-3.5" />
-        Последняя
+        {{ t('lobby_last_game') }}
       </span>
 
       <div class="flex items-center gap-1.5 text-body text-surface">
@@ -43,7 +43,7 @@
 
       <span
         class="flex items-center gap-1.5 text-sm text-text-surface"
-        :title="`Обновлено ${updatedText}`"
+        :title="t('lobby_updated', { time: updatedText })"
         data-testid="lobbyCardUpdated"
       >
         <UIcon name="i-lucide-clock" class="h-4 w-4 text-secondary" />
@@ -55,20 +55,20 @@
         v-if="game.rules?.expansions.innsAndCathedrals"
         class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
-        Таверны и соборы
+        {{ t('expansion_inns') }}
       </span>
       <span
         v-if="game.rules?.expansions.river"
         class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
       >
-        Река
+        {{ t('expansion_river') }}
       </span>
       <span
         v-if="game.rules?.expansions.princessAndDragon"
         class="rounded-pill border border-secondary/50 bg-secondary/15 px-2 py-0.5 text-caption text-secondary"
         data-testid="lobbyCardPrincessDragon"
       >
-        Принцесса и дракон
+        {{ t('expansion_princess') }}
       </span>
     </div>
 
@@ -86,7 +86,7 @@
           :class="playerBackgroundColorClass(row.player.color)"
         ></span>
         <template v-if="!row.player.sessionId && row.player.name">
-          AI
+          {{ t('lobby_ai') }}
         </template>
         {{ row.player.name }} — {{ row.score }}
       </span>
@@ -119,6 +119,7 @@ import { playerBackgroundColorClass } from '@/utils/colors'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 import { formatRelativeTime } from '@/utils/time'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import GameStatus from './GameStatus.vue'
 import { isRejoinable, joinButtonIcon, joinButtonLabel } from './helpers'
 
@@ -133,7 +134,8 @@ const props = withDefaults(
 )
 
 const lobbyName = computed(
-  () => props.game.players.find((player) => player.name)?.name ?? 'Каркассон'
+  () =>
+    props.game.players.find((player) => player.name)?.name ?? t('lobby_title')
 )
 
 /** Давность партии: видно, какая комната живая. */

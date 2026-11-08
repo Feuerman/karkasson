@@ -3,12 +3,13 @@ import type {
   AvailableFollowerPlace,
   ReturnedFollower,
 } from '@server/modules/types'
+import { t } from '@/utils/i18n'
 
 /** Маркер большого подданного в истории: он удваивает очки за объект. */
 export const BIG_FOLLOWER_MARK = '*'
 
 /** Подсказка к маркеру большого подданного. */
-export const BIG_FOLLOWER_HINT = `${BIG_FOLLOWER_MARK} — большой подданный`
+export const bigFollowerHint = (): string => t('follower_big_hint')
 
 /**
  * Наименования подданных по объекту, на котором они были выставлены:
@@ -17,11 +18,21 @@ export const BIG_FOLLOWER_HINT = `${BIG_FOLLOWER_MARK} — большой под
  * подданный отмечается маркером.
  */
 const FOLLOWER_NAMES: Record<ObjectTypes, string> = {
-  [ObjectTypes.ROAD]: 'разбойник',
-  [ObjectTypes.CITY]: 'рыцарь',
-  [ObjectTypes.MONASTERY]: 'монах',
-  [ObjectTypes.GARDEN]: 'аббат',
-  [ObjectTypes.FIELD]: 'крестьянин',
+  get [ObjectTypes.ROAD]() {
+    return t('follower_name_robber')
+  },
+  get [ObjectTypes.CITY]() {
+    return t('follower_name_knight')
+  },
+  get [ObjectTypes.MONASTERY]() {
+    return t('follower_name_monk')
+  },
+  get [ObjectTypes.GARDEN]() {
+    return t('follower_name_abbot')
+  },
+  get [ObjectTypes.FIELD]() {
+    return t('follower_name_peasant')
+  },
 }
 
 /** Признаки фишки, достаточные для наименования в истории. */
@@ -45,7 +56,7 @@ const baseFollowerName = (follower: NamedFollower): string => {
     return FOLLOWER_NAMES[follower.objectType]
   }
   // Сохранения старых версий хранят фишку без типа объекта.
-  return 'подданный'
+  return t('follower_name_generic')
 }
 
 /** Тип объекта, на котором стоит подданный в записи о выставлении. */

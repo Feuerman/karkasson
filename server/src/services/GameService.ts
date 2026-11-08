@@ -26,6 +26,7 @@ import { createLogger } from '../utils/logger'
 import { metrics } from '../metrics/registry'
 import { ComputerMoveScheduler, isComputerPlayer } from './computerPlayer'
 import { createSessionToken, verifySessionToken } from './sessionToken'
+import type { ClientLocale } from '../socket/validation'
 import {
   filterGameSummaries,
   sortGameSummaries,
@@ -159,6 +160,8 @@ export class GameService {
   private socketToSessionMap: Record<string, string> = {}
   /** Обратная карта: сессия → активный сокет (последняя вкладка/устройство). */
   private sessionToSocketMap = new Map<string, string>()
+  /** Выбранный клиентом язык сессии: сессия → локаль ('ru' | 'en'). */
+  private sessionToLocale = new Map<string, string>()
   private lobbyOwners: Record<string, string> = {}
   /**
    * Заголовки всех сохранённых партий. Живые партии берутся из реестра, а этот
@@ -407,7 +410,19 @@ export class GameService {
    *
    * Возвращает прежний сокет сессии, если он был заменён.
    */
-  registerSession(sessionId: string, socketId: string): string | undefined {
+  /**
+   * Привязывает сессию к сокету. Если сессия уже была активна в другой вкладке,
+   * управление переходит новому сокету: старый отключается вызывающим кодом, а
+   * занятые слоты переезжают на новый сокет, чтобы в партии не появился второй
+   * слот той же сессии. `locale` — выбранный клиентом язык интерфейса.
+   *
+   * Возвращает прежний сокет сессии, если он был заменён.
+   */
+  registerSession(
+    sessionId: string,
+    socketId: string,
+    locale?: string
+  ): string | undefined {
     const previousSocketId = this.sessionToSocketMap.get(sessionId)
     if (previousSocketId && previousSocketId !== socketId) {
       delete this.socketToSessionMap[previousSocketId]
@@ -416,6 +431,7 @@ export class GameService {
 
     this.socketToSessionMap[socketId] = sessionId
     this.sessionToSocketMap.set(sessionId, socketId)
+    if (locale) this.sessionToLocale.set(sessionId, locale)
     return previousSocketId === socketId ? undefined : previousSocketId
   }
 
@@ -423,12 +439,29 @@ export class GameService {
     return this.socketToSessionMap[socketId]
   }
 
+  /** Выбранный клиентом язык сессии (или undefined, если не сообщался). */
+  getSessionLocale(socketId: string): string | undefined {
+    const sessionId = this.socketToSessionMap[socketId]
+    return sessionId ? this.sessionToLocale.get(sessionId) : undefined
+  }
+
+  /** Обновляет выбранный клиентом язык сессии (например, при смене языка). */
+  setSessionLocale(socketId: string, locale: ClientLocale): void {
+    const sessionId = this.socketToSessionMap[socketId]
+    if (sessionId) {
+      this.sessionToLocale.set(sessionId, locale)
+    }
+  }
+
   /** Забывает сокет при отключении: карта не должна расти бесконечно. */
   unregisterSocket(socketId: string): void {
     const sessionId = this.socketToSessionMap[socketId]
     delete this.socketToSessionMap[socketId]
-    if (sessionId && this.sessionToSocketMap.get(sessionId) === socketId) {
-      this.sessionToSocketMap.delete(sessionId)
+    if (sessionId) {
+      this.sessionToLocale.delete(sessionId)
+      if (this.sessionToSocketMap.get(sessionId) === socketId) {
+        this.sessionToSocketMap.delete(sessionId)
+      }
     }
   }
 

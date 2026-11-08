@@ -1,11 +1,30 @@
 import type { GameManager } from '../../modules/GameManager'
+import type { Socket } from 'socket.io'
 import type { GameEventsPublisher } from '../../services/gameEvents'
+import { SocketEvents } from '../../modules/types'
+import {
+  translateErrorMessage,
+  errorCodeForMessage,
+} from '../../modules/errors'
 import { formatGameData } from '../../services/gameView'
 import { createLogger } from '../../utils/logger'
 import type { SocketCallback } from '../types'
 import { toPlayerError } from './playerErrors'
 
 const logger = createLogger('socket')
+
+/** Отправляет ошибку конкретному сокету с переводом на его язык и кодом. */
+export function emitSocketError(
+  socket: Socket,
+  service: { getSessionLocale(socketId: string): string | undefined },
+  message: string
+): void {
+  const locale = service.getSessionLocale(socket.id)
+  socket.emit(SocketEvents.Error, {
+    message: translateErrorMessage(message, locale),
+    code: errorCodeForMessage(message),
+  })
+}
 
 /** Форматирует состояние, публикует gameUpdated и подтверждает ack. */
 export function ackGameUpdated(

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { baseGameRules } from '@/rules/baseGame'
+import { baseGameRules, getBaseGameRules } from '@/rules/baseGame'
 import { validateExampleGrids } from '@/rules/examples'
 import type { RulesExample } from '@/rules/types'
+import { setLocale } from '@/utils/i18n'
 
 /**
  * Гарантирует, что все наглядные примеры в правилах корректны:
@@ -163,5 +164,30 @@ describe('примеры правил', () => {
         .flatMap((cellEntry) => cellEntry.tile?.markers ?? [])
         .some((marker) => marker.kind === 'follower' && marker.color === 'red')
     ).toBe(true)
+  })
+
+  it('английская версия правил переведена полностью', () => {
+    setLocale('en')
+    const english = getBaseGameRules()
+    setLocale('ru')
+
+    const texts: string[] = []
+    const collect = (value: unknown): void => {
+      if (typeof value === 'string') {
+        texts.push(value)
+        return
+      }
+      if (Array.isArray(value)) {
+        value.forEach(collect)
+        return
+      }
+      if (value && typeof value === 'object') {
+        Object.values(value).forEach(collect)
+      }
+    }
+    collect(english)
+
+    const untranslated = texts.filter((text) => /[\u0400-\u04FF]/.test(text))
+    expect(untranslated, untranslated.join('\n')).toEqual([])
   })
 })

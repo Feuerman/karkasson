@@ -9,15 +9,15 @@
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <h2 class="title-medieval text-title leading-tight text-tertiary">
-            Итоги партии
+            {{ t('result_title') }}
           </h2>
           <p class="text-sm text-text-muted">{{ summaryText }}</p>
         </div>
         <UButton
           color="primary"
           icon="i-lucide-x"
-          title="Закрыть итоги"
-          aria-label="Закрыть итоги партии"
+          :title="t('result_close_title')"
+          :aria-label="t('result_close_aria')"
           class="btn-secondary h-8 w-8 shrink-0 cursor-pointer !p-0"
           :ui="{ leadingIcon: 'size-4' }"
           :data-testid="TEST_IDS.gameResultClose"
@@ -49,8 +49,8 @@
                 v-if="result.isWinner"
                 name="i-lucide-crown"
                 class="h-4 w-4 shrink-0 text-secondary-dark"
-                title="Победитель"
-                aria-label="Победитель"
+                :title="t('result_winner')"
+                :aria-label="t('result_winner')"
               />
             </span>
             <span
@@ -81,7 +81,7 @@
           :data-testid="TEST_IDS.gameResultGoLobby"
           @click="emit('goLobby')"
         >
-          В лобби
+          {{ t('result_to_lobby') }}
         </UButton>
         <UButton
           color="primary"
@@ -89,7 +89,7 @@
           :data-testid="TEST_IDS.gameResultPlayAgain"
           @click="emit('playAgain')"
         >
-          Сыграть ещё
+          {{ t('result_play_again') }}
         </UButton>
       </div>
     </div>
@@ -102,6 +102,7 @@ import UButton from '@nuxt/ui/components/Button.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import type { IGameBoard } from '@/types/game'
 import { TEST_IDS } from '@/data/testIds'
+import { t } from '@/utils/i18n'
 import { playerBackgroundColorClass } from '@/utils/colors'
 import { buildGameResults, type PlayerResult } from '@/utils/gameResults'
 
@@ -127,9 +128,13 @@ const results = computed(() =>
 
 const summaryText = computed(() => {
   const winners = results.value.filter((result) => result.isWinner)
-  if (winners.length === 0) return 'Партия завершена'
-  if (winners.length === 1) return `Победитель: ${winners[0].name}`
-  return `Ничья: ${winners.map((winner) => winner.name).join(', ')}`
+  if (winners.length === 0) return t('result_finished')
+  if (winners.length === 1) {
+    return t('result_winner_one', { name: winners[0].name })
+  }
+  return t('result_draw', {
+    names: winners.map((winner) => winner.name).join(', '),
+  })
 })
 
 /** Разбивка очков игрока: только те источники, где есть очки. */
@@ -138,31 +143,41 @@ const breakdownItems = (result: PlayerResult) => {
     {
       key: 'cities',
       icon: 'i-lucide-castle',
-      title: 'Города',
+      get title() {
+        return t('breakdown_cities')
+      },
       value: result.breakdown.cities,
     },
     {
       key: 'roads',
       icon: 'i-lucide-route',
-      title: 'Дороги',
+      get title() {
+        return t('breakdown_roads')
+      },
       value: result.breakdown.roads,
     },
     {
       key: 'monasteries',
       icon: 'i-lucide-church',
-      title: 'Монастыри',
+      get title() {
+        return t('breakdown_monasteries')
+      },
       value: result.breakdown.monasteries,
     },
     {
       key: 'gardens',
       icon: 'i-lucide-flower-2',
-      title: 'Сады',
+      get title() {
+        return t('breakdown_gardens')
+      },
       value: result.breakdown.gardens,
     },
     {
       key: 'fields',
       icon: 'i-lucide-sprout',
-      title: 'Поля',
+      get title() {
+        return t('breakdown_fields')
+      },
       value: result.breakdown.fields,
     },
   ].filter((item) => item.value > 0)
@@ -171,7 +186,9 @@ const breakdownItems = (result: PlayerResult) => {
     items.push({
       key: 'other',
       icon: 'i-lucide-coins',
-      title: 'Прочие начисления',
+      get title() {
+        return t('breakdown_other')
+      },
       value: result.breakdown.other,
     })
   }

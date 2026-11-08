@@ -24,7 +24,7 @@
           v-if="summary.turnNumber !== null"
           class="shrink-0 text-caption font-semibold text-text-muted"
         >
-          ход {{ summary.turnNumber }}
+          {{ t('turn_short', { number: summary.turnNumber }) }}
         </span>
         <span
           v-if="summaryTotal > 0"
@@ -36,8 +36,8 @@
           type="button"
           class="ml-1 cursor-pointer rounded-md p-0.5 text-text-muted transition-colors hover:bg-surface-muted hover:text-text"
           :data-testid="TEST_IDS.turnSummaryClose"
-          aria-label="Скрыть сводку хода"
-          title="Скрыть"
+          :aria-label="t('turn_hide_summary')"
+          :title="t('turn_hide')"
           @click="dismiss"
         >
           <UIcon name="i-lucide-x" class="h-3.5 w-3.5" />
@@ -52,12 +52,17 @@
             name="i-lucide-layout-grid"
             class="h-3.5 w-3.5 text-secondary-dark"
           />
-          Тайл <strong>{{ summary.placedTile.tile.id }}</strong>
+          {{ t('turn_tile', { id: summary.placedTile.tile.id }) }}
           <button
             type="button"
             class="cursor-pointer text-primary underline underline-offset-2 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
-            :aria-label="`Перейти к клетке ${summary.placedTile.rowIndex + 1}, ${summary.placedTile.tileIndex + 1}`"
-            title="Перейти к плитке на доске"
+            :aria-label="
+              t('turn_go_to_cell', {
+                row: summary.placedTile.rowIndex + 1,
+                col: summary.placedTile.tileIndex + 1,
+              })
+            "
+            :title="t('turn_go_to_tile')"
             @click.stop="zoomBoardToTile(summary.placedTile)"
           >
             {{ summary.placedTile.rowIndex }}·{{ summary.placedTile.tileIndex }}
@@ -68,32 +73,36 @@
             name="i-lucide-person-standing"
             class="h-3.5 w-3.5 text-secondary-dark"
           />
-          Подданный на {{ followerLabel(summary.follower.placeType) }}
+          {{
+            t('turn_follower_on', {
+              place: followerLabel(summary.follower.placeType),
+            })
+          }}
         </span>
         <span v-if="summary.returnedFollowers" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-rotate-ccw"
             class="h-3.5 w-3.5 text-secondary-dark"
           />
-          Вернулось подданных: {{ summary.returnedFollowers }}
+          {{ t('turn_returned', { count: summary.returnedFollowers }) }}
         </span>
         <span v-if="summary.dragonMoves" class="flex items-center gap-1">
           <UIcon name="i-lucide-bird" class="h-3.5 w-3.5 text-secondary-dark" />
-          Дракон двигался
+          {{ t('turn_dragon_moved') }}
         </span>
         <span v-if="summary.fairyMoves" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-sparkles"
             class="h-3.5 w-3.5 text-secondary-dark"
           />
-          Фея перемещалась
+          {{ t('turn_fairy_moved') }}
         </span>
         <span v-if="summary.princessTakes" class="flex items-center gap-1">
           <UIcon
             name="i-lucide-crown"
             class="h-3.5 w-3.5 text-secondary-dark"
           />
-          Принцесса забрала подданного
+          {{ t('turn_princess_took') }}
         </span>
       </div>
 
@@ -126,7 +135,7 @@
             :class="playerBackgroundColorClass(change.color)"
           ></span>
           <span :class="playerTextColorClass(change.color)">
-            {{ change.isOwn ? 'Вы' : change.playerName }}
+            {{ change.isOwn ? t('turn_you') : change.playerName }}
           </span>
           <span class="tabular-nums text-success-dark"
             >+{{ change.points }}</span
@@ -150,6 +159,7 @@ import {
 } from '@/utils/colors'
 import { findOwnPlayer } from '@/utils/players'
 import { OBJECT_TYPE_NAMES } from '@/utils/labels'
+import { localizeScoreText, t } from '@/utils/i18n'
 import type { FollowerPlaceType } from '@/utils/followerPlaces'
 import { useBoardZoom } from '@/composables/useBoardZoom'
 import { useGameAudio } from '@/composables/useGameAudio'
@@ -187,8 +197,8 @@ const { playSound } = useGameAudio({ soundEnabled: props.soundEnabled })
 
 const summaryTitle = computed(() => {
   if (!summary.value) return ''
-  if (summary.value.isFinalScoring) return 'Финальный подсчёт'
-  if (summary.value.isOwn) return 'Ваш ход'
+  if (summary.value.isFinalScoring) return t('turn_final_scoring')
+  if (summary.value.isOwn) return t('turn_your_turn')
   return summary.value.playerName
 })
 
@@ -200,32 +210,34 @@ const summaryTotal = computed(() =>
 )
 
 const objectLabel = (objectType: ObjectTypes): string =>
-  OBJECT_TYPE_NAMES[objectType] ?? 'Объект'
+  OBJECT_TYPE_NAMES[objectType] ?? t('turn_object')
 
 const followerLabel = (placeType: FollowerPlaceType): string => {
   switch (placeType) {
     case ObjectTypes.GARDEN:
-      return 'сад'
+      return t('object_garden')
     case ObjectTypes.MONASTERY:
-      return 'монастырь'
+      return t('object_monastery')
     case TileSideType.City:
-      return 'город'
+      return t('object_city')
     case TileSideType.Road:
-      return 'дорога'
+      return t('object_road')
     case TileSideType.Field:
-      return 'поле'
+      return t('object_field')
     default:
-      return 'объект'
+      return t('object_generic')
   }
 }
 
 const scoreEventTitle = (event: TurnScoreEvent): string => {
   const lines = (event.details ?? []).map(
     (line) =>
-      `${line.label}: ${line.count} × ${line.pointsPerUnit} = ${line.total}`
+      `${localizeScoreText(line.label)}: ${line.count} × ${line.pointsPerUnit} = ${line.total}`
   )
-  const parts = [...lines, ...(event.modifiers ?? [])]
-  return parts.length ? parts.join('\n') : `Начислено очков: ${event.points}`
+  const parts = [...lines, ...(event.modifiers ?? []).map(localizeScoreText)]
+  return parts.length
+    ? parts.join('\n')
+    : t('turn_score_awarded', { points: event.points })
 }
 
 const clearHideTimer = () => {

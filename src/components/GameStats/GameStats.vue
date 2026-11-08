@@ -63,7 +63,7 @@ import {
   rankPlayers,
   type RankedPlayer,
 } from '@/utils/players'
-import { pluralForm } from '@/utils/common'
+import { plural, t } from '@/utils/i18n'
 import { formatDuration } from '@/utils/time'
 import { useTurnTimer } from '@/composables/useTurnTimer'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
@@ -108,7 +108,7 @@ const leaderLabel = computed(() => {
     .map((player) => player.name ?? '')
     .filter((name) => name.length > 0)
   if (names.length === 0) return ''
-  if (names.length > 1) return 'Ничья'
+  if (names.length > 1) return t('stats_draw')
   return names[0]
 })
 
@@ -119,7 +119,7 @@ const leaderColor = computed(() => {
 
 const currentPlayerLabel = computed(() =>
   props.gameBoard.isMyTurn
-    ? 'Ваш ход'
+    ? t('ui_your_turn')
     : (props.gameBoard.currentPlayer?.name ?? '')
 )
 
@@ -158,7 +158,7 @@ const isComputerTurn = computed(
 )
 
 const currentPlayerName = computed(() => {
-  if (props.gameBoard.isMyTurn) return 'Вы'
+  if (props.gameBoard.isMyTurn) return t('stats_you')
   return props.gameBoard.currentPlayer?.name ?? '—'
 })
 
@@ -167,27 +167,27 @@ const currentTurnNumber = computed(() => getCurrentTurnNumber(props.gameBoard))
 const phaseLabel = computed(() => {
   if (props.gameBoard.dragonMove) {
     return isMyTurn.value
-      ? 'Выберите, куда шагнуть драконом'
-      : `${currentPlayerName.value} двигает дракона`
+      ? t('phase_dragon_own')
+      : t('phase_dragon_other', { name: currentPlayerName.value })
   }
   if (props.gameBoard.princessChoice) {
     return isMyTurn.value
-      ? 'Выберите подданного для принцессы'
-      : `${currentPlayerName.value} выбирает подданного`
+      ? t('phase_princess_own')
+      : t('phase_princess_other', { name: currentPlayerName.value })
   }
   if (props.gameBoard.isPlacingFollower) {
     return isMyTurn.value
-      ? 'Выставьте подданного или пропустите'
-      : `${currentPlayerName.value} выставляет подданного`
+      ? t('phase_follower_own')
+      : t('phase_follower_other', { name: currentPlayerName.value })
   }
   if (props.gameBoard.currentTile) {
     return isMyTurn.value
-      ? 'Поставьте тайл на поле'
-      : `${currentPlayerName.value} ставит тайл`
+      ? t('phase_tile_own')
+      : t('phase_tile_other', { name: currentPlayerName.value })
   }
   return isMyTurn.value
-    ? 'Ваш ход'
-    : `${currentPlayerName.value} готовится к ходу`
+    ? t('phase_waiting_own')
+    : t('phase_waiting_other', { name: currentPlayerName.value })
 })
 
 const turnScores = computed(() => {
@@ -218,15 +218,45 @@ const scoreBreakdownTitle = (playerId: PlayerId): string => {
     playerId
   )
   const entries = [
-    { label: 'Города', value: breakdown.cities },
-    { label: 'Дороги', value: breakdown.roads },
-    { label: 'Монастыри', value: breakdown.monasteries },
-    { label: 'Сады', value: breakdown.gardens },
-    { label: 'Поля', value: breakdown.fields },
-    { label: 'Прочее', value: breakdown.other },
+    {
+      get label() {
+        return t('breakdown_cities')
+      },
+      value: breakdown.cities,
+    },
+    {
+      get label() {
+        return t('breakdown_roads')
+      },
+      value: breakdown.roads,
+    },
+    {
+      get label() {
+        return t('breakdown_monasteries')
+      },
+      value: breakdown.monasteries,
+    },
+    {
+      get label() {
+        return t('breakdown_gardens')
+      },
+      value: breakdown.gardens,
+    },
+    {
+      get label() {
+        return t('breakdown_fields')
+      },
+      value: breakdown.fields,
+    },
+    {
+      get label() {
+        return t('breakdown_other')
+      },
+      value: breakdown.other,
+    },
   ].filter((entry) => entry.value > 0)
 
-  if (!entries.length) return 'Очки за партию'
+  if (!entries.length) return t('stats_game_points')
   return entries.map((entry) => `${entry.label}: ${entry.value}`).join(' · ')
 }
 
@@ -271,7 +301,7 @@ const nextPlayerName = computed(() => {
   )
   if (!next) return ''
   if (ownPlayer.value && String(next.id) === String(ownPlayer.value.id)) {
-    return 'Вы'
+    return t('stats_you')
   }
   return next.name ?? ''
 })
@@ -332,30 +362,45 @@ const objectSummaries = computed(() => {
       key: 'cities',
       icon: 'i-lucide-castle',
       value: objects.cities,
-      label: pluralForm(objects.cities, 'город', 'города', 'городов'),
+      label: plural(objects.cities, {
+        one: t('stats_city_one'),
+        two: t('stats_city_two'),
+        five: t('stats_city_five'),
+        other: t('stats_cities'),
+      }),
     },
     {
       key: 'roads',
       icon: 'i-lucide-route',
       value: objects.roads,
-      label: pluralForm(objects.roads, 'дорога', 'дороги', 'дорог'),
+      label: plural(objects.roads, {
+        one: t('stats_road_one'),
+        two: t('stats_road_two'),
+        five: t('stats_road_five'),
+        other: t('stats_roads'),
+      }),
     },
     {
       key: 'monasteries',
       icon: 'i-lucide-church',
       value: objects.monasteries,
-      label: pluralForm(
-        objects.monasteries,
-        'монастырь',
-        'монастыря',
-        'монастырей'
-      ),
+      label: plural(objects.monasteries, {
+        one: t('stats_monastery_one'),
+        two: t('stats_monastery_two'),
+        five: t('stats_monastery_five'),
+        other: t('stats_monasteries'),
+      }),
     },
     {
       key: 'gardens',
       icon: 'i-lucide-flower-2',
       value: objects.gardens,
-      label: pluralForm(objects.gardens, 'сад', 'сада', 'садов'),
+      label: plural(objects.gardens, {
+        one: t('stats_garden_one'),
+        two: t('stats_garden_two'),
+        five: t('stats_garden_five'),
+        other: t('stats_gardens'),
+      }),
     },
   ]
 })

@@ -5,6 +5,8 @@ import {
   princessAndDragonRulesSection,
   riverRulesSection,
 } from './baseGame/index'
+import { getLocale } from '@/utils/i18n'
+import { localizeRulesDocument } from './localize'
 
 export const baseGameRules: RulesDocument = {
   id: 'base-game',
@@ -18,3 +20,7 @@ export const baseGameRules: RulesDocument = {
     riverRulesSection,
   ],
 }
+
+/** Правила на языке интерфейса: английский текст подставляется при выборе en. */
+export const getBaseGameRules = (): RulesDocument =>
+  getLocale() === 'en' ? localizeRulesDocument(baseGameRules) : baseGameRules

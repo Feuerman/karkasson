@@ -8,6 +8,7 @@ import {
 } from '@server/modules/types'
 import type { GameAction } from '@server/modules/gameActions'
 import { getFollowerPlaceType, type FollowerPlaceType } from './followerPlaces'
+import { getLocale, t } from './i18n'
 
 export interface TurnScoreChange {
   playerId: PlayerId
@@ -87,7 +88,8 @@ export const buildTurnSummary = (
     const player = playersById.get(String(playerId))
     return {
       playerId,
-      playerName: player?.name || `Игрок ${String(playerId)}`,
+      playerName:
+        player?.name || t('turn_player_fallback', { id: String(playerId) }),
       color: player?.color ?? null,
       isOwn: ownPlayerId != null && String(playerId) === String(ownPlayerId),
     }
@@ -169,7 +171,7 @@ export const buildTurnSummary = (
     .sort(
       (left, right) =>
         right.points - left.points ||
-        left.playerName.localeCompare(right.playerName, 'ru')
+        left.playerName.localeCompare(right.playerName, getLocale())
     )
 
   return {
@@ -177,8 +179,8 @@ export const buildTurnSummary = (
     turnNumber: isFinalScoring ? null : (firstAction.turnNumber ?? null),
     playerId: initiator?.id ?? null,
     playerName: isFinalScoring
-      ? 'Финальный подсчёт'
-      : initiator?.name || 'Ход игрока',
+      ? t('turn_final_scoring')
+      : initiator?.name || t('turn_player_turn'),
     color: initiator?.color ?? null,
     isOwn:
       !isFinalScoring &&
