@@ -60,7 +60,23 @@
           />
         </label>
 
+        <p v-if="roomCodeError" class="mb-2 text-sm text-negative">
+          {{ roomCodeError }}
+        </p>
+
+        <div v-if="gamesListError" class="flex flex-col items-center gap-2">
+          <UEmpty
+            icon="i-lucide-alert-circle"
+            :title="t('ui_error_games_list')"
+            :description="gamesListError"
+            class="mx-auto my-auto opacity-80"
+          />
+          <UButton color="primary" @click="emit('retryGamesList')">
+            {{ t('lobby_retry') }}
+          </UButton>
+        </div>
         <div
+          v-else
           class="flex max-h-[52vh] min-h-[320px] flex-col gap-2.5 overflow-y-auto pb-1 pr-1"
         >
           <UEmpty
@@ -92,6 +108,7 @@
     <CreateGameModal
       v-model:open="isCreateGameModalOpen"
       :pending="isCreateGamePending"
+      :error="createGameError"
       @create="createGame"
     />
 
@@ -214,6 +231,12 @@ const props = withDefaults(
     /** Ключи команд, ожидающих ответа сервера: показываем индикатор занятости. */
     pendingActions?: string[]
     sessionId?: string
+    /** Ошибка загрузки списка партий: показываем вместо списка с кнопкой повтора. */
+    gamesListError?: string | null
+    /** Ошибка поиска комнаты по коду: показываем под полем ввода. */
+    roomCodeError?: string | null
+    /** Ошибка создания партии: показываем в модалке создания. */
+    createGameError?: string | null
   }>(),
   {
     gamesList: () => [],
@@ -225,6 +248,9 @@ const props = withDefaults(
     showRoom: false,
     pendingActions: () => [],
     sessionId: '',
+    gamesListError: null,
+    roomCodeError: null,
+    createGameError: null,
   }
 )
 
@@ -237,6 +263,7 @@ const emit = defineEmits<{
   addPlayer: [name: string, index: number]
   removePlayer: [index: number, keepAsComputer: boolean]
   startGame: []
+  retryGamesList: []
 }>()
 
 /** Слоты с игроками и свободные слоты: показываются отдельными списками. */
