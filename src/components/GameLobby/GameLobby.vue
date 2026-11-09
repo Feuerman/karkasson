@@ -126,6 +126,7 @@
               :pending="isGamePending(game)"
               @join="joinGame"
               @rejoin="rejoinGame"
+              @spectate="spectateGame"
             />
           </template>
         </div>
@@ -288,6 +289,7 @@ const emit = defineEmits<{
   createGame: [options: CreateGameOptions]
   joinGame: [gameId: string, password?: string]
   rejoinGame: [gameId: string]
+  spectateGame: [gameId: string]
   leaveGame: []
   backToList: []
   addPlayer: [name: string, index: number]
@@ -391,6 +393,11 @@ function joinGame(gameId: string | undefined) {
 function rejoinGame(gameId: string | undefined) {
   if (gameId === undefined) return
   emit('rejoinGame', gameId)
+}
+
+function spectateGame(gameId: string | undefined) {
+  if (gameId === undefined) return
+  emit('spectateGame', gameId)
 }
 
 function addPlayer(name: string | null | undefined, index: number) {
