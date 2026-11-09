@@ -35,6 +35,7 @@ import {
   type ConnectionErrorCode,
   type ConnectionPhase,
 } from './connectionStatus'
+import { safeRandomUUID } from '@/utils/crypto'
 
 const logger = createLogger('GameService')
 
@@ -117,21 +118,12 @@ const SOCKET_ACK_TIMEOUT_MS = 15_000
 /** Версия протокола этого клиента: сверяется с ответом сервера. */
 const CLIENT_PROTOCOL_VERSION = PROTOCOL_VERSION
 
-let commandSequence = 0
-
 /**
  * Ключ идемпотентности игровой команды. Повторная доставка того же запроса
  * после таймаута ack не должна применить ход дважды.
  */
 function createCommandId(): string {
-  const cryptoApi = globalThis.crypto
-  if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
-    return cryptoApi.randomUUID()
-  }
-  commandSequence = (commandSequence + 1) % 1_000_000
-  return `cmd-${Date.now().toString(36)}-${commandSequence.toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 10)}`
+  return safeRandomUUID()
 }
 
 function readStoredSessionToken(): string {
