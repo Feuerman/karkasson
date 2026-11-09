@@ -35,6 +35,7 @@
         @start-game="startGame"
         @rejoin-game="rejoinGame"
         @join-game="joinGame"
+        @spectate-game="spectateGame"
         @leave-game="leaveGame"
         @back-to-list="backToList"
         @create-game="createGame"
@@ -164,6 +165,9 @@ const toggleSound = () => {
  * остаётся за ним, в отличие от выхода из комнаты.
  */
 const showRoom = ref(false)
+
+/** Текущий игрок наблюдает за партией, неoccupying слот и не участвуя в подсчёте. */
+const isSpectator = ref(false)
 
 /**
  * Панель итогов партии.
@@ -321,6 +325,23 @@ const rejoinGame = async (gameId: string) => {
   })
 }
 
+const spectateGame = async (gameId: string) => {
+  await runPending(pendingActionKeys.spectateGame(gameId), async () => {
+    try {
+      isSpectator.value = true
+      const game = await GameService.joinSpectator(gameId)
+      if (game.gameIsStarted) {
+        onGameStart(game)
+      } else {
+        enterGame(game)
+      }
+    } catch (error) {
+      isSpectator.value = false
+      notifyError(error)
+    }
+  })
+}
+
 /** Сбрасывает локальное состояние партии перед возвратом в лобби. */
 const clearSession = () => {
   activeGameId = undefined
@@ -418,9 +439,12 @@ const goInLobby = async () => {
   if (!confirmLeaveActiveGame()) return
   await runPending(pendingActionKeys.leaveGame(), async () => {
     try {
-      await GameService.leaveGame()
+      if (!isSpectator.value) {
+        await GameService.leaveGame()
+      }
       forgetLastGame()
       clearSession()
+      isSpectator.value = false
       showLobby.value = true
       gameState.value = {} as IGameBoard
       getGamesList()
