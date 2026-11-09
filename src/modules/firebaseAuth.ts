@@ -39,9 +39,9 @@ export function initFirebaseAuth(): { app: FirebaseApp; auth: Auth } | null {
     app = getApps()[0]
   } else {
     app = initializeApp({
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+      apiKey: String(import.meta.env.VITE_FIREBASE_API_KEY),
+      authDomain: String(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+      projectId: String(import.meta.env.VITE_FIREBASE_PROJECT_ID),
     })
   }
   auth = getAuth(app)
