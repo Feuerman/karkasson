@@ -56,6 +56,8 @@ export interface IGameService {
   linkAccount: () => Promise<{ userId: string }>
   /** Восстановление доступа к играм пользователя по userId. */
   restoreAccount: (userId: string) => Promise<GameData[]>
+  /** Идентификатор привязанного пользователя Firebase Auth, или null. */
+  userId: Ref<string | null>
 }
 
 export type SocketPayload = Record<string, unknown>
@@ -183,6 +185,8 @@ export class GameService implements IGameService {
   connectionErrorCode = ref<ConnectionErrorCode | null>(null)
   /** Сервер подтвердил сессию для текущего сокета. */
   sessionReady = ref(false)
+  /** Идентификатор привязанного пользователя Firebase Auth, или null. */
+  userId = ref<string | null>(null)
   /** Версия серверного протокола, полученная при регистрации сессии. */
   serverProtocolVersion = ref<string | null>(null)
   /** Протокол клиента и сервера не совпадают: нужна перезагрузка страницы. */
@@ -719,6 +723,7 @@ export class GameService implements IGameService {
     if (!response.success) {
       throw new Error(t('ui_error_account_link_failed'))
     }
+    this.userId.value = user.uid
     return { userId: user.uid }
   }
 
@@ -735,6 +740,7 @@ export class GameService implements IGameService {
     if (!response.success) {
       throw new Error(t('ui_error_account_restore_failed'))
     }
+    this.userId.value = userId
     return response.games ?? []
   }
 

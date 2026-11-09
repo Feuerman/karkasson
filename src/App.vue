@@ -71,6 +71,11 @@
         @play-again="playAgain"
         @close="showResultPanel = false"
       />
+      <SettingsPanel
+        v-if="showSettings"
+        :open="showSettings"
+        @update:open="showSettings = $event"
+      />
       <RulesPanel
         v-if="rulesDocument"
         v-model:open="showRules"
@@ -107,6 +112,7 @@ import {
   pendingActionKeys,
   usePendingActions,
 } from './composables/usePendingActions'
+import { useSettings } from './composables/useSettings'
 import { t, getLocale, setLocale } from './utils/i18n'
 import { criticalError } from './modules/criticalError'
 import ErrorScreen from './components/ErrorScreen.vue'
@@ -121,6 +127,10 @@ const RulesPanel = defineAsyncComponent(
 )
 
 const GameLobby = defineAsyncComponent(() => import('./components/GameLobby'))
+
+const SettingsPanel = defineAsyncComponent(
+  () => import('./components/SettingsPanel.vue')
+)
 
 const GameResultPanel = defineAsyncComponent(
   () => import('./components/GameResultPanel.vue')
@@ -151,12 +161,8 @@ watch(
 
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
-const soundEnabled = ref(localStorage.getItem('soundEnabled') !== 'false')
-
-const toggleSound = () => {
-  soundEnabled.value = !soundEnabled.value
-  localStorage.setItem('soundEnabled', String(soundEnabled.value))
-}
+const showSettings = ref(false)
+const { soundEnabled, toggleSound } = useSettings()
 
 /**
  * Показывать комнату, а не список партий.
@@ -576,6 +582,11 @@ const menuItems = computed<GameMenuItem[]>(() => {
   const items: GameMenuItem[] = [
     { id: 'rules', label: t('ui_menu_rules'), icon: 'i-lucide-circle-help' },
     {
+      id: 'settings',
+      label: t('ui_settings'),
+      icon: 'i-lucide-settings',
+    },
+    {
       id: 'language',
       label: languageLabel.value,
       icon: 'i-lucide-globe',
@@ -623,6 +634,10 @@ const onResetLayout = () => {
 }
 
 const onMenuSelect = async (id: string) => {
+  if (id === 'settings') {
+    showSettings.value = true
+    return
+  }
   if (id === 'language') {
     await toggleLanguage()
     return
