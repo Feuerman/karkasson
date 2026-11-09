@@ -362,6 +362,11 @@ const messages: Record<Locale, Messages> = {
       'Добавляет тайлы с принцессой, драконом и вулканом.',
     lobby_cancel: 'Отмена',
     lobby_create_submit: 'Создать игру',
+    lobby_password_placeholder: 'Пароль комнаты',
+    lobby_password_label: 'Пароль',
+    lobby_private_label: 'Приватная комната',
+    lobby_private_description:
+      'Комната не попадёт в общий список. Зайти можно только по номеру и паролю.',
 
     // Панель партии.
     stats_draw: 'Ничья',
@@ -771,6 +776,11 @@ const messages: Record<Locale, Messages> = {
       'Adds tiles with the princess, the dragon, and volcanoes.',
     lobby_cancel: 'Cancel',
     lobby_create_submit: 'Create game',
+    lobby_password_placeholder: 'Room password',
+    lobby_password_label: 'Password',
+    lobby_private_label: 'Private room',
+    lobby_private_description:
+      'The room will not appear in the public list. Join only by room number and password.',
 
     stats_draw: 'Draw',
     stats_leader: 'Score leader',
@@ -915,6 +925,8 @@ const errors: Record<Locale, Record<string, string>> = {
     'lobby.player_name_profanity': 'Player name contains prohibited words',
     'lobby.player_name_taken':
       'A player with this name is already in the lobby',
+    'lobby.password_required': 'This room is private — password required',
+    'lobby.invalid_password': 'Invalid room password',
     'game.not_players_turn': "It's another player's turn — wait for your turn",
     'game.invalid_tile_rotation': 'Invalid tile rotation',
     'game.resolve_expansion_action_first':

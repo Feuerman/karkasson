@@ -24,6 +24,8 @@ export type GamesListFilter = 'all' | 'waiting' | 'started' | 'ended'
 export interface GameSummary {
   id: string | undefined
   roomCode: string
+  /** Признак приватной комнаты: не показывается в общем списке без кода. */
+  isPrivate: boolean
   players: GameSummaryPlayer[]
   currentPlayer: PlayerId | null
   gameIsEnded: boolean
@@ -44,6 +46,8 @@ export type GameSummarySource = Partial<
   Pick<
     IGameState,
     | 'roomCode'
+    | 'passwordHash'
+    | 'isPrivate'
     | 'players'
     | 'currentPlayer'
     | 'gameIsEnded'
@@ -60,6 +64,7 @@ export function toGameSummary(game: GameSummarySource): GameSummary {
   return {
     id: game.id,
     roomCode: game.roomCode ?? '',
+    isPrivate: game.isPrivate ?? false,
     players: (game.players ?? []).map(toPlayerView),
     currentPlayer: game.currentPlayer?.id ?? null,
     gameIsEnded: game.gameIsEnded ?? false,

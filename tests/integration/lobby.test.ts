@@ -111,6 +111,78 @@ describe('Лобби', () => {
     expect(response.game.id).toBe(lobby.gameId)
   })
 
+  it('приватная комната с паролем не попадает в общий список и входит только по паролю', async () => {
+    server = await startTestServer()
+    const creator = new TestClient(server.url, 'device-private-creator')
+    clients.push(creator)
+    await creator.connect()
+    await creator.registerSession()
+
+    creator.emit(SocketEvents.CreateGame, {
+      isPrivate: true,
+      password: 'sekret',
+    })
+    const { gameId } = await creator.waitForEvent<{ gameId: string }>(
+      SocketEvents.GameCreated
+    )
+
+    // Не видна в общем списке ни для создателя, ни для гостя.
+    const { games } = await creator.emitAck<{
+      games: Array<{ id: string }>
+    }>(SocketEvents.GetGamesList)
+    expect(games.find((g) => g.id === gameId)).toBeFalsy()
+
+    // Вход без пароля отвергается (пароль установлен при создании).
+    const visitor = new TestClient(server.url, 'device-private-visitor')
+    clients.push(visitor)
+    await visitor.connect()
+    await visitor.registerSession()
+
+    await expect(
+      visitor.emitAck(SocketEvents.JoinGame, { gameId })
+    ).rejects.toThrow(LobbyErrors.InvalidPassword)
+
+    // Неверный пароль отвергается.
+    await expect(
+      visitor.emitAck(SocketEvents.JoinGame, { gameId, password: 'wrong' })
+    ).rejects.toThrow(LobbyErrors.InvalidPassword)
+
+    // Верный пароль — заходит.
+    const response = await visitor.emitAck<{
+      success: boolean
+      game: TestGameData
+    }>(SocketEvents.JoinGame, { gameId, password: 'sekret' })
+
+    expect(response.success).toBe(true)
+    expect(response.game.id).toBe(gameId)
+  })
+
+  it('приватная комната без пароля входит только с PasswordRequired при отсутствии пароля', async () => {
+    server = await startTestServer()
+    const creator = new TestClient(server.url, 'device-private-nopwd-creator')
+    clients.push(creator)
+    await creator.connect()
+    await creator.registerSession()
+
+    creator.emit(SocketEvents.CreateGame, { isPrivate: true })
+    const { gameId } = await creator.waitForEvent<{ gameId: string }>(
+      SocketEvents.GameCreated
+    )
+
+    const visitor = new TestClient(server.url, 'device-private-nopwd-visitor')
+    clients.push(visitor)
+    await visitor.connect()
+    await visitor.registerSession()
+
+    // Пароля нет вообще — PasswordRequired при любом вводе.
+    await expect(
+      visitor.emitAck(SocketEvents.JoinGame, { gameId })
+    ).rejects.toThrow(LobbyErrors.PasswordRequired)
+    await expect(
+      visitor.emitAck(SocketEvents.JoinGame, { gameId, password: 'any' })
+    ).rejects.toThrow(LobbyErrors.PasswordRequired)
+  })
+
   it('назначает разным комнатам разные номера', async () => {
     server = await startTestServer()
     const first = server.handle.gameService.createLobby(

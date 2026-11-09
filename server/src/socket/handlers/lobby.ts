@@ -19,7 +19,10 @@ function isComputerOnlyGame(game: GameManager): boolean {
 }
 
 /** Опции лобби и текст ошибки для каждой из них. */
-const LOBBY_OPTION_ERRORS: Record<keyof GameOptions, string> = {
+const LOBBY_OPTION_ERRORS: Record<
+  Exclude<keyof GameOptions, 'password' | 'isPrivate'>,
+  string
+> = {
   finalScoringEnabled: LobbyErrors.InvalidFinalScoringOption,
   innsAndCathedralsEnabled: LobbyErrors.InvalidInnsAndCathedralsOption,
   riverEnabled: LobbyErrors.InvalidRiverOption,
@@ -158,7 +161,8 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       const result = service.joinFirstFreeSlot(
         resolvedGameId,
         socket.id,
-        sessionId
+        sessionId,
+        request.password
       )
 
       if ('error' in result) {

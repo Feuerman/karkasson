@@ -294,6 +294,10 @@ export interface GameOptions {
   innsAndCathedralsEnabled?: boolean
   riverEnabled?: boolean
   princessAndDragonEnabled?: boolean
+  /** Пароль приватной комнаты. Сервер хранит только хеш. */
+  password?: string
+  /** Признак приватной комнаты: не попадает в общий список лобби. */
+  isPrivate?: boolean
 }
 
 /** Настройки дополнений партии. */

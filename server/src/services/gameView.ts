@@ -45,6 +45,8 @@ export interface GameData {
   moveCounter: number
   id: string | undefined
   roomCode?: string
+  /** Признак приватной комнаты; пароль клиенту не отдаётся. */
+  isPrivate: boolean
   isPlacingFollower: boolean
   isPlacingFairy: boolean
   scores: IGameState['scores']
@@ -113,6 +115,7 @@ export function formatGameData(
     moveCounter: game.moveCounter,
     id: game.id,
     roomCode: game.roomCode,
+    isPrivate: game.isPrivate,
     isPlacingFollower: game.isPlacingFollower,
     isPlacingFairy: game.isPlacingFairy,
     scores: game.scores,

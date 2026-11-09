@@ -36,6 +36,8 @@ export interface GameRequest {
   gameId: string
   /** Ключ идемпотентности: повтор с тем же ключом не применяет ход дважды. */
   commandId?: string
+  /** Пароль приватной комнаты (опционально, для публичных комнат не требуется). */
+  password?: string
 }
 
 export interface AddPlayerRequest extends GameRequest {
@@ -78,7 +80,7 @@ export interface PlaceFollowerRequest extends GameRequest {
 
 export interface CreateGameRequest {
   options: GameOptions
-  invalidOption?: keyof GameOptions
+  invalidOption?: Exclude<keyof GameOptions, 'password' | 'isPrivate'>
 }
 
 export interface CallbackRequest {
@@ -339,13 +341,31 @@ function readProtocolVersion(value: unknown): string | undefined {
   return value
 }
 
+/** Пароль комнаты: строка 1–64 символов без управляющих и невидимых знаков. */
+function readPassword(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'string' || value.length === 0 || value.length > 64) {
+    return undefined
+  }
+  if (hasControlOrFormatCharacters(value)) return undefined
+  return value
+}
+
+function readIsPrivate(value: unknown): boolean | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'boolean') return undefined
+  return value
+}
+
 export function parseCreateGame(value: unknown): CreateGameRequest | undefined {
   if (value === undefined || value === null) return { options: {} }
   const record = asRecord(value)
   if (!record) return undefined
 
   const options: GameOptions = {}
-  const optionNames: Array<keyof GameOptions> = [
+  const optionNames: Array<
+    Exclude<keyof GameOptions, 'password' | 'isPrivate'>
+  > = [
     'finalScoringEnabled',
     'innsAndCathedralsEnabled',
     'riverEnabled',
@@ -359,6 +379,13 @@ export function parseCreateGame(value: unknown): CreateGameRequest | undefined {
     }
     options[option] = optionValue
   }
+
+  const password = readPassword(record.password)
+  if (password !== undefined) options.password = password
+
+  const isPrivate = readIsPrivate(record.isPrivate)
+  if (isPrivate !== undefined) options.isPrivate = isPrivate
+
   return { options }
 }
 
@@ -372,7 +399,10 @@ export function parseGameRequest(value: unknown): GameRequest | undefined {
   const gameId = readGameId(record.gameId)
   const commandId = readCommandId(record)
   if (!gameId || commandId === null) return undefined
-  return { gameId, ...commandIdField(commandId) }
+  const password = readPassword(record.password)
+  return password === undefined
+    ? { gameId, ...commandIdField(commandId) }
+    : { gameId, ...commandIdField(commandId), password }
 }
 
 export function parseGetGamesList(value: unknown): GetGamesListRequest {
