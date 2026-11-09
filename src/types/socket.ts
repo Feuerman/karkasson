@@ -60,6 +60,11 @@ export interface GameCreatedPayload {
   game: GameData
 }
 
+/** Ответ на вход в партию как зритель. */
+export interface SpectatorResponse {
+  game: GameData
+}
+
 export interface CreateGameResponse extends SocketAckBase {
   gameId: string
   game: GameData

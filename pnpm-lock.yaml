@@ -19,6 +19,9 @@ importers:
       '@nuxt/ui':
         specifier: ^4.11.2
         version: 4.11.2(a53fce610198c23235539ddb7882a6d2)
+      firebase:
+        specifier: ^11.9.0
+        version: 11.10.0
       socket.io-client:
         specifier: ^4.7.2
         version: 4.8.3
