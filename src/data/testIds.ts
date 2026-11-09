@@ -8,6 +8,7 @@ export const TEST_IDS = {
   lobbyCopyRoomCode: 'lobby-copy-room-code',
   lobbyLeaveRoom: 'lobby-leave-room',
   lobbyBackToList: 'lobby-back-to-list',
+  lobbyGoogleLogin: 'lobby-google-login',
   createGameModalTitle: 'create-game-modal-title',
   createGameFinalScoring: 'create-game-final-scoring',
   createGamePrincessDragon: 'create-game-princess-dragon',

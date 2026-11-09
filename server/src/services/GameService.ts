@@ -43,6 +43,12 @@ import {
   type GameOptions,
   type Player,
 } from '../modules/types'
+import {
+  addUserSession,
+  getSessionUserId,
+  getUserSessions,
+  removeUserSession,
+} from '../modules/userSessions'
 
 export type { GameData } from './gameView'
 export type {
@@ -143,6 +149,12 @@ const MAX_COMPLETED_COMMANDS_PER_GAME = 200
 /** Минимум игроков с именем, при котором партию можно начать. */
 const MIN_PLAYERS = 2
 
+/** Лимит зрителей на одну партию. */
+const MAX_SPECTATORS_PER_GAME = 10
+
+/** Лимит зрителей от одной сессии. */
+const MAX_SPECTATORS_PER_SESSION = 3
+
 function ignoreResult(): void {}
 
 /**
@@ -184,6 +196,8 @@ export class GameService {
   private unreadableSaves = 0
   /** Сколько записей в хранилище завершились ошибкой. */
   private saveFailureCount = 0
+  /** Зрители активных партий: gameId → множество sessionId. Живёт только в памяти инстанса. */
+  private readonly spectators = new Map<string, Set<string>>()
   private readonly limits: GameServiceLimits
 
   constructor(
@@ -957,6 +971,146 @@ export class GameService {
     }
 
     return { game, players }
+  }
+
+  // ------------------------------------------------------------------ spectators
+
+  /**
+   * Добавляет сессию в наблюдатели партии.
+   *
+   * Зритель неoccupies слот, не получает права хода и не участвует в�счёте
+   * очков. Сохраняется только в памяти инстанса: при перезапуске сервера
+   * наблюдатели теряются, что приемлемо — они могут зайти повторно.
+   *
+   * Возвращает `{ game }` при успехе или `{ error }` при отказе.
+   */
+  joinSpectator(
+    gameId: string,
+    sessionId: string
+  ): { game: GameManager } | { error: string } {
+    const game = this.games[gameId]
+    if (!game) return { error: CommonErrors.GameNotFound }
+
+    // Наблюдать можно только уже начатую партию.
+    if (!game.gameIsStarted) {
+      return { error: LobbyErrors.SpectatorNotAllowed }
+    }
+
+    // Одна сессия не может быть зрителем двух сокетов в одной партии.
+    const spectators = this.spectators.get(gameId) ?? new Set()
+    if (spectators.has(sessionId)) {
+      return { error: LobbyErrors.AlreadyJoinedGame }
+    }
+
+    // Глобальный лимит на партию.
+    if (spectators.size >= MAX_SPECTATORS_PER_GAME) {
+      return { error: LobbyErrors.SpectatorLimitReached }
+    }
+
+    // Лимит на сессию: считаем все партии, где эта сессия наблюдает.
+    let sessionSpectatorGames = 0
+    for (const set of this.spectators.values()) {
+      if (set.has(sessionId)) sessionSpectatorGames += 1
+    }
+    if (sessionSpectatorGames >= MAX_SPECTATORS_PER_SESSION) {
+      return { error: LobbyErrors.SpectatorLimitReached }
+    }
+
+    spectators.add(sessionId)
+    this.spectators.set(gameId, spectators)
+    return { game }
+  }
+
+  /**
+   * Удаляет сессию из наблюдателей конкретной партии.
+   */
+  removeSpectator(gameId: string, sessionId: string): void {
+    const sessions = this.spectators.get(gameId)
+    if (!sessions) return
+    sessions.delete(sessionId)
+    if (sessions.size === 0) {
+      this.spectators.delete(gameId)
+    } else {
+      this.spectators.set(gameId, sessions)
+    }
+  }
+
+  /** Число зрителей партии. */
+  getSpectatorCount(gameId: string): number {
+    return this.spectators.get(gameId)?.size ?? 0
+  }
+
+  /** Партии, где данная сессия является зрителем. */
+  findSpectatorGamesForSession(sessionId: string): string[] {
+    const result: string[] = []
+    for (const [gameId, sessions] of this.spectators) {
+      if (sessions.has(sessionId)) result.push(gameId)
+    }
+    return result
+  }
+
+  // ------------------------------------------------------------------ accounts
+
+  /**
+   * Привязывает текущую сессию к пользователю Firebase Auth.
+   *
+   * Один пользователь может иметь несколько сессий (разные вкладки), но не
+   * больше MAX_USER_SESSIONS. Привязка живет только в памяти инстанса.
+   */
+  linkSessionToUser(sessionId: string, userId: string): boolean {
+    return addUserSession(userId, sessionId)
+  }
+
+  /** Отвязывает сессию от пользователя (выход из аккаунта). */
+  unlinkSessionFromUser(sessionId: string): void {
+    removeUserSession(sessionId)
+  }
+
+  /** Все сессии пользователя. */
+  getUserSessionsByUser(userId: string): string[] {
+    return getUserSessions(userId)
+  }
+
+  /** userId по sessionId, или null если сессия не привязана к аккаунту. */
+  getUserIdBySession(sessionId: string): string | null {
+    return getSessionUserId(sessionId)
+  }
+
+  /**
+   * Игры пользователя: все активные партии, где он является игроком (занял
+   * слот) или зрителем. Возвращает gameId.
+   */
+  getUserGames(userId: string): string[] {
+    const sessions = new Set(getUserSessions(userId))
+    if (sessions.size === 0) return []
+
+    const result = new Set<string>()
+
+    // Игры, где пользователь занял слот или наблюдает.
+    for (const game of this.allGames()) {
+      const gameId = game.id
+      if (!gameId) continue
+      if (
+        game.players.some((p) => {
+          const sid = p.sessionId
+          return sid !== null && sessions.has(sid)
+        })
+      ) {
+        result.add(gameId)
+        continue
+      }
+      const spectatorSet = this.spectators.get(gameId)
+      if (spectatorSet) {
+        for (const sid of spectatorSet) {
+          if (sessions.has(sid)) {
+            result.add(gameId)
+            break
+          }
+        }
+      }
+    }
+
+    return [...result]
   }
 
   // ------------------------------------------------------------------ persistence

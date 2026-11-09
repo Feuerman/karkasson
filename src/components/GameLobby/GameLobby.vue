@@ -41,6 +41,18 @@
             </template>
             {{ t('lobby_create_game') }}
           </UButton>
+          <UButton
+            color="secondary"
+            :data-testid="TEST_IDS.lobbyGoogleLogin"
+            class="min-h-11 cursor-pointer gap-2 rounded-lg px-6 py-2.5 text-base font-semibold shadow-soft"
+            :loading="isGoogleLoginPending"
+            @click="loginWithGoogle"
+          >
+            <template #leading>
+              <UIcon name="i-lucide-mail" class="h-5 w-5" />
+            </template>
+            {{ t('lobby_google_login') }}
+          </UButton>
         </div>
 
         <label
@@ -214,6 +226,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
+import GameService from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
 import type { IGame, LobbyGame } from '@/types/game'
@@ -232,6 +245,7 @@ import CreateGameModal from './internal/CreateGameModal.vue'
 import RoomCodeCopy from './internal/RoomCodeCopy.vue'
 import { buildGameRules, isRejoinable } from './internal/helpers'
 import { t } from '@/utils/i18n'
+import { notifyError } from '@/utils/common'
 
 const props = withDefaults(
   defineProps<{
@@ -306,6 +320,7 @@ const showEndedGames = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const roomCodePassword = ref('')
+const isGoogleLoginPending = ref(false)
 
 const isPendingAction = (key: string) => props.pendingActions.includes(key)
 
@@ -354,6 +369,18 @@ function joinByRoomCode() {
 function createGame(options: CreateGameOptions) {
   if (isCreateGamePending.value) return
   emit('createGame', options)
+}
+
+async function loginWithGoogle() {
+  if (isGoogleLoginPending.value) return
+  isGoogleLoginPending.value = true
+  try {
+    await GameService.linkAccount()
+  } catch (error) {
+    notifyError(error)
+  } finally {
+    isGoogleLoginPending.value = false
+  }
 }
 
 function joinGame(gameId: string | undefined) {
