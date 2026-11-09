@@ -456,6 +456,26 @@ const messages: Record<Locale, Messages> = {
     ui_settings_notifications: 'Уведомления',
     ui_settings_account: 'Аккаунт',
     ui_settings_close: 'Закрыть',
+    ui_onboarding_place_tile_title: 'Первый тайл',
+    ui_onboarding_place_tile_hint:
+      'Выберите свободную клетку на доске и нажмите «Разместить», чтобы выложить тайл.',
+    ui_onboarding_place_follower_title: 'Подданный',
+    ui_onboarding_place_follower_hint:
+      'После тайла можно выставить подданного на город, дорогу, монастырь или сад.',
+    ui_onboarding_move_dragon_title: 'Дракон',
+    ui_onboarding_move_dragon_hint:
+      'Выберите соседний тайл, куда шагнёт дракон. Каждый шаг съедает подданных на пути.',
+    ui_onboarding_princess_title: 'Принцесса',
+    ui_onboarding_princess_hint:
+      'Принцесса выгоняет рыцаря из города. Выберите, чьего подданного забрать.',
+    ui_onboarding_move_fairy_title: 'Фея',
+    ui_onboarding_move_fairy_hint:
+      'Вместо подданного можно передвинуть фею к своей фишке — она даст очко в конце хода.',
+    ui_onboarding_recall_abbot_title: 'Отзыв аббата',
+    ui_onboarding_recall_abbot_hint:
+      'Заберите аббата с монастыря или сада и получите очки за каждый соседний тайл.',
+    ui_onboarding_done: 'Понятно',
+    ui_onboarding_skip: 'Пропустить обучение',
     ui_account_title: 'Аккаунт',
     ui_account_signed_in: 'Вы вошли как',
     ui_account_not_linked: 'Аккаунт не привязан',
@@ -895,6 +915,26 @@ const messages: Record<Locale, Messages> = {
     ui_settings_notifications: 'Notifications',
     ui_settings_account: 'Account',
     ui_settings_close: 'Close',
+    ui_onboarding_place_tile_title: 'First tile',
+    ui_onboarding_place_tile_hint:
+      'Choose a free cell on the board and press «Place» to lay your tile.',
+    ui_onboarding_place_follower_title: 'Follower',
+    ui_onboarding_place_follower_hint:
+      'After placing a tile, you can put a follower on a city, road, monastery or garden.',
+    ui_onboarding_move_dragon_title: 'Dragon',
+    ui_onboarding_move_dragon_hint:
+      'Choose an adjacent tile for the dragon to step on. Each step eats followers on the way.',
+    ui_onboarding_princess_title: 'Princess',
+    ui_onboarding_princess_hint:
+      'The princess drives a knight out of the city. Choose whose follower to remove.',
+    ui_onboarding_move_fairy_title: 'Fairy',
+    ui_onboarding_move_fairy_hint:
+      'Instead of placing a follower, you can move the fairy to your piece — it scores a point at turn end.',
+    ui_onboarding_recall_abbot_title: 'Recall abbot',
+    ui_onboarding_recall_abbot_hint:
+      'Take the abbot back from a monastery or garden and score points for each adjacent tile.',
+    ui_onboarding_done: 'Got it',
+    ui_onboarding_skip: 'Skip tutorial',
     ui_account_title: 'Account',
     ui_account_signed_in: 'Signed in as',
     ui_account_not_linked: 'Account not linked',
