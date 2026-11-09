@@ -36,6 +36,7 @@ export const TEST_IDS = {
   pendingTilePreview: 'pending-tile-preview',
   placeTile: 'place-tile',
   placementError: 'placement-error',
+  onboardingHint: 'onboarding-hint',
   rotateTileClockwise: 'rotate-tile-clockwise',
   rotateTileCounterclockwise: 'rotate-tile-counterclockwise',
   cellRotateTileClockwise: 'cell-rotate-tile-clockwise',

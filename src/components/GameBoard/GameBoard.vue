@@ -170,6 +170,14 @@
     @rotate-tile="(direction) => rotateLocalTile(localCurrentTile, direction)"
     @place-tile="placeTile"
   />
+  <OnboardingHint
+    v-if="currentStep"
+    :step="currentStep"
+    :step-index="onboardingStepIndex"
+    :total-steps="onboarding.steps.length"
+    @done="onboarding.completeStep"
+    @skip="onboarding.skipStep"
+  />
   <ZoomControls
     :show-lobby="showLobby"
     :zoom-percent="zoomPercent"
@@ -202,7 +210,12 @@ import type { BoardCell, IGameBoard } from '../../types/game'
 import GameActionsHistory from '../GameActionsHistory'
 import GameAbbotRecall from '../GameAbbotRecall.vue'
 import { useBoardZoom } from '@/composables/useBoardZoom'
+import {
+  useOnboarding,
+  type OnboardingPhase,
+} from '@/composables/useOnboarding'
 import GameControls from '../GameControls.vue'
+import OnboardingHint from './internal/OnboardingHint.vue'
 import GamePlacingFollowers from '../GamePlacingFollowers.vue'
 import GamePrincessAndDragon from '../GamePrincessAndDragon.vue'
 import TileView from '../TileView.vue'
@@ -637,6 +650,86 @@ const { setZoomHandler, fairyTargetPreview, followerPlacementPreview } =
   useBoardZoom()
 setZoomHandler(zoomToTile)
 
+const onboarding = useOnboarding()
+
+/**
+ * Текущая фаза обучения: определяется по состоянию партии. Подсказка
+ * показывается только для первого непройденного шага этой фазы.
+ */
+const currentPhase = computed<OnboardingPhase | null>(() => {
+  const gb = gameBoard.value
+  if (!gb.gameIsStarted || gb.gameIsEnded) return null
+  if (gb.dragonMove) return 'move-dragon'
+  if (gb.princessChoice) return 'princess'
+  if (gb.isPlacingFairy) return 'move-fairy'
+  if (gb.isPlacingFollower) return 'place-follower'
+  if (canShowPlacementUi.value) return 'place-tile'
+  if (gb.abbotRecall && gb.isMyTurn) return 'recall-abbot'
+  return null
+})
+
+watch(
+  currentPhase,
+  (phase) => {
+    onboarding.setPhase(phase)
+  },
+  { immediate: true }
+)
+
+const currentStep = computed(() => onboarding.currentStep.value)
+
+const onboardingStepIndex = computed(() => {
+  const step = currentStep.value
+  if (!step) return -1
+  return onboarding.steps.findIndex((s) => s.id === step.id)
+})
+
+/**
+ * Завершает шаг обучения, когда сервер подтвердил действие игрока.
+ */
+watch(
+  () => gameBoard.value.actionsHistory?.length ?? 0,
+  (length, previousLength) => {
+    if (!previousLength || length === 0) return
+    const action = gameBoard.value.actionsHistory?.[length - 1]
+    if (!action) return
+    const stepIdByAction: Record<string, string> = {
+      [ActionTypes.PLACE_TILE]: 'place-tile',
+      [ActionTypes.PLACE_FOLLOWER]: 'place-follower',
+      [ActionTypes.DRAGON_MOVE]: 'move-dragon',
+      [ActionTypes.PRINCESS_TAKE_FOLLOWER]: 'princess',
+      [ActionTypes.MOVE_FAIRY]: 'move-fairy',
+    }
+    const stepId = stepIdByAction[action.actionType]
+    if (stepId && !onboarding.isCompleted(stepId)) {
+      onboarding.completeStep(stepId)
+    }
+  }
+)
+
+const placeTile = async (
+  tile: Tile | null,
+  { rowIndex, tileIndex }: { rowIndex?: number; tileIndex?: number }
+) => {
+  if (!tile) return
+  if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
+    notificationService.warning(t('action_select_cell_first'))
+    return
+  }
+
+  placementConflicts.value = []
+  try {
+    await GameService.placeTile(tile, { rowIndex, tileIndex })
+    clearPlacementError()
+  } catch (error: unknown) {
+    if (error instanceof SocketAckError) {
+      placementConflicts.value = error.conflicts
+    }
+    placementError.value = errorMessage(error, t('action_place_tile_error'))
+    notifyError(error, t('action_place_tile_error'))
+  }
+}
+
 const isFairyTargetPreview = (rowIndex: number, tileIndex: number) =>
   fairyTargetPreview.value?.rowIndex === rowIndex &&
   fairyTargetPreview.value?.tileIndex === tileIndex
@@ -857,29 +950,6 @@ const rotateLocalTile = (tile: Tile | null, direction: RotationDirection) => {
   void GameService.setCurrentTileRotation(newTile.rotation).catch((error) => {
     notifyError(error, t('action_rotate_tile_error'))
   })
-}
-
-const placeTile = async (
-  tile: Tile | null,
-  { rowIndex, tileIndex }: { rowIndex?: number; tileIndex?: number }
-) => {
-  if (!tile) return
-  if (typeof rowIndex !== 'number' || typeof tileIndex !== 'number') {
-    notificationService.warning(t('action_select_cell_first'))
-    return
-  }
-
-  placementConflicts.value = []
-  try {
-    await GameService.placeTile(tile, { rowIndex, tileIndex })
-    clearPlacementError()
-  } catch (error: unknown) {
-    if (error instanceof SocketAckError) {
-      placementConflicts.value = error.conflicts
-    }
-    placementError.value = errorMessage(error, t('action_place_tile_error'))
-    notifyError(error, t('action_place_tile_error'))
-  }
 }
 
 onMounted(() => {
