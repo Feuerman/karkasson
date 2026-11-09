@@ -11,7 +11,7 @@ import {
   LobbyErrors,
   SaveErrors,
 } from '../modules/errors'
-import { createHash, randomInt } from 'node:crypto'
+import { randomInt } from 'node:crypto'
 import {
   getSessionSecret,
   MAX_ACTIVE_AI_GAMES,
@@ -20,6 +20,7 @@ import {
   MAX_PENDING_SAVES_PER_GAME,
   MAX_TOTAL_GAMES,
 } from '../config'
+import { hashPassword, verifyPassword } from '../modules/password'
 import { playerNameKey } from '../modules/playerName'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
@@ -703,9 +704,7 @@ export class GameService {
     game.roomCode = this.createUniqueRoomCode()
     game.ownerSessionId = sessionId
     if (options.password) {
-      game.passwordHash = createHash('sha256')
-        .update(options.password)
-        .digest('hex')
+      game.passwordHash = hashPassword(options.password)
     }
     game.isPrivate = options.isPrivate ?? false
     this.games[gameId] = game
@@ -811,10 +810,9 @@ export class GameService {
     if (game.isPrivate) {
       const expected = game.passwordHash ?? null
       if (!expected) return { error: LobbyErrors.PasswordRequired }
-      const hash = createHash('sha256')
-        .update(password ?? '')
-        .digest('hex')
-      if (hash !== expected) return { error: LobbyErrors.InvalidPassword }
+      if (!verifyPassword(password ?? '', expected)) {
+        return { error: LobbyErrors.InvalidPassword }
+      }
     }
 
     if (game.gameIsStarted) return { error: LobbyErrors.GameAlreadyStarted }
