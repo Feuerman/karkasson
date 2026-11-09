@@ -8,6 +8,9 @@ import {
   parseCreateGame,
   parseGameRequest,
   parseGetGamesList,
+  parseLinkAccount,
+  parseRestoreAccount,
+  parseSpectatorRequest,
   payloadAndCallback,
 } from '../validation'
 import { errorResponse } from './errorResponse'
@@ -190,6 +193,129 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       ackGameUpdated(events, resolvedGameId, result.game, callback)
     })
   })
+
+  socket.on(
+    SocketEvents.JoinSpectator,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseSpectatorRequest(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+      const { gameId } = request
+
+      await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (guard.isJoinBlocked(ip)) {
+          emitSocketError(socket, service, CommonErrors.JoinAttemptsExceeded)
+          callback?.(errorResponse(CommonErrors.JoinAttemptsExceeded))
+          return
+        }
+
+        const existingGame = await service.resolveGame(gameId)
+        const resolvedGameId = existingGame?.id
+        if (!existingGame || !resolvedGameId) {
+          const failure = guard.recordJoinFailure(ip)
+          if (failure.delayMs > 0) await sleep(failure.delayMs)
+          const error = failure.blocked
+            ? CommonErrors.JoinAttemptsExceeded
+            : CommonErrors.GameNotFound
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+        guard.recordJoinSuccess(ip)
+
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          const error = CommonErrors.SessionRequired
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+
+        const result = service.joinSpectator(
+          resolvedGameId,
+          sessionId,
+          socket.id
+        )
+
+        if ('error' in result) {
+          emitSocketError(socket, service, result.error)
+          callback?.(errorResponse(result.error))
+          return
+        }
+
+        await socket.join(resolvedGameId)
+        const game = formatGameData(result.game)
+        socket.emit(SocketEvents.GameUpdated, game)
+        callback?.({ success: true, game })
+      })
+    }
+  )
+
+  socket.on(
+    SocketEvents.LinkAccount,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseLinkAccount(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          const error = CommonErrors.SessionRequired
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+
+        const ok = service.linkSessionToUser(sessionId, request.userId)
+        if (!ok) {
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
+        callback?.({ success: true })
+      })
+    }
+  )
+
+  socket.on(
+    SocketEvents.RestoreAccount,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseRestoreAccount(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          const error = CommonErrors.SessionRequired
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+
+        service.linkSessionToUser(sessionId, request.userId)
+
+        const gameIds = service.getUserGames(request.userId)
+        const games = gameIds
+          .map((id) => service.getGame(id))
+          .filter((game): game is GameManager => Boolean(game))
+          .map((game) => formatGameData(game))
+
+        callback?.({ success: true, games })
+      })
+    }
+  )
 
   socket.on(SocketEvents.StartGame, async (first: unknown, second: unknown) => {
     const { payload, callback } = payloadAndCallback(first, second)

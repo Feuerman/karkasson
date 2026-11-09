@@ -141,6 +141,15 @@ export async function runGameCommand(
           return
         }
 
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (
+          sessionId &&
+          service.findSpectatorGamesForSession(sessionId).includes(gameId)
+        ) {
+          callback?.(errorResponse(CommonErrors.InvalidRequest))
+          return
+        }
+
         if (
           !transient &&
           dedupeKey &&

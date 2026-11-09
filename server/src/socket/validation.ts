@@ -83,6 +83,16 @@ export interface CreateGameRequest {
   invalidOption?: Exclude<keyof GameOptions, 'password' | 'isPrivate'>
 }
 
+export interface SpectatorRequest extends GameRequest {}
+
+export interface LinkAccountRequest {
+  userId: string
+}
+
+export interface RestoreAccountRequest {
+  userId: string
+}
+
 export interface CallbackRequest {
   payload: unknown
   callback: SocketCallback | undefined
@@ -391,6 +401,36 @@ export function parseCreateGame(value: unknown): CreateGameRequest | undefined {
 
 export function parseJoinGame(value: unknown): GameRequest | undefined {
   return parseGameRequest(value)
+}
+
+export function parseSpectatorRequest(
+  value: unknown
+): SpectatorRequest | undefined {
+  return parseGameRequest(value)
+}
+
+function readUserId(value: unknown): string | undefined {
+  return readIdentifier(value, MAX_IDENTIFIER_LENGTH)
+}
+
+export function parseLinkAccount(
+  value: unknown
+): LinkAccountRequest | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+  const userId = readUserId(record.userId)
+  if (!userId) return undefined
+  return { userId }
+}
+
+export function parseRestoreAccount(
+  value: unknown
+): RestoreAccountRequest | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+  const userId = readUserId(record.userId)
+  if (!userId) return undefined
+  return { userId }
 }
 
 export function parseGameRequest(value: unknown): GameRequest | undefined {

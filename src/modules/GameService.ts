@@ -24,10 +24,12 @@ import type {
   RemovePlayerPayload,
   GameDeletedPayload,
   GameErrorPayload,
+  SpectatorResponse,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
 import { t, getLocale, type Locale } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
+import { signInWithGoogle } from '@/modules/firebaseAuth'
 import {
   classifyConnectError,
   type ConnectionErrorCode,
@@ -48,6 +50,12 @@ export interface IGameService {
     playerName?: string,
     password?: string
   ) => Promise<GameData>
+  /** Вход в уже начатую партию как наблюдатель. */
+  joinSpectator: (gameId: string) => Promise<GameData>
+  /** Привязка текущей сессии к аккаунту Firebase Auth. */
+  linkAccount: () => Promise<{ userId: string }>
+  /** Восстановление доступа к играм пользователя по userId. */
+  restoreAccount: (userId: string) => Promise<GameData[]>
 }
 
 export type SocketPayload = Record<string, unknown>
@@ -685,6 +693,49 @@ export class GameService implements IGameService {
     )
     this.gameId = gameId
     return response.game
+  }
+
+  /** Входит в уже начатую партию как наблюдатель (без слота и права хода). */
+  async joinSpectator(gameId: string): Promise<GameData> {
+    const response = await this.emitAck<SpectatorResponse>(
+      SocketEvents.JoinSpectator,
+      { gameId }
+    )
+    this.gameId = response.game.id ?? gameId
+    return response.game
+  }
+
+  /**
+   * Входит через Firebase Auth (Google OAuth) и привязывает текущую сессию
+   * к пользователю. После этого сессия переживает потерю localStorage:
+   * пользователь может войти снова и восстановить доступ к своим партиям.
+   */
+  async linkAccount(): Promise<{ userId: string }> {
+    const { user, idToken } = await signInWithGoogle()
+    const response = await this.emitAck<{ success: boolean }>(
+      SocketEvents.LinkAccount,
+      { userId: user.uid, idToken }
+    )
+    if (!response.success) {
+      throw new Error(t('ui_error_account_link_failed'))
+    }
+    return { userId: user.uid }
+  }
+
+  /**
+   * Восстанавливает доступ к играм пользователя по его userId (Firebase Auth).
+   * Сервер привязывает текущую сессию к пользователю и возвращает список его
+   * активных партий, в которые можно вернуться через rejoinGame.
+   */
+  async restoreAccount(userId: string): Promise<GameData[]> {
+    const response = await this.emitAck<{
+      success: boolean
+      games: GameData[]
+    }>(SocketEvents.RestoreAccount, { userId })
+    if (!response.success) {
+      throw new Error(t('ui_error_account_restore_failed'))
+    }
+    return response.games ?? []
   }
 
   onGameUpdated(callback: (game: GameData) => void) {

@@ -367,6 +367,8 @@ const messages: Record<Locale, Messages> = {
     lobby_private_label: 'Приватная комната',
     lobby_private_description:
       'Комната не попадёт в общий список. Зайти можно только по номеру и паролю.',
+    lobby_google_login: 'Войти через Google',
+    lobby_google_login_title: 'Вход через Google OAuth',
 
     // Панель партии.
     stats_draw: 'Ничья',
@@ -439,6 +441,10 @@ const messages: Record<Locale, Messages> = {
     modifier_cathedral_completed: 'Собор: 3 очка за каждый тайл и герб города',
     modifier_cathedral_incomplete:
       'Собор: незавершённый город приносит 0 очков',
+    ui_error_account_link_failed:
+      'Не удалось привязать аккаунт. Попробуйте снова',
+    ui_error_account_restore_failed:
+      'Не удалось восстановить доступ к играм. Попробуйте снова',
   },
   en: {
     ui_your_turn: 'Your turn',
@@ -781,6 +787,8 @@ const messages: Record<Locale, Messages> = {
     lobby_private_label: 'Private room',
     lobby_private_description:
       'The room will not appear in the public list. Join only by room number and password.',
+    lobby_google_login: 'Sign in with Google',
+    lobby_google_login_title: 'Sign in with Google OAuth',
 
     stats_draw: 'Draw',
     stats_leader: 'Score leader',
@@ -852,6 +860,9 @@ const messages: Record<Locale, Messages> = {
       'Cathedral: 3 points for each city tile and coat of arms',
     modifier_cathedral_incomplete:
       'Cathedral: an incomplete city scores 0 points',
+    ui_error_account_link_failed: 'Failed to link account. Try again',
+    ui_error_account_restore_failed:
+      'Failed to restore access to games. Try again',
   },
 }
 
@@ -927,6 +938,9 @@ const errors: Record<Locale, Record<string, string>> = {
       'A player with this name is already in the lobby',
     'lobby.password_required': 'This room is private — password required',
     'lobby.invalid_password': 'Invalid room password',
+    'lobby.spectator_not_allowed':
+      'You cannot join this game as a spectator — it has not started yet',
+    'lobby.spectator_limit_reached': 'Too many spectators in this game',
     'game.not_players_turn': "It's another player's turn — wait for your turn",
     'game.invalid_tile_rotation': 'Invalid tile rotation',
     'game.resolve_expansion_action_first':
