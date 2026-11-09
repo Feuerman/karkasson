@@ -6,8 +6,9 @@
       :message="criticalError.message"
       @reload="reloadApp"
     />
-    <div
+    <main
       v-else
+      role="main"
       class="relative flex h-full flex-col bg-surface-muted text-text"
     >
       <ConnectionStatus
@@ -81,7 +82,7 @@
         v-model:open="showRules"
         :doc="rulesDocument"
       />
-    </div>
+    </main>
   </UApp>
 </template>
 

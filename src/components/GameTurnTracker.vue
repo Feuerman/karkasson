@@ -56,12 +56,10 @@
           <button
             type="button"
             class="cursor-pointer text-primary underline underline-offset-2 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-black"
-            :aria-label="
-              t('turn_go_to_cell', {
-                row: summary.placedTile.rowIndex + 1,
-                col: summary.placedTile.tileIndex + 1,
-              })
-            "
+            :aria-label="`${t('turn_go_to_cell', {
+              row: summary.placedTile.rowIndex + 1,
+              col: summary.placedTile.tileIndex + 1,
+            })} (${summary.placedTile.rowIndex}·${summary.placedTile.tileIndex})`"
             :title="t('turn_go_to_tile')"
             @click.stop="zoomBoardToTile(summary.placedTile)"
           >
