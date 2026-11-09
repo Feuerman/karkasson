@@ -371,6 +371,10 @@ const messages: Record<Locale, Messages> = {
     lobby_google_login: 'Войти через Google',
     lobby_google_login_title: 'Вход через Google OAuth',
 
+    lobby_invite: 'Пригласить',
+    lobby_invite_link: 'Ссылка на комнату',
+    lobby_link_copied: 'Ссылка скопирована',
+
     // Панель партии.
     stats_draw: 'Ничья',
     stats_leader: 'Лидер по очкам',
@@ -791,6 +795,10 @@ const messages: Record<Locale, Messages> = {
       'The room will not appear in the public list. Join only by room number and password.',
     lobby_google_login: 'Sign in with Google',
     lobby_google_login_title: 'Sign in with Google OAuth',
+
+    lobby_invite: 'Invite',
+    lobby_invite_link: 'Room link',
+    lobby_link_copied: 'Link copied',
 
     stats_draw: 'Draw',
     stats_leader: 'Score leader',
