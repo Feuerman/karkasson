@@ -47,6 +47,14 @@ async function startGameWithTwoPlayers(page: Page, url: string) {
  * Поворачивается кнопкой в выбранной клетке: превью в панели после выбора
  * клетки скрыто.
  */
+/** Закрывает подсказку обучения, если она перекрывает элементы доски. */
+async function dismissOnboardingHint(page: Page) {
+  const skip = page.getByRole('button', { name: 'Пропустить обучение' })
+  if (await skip.isVisible().catch(() => false)) {
+    await skip.click()
+  }
+}
+
 async function placeTileOnBoard(page: Page) {
   const skipFollower = page.getByRole('button', {
     name: 'Пропустить выставление',
@@ -66,7 +74,10 @@ async function placeTileOnBoard(page: Page) {
         await page.waitForTimeout(150)
       }
       await page.getByTestId(TEST_IDS.placeTile).click()
-      if (await skipFollower.isVisible().catch(() => false)) return
+      if (await skipFollower.isVisible().catch(() => false)) {
+        await dismissOnboardingHint(page)
+        return
+      }
     }
   }
 
