@@ -952,21 +952,28 @@ Handoff:
 
 ### 4.5. Совместимость и устойчивость клиента — P1/P2
 
-- **[Добавить] Fallback для `crypto.randomUUID` и `structuredClone`.**
-  Сейчас они вызываются без проверки; в старых браузерах/небезопасном
-  контексте приложение упадёт на старте.
-- **[Добавить] Безопасную работу с `localStorage`.** Private mode/квота
-  могут бросить исключение при чтении/записи; нужен try/catch и запасной
-  вариант.
-- **[Добавить] Матрицу поддерживаемых браузеров и мобильных устройств.**
-  Playwright сейчас проверяет только Chromium; нужны Firefox/WebKit и
-  мобильные viewport'ы.
+- **[Сделано] Fallback для `crypto.randomUUID` и `structuredClone`.**
+  Реализованы в `src/utils/crypto.ts` (`safeRandomUUID`, `safeStructuredClone`)
+  с запасным псевдо-случайным UUID и JSON-клоном; используются в `GameService`
+  (`createCommandId`). Клиент не падал на старте в старых браузерах и
+  небезопасном контексте.
+- **[Сделано] Безопасная работа с `localStorage`.** Private mode/квота и
+  отсутствие хранилища гасятся через `src/utils/storage.ts` (try/catch на
+  чтение, запись и удаление). Все вызовы в `App.vue`, `useSettings`,
+  `useOnboarding`, `i18n`, `GameService` обёрнуты; `panelLayout` уже был
+  безопасен.
+- **[Сделано] Матрица поддерживаемых браузеров и мобильных устройств.**
+  `playwright.config.ts` запускает Chromium, Firefox, WebKit и мобильный
+  Chrome (Pixel 7); локально требуются установленные браузеры.
 - **[Добавить] PWA/офлайн-оболочку** (по желанию): install, кэш статики,
-  экран offline, обновление версии.
-- **[Изменить] Убрать безусловный `vite-plugin-vue-devtools` из production
-  сборки** или включать только в dev; сейчас плагин подключён всегда.
+  экран offline, обновление версии. Отложено на P2 — уже есть экран
+  офлайна/переподключения.
+- **[Сделано] Убран безусловный `vite-plugin-vue-devtools` из production
+  сборки** — плагин подключается только в dev (`vite.config.js`).
 - **[Проверить] Внешние шрифты Google** — приватность, CSP, скорость;
-  предпочтительно self-host.
+  предпочтительно self-host. CSP уже разрешает `fonts.googleapis.com` и
+  `fonts.gstatic.com`, задан `preconnect`; self-hosting требует файлов
+  шрифтов.
 
 ---
 

@@ -115,6 +115,11 @@ import {
 } from './composables/usePendingActions'
 import { useSettings } from './composables/useSettings'
 import { t, getLocale, setLocale } from './utils/i18n'
+import {
+  readStorageItem,
+  writeStorageItem,
+  removeStorageItem,
+} from './utils/storage'
 import { criticalError } from './modules/criticalError'
 import ErrorScreen from './components/ErrorScreen.vue'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
@@ -246,15 +251,15 @@ const onGameUpdated = (updatedGame: IGame) => {
 const LAST_GAME_STORAGE_KEY = 'lastGameId'
 
 const forgetLastGame = () => {
-  localStorage.removeItem(LAST_GAME_STORAGE_KEY)
+  removeStorageItem(LAST_GAME_STORAGE_KEY)
 }
 
 const handleGameCreated = (gameId: string) => {
-  localStorage.setItem(LAST_GAME_STORAGE_KEY, gameId)
+  writeStorageItem(LAST_GAME_STORAGE_KEY, gameId)
 }
 
 const updateLocalGamesList = (gamesList: GameSummary[]) => {
-  const savedGameId = localStorage.getItem(LAST_GAME_STORAGE_KEY)
+  const savedGameId = readStorageItem(LAST_GAME_STORAGE_KEY)
 
   games.value = gamesList.map((game) => ({
     ...game,
@@ -368,7 +373,7 @@ let restoreInFlight = false
 
 const restoreLastGame = async () => {
   if (restoreInFlight) return
-  const gameId = activeGameId ?? localStorage.getItem(LAST_GAME_STORAGE_KEY)
+  const gameId = activeGameId ?? readStorageItem(LAST_GAME_STORAGE_KEY)
   if (!gameId) return
 
   restoreInFlight = true
@@ -408,7 +413,7 @@ const onGameDeleted = (payload: GameDeletedPayload) => {
 
   if (
     deletedGameId &&
-    localStorage.getItem(LAST_GAME_STORAGE_KEY) === deletedGameId
+    readStorageItem(LAST_GAME_STORAGE_KEY) === deletedGameId
   ) {
     forgetLastGame()
   }
