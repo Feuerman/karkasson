@@ -38,6 +38,10 @@ import type { GameAction } from './gameActions'
 export interface IGameState {
   id?: string
   roomCode?: string
+  /** Хеш SHA-256 пароля приватной комнаты. Пусто — комната публичная. */
+  passwordHash?: string
+  /** Признак приватной комнаты: не попадает в общий список лобби. */
+  isPrivate?: boolean
   gridSize: number[]
   gameIsStarted: boolean
   gameIsEnded: boolean
@@ -94,6 +98,8 @@ export interface IGameState {
 export const SERIALIZED_GAME_FIELDS = [
   'id',
   'roomCode',
+  'passwordHash',
+  'isPrivate',
   'gridSize',
   'gameIsStarted',
   'gameIsEnded',

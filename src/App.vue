@@ -294,11 +294,11 @@ const retryGamesList = () => {
   void getGamesList()
 }
 
-const joinGame = async (gameId: string) => {
+const joinGame = async (gameId: string, password?: string) => {
   roomCodeError.value = null
   await runPending(pendingActionKeys.joinGame(gameId), async () => {
     try {
-      enterGame(await GameService.joinGame(gameId))
+      enterGame(await GameService.joinGame(gameId, undefined, password))
     } catch (error) {
       roomCodeError.value = errorMessage(error, t('ui_error_room_not_found'))
       notifyError(error)

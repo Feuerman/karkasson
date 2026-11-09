@@ -60,6 +60,21 @@
           />
         </label>
 
+        <label
+          v-if="roomCodeSearch.trim().length > 0"
+          class="flex flex-col gap-1.5 text-sm font-medium text-text-muted"
+        >
+          {{ t('lobby_password_label') }}
+          <UInput
+            v-model="roomCodePassword"
+            type="password"
+            :disabled="isRoomCodeJoinPending"
+            :placeholder="t('lobby_password_placeholder')"
+            class="min-h-11 rounded-lg border border-secondary-dark/40 bg-white/80 px-3 text-body text-text outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/30"
+            @keydown.enter.prevent="joinByRoomCode"
+          />
+        </label>
+
         <p v-if="roomCodeError" class="mb-2 text-sm text-negative">
           {{ roomCodeError }}
         </p>
@@ -206,6 +221,7 @@ import type { PlayerView } from '@server/modules/types'
 import UButton from '@nuxt/ui/components/Button.vue'
 import UCheckbox from '@nuxt/ui/components/Checkbox.vue'
 import UEmpty from '@nuxt/ui/components/Empty.vue'
+import UInput from '@nuxt/ui/components/Input.vue'
 import UIcon from '@nuxt/ui/components/Icon.vue'
 import LobbyHeader from './internal/LobbyHeader.vue'
 import LoadingState from './internal/LoadingState.vue'
@@ -256,7 +272,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   createGame: [options: CreateGameOptions]
-  joinGame: [gameId: string]
+  joinGame: [gameId: string, password?: string]
   rejoinGame: [gameId: string]
   leaveGame: []
   backToList: []
@@ -289,6 +305,7 @@ const currentPlayerName = ref('')
 const showEndedGames = ref(false)
 const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
+const roomCodePassword = ref('')
 
 const isPendingAction = (key: string) => props.pendingActions.includes(key)
 
@@ -330,7 +347,8 @@ const computedGamesList = computed<LobbyGame[]>(() =>
 function joinByRoomCode() {
   if (isRoomCodeJoinPending.value) return
   const roomCode = roomCodeSearch.value.trim()
-  if (/^\d{6}$/.test(roomCode)) emit('joinGame', roomCode)
+  if (/^\d{6}$/.test(roomCode))
+    emit('joinGame', roomCode, roomCodePassword.value)
 }
 
 function createGame(options: CreateGameOptions) {

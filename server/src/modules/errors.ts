@@ -45,6 +45,8 @@ export const LobbyErrors = {
   PlayerNameInvalid: 'Имя игрока содержит недопустимые символы',
   PlayerNameProfanity: 'Имя игрока содержит недопустимые слова',
   PlayerNameTaken: 'Игрок с таким именем уже есть в лобби',
+  PasswordRequired: 'Эта комната приватная — нужен пароль',
+  InvalidPassword: 'Неверный пароль комнаты',
 } as const
 
 export const GameErrors = {
@@ -121,6 +123,8 @@ export const ERROR_MESSAGES_EN: Readonly<Record<string, string>> = {
   [LobbyErrors.PlayerNameProfanity]: 'Player name contains prohibited words',
   [LobbyErrors.PlayerNameTaken]:
     'A player with this name is already in the lobby',
+  [LobbyErrors.PasswordRequired]: 'This room is private — password required',
+  [LobbyErrors.InvalidPassword]: 'Invalid room password',
   [GameErrors.NotPlayersTurn]:
     "It's another player's turn — wait for your turn",
   [GameErrors.InvalidTileRotation]: 'Invalid tile rotation',
