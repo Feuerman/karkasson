@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createHash } from 'node:crypto'
 import { GameManager } from '@server/modules/GameManager'
 import { SaveErrors } from '@server/modules/errors'
 import {
@@ -22,6 +23,20 @@ describe('Схема сохранения игры', () => {
 
     expect(saved.schemaVersion).toBe(GAME_SAVE_SCHEMA_VERSION)
     expect(saved.state.id).toBe('game-1')
+  })
+
+  it('сохраняет и восстанавливает пароль приватной комнаты и флаг isPrivate', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'private-room'
+    game.roomCode = '123456'
+    game.passwordHash = createHash('sha256').update('sekret').digest('hex')
+    game.isPrivate = true
+
+    const restored = deserializeGameState(serializeGameState(game))
+
+    expect(restored.isPrivate).toBe(true)
+    expect(restored.passwordHash).toBe(game.passwordHash)
+    expect(restored.roomCode).toBe('123456')
   })
 
   it('не сохраняет приватные runtime-флаги класса', () => {

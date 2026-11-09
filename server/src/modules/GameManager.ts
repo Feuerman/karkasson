@@ -121,6 +121,10 @@ interface ManagerCache {
 export class GameManager implements IGameState {
   id?: string
   roomCode?: string
+  /** Хеш SHA-256 пароля приватной комнаты. Пусто — комната публичная. */
+  passwordHash: string | undefined = undefined
+  /** Признак приватной комнаты: не попадает в общий список лобби. */
+  isPrivate = false
   gridSize: number[] = [...BOARD_GRID_SIZE]
   gameIsStarted: boolean
   gameIsEnded: boolean
@@ -189,6 +193,7 @@ export class GameManager implements IGameState {
     this.gameIsEnded = false
     this.rules = rulesFromOptions(params)
     this.finalScoringEnabled = params.finalScoringEnabled ?? false
+    this.isPrivate = params.isPrivate ?? false
     this.tilesList = []
     this.currentTile = null
     this.players = []

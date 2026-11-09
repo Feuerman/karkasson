@@ -57,6 +57,8 @@ export interface InstanceLockRecord {
 export interface GameSummaryRecord {
   id: string
   roomCode?: string
+  /** Признак приватной комнаты. */
+  isPrivate?: boolean
   players?: IGameState['players']
   currentPlayer?: IGameState['currentPlayer']
   gameIsEnded?: boolean
