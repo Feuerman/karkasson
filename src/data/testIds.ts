@@ -6,6 +6,7 @@ export const TEST_IDS = {
   lobbyPrincessDragonStatus: 'lobby-princess-dragon-status',
   lobbyCardCopyRoomCode: 'lobby-card-copy-room-code',
   lobbyCopyRoomCode: 'lobby-copy-room-code',
+  lobbyCopyInviteLink: 'lobby-copy-invite-link',
   lobbyLeaveRoom: 'lobby-leave-room',
   lobbyBackToList: 'lobby-back-to-list',
   lobbyGoogleLogin: 'lobby-google-login',

@@ -157,6 +157,21 @@
         :room-code="props.currentGame?.roomCode"
         :test-id="TEST_IDS.lobbyCopyRoomCode"
       />
+      <button
+        type="button"
+        class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-secondary-dark/40 bg-surface/70 px-3 py-1.5 text-sm font-medium text-text-muted transition-colors hover:bg-secondary/15"
+        :title="
+          inviteLinkCopied ? t('lobby_link_copied') : t('lobby_invite_link')
+        "
+        :data-testid="TEST_IDS.lobbyCopyInviteLink"
+        @click.stop="copyInviteLink"
+      >
+        <UIcon
+          :name="inviteLinkCopied ? 'i-lucide-link' : 'i-lucide-share-2'"
+          class="h-4 w-4"
+        />
+        {{ inviteLinkCopied ? t('lobby_link_copied') : t('lobby_invite') }}
+      </button>
 
       <div class="mt-3">
         <RuleStatusLine
@@ -225,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import GameService from '@/modules/GameService'
 import { TEST_IDS } from '@/data/testIds'
@@ -247,6 +262,7 @@ import RoomCodeCopy from './internal/RoomCodeCopy.vue'
 import { buildGameRules, isRejoinable } from './internal/helpers'
 import { t } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
+import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 
 const props = withDefaults(
   defineProps<{
@@ -323,6 +339,8 @@ const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const roomCodePassword = ref('')
 const isGoogleLoginPending = ref(false)
+const { copied: inviteLinkCopied, copy: copyInviteLinkFn } =
+  useCopyToClipboard()
 
 const isPendingAction = (key: string) => props.pendingActions.includes(key)
 
@@ -360,6 +378,25 @@ const computedGamesList = computed<LobbyGame[]>(() =>
     game.roomCode.includes(roomCodeSearch.value.trim().toUpperCase())
   )
 )
+
+/** Поделиться ссылкой на текущую комнату: номер в параметре URL. */
+const inviteLink = computed(() => {
+  const roomCode = props.currentGame?.roomCode
+  if (!roomCode) return ''
+  return `${window.location.origin}?room=${roomCode}`
+})
+
+const copyInviteLink = async () => {
+  await copyInviteLinkFn(inviteLink.value)
+}
+
+onMounted(() => {
+  const params = new URLSearchParams(window.location.search)
+  const room = params.get('room')
+  if (room && /^\d{6}$/.test(room)) {
+    roomCodeSearch.value = room
+  }
+})
 
 function joinByRoomCode() {
   if (isRoomCodeJoinPending.value) return
