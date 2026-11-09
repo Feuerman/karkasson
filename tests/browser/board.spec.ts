@@ -269,6 +269,7 @@ test('показывает ход, сводку действия и управл
     ).toBe('false')
 
     await placeTileOnBoard(page)
+    await page.getByRole('button', { name: 'Пропустить выставление' }).click()
 
     const summary = page.getByTestId(TEST_IDS.turnSummary)
     await expect(summary).toBeVisible()
