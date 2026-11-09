@@ -235,11 +235,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           return
         }
 
-        const result = service.joinSpectator(
-          resolvedGameId,
-          sessionId,
-          socket.id
-        )
+        const result = service.joinSpectator(resolvedGameId, sessionId)
 
         if ('error' in result) {
           emitSocketError(socket, service, result.error)
