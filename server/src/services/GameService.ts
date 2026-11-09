@@ -20,6 +20,7 @@ import {
   MAX_PENDING_SAVES_PER_GAME,
   MAX_TOTAL_GAMES,
 } from '../config'
+import { hashPassword, verifyPassword } from '../modules/password'
 import { playerNameKey } from '../modules/playerName'
 import { getErrorMessage } from '../utils/common'
 import { createLogger } from '../utils/logger'
@@ -702,6 +703,10 @@ export class GameService {
     game.id = gameId
     game.roomCode = this.createUniqueRoomCode()
     game.ownerSessionId = sessionId
+    if (options.password) {
+      game.passwordHash = hashPassword(options.password)
+    }
+    game.isPrivate = options.isPrivate ?? false
     this.games[gameId] = game
     this.lobbyOwners[gameId] = sessionId
     gamesTotal.inc(1)
@@ -785,20 +790,29 @@ export class GameService {
   joinFirstFreeSlot(
     gameId: string,
     socketId: string,
-    sessionId: string
+    sessionId: string,
+    password?: string
   ):
     | JoinResult
     | { game: GameManager; playerIndex: number; alreadyJoined?: boolean } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
 
-    // Та же сессия уже занимает слот: повторный вход (в том числе из второй
-    // вкладки после передачи управления) не должен создавать второй слот.
+    // Та же сессия ужеoccupies слот: повторный вход не требует пароля.
     const ownPlayerIndex = game.players.findIndex(
       (player) => player.sessionId === sessionId
     )
     if (ownPlayerIndex !== -1) {
       return { game, playerIndex: ownPlayerIndex, alreadyJoined: true }
+    }
+
+    // Приватная комната входит только по верному паролю.
+    if (game.isPrivate) {
+      const expected = game.passwordHash ?? null
+      if (!expected) return { error: LobbyErrors.PasswordRequired }
+      if (!verifyPassword(password ?? '', expected)) {
+        return { error: LobbyErrors.InvalidPassword }
+      }
     }
 
     if (game.gameIsStarted) return { error: LobbyErrors.GameAlreadyStarted }
@@ -854,6 +868,8 @@ export class GameService {
     })
     newGame.id = gameId
     newGame.roomCode = game.roomCode
+    newGame.passwordHash = game.passwordHash
+    newGame.isPrivate = game.isPrivate
     newGame.ownerSessionId =
       this.lobbyOwners[gameId] ?? game.ownerSessionId ?? null
     this.games[gameId] = newGame
@@ -1168,9 +1184,15 @@ export class GameService {
   }
 
   formatGamesList(games: GameManager[] = this.allGames()): GameSummary[] {
-    const memoryIds = new Set(games.map((game) => game.id))
-    const summaries: GameSummary[] = games.map((game) => toGameSummary(game))
+    // Приватные комнаты не попадают в общий список: зайти в них можно только
+    // зная код комнаты и пароль.
+    const publicGames = games.filter((game) => !game.isPrivate)
+    const memoryIds = new Set(publicGames.map((game) => game.id))
+    const summaries: GameSummary[] = publicGames.map((game) =>
+      toGameSummary(game)
+    )
     for (const savedSummary of this.savedSummaries.values()) {
+      if (savedSummary.isPrivate) continue
       if (memoryIds.has(savedSummary.id)) continue
       summaries.push(toGameSummary(savedSummary))
     }
