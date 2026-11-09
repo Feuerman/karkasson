@@ -43,6 +43,28 @@
             :test-id="TEST_IDS.createGamePrincessDragon"
           />
         </section>
+
+        <div class="border-t border-secondary-dark/30" />
+
+        <section class="space-y-3">
+          <h3
+            class="text-sm font-semibold uppercase tracking-wide text-text-muted"
+          >
+            {{ t('lobby_private_label') }}
+          </h3>
+          <OptionToggle
+            v-model="isPrivate"
+            :label="t('lobby_private_label')"
+            :description="t('lobby_private_description')"
+          />
+          <UInput
+            v-model="password"
+            type="password"
+            :label="t('lobby_password_label')"
+            :placeholder="t('lobby_password_placeholder')"
+            :disabled="!isPrivate"
+          />
+        </section>
       </div>
     </template>
 
@@ -79,6 +101,7 @@
 import { ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import UButton from '@nuxt/ui/components/Button.vue'
+import UInput from '@nuxt/ui/components/Input.vue'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import { TEST_IDS } from '@/data/testIds'
 import { t } from '@/utils/i18n'
@@ -104,6 +127,8 @@ const finalScoringEnabled = ref(false)
 const innsAndCathedralsEnabled = ref(false)
 const riverEnabled = ref(false)
 const princessAndDragonEnabled = ref(false)
+const isPrivate = ref(false)
+const password = ref('')
 
 const close = () => emit('update:open', false)
 
@@ -113,6 +138,8 @@ const create = () => {
     innsAndCathedralsEnabled: innsAndCathedralsEnabled.value,
     riverEnabled: riverEnabled.value,
     princessAndDragonEnabled: princessAndDragonEnabled.value,
+    isPrivate: isPrivate.value,
+    password: isPrivate.value ? password.value : undefined,
   })
 }
 

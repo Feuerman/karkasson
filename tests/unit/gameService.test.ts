@@ -593,3 +593,76 @@ describe('Партии с компьютерами', () => {
     expect(service.aiGameStartError('session-1')).toBeUndefined()
   })
 })
+
+describe('Пароль приватного лобби', () => {
+  it('хранит хеш вместо пароля и пускает по верному паролю', () => {
+    const { service } = serviceWithGame()
+    const game = service.createLobby('socket-1', 'session-1', {
+      isPrivate: true,
+      password: 'sekret',
+    })
+
+    expect(game.passwordHash).toMatch(/^scrypt\$salt=/)
+    expect(game.passwordHash).not.toBe('sekret')
+
+    const joined = service.joinFirstFreeSlot(
+      game.id,
+      'socket-2',
+      'session-2',
+      'sekret'
+    )
+    if ('error' in joined) throw new Error(joined.error)
+    expect(joined.playerIndex).toBe(1)
+  })
+
+  it('отвергает неверный пароль и вход без пароля', () => {
+    const { service } = serviceWithGame()
+    const game = service.createLobby('socket-1', 'session-1', {
+      isPrivate: true,
+      password: 'sekret',
+    })
+
+    const wrong = service.joinFirstFreeSlot(
+      game.id,
+      'socket-2',
+      'session-2',
+      'неверно'
+    )
+    if ('error' in wrong) {
+      expect(wrong.error).toBe(LobbyErrors.InvalidPassword)
+    } else {
+      throw new Error('ожидалась ошибка неверного пароля')
+    }
+
+    const without = service.joinFirstFreeSlot(
+      game.id,
+      'socket-3',
+      'session-3',
+      ''
+    )
+    if ('error' in without) {
+      expect(without.error).toBe(LobbyErrors.InvalidPassword)
+    } else {
+      throw new Error('ожидалась ошибка неверного пароля')
+    }
+  })
+
+  it('требует пароль, если в приватной комнате не задан хеш', () => {
+    const { service } = serviceWithGame()
+    const game = service.createLobby('socket-1', 'session-1', {
+      isPrivate: true,
+    })
+
+    const without = service.joinFirstFreeSlot(
+      game.id,
+      'socket-2',
+      'session-2',
+      'любой'
+    )
+    if ('error' in without) {
+      expect(without.error).toBe(LobbyErrors.PasswordRequired)
+    } else {
+      throw new Error('ожидалась ошибка отсутствия пароля')
+    }
+  })
+})

@@ -82,6 +82,7 @@ export function serializeGameState(game: IGameState): string {
 /** Поля сводки: ровно те, что нужны списку лобби. */
 const SUMMARY_FIELDS = [
   'roomCode',
+  'isPrivate',
   'players',
   'currentPlayer',
   'gameIsEnded',

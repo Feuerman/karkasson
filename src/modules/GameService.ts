@@ -43,7 +43,11 @@ export interface IGameService {
   connect: () => void
   disconnect: () => void
   createGame: (options?: CreateGameOptions) => Promise<GameData>
-  joinGame: (gameId: string, playerName?: string) => Promise<GameData>
+  joinGame: (
+    gameId: string,
+    playerName?: string,
+    password?: string
+  ) => Promise<GameData>
 }
 
 export type SocketPayload = Record<string, unknown>
@@ -89,6 +93,10 @@ export interface CreateGameOptions {
   innsAndCathedralsEnabled?: boolean
   riverEnabled?: boolean
   princessAndDragonEnabled?: boolean
+  /** Пароль приватной комнаты. */
+  password?: string
+  /** Признак приватной комнаты. */
+  isPrivate?: boolean
 }
 
 // Адрес сервера переопределяется через VITE_SERVER_URL (локальная разработка/тесты)
@@ -629,6 +637,8 @@ export class GameService implements IGameService {
         innsAndCathedralsEnabled: options.innsAndCathedralsEnabled,
         riverEnabled: options.riverEnabled,
         princessAndDragonEnabled: options.princessAndDragonEnabled,
+        password: options.password,
+        isPrivate: options.isPrivate,
       }
     )
     const { gameId, game } = response
@@ -659,10 +669,10 @@ export class GameService implements IGameService {
     }).then((response) => response.game)
   }
 
-  async joinGame(gameId: string, playerName?: string) {
+  async joinGame(gameId: string, playerName?: string, password?: string) {
     const response = await this.emitAck<{ game: GameData }>(
       SocketEvents.JoinGame,
-      { gameId, playerName }
+      { gameId, playerName, password }
     )
     this.gameId = response.game.id ?? gameId
     return response.game

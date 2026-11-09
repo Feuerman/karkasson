@@ -80,6 +80,27 @@ describe('Разбор payload сокета', () => {
     expect(parseCreateGame('options')).toBeUndefined()
   })
 
+  it('создание лобби принимает пароль и признак приватной комнаты', () => {
+    expect(parseCreateGame({ password: 'секрет', isPrivate: true })).toEqual({
+      options: { password: 'секрет', isPrivate: true },
+    })
+    expect(parseCreateGame({ isPrivate: false })).toEqual({
+      options: { isPrivate: false },
+    })
+    // Пустой пароль — как отсутствие пароля.
+    expect(parseCreateGame({ password: '' })).toEqual({ options: {} })
+    // Слишком длинный пароль игнорируется.
+    expect(parseCreateGame({ password: 'a'.repeat(65) })).toEqual({
+      options: {},
+    })
+    // Пароль с управляющими символами игнорируется.
+    expect(parseCreateGame({ password: 'a\u0000b' })).toEqual({
+      options: {},
+    })
+    // Небулев isPrivate игнорируется.
+    expect(parseCreateGame({ isPrivate: 'yes' })).toEqual({ options: {} })
+  })
+
   it('общий запрос игры проверяет идентификатор', () => {
     expect(parseGameRequest({ gameId })).toEqual({ gameId })
     expect(parseGameRequest({ gameId: `  ${gameId}  ` })).toEqual({ gameId })
@@ -87,6 +108,22 @@ describe('Разбор payload сокета', () => {
     expect(parseGameRequest({ gameId: 'a\u0000' })).toBeUndefined()
     expect(parseGameRequest({})).toBeUndefined()
     expect(parseGameRequest(null)).toBeUndefined()
+  })
+
+  it('запрос игры принимает опциональный пароль приватной комнаты', () => {
+    expect(parseGameRequest({ gameId, password: 'sekret' })).toEqual({
+      gameId,
+      password: 'sekret',
+    })
+    expect(parseGameRequest({ gameId })).toEqual({ gameId })
+    // Пустой пароль — как отсутствие пароля.
+    expect(parseGameRequest({ gameId, password: '' })).toEqual({ gameId })
+    // Нестроковый пароль игнорируется.
+    expect(parseGameRequest({ gameId, password: 42 })).toEqual({ gameId })
+    // Слишком длинный пароль игнорируется.
+    expect(parseGameRequest({ gameId, password: 'a'.repeat(65) })).toEqual({
+      gameId,
+    })
   })
 
   it('добавление игрока проверяет слот и имя', () => {
