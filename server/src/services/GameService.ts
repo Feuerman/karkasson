@@ -45,7 +45,6 @@ import {
 } from '../modules/types'
 import {
   addUserSession,
-  clearUserSessions,
   getSessionUserId,
   getUserSessions,
   removeUserSession,
@@ -987,8 +986,7 @@ export class GameService {
    */
   joinSpectator(
     gameId: string,
-    sessionId: string,
-    socketId: string
+    sessionId: string
   ): { game: GameManager } | { error: string } {
     const game = this.games[gameId]
     if (!game) return { error: CommonErrors.GameNotFound }
@@ -1021,20 +1019,6 @@ export class GameService {
     spectators.add(sessionId)
     this.spectators.set(gameId, spectators)
     return { game }
-  }
-
-  /**
-   * Удаляет всех зрителей данного сокета из всех партий.
-   * Вызывается при отключении сокета.
-   */
-  leaveSpectator(socketId: string): void {
-    // Сессия по сокету неизвестна здесь — ищем по всем картам.
-    for (const [gameId, sessions] of this.spectators) {
-      // socketId не хранится напрямую; при отключении сокета сессия уже
-      // освобождена в sessionToSocketMap, поэтому достаточно очистить карту
-      // по gameId, где сокет был зрителем. Фактическая очистка сессий
-      // происходит в `unregisterSocket` через обратную карту.
-    }
   }
 
   /**
