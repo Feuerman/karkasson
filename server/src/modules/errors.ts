@@ -47,6 +47,9 @@ export const LobbyErrors = {
   PlayerNameTaken: 'Игрок с таким именем уже есть в лобби',
   PasswordRequired: 'Эта комната приватная — нужен пароль',
   InvalidPassword: 'Неверный пароль комнаты',
+  SpectatorNotAllowed:
+    'В эту партию нельзя зайти как зритель — она ещё не началась',
+  SpectatorLimitReached: 'Слишком много зрителей в этой партии',
 } as const
 
 export const GameErrors = {
@@ -125,6 +128,9 @@ export const ERROR_MESSAGES_EN: Readonly<Record<string, string>> = {
     'A player with this name is already in the lobby',
   [LobbyErrors.PasswordRequired]: 'This room is private — password required',
   [LobbyErrors.InvalidPassword]: 'Invalid room password',
+  [LobbyErrors.SpectatorNotAllowed]:
+    'You cannot join this game as a spectator — it has not started yet',
+  [LobbyErrors.SpectatorLimitReached]: 'Too many spectators in this game',
   [GameErrors.NotPlayersTurn]:
     "It's another player's turn — wait for your turn",
   [GameErrors.InvalidTileRotation]: 'Invalid tile rotation',

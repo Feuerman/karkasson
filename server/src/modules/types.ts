@@ -228,6 +228,7 @@ export const SocketEvents = {
   StartGame: 'startGame',
   LeaveGame: 'leaveGame',
   RejoinGame: 'rejoinGame',
+  JoinSpectator: 'joinSpectator',
   PlayerTemporaryDisconnected: 'playerTemporaryDisconnected',
   SessionReplaced: 'sessionReplaced',
   SelectPlacingPoint: 'selectPlacingPoint',
@@ -244,6 +245,8 @@ export const SocketEvents = {
   GameError: 'gameError',
   Error: 'error',
   SetLocale: 'setLocale',
+  LinkAccount: 'linkAccount',
+  RestoreAccount: 'restoreAccount',
 } as const
 
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]

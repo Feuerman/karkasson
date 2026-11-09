@@ -121,13 +121,22 @@ async function handleDisconnect(
   context: SocketHandlerContext,
   reason: string
 ): Promise<void> {
-  const games = context.service.findPlayerGamesForSocket(context.socket.id)
+  const { service, socket } = context
+  const games = service.findPlayerGamesForSocket(socket.id)
   for (const game of games) {
     try {
       await releaseGameAfterDisconnect(context, game, reason)
     } catch (error: unknown) {
-      // Одна партия не должна мешать освобождению остальных.
       logger.error(`Failed to release game ${game.id ?? 'unknown'}:`, error)
+    }
+  }
+
+  // Зрители неoccupies слоты, поэтому их нужно убрать отдельно:
+  // сессия по сокету уже известна, ищем партии, где она наблюдает.
+  const sessionId = service.getSessionBySocketId(socket.id)
+  if (sessionId) {
+    for (const gameId of service.findSpectatorGamesForSession(sessionId)) {
+      service.removeSpectator(gameId, sessionId)
     }
   }
 }
@@ -178,8 +187,17 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
   })
 
   socket.on('disconnect', (reason: string) => {
+    // Сессия ещё известна по сокету: убираем зрителей до того, как
+    // unregisterSocket сотрёт соответствие сокет → сессия.
+    const sessionId = service.getSessionBySocketId(socket.id)
+    if (sessionId) {
+      for (const gameId of service.findSpectatorGamesForSession(sessionId)) {
+        service.removeSpectator(gameId, sessionId)
+      }
+    }
     service.unregisterSocket(socket.id)
-    if (!service.findPlayerGamesForSocket(socket.id).length) return
+    if (!sessionId && !service.findPlayerGamesForSocket(socket.id).length)
+      return
     // Фоновая задача с собственным обработчиком ошибок: хендлер disconnect
     // обязан вернуться сразу и не блокировать цикл событий.
     void handleDisconnect(context, reason).catch((error: unknown) => {
