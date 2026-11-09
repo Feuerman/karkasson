@@ -8,6 +8,7 @@ export const pendingActionKeys = {
   createGame: () => 'createGame',
   joinGame: (gameId: string) => `joinGame:${gameId}`,
   rejoinGame: (gameId: string) => `rejoinGame:${gameId}`,
+  spectateGame: (gameId: string) => `spectateGame:${gameId}`,
   leaveGame: () => 'leaveGame',
   startGame: () => 'startGame',
   slot: (index: number) => `slot:${index}`,

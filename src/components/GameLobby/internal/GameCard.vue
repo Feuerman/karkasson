@@ -100,12 +100,12 @@
     >
       <template #leading>
         <UIcon
-          :name="joinButtonIcon(game)"
+          :name="buttonIcon"
           class="h-[18px] w-[18px]"
           :class="pending ? 'invisible' : ''"
         />
       </template>
-      {{ joinButtonLabel(game) }}
+      {{ buttonLabel }}
     </UButton>
   </div>
 </template>
@@ -167,12 +167,31 @@ const scoreRows = computed(() =>
 const emit = defineEmits<{
   join: [gameId: string]
   rejoin: [gameId: string]
+  spectate: [gameId: string]
 }>()
+
+const canSpectate = computed(
+  () =>
+    Boolean(props.sessionId) &&
+    props.game.gameIsStarted &&
+    !props.game.gameIsEnded &&
+    !isRejoinable(props.game, props.sessionId)
+)
+
+const buttonIcon = computed(() =>
+  canSpectate.value ? 'i-lucide-eye' : joinButtonIcon(props.game)
+)
+
+const buttonLabel = computed(() =>
+  canSpectate.value ? t('lobby_spectator') : joinButtonLabel(props.game)
+)
 
 const onJoin = () => {
   if (!props.game.id || props.pending) return
   if (isRejoinable(props.game, props.sessionId)) {
     emit('rejoin', props.game.id)
+  } else if (canSpectate.value) {
+    emit('spectate', props.game.id)
   } else {
     emit('join', props.game.id)
   }
