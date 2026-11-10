@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm run format:check
       - run: pnpm run lint
@@ -38,6 +39,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm run type-check
       - run: pnpm --filter server run build
@@ -51,6 +53,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm run test:coverage
@@ -70,6 +73,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       - run: pnpm --filter server run build
@@ -103,6 +107,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --audit-level high
       - uses: github/codeql-action/init@b2dfba2baa88b44c5c1f4e030f114b225d4084c1
