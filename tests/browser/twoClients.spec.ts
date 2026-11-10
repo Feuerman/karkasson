@@ -160,10 +160,12 @@ test('два клиента в одной партии по очереди ст�
     await playTurn(creatorPage)
     await expect
       .poll(
-        () =>
-          (guestPage
+        async () => {
+          const text = await guestPage
             .getByTestId(TEST_IDS.gameStatsCurrentPlayer)
-            .textContent() ?? '') as string,
+            .textContent()
+          return text ?? ''
+        },
         { timeout: 30_000 }
       )
       .toContain('Ваш ход')
@@ -172,10 +174,12 @@ test('два клиента в одной партии по очереди ст�
     await playTurn(guestPage)
     await expect
       .poll(
-        () =>
-          (guestPage
+        async () => {
+          const text = await guestPage
             .getByTestId(TEST_IDS.gameStatsCurrentPlayer)
-            .textContent() ?? '') as string,
+            .textContent()
+          return text ?? ''
+        },
         { timeout: 30_000 }
       )
       .not.toContain('Ваш ход')
