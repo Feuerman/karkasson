@@ -19,7 +19,12 @@ describe('server logger', () => {
     logger.warn('visible', error)
 
     expect(info).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith('[WARN] [test] visible', error)
+    const [line] = warn.mock.calls[0]
+    const record = JSON.parse(line as string)
+    expect(record.level).toBe('warn')
+    expect(record.scope).toBe('test')
+    expect(record.msg).toBe('visible')
+    expect(record.err.message).toBe('failure')
   })
 
   it('uses info when LOG_LEVEL is unknown', () => {
@@ -32,7 +37,11 @@ describe('server logger', () => {
     logger.info('visible')
 
     expect(debug).not.toHaveBeenCalled()
-    expect(info).toHaveBeenCalledWith('[INFO] [test] visible')
+    const [line] = info.mock.calls[0]
+    const record = JSON.parse(line as string)
+    expect(record.level).toBe('info')
+    expect(record.scope).toBe('test')
+    expect(record.msg).toBe('visible')
   })
 
   it('supports silencing all levels', () => {
