@@ -14,8 +14,8 @@ function contentSecurityPolicy(serverUrl) {
   const directives = [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data: blob:",
     `connect-src ${connectSources}`,
     "object-src 'none'",
