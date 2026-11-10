@@ -5,9 +5,13 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  checks: write
+  statuses: write
+  pull-requests: write
   security-events: write
 
 concurrency:
