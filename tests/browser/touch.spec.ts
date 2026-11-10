@@ -39,7 +39,14 @@ async function startGameWithTwoPlayers(page: Page, url: string) {
   )
 }
 
-test('доска панорамируется касанием', async ({ browser }) => {
+test('доска панорамируется касанием', async ({ browser }, testInfo) => {
+  if (testInfo.project.name !== 'chromium') {
+    test.skip(
+      true,
+      'Синтетические события Touch/TouchEvent не поддерживаются в Firefox и WebKit'
+    )
+    return
+  }
   const gameServer = createGameServer(new InMemoryDatabase(), {
     adminUI: false,
   })
@@ -91,7 +98,14 @@ test('доска панорамируется касанием', async ({ browse
   }
 })
 
-test('окно перетаскивается касанием', async ({ browser }) => {
+test('окно перетаскивается касанием', async ({ browser }, testInfo) => {
+  if (testInfo.project.name !== 'chromium') {
+    test.skip(
+      true,
+      'Синтетические события Touch/TouchEvent не поддерживаются в Firefox и WebKit'
+    )
+    return
+  }
   const gameServer = createGameServer(new InMemoryDatabase(), {
     adminUI: false,
   })
