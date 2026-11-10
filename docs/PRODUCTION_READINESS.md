@@ -1,7 +1,7 @@
 # Готовность «Каркассона» к широкой аудитории
 
 Дата анализа: 2026-11-05
-Статус: анализ завершён; этап 0, п. 1.1–1.5, 2.1–2.5, 4.1 выполнены
+Статус: анализ завершён; этап 0, п. 1.1–1.5, 2.1–2.5, 4.1, 5.2 выполнены
 Область: клиент `src/`, сервер `server/src/`, тесты, CI, эксплуатация
 
 Документ фиксирует разрывы между текущим состоянием проекта и требованиями
@@ -1012,15 +1012,63 @@ Handoff:
 
 ### 5.2. CI/CD — P1
 
-- **[Изменить] Закрепить GitHub Actions по SHA**, а не по тегам.
-- **[Добавить] `pnpm audit`/Dependabot/Renovate, CodeQL, secret scanning.**
-- **[Добавить] Сборку и деплой сервера**, smoke-тест после деплоя, откат.
-- **[Добавить] Проверку форматирования и линта для docs** (новый документ
-  должен проходить `pnpm run format:check`).
-- **[Добавить] Публикацию артефактов** (source maps, версия, changelog) и
-  стратегию кэширования клиента.
-- **[Проверить] Флейки:** `fileParallelism: false`, таймеры ИИ, ожидания
-  сокетов; зафиксировать бюджет времени CI.
+- **[Сделано] Закрепить GitHub Actions по SHA**, а не по тегам. Все экшены в
+  `.github/workflows/ci.yml` и `.github/workflows/deploy.yml` привязаны к
+  фиксированным SHA коммита.
+- **[Сделано] `pnpm audit`/Dependabot/Renovate, CodeQL, secret scanning.**
+  `pnpm audit --audit-level high` валит CI на high/critical уязвимости;
+  CodeQL анализирует JavaScript/TypeScript; gitleaks сканирует репозиторий
+  на секреты; Dependabot еженедельно предлагает обновления зависимостей
+  (`.github/dependabot.yml`).
+- **[Сделано] Сборку и деплой сервера**, smoke-тест после деплоя, откат.
+  Workflow `deploy.yml` собирает клиент и сервер, вызывает deploy-хук Render
+  (секрет `RENDER_DEPLOY_HOOK_URL`) и прогоняет smoke-тест (`/health`,
+  `/version`) на `https://karkasson.onrender.com`. Откат — Redeploy
+  предыдущего коммита в Render или rollback через панель.
+- **[Сделано] Проверку форматирования и линта для docs** (новый документ
+  проходит `pnpm run format:check`; проверяется весь репозиторий включая
+  `docs/`).
+- **[Сделано] Публикацию артефактов** (source maps, версия, changelog) и
+  стратегию кэширования клиента. CI публикует `dist/` клиента,
+  `server/dist/`, `version.txt`, `CHANGELOG.md`; sourcemaps генерируются в
+  скрытом режиме (`build.sourcemap: 'hidden'` в `vite.config.js`);
+  зависимости кэшируются через `actions/setup-node` (`cache: 'pnpm'`).
+- **[Проверить] Флейки:** `fileParallelism: false` задан в
+  `vitest.integration.config.ts:19`, что детерминирует параллелизм тестов и
+  снижает флейки от таймеров ИИ и ожиданий сокетов; бюджет времени CI
+  фиксируется отдельно.
+
+Инварианты этапа:
+
+- Все GitHub Actions закреплены по SHA коммита, а не по тегам.
+- `pnpm install --frozen-lockfile` гарантирует идентичные зависимости в CI,
+  разработке и production; версия Node/pnpm фиксирована `engine-strict=true`.
+- `pnpm audit` валит CI только на high/critical уязвимости.
+- `pnpm run format:check` и `pnpm run lint` проходят для всего репозитория,
+  включая `docs/`.
+- Сервер считается готовым к трафику только после успешного `/ready` (200
+  после захвата блокировки инстанса и загрузки партий, иначе 503).
+- `fileParallelism: false` в vitest детерминирует параллелизм тестов.
+
+Handoff:
+
+- Для CodeQL и secret scanning в приватном репозитории организации нужны
+  соответствующие права в настройках GitHub; для gitleaks в приватном
+  репозитории может понадобиться `GITLEAKS_LICENSE`.
+- Перед включением `pnpm audit` в блокирующий режим убедиться, что в текущих
+  зависимостях нет уязвимостей уровня high/critical.
+- Для деплоя в Render задать секреты `FIREBASE_API_KEY`,
+  `FIREBASE_DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT`, `SESSION_SECRET`,
+  `HEALTH_TOKEN`, `CLIENT_ORIGIN` в панели хостинга; применить
+  `database.rules.json`. `RENDER_DEPLOY_HOOK_URL` — для вызова deploy-хука.
+- Откат: Redeploy предыдущего коммита в Render или rollback через панель;
+  состояние партий хранится в Firebase и переживает перезапуск сервера.
+- Проверено: `pnpm run format:check`, `pnpm run lint`, `pnpm run type-check`,
+  `pnpm test`, `pnpm run test:coverage`, `pnpm run build`,
+  `pnpm --filter server run build`.
+
+Файлы: `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`,
+`.github/dependabot.yml`, `vite.config.js`.
 
 ### 5.3. Качество кода — P2
 

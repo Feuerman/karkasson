@@ -1,4 +1,4 @@
-name: Deploy server
+name: Deploy
 
 on:
   push:
@@ -8,46 +8,57 @@ on:
 permissions:
   contents: read
 
+env:
+  SERVER_URL: https://karkasson.onrender.com
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8
         with:
-          version: 10.29.2
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm --filter server run build
+      - run: node -e "const fs=require('fs');fs.writeFileSync('version.txt',require('./package.json').version+'\n')"
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
         with:
-          node-version: 22
-          cache: pnpm
+          name: client-dist
+          path: dist/
+          retention-days: 30
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        with:
+          name: server-dist
+          path: server/dist/
+          retention-days: 30
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        with:
+          name: version
+          path: version.txt
+          retention-days: 30
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          retention-days: 30
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
+        run: curl -fsS -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - run: echo "Render auto-deploys on push to main via render.yaml; deploy hook called when secret is set."
 
-      - name: Type-check client
-        run: pnpm run type-check
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Build server
-        run: pnpm --filter server run build
-
-      - name: Build client
-        run: pnpm run build
-
-      - name: Run unit and integration tests
-        run: pnpm test
-
-      - name: Deploy to Render
-        env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-        run: |
-          if [ -n "${RENDER_DEPLOY_HOOK}" ]; then
-            curl -X POST "${RENDER_DEPLOY_HOOK}"
-          fi
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          BODY=$(curl -fsS "${{ env.SERVER_URL }}/health")
+          test "$BODY" = '{"status":"ok"}'
+          curl -fsS "${{ env.SERVER_URL }}/version" | grep -q '"server"'

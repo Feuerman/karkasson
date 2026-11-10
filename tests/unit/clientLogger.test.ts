@@ -12,6 +12,11 @@ describe('client logger', () => {
 
     createLogger('test').warn('Connection issue', detail)
 
-    expect(warn).toHaveBeenCalledWith('[WARN] [test] Connection issue', detail)
+    const [line] = warn.mock.calls[0]
+    const record = JSON.parse(line as string)
+    expect(record.level).toBe('warn')
+    expect(record.scope).toBe('test')
+    expect(record.msg).toBe('Connection issue')
+    expect(record.reason).toBe('offline')
   })
 })
