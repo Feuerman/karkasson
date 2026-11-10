@@ -42,7 +42,7 @@ describe('server logger', () => {
     log.error('ошибка', new Error('boom'), { code: 1 })
     const line = captured.find((c) => c.level === 'error')?.text
     expect(line).toBeDefined()
-    const record = JSON.parse(line!) as Record<string, unknown>
+    const record = JSON.parse(line ?? '') as Record<string, unknown>
     expect(record.level).toBe('error')
     expect(record.scope).toBe('test')
     expect(record.msg).toBe('ошибка')

@@ -133,14 +133,17 @@ describe('Размещение фишек', () => {
     if (!offerGame) return
 
     expect(offerGame.isPlacingFollower).toBe(true)
-    expect(offerGame.availableFollowersPlaces!.length).toBeGreaterThan(0)
+    const places = offerGame.availableFollowersPlaces
+    expect(places?.length).toBeGreaterThan(0)
+    if (!places) return
     // Каждый предложенный объект не содержит фишек до нашего хода
-    for (const place of offerGame.availableFollowersPlaces!) {
+    for (const place of places) {
       expect(place.temporaryObject.followers).toHaveLength(0)
     }
 
-    const before =
-      offerGame.playersFollowers![playerId(aliceId)].ordinaryFollowers
+    const playerFollowers = offerGame.playersFollowers
+    if (!playerFollowers) return
+    const before = playerFollowers[playerId(aliceId)].ordinaryFollowers
 
     const skipped = await creator.emitAck<{
       success: boolean

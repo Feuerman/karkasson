@@ -94,7 +94,10 @@ async function shutdown(exitCode: number): Promise<void> {
 }
 
 function startGamesCleanup() {
-  const { events, gameService } = handle!
+  if (!handle) {
+    throw new Error('Server handle is not initialized')
+  }
+  const { events, gameService } = handle
   const timer = setInterval(() => {
     void gameService
       .cleanupGames({
@@ -118,7 +121,10 @@ function startGamesCleanup() {
 }
 
 async function startServer() {
-  const { events, gameService } = handle!
+  if (!handle) {
+    throw new Error('Server handle is not initialized')
+  }
+  const { events, gameService } = handle
   logger.info(`Server running on port ${PORT}`)
 
   try {
