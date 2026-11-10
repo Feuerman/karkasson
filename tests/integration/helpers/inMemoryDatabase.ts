@@ -41,6 +41,7 @@ export function readStoredGame(
 export class InMemoryDatabase implements IGameDatabase {
   saveError: Error | null = null
   readError: Error | null = null
+  deleteError: Error | null = null
   private instanceLock: InstanceLockRecord | null = null
   /**
    * Хук перед записью. Нужен тестам, которые управляют временем записи:
@@ -89,6 +90,7 @@ export class InMemoryDatabase implements IGameDatabase {
   }
 
   async deleteGame(gameId: string): Promise<void> {
+    if (this.deleteError) throw this.deleteError
     delete this.store.games[gameId]
   }
 

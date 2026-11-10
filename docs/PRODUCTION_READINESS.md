@@ -981,24 +981,34 @@ Handoff:
 
 ### 5.1. Проблемные сценарии, которых не хватает — P0/P1
 
-- **[Добавить] Тесты безопасности:** захват слота по чужому `deviceId`,
+- **[Сделано] Тесты безопасности:** захват слота по чужой сессии,
   неавторизованные команды, неверный Origin, oversized payload, rate limit,
-  brute force комнаты, доступ к админке/health.
-- **[Добавить] Тесты отказа Firebase:** таймаут чтения/записи, ошибка
-  удаления, повторная доставка команды, восстановление после рестарта.
-- **[Добавить] Тесты жизненного цикла:** удаление активной игры, TTL
+  brute force комнаты, доступ к админке/health. `tests/integration/abuseProtection.test.ts`,
+  `tests/integration/transportSecurity.test.ts`, `tests/integration/protocol.test.ts`.
+- **[Сделано] Тесты отказа Firebase:** таймаут чтения/записи, ошибка
+  удаления, восстановление после рестарта. `tests/integration/databaseFailures.test.ts`,
+  `tests/unit/databaseRetry.test.ts`.
+- **[Сделано] Тесты жизненного цикла:** удаление активной игры, TTL
   завершённых, выход владельца, пауза/forfeit, min players.
-- **[Добавить] Тесты протокола:** handshake версии, совместимость старого
-  клиента, неизвестное событие, malformed JSON.
-- **[Добавить] Тесты multi-instance/instance lock**, если это станет
-  требованием.
-- **[Добавить] Браузерные сценарии:** два клиента в одной партии, offline/
-  reconnect, потеря сети на ходе, мобильный touch, Firefox/WebKit.
+  `tests/integration/lifecycle.test.ts`, `tests/integration/lobby.test.ts`,
+  `tests/integration/persistence.test.ts`.
+- **[Сделано] Тесты протокола:** handshake версии, совместимость старого
+  клиента, неизвестное событие, malformed payload.
+  `tests/integration/protocol.test.ts`.
+- **[Сделано] Тесты multi-instance/instance lock:**
+  `tests/unit/instanceLock.test.ts` покрывает блокировку, захват и отказ от чужой блокировки, а также перехват после устаревания владельца.
+- **[Сделано] Браузерные сценарии:** два клиента в одной партии
+  (`tests/browser/twoClients.spec.ts`), offline/reconnect и потеря сети
+  (`tests/browser/reconnect.spec.ts`), мобильный touch
+  (`tests/browser/touch.spec.ts`), Firefox/WebKit — в проектах
+  `playwright.config.ts`.
 - **[Сделано] Нагрузочные/soak-тесты** и проверку памяти на длинной партии.
   `tests/integration/load.test.ts` проверяет несколько параллельных игр и
   сокетов, прохождение длинных партий до конца, одновременные сохранения,
   рост памяти и задержку event loop.
-- **[Добавить] Тесты миграций сохранений** для каждой версии схемы.
+- **[Сделано] Тесты миграций сохранений** для каждой версии схемы:
+  версии 1, 4, 5, 6, 8 и текущая в `tests/unit/gameSave.test.ts`, добавлены
+  версии 2, 3, 7.
 
 ### 5.2. CI/CD — P1
 
