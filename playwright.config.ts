@@ -7,10 +7,15 @@ export default defineConfig({
   reporter: 'list',
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  use: {
-    ...devices['Desktop Chrome'],
-    browserName: 'chromium',
-    headless: true,
-    trace: 'retain-on-failure',
-  },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        browserName: 'chromium',
+        headless: true,
+        trace: 'retain-on-failure',
+      },
+    },
+  ],
 })
