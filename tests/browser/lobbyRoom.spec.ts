@@ -34,7 +34,11 @@ test('карточка партии показывает дополнение, �
   let frontend: RunningFrontend | undefined
 
   try {
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    try {
+      await page.context().grantPermissions(['clipboard-write'])
+    } catch {
+      // Буфер обмена недоступен в этом браузере — продолжит без явных прав.
+    }
     frontend = await startTestFrontend(`http://127.0.0.1:${serverPort}`)
 
     await page.addInitScript(() => {
