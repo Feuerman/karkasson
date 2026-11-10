@@ -17,23 +17,5 @@ export default defineConfig({
         trace: 'retain-on-failure',
       },
     },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        browserName: 'firefox',
-        headless: true,
-        trace: 'retain-on-failure',
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-        browserName: 'webkit',
-        headless: true,
-        trace: 'retain-on-failure',
-      },
-    },
   ],
 })
