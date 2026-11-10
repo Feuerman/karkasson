@@ -98,6 +98,7 @@ export default defineConfig(({ mode }) => {
     build: {
       copyPublicDir: true,
       publicDir: 'public',
+      sourcemap: 'hidden',
       // Предупреждение о слишком большом чанке: помогает следить за размером
       // бандла при добавлении новых зависимостей и компонентов.
       chunkSizeWarningLimit: 40_000,
