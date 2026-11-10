@@ -89,14 +89,7 @@ async function playTurn(page: Page) {
 
 test('два клиента в одной партии по очереди ставят тайлы', async ({
   browser,
-}, testInfo) => {
-  if (testInfo.project.name !== 'chromium') {
-    test.skip(
-      true,
-      'Стабилен только в Chromium; Firefox и WebKit не укладываются в таймаут размещения хода; кросс-браузерность остальных сценариев — через проекты в playwright.config.ts.'
-    )
-    return
-  }
+}) => {
   const gameServer = createGameServer(new InMemoryDatabase(), {
     adminUI: false,
   })
