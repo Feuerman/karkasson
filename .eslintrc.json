@@ -33,6 +33,7 @@
       "error",
       { "argsIgnorePattern": "^_" }
     ],
+    "no-console": "error",
     "vue/no-v-html": "off",
     "vue/require-default-prop": "off",
     "vue/no-v-model-argument": "off"
@@ -49,9 +50,10 @@
       "rules": {
         "@typescript-eslint/no-floating-promises": "error",
         "@typescript-eslint/no-misused-promises": "error",
+        "@typescript-eslint/no-non-null-assertion": "error",
+        "@typescript-eslint/no-unnecessary-type-assertion": "error",
         "@typescript-eslint/require-await": "off",
         "@typescript-eslint/await-thenable": "error",
-        "@typescript-eslint/no-unnecessary-type-assertion": "error",
         "@typescript-eslint/restrict-template-expressions": [
           "error",
           { "allowNumber": true }
@@ -61,11 +63,18 @@
     {
       "files": ["tests/**/*.ts"],
       "rules": {
+        "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-unsafe-assignment": "off",
         "@typescript-eslint/no-unsafe-argument": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-return": "off",
         "@typescript-eslint/unbound-method": "off"
+      }
+    },
+    {
+      "files": ["src/utils/logger.ts", "server/src/utils/logger.ts"],
+      "rules": {
+        "no-console": "off"
       }
     }
   ]
