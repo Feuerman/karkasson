@@ -84,8 +84,12 @@
   --color-player-black-bg-text: #ffffff;
   --color-player-pink-bg-text: #000000;
 
-  --font-sans: 'Alegreya', Georgia, 'Times New Roman', serif;
-  --font-display: 'Alegreya SC', 'Alegreya', Georgia, 'Times New Roman', serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-display:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 
   /* Semantic radii */
   --radius-sm: 0.5rem;
