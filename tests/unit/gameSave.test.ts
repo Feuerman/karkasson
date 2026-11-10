@@ -378,6 +378,71 @@ describe('Схема сохранения игры', () => {
     })
   })
 
+  it('читает сохранение версии 2: клиентский deviceId удаляется, сессия сбрасывается', () => {
+    const game = new GameManager({
+      players: [
+        {
+          id: 1,
+          name: 'Alice',
+          color: 'coral',
+          score: 0,
+          socketId: null,
+          sessionId: null,
+        },
+      ],
+    })
+    game.id = 'schema-two-game'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+    ;(legacyState.players as Array<Record<string, unknown>>)[0].deviceId =
+      'device-old'
+
+    const restored = deserializeGameState({
+      schemaVersion: 2,
+      state: legacyState,
+    })
+
+    expect(restored.players[0]).not.toHaveProperty('deviceId')
+    expect(restored.players[0].sessionId).toBeNull()
+    expect(restored.finalScoringEnabled).toBe(false)
+  })
+
+  it('читает сохранение версии 3: флаг ожидания дракона выключен по умолчанию', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'schema-three-game'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+
+    const restored = deserializeGameState({
+      schemaVersion: 3,
+      state: legacyState,
+    })
+
+    expect(restored.pendingDragonMovement).toBe(false)
+    expect(restored.rules.expansions.princessAndDragon).toBe(false)
+  })
+
+  it('читает сохранение версии 7: фаза феи выключена по умолчанию', () => {
+    const game = new GameManager({ players: [], startImmediately: false })
+    game.id = 'schema-seven-game'
+    const legacyState = JSON.parse(JSON.stringify(game)) as Record<
+      string,
+      unknown
+    >
+
+    const restored = deserializeGameState({
+      schemaVersion: 7,
+      state: legacyState,
+    })
+
+    expect(restored.isPlacingFairy).toBe(false)
+    expect(restored.finalScoringEnabled).toBe(false)
+  })
+
   it('мигрирует сохранение версии 8: новые флаги выключаются по умолчанию', () => {
     const game = new GameManager({ players: [], startImmediately: false })
     game.id = 'schema-eight-game'
