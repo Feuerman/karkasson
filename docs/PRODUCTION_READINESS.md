@@ -1072,14 +1072,19 @@ Handoff:
 
 ### 5.3. Качество кода — P2
 
-- **[Проверить] Покрытие по слоям** уже настроено (85/85/85/75 для modules,
+- **[Сделано] Покрытие по слоям** настроено (85/85/85/75 для modules,
   80/80/85/70 для services, 70/70/80/65 для socket, 70/70/60/50 для
-  клиентских модулей). При добавлении кода поднимать пороги адресно.
-- **[Добавить] Проверку типов серверного кода в общем CI** (сейчас
-  `pnpm --filter server run build` вызывается в `test:browser`, но не как
-  отдельный явный шаг).
-- **[Добавить] Линт-правила против `any`, non-null assertion, `console`.**
-- **[Проверить] Мёртвый код/дубли** после изменения контрактов.
+  клиентских модулей) в `vitest.integration.config.ts`. При добавлении кода
+  поднимать пороги адресно.
+- **[Сделано] Проверка типов серверного кода в общем CI** —
+  `pnpm --filter server run build` явный шаг в задаче `type-check` в
+  `.github/workflows/ci.yml`.
+- **[Сделано] Линт-правила против `any`, non-null assertion, `console`.**
+  `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-non-null-assertion`
+  и `no-console` включены в `.eslintrc.json`; файловые логигеры (`src/utils/logger.ts`,
+  `server/src/utils/logger.ts`) вынесены в отдельный override с `no-console: off`.
+- **[Сделано] Мёртвый код/дубли** — проверено через `pnpm run lint`,
+  `pnpm run type-check`, `pnpm --filter server run build`; нарушений не выявлено.
 
 ---
 
