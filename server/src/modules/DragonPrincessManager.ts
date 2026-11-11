@@ -13,6 +13,7 @@
  */
 
 import { neighborCoordinates, NEIGHBOR_SIDES } from './gameGeometry'
+import { rotateSide } from './tileRotation'
 import {
   followerTypeOf,
   removeFollowerFromObject,
@@ -168,10 +169,13 @@ export class DragonPrincessManager {
     const princessSide = tile.princessSide
     if (!princessSide) return cityGroups.flat()
 
+    const quarterTurns = Math.round(tile.rotation / 90)
+    const rotatedPrincessSide = rotateSide(princessSide, quarterTurns)
+
     const princessGroup = cityGroups.find((group) =>
-      group.includes(princessSide)
+      group.includes(rotatedPrincessSide)
     )
-    return princessGroup ?? [princessSide]
+    return princessGroup ?? [rotatedPrincessSide]
   }
 
   /**
