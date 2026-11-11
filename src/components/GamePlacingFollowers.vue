@@ -18,7 +18,10 @@
     <div v-if="gameBoard.princessFollowerPenalty" class="mb-1 text-text-muted">
       {{ t('follower_penalty') }}
     </div>
-    <div v-else-if="isPortalMode && !selectedTile" class="mb-1 text-text-muted">
+    <div
+      v-else-if="isPortalMode && !portalSelectedTile"
+      class="mb-1 text-text-muted"
+    >
       {{ t('follower_portal_choose_tile') }}
     </div>
     <div
@@ -29,31 +32,16 @@
     >
       {{ t('follower_no_options') }}
     </div>
-    <div v-if="isPortalMode && !selectedTile" class="flex flex-col gap-1">
-      <div
-        v-for="tile in tileGroups"
-        :key="`tile-${tile.x}-${tile.y}`"
-        class="rounded-lg hover:bg-surface-muted border border-border/40"
-      >
-        <UButton
-          block
-          variant="ghost"
-          class="btn-choice cursor-pointer justify-start gap-2 rounded-lg font-semibold text-text py-2"
-          @click="selectedTile = { x: tile.x, y: tile.y }"
-        >
-          <span class="flex min-w-0 flex-col items-start text-left gap-0.5">
-            <span class="text-sm leading-tight">
-              {{ t('follower_portal_tile', { x: tile.x + 1, y: tile.y + 1 }) }}
-            </span>
-            <span class="text-[10px] leading-none text-text-muted">
-              {{ t('follower_portal_tile_count', { count: tile.count }) }}
-            </span>
-          </span>
-        </UButton>
-      </div>
+    <div
+      v-if="isPortalMode && !portalSelectedTile"
+      class="mb-2 flex items-center gap-2"
+    >
+      <span class="text-xs font-semibold text-text-muted capitalize">
+        {{ t('follower_portal_choose_tile') }}
+      </span>
     </div>
     <div
-      v-else-if="isPortalMode && selectedTile"
+      v-else-if="isPortalMode && portalSelectedTile"
       class="mb-2 flex items-center gap-2"
     >
       <UButton
@@ -61,20 +49,20 @@
         size="xs"
         variant="ghost"
         class="h-8 w-8 rounded-lg"
-        @click="selectedTile = null"
+        @click="emit('update:portalSelectedTile', null)"
       >
         <UIcon name="i-lucide-arrow-left" class="h-4 w-4" />
       </UButton>
       <span class="text-xs font-semibold text-text-muted capitalize">
         {{
           t('follower_portal_selected', {
-            x: selectedTile.x + 1,
-            y: selectedTile.y + 1,
+            x: portalSelectedTile.x + 1,
+            y: portalSelectedTile.y + 1,
           })
         }}
       </span>
     </div>
-    <div v-if="!isPortalMode || selectedTile" class="flex flex-col gap-1">
+    <div v-if="!isPortalMode || portalSelectedTile" class="flex flex-col gap-1">
       <div
         v-for="group in portalChoiceGroups"
         :key="group.key"
@@ -230,51 +218,38 @@ import { groupFollowerPlaces } from '@/utils/followerPlaces'
 import { usePanelCollapse } from '@/composables/usePanelCollapse'
 import { useBoardZoom } from '@/composables/useBoardZoom'
 import { t } from '@/utils/i18n'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 
-const props = defineProps({
-  gameBoard: {
-    type: Object as () => IGameBoard,
-    required: true,
-  },
-  dragEnabled: {
-    type: Boolean,
-    default: false,
-  },
-})
+const props = defineProps<{
+  gameBoard: IGameBoard
+  dragEnabled?: boolean
+  /** Выбранный тайл в режиме магического портала: задаётся из доски. */
+  portalSelectedTile?: { x: number; y: number } | null
+}>()
+
+const emit = defineEmits<{
+  'update:portalSelectedTile': [value: { x: number; y: number } | null]
+}>()
 
 const groupedPlaces = computed(() =>
   groupFollowerPlaces(props.gameBoard.availableFollowersPlaces ?? [])
 )
 
-/** Выбранный тайл в режиме магического портала: null, пока игрок не выбрал клетку на доске. */
-const selectedTile = ref<{ x: number; y: number } | null>(null)
-
-/** Уникальные тайлы, на которых есть доступные места для подданного. */
-const tileGroups = computed(() => {
-  const byTile = new Map<string, { x: number; y: number; count: number }>()
-  for (const { place } of groupedPlaces.value) {
-    const { x, y } = place.point
-    const key = `${x}:${y}`
-    if (byTile.has(key)) {
-      byTile.get(key)!.count += 1
-    } else {
-      byTile.set(key, { x, y, count: 1 })
-    }
-  }
-  return [...byTile.values()]
-})
-
 /** Режим магического портала: места доступны на нескольких тайлах доски. */
-const isPortalMode = computed(() => tileGroups.value.length > 1)
+const isPortalMode = computed(() => {
+  const tiles = new Set<string>()
+  for (const { place } of groupedPlaces.value) {
+    tiles.add(`${place.point.x}:${place.point.y}`)
+  }
+  return tiles.size > 1
+})
 
 /** Варианты размещения, отфильтрованные по выбранному тайлу (если портал). */
 const filteredGroupedPlaces = computed(() => {
-  if (!selectedTile.value) return groupedPlaces.value
+  const selected = props.portalSelectedTile
+  if (!selected) return groupedPlaces.value
   return groupedPlaces.value.filter(
-    ({ place }) =>
-      place.point.x === selectedTile.value!.x &&
-      place.point.y === selectedTile.value!.y
+    ({ place }) => place.point.x === selected.x && place.point.y === selected.y
   )
 })
 
@@ -443,7 +418,6 @@ const zoomToFairyTarget = (point: Point) => {
 onBeforeUnmount(() => {
   clearFairyTargetPreview()
   clearFollowerPlacePreview()
-  selectedTile.value = null
 })
 
 /**
@@ -507,14 +481,12 @@ const portalChoiceGroups = computed<ChoiceGroup[]>(() => {
 })
 
 const placeFollower = (place: AvailableFollowerPlace, type: FollowerType) => {
-  selectedTile.value = null
   void GameService.placeFollower(place, type).catch((error: unknown) => {
     notifyError(error, t('action_place_follower_error'))
   })
 }
 
 const skipFollower = () => {
-  selectedTile.value = null
   void GameService.skipFollower().catch((error: unknown) => {
     notifyError(error, t('action_skip_follower_error'))
   })

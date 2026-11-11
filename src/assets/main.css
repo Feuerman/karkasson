@@ -290,6 +290,20 @@
   z-index: 1;
 }
 
+/* Подсветка тайлов, доступных для магического портала, когда игрок должен
+ * выбрать тайл прямо на доске. */
+@utility tile-portal {
+  outline: 2px dashed var(--color-primary-500);
+  outline-offset: 2px;
+  z-index: 2;
+}
+
+@utility tile-portal-selected {
+  outline: 3px solid var(--color-primary-500);
+  outline-offset: 2px;
+  z-index: 3;
+}
+
 /* Пульс шапки панели партии, когда ход перешёл к игроку */
 @utility stats-turn-pulse {
   animation: var(
