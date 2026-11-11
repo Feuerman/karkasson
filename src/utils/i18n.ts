@@ -170,6 +170,11 @@ const messages: Record<Locale, Messages> = {
     follower_monk: 'монах',
     follower_panel_move_fairy: 'Переместить фею',
     follower_panel_place: 'Поставить подданного',
+    follower_portal_choose_tile:
+      'Ворота магии: выберите тайл на доске для размещения подданного',
+    follower_portal_tile: 'Тайл {{x}}, {{y}}',
+    follower_portal_tile_count: '{{count}} вариантов',
+    follower_portal_selected: 'Тайл {{x}}, {{y}}',
     follower_label_monk: '{{title}} — монах',
     follower_label_typed: '{{title}} — {{type}}',
     fairy_target_abbot: 'Фея к аббату {{player}}',
@@ -639,6 +644,11 @@ const messages: Record<Locale, Messages> = {
     follower_monk: 'monk',
     follower_panel_move_fairy: 'Move fairy',
     follower_panel_place: 'Place follower',
+    follower_portal_choose_tile:
+      'Magic portal: choose a tile on the board to place your follower',
+    follower_portal_tile: 'Tile {{x}}, {{y}}',
+    follower_portal_tile_count: '{{count}} options',
+    follower_portal_selected: 'Tile {{x}}, {{y}}',
     follower_label_monk: '{{title}} — monk',
     follower_label_typed: '{{title}} — {{type}}',
     fairy_target_abbot: 'Fairy to the abbot of {{player}}',

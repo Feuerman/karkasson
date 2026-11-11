@@ -78,6 +78,20 @@ export function rotateTileSides(
   return rotatedSides
 }
 
+/** Поворачивает одну сторону на число четвертей оборота по часовой стрелке. */
+export function rotateSide(
+  side: SideNameValue,
+  quarterTurns: number
+): SideNameValue {
+  const turnCount = 360 / 90
+  const turns = ((quarterTurns % turnCount) + turnCount) % turnCount
+  let rotated = side
+  for (let turn = 0; turn < turns; turn += 1) {
+    rotated = CLOCKWISE_SIDE[rotated]
+  }
+  return rotated
+}
+
 export function rotateTileGroups(
   groups: SideNameValue[][] | undefined,
   quarterTurns: number

@@ -134,28 +134,27 @@ const tileSources: Record<TileId, string> = {
 }
 
 /**
- * Динамические импорты тайлов: Vite обрабатывает `import.meta.glob` при сборке,
- * копирует файлы в `dist/assets` и возвращает функции, которые лениво загружают
- * resolved URL изображения. Ключ — относительный путь из `tileSources`.
+ * Разрешенные URL изображений тайлов: Vite обрабатывает `import.meta.glob`
+ * с `eager: true` при сборке, копирует файлы в `dist/assets` и подставляет
+ * готовые resolved URL. Ключ — относительный путь из `tileSources`.
+ * URL известен сразу после загрузки клиента, поэтому браузер начинает
+ * загружать изображение сразу при отображении тайла, без ожидания
+ * динамического импорта.
  */
 const tileModules = import.meta.glob('../assets/tiles/**/*.{png,jpg}', {
   query: '?url',
   import: 'default',
-  eager: false,
-}) as Record<string, () => Promise<string>>
+  eager: true,
+}) as Record<string, string>
 
-/** Кэш загруженных URL тайлов: ключ — id тайла, значение — resolved URL. */
+/** Кэш resolved URL тайлов: ключ — id тайла, значение — resolved URL. */
 const loadedTileUrls: Map<TileId, string> = new Map()
 
-/** Тайлы, загрузка которых уже идёт (чтобы не запускать повторно). */
-const loadingTiles: Set<TileId> = new Set()
-
 /**
- * Загружает изображение тайла лениво. Возвращает Promise, который разрешается
- * resolved URL изображения после загрузки модуля. Повторные вызовы для одного
- * тайла возвращают кэшированный результат. Изображение копируется в
- * `dist/assets` при сборке, но загружается браузером только когда тайл впервые
- * появляется на доске.
+ * Возвращает resolved URL изображения тайла. При `eager: true` URL уже
+ * известен после загрузки клиента, поэтому изображение начинает грузиться
+ * браузером сразу при отображении тайла. Повторные вызовы возвращают
+ * кэшированный результат.
  */
 export async function loadTileImage(
   tileId: TileId
@@ -163,28 +162,14 @@ export async function loadTileImage(
   const cached = loadedTileUrls.get(tileId)
   if (cached) return cached
 
-  if (loadingTiles.has(tileId)) {
-    // Ждём завершения уже начатой загрузки того же тайла.
-    while (loadingTiles.has(tileId)) {
-      await new Promise((resolve) => setTimeout(resolve, 10))
-    }
-    return loadedTileUrls.get(tileId)
-  }
-
   const source = tileSources[tileId]
   if (!source) return undefined
 
-  const load = tileModules[source]
-  if (!load) return undefined
+  const url = tileModules[source]
+  if (!url) return undefined
 
-  loadingTiles.add(tileId)
-  try {
-    const url = await load()
-    loadedTileUrls.set(tileId, url)
-    return url
-  } finally {
-    loadingTiles.delete(tileId)
-  }
+  loadedTileUrls.set(tileId, url)
+  return url
 }
 
 /** Количество закешированных тайлов (для мониторинга и тестов). */
