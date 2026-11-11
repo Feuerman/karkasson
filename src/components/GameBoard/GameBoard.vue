@@ -4,6 +4,8 @@
   <GamePlacingFollowers
     :game-board="gameBoard"
     :drag-enabled="layoutEditMode"
+    :portal-selected-tile="portalSelectedTile"
+    @update:portal-selected-tile="portalSelectedTile = $event"
   />
   <GamePrincessAndDragon
     :game-board="gameBoard"
@@ -60,6 +62,13 @@
                 ? 'tile-conflict'
                 : '',
               isAvailableCell(rowIndex, tileIndex) ? 'tile-available' : '',
+              isPortalTile(rowIndex, tileIndex) &&
+              !isSelectedPortalTile(rowIndex, tileIndex)
+                ? 'tile-portal'
+                : '',
+              isSelectedPortalTile(rowIndex, tileIndex)
+                ? 'tile-portal-selected'
+                : '',
               isLastActionCell(rowIndex, tileIndex) ? 'tile-last-action' : '',
             ]"
             @click="handleTileClick(rowIndex, tileIndex)"
@@ -424,6 +433,35 @@ const conflictCells = computed(
 /** Выбрана ли клетка для размещения текущего тайла. */
 const hasSelectedCell = computed(() => hasPlacedPoint(hoveredTile.value))
 
+/** Выбранный тайл в режиме магического портала: задаётся кликом по доске. */
+const portalSelectedTile = ref<{ x: number; y: number } | null>(null)
+
+/** Уникальные тайлы с доступными местами для подданного. */
+const portalTiles = computed(() => {
+  const tiles = new Map<string, { x: number; y: number }>()
+  for (const place of gameBoard.value.availableFollowersPlaces ?? []) {
+    const { x, y } = place.point
+    const key = `${x}:${y}`
+    if (!tiles.has(key)) tiles.set(key, { x, y })
+  }
+  return [...tiles.values()]
+})
+
+/** Режим магического портала: места доступны на нескольких тайлах доски. */
+const isPortalMode = computed(() => portalTiles.value.length > 1)
+
+/** Доступен ли тайл для выбора через портал. */
+const isPortalTile = (rowIndex: number, tileIndex: number): boolean =>
+  portalTiles.value.some((t) => t.x === tileIndex && t.y === rowIndex)
+
+/** Выбран ли тайл для портала. */
+const isSelectedPortalTile = (rowIndex: number, tileIndex: number): boolean =>
+  Boolean(
+    portalSelectedTile.value &&
+    portalSelectedTile.value.x === tileIndex &&
+    portalSelectedTile.value.y === rowIndex
+  )
+
 /** Панель размещения видна только в фазе раскладки тайла своего хода. */
 const canShowPlacementUi = computed(
   () =>
@@ -519,6 +557,19 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
     }
 
     if (gameBoard.value.isPlacingFollower || gameBoard.value.isPlacingFairy) {
+      // В режиме портала тайл выбирается кликом прямо на доске.
+      if (
+        gameBoard.value.isPlacingFollower &&
+        isPortalMode.value &&
+        isPortalTile(rowIndex, tileIndex)
+      ) {
+        if (isSelectedPortalTile(rowIndex, tileIndex)) {
+          portalSelectedTile.value = null
+        } else {
+          portalSelectedTile.value = { x: tileIndex, y: rowIndex }
+        }
+        return
+      }
       return
     }
 
