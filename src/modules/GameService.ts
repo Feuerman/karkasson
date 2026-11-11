@@ -367,13 +367,23 @@ export class GameService implements IGameService {
     this.reconnectTimer = null
   }
 
-  /** Повторяет попытку так же, как это делает Socket.IO для обрывов. */
+  /** Повторяет попытку подключения каждую секунду, пока сервер не станет доступен. */
   private scheduleReconnect(): void {
     this.clearReconnectTimer()
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       if (!this.socket || this.socket.connected) return
       this.socket.connect()
+      // Продолжаем попытки, пока не восстановим соединение: не полагаемся
+      // только на внутренний цикл socket.io, иначе после пробуждения сервера
+      // странице может потребоваться перезагрузка.
+      if (
+        !this.socket.connected &&
+        this.isOnline.value &&
+        !this.sessionReplaced
+      ) {
+        this.scheduleReconnect()
+      }
     }, 1000)
   }
 
@@ -499,7 +509,10 @@ export class GameService implements IGameService {
       reconnectionAttempts: Number.POSITIVE_INFINITY,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000,
+      // С Render instance засыпает и может долго не отвечать. Короткий таймаут
+      // делает неудачные попытки быстрыми, чтобы после пробуждения сервера
+      // клиент подключился без перезагрузки страницы.
+      timeout: 8000,
       autoConnect: true,
       forceNew: false,
     })
@@ -560,6 +573,11 @@ export class GameService implements IGameService {
       this.connectionPhase.value = this.isOnline.value
         ? 'reconnecting'
         : 'offline'
+      // Клиент сам 주도ет переподключение: после пробуждения сервера
+      // соединение восстанавливается без перезагрузки страницы.
+      if (this.isOnline.value && !this.sessionReplaced) {
+        this.scheduleReconnect()
+      }
     })
 
     socket.on('reconnect_attempt', (attemptNumber: number) => {
