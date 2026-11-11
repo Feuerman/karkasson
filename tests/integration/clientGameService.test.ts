@@ -21,8 +21,13 @@ import {
   requireInvalidPlacement,
   requireValidPlacement,
 } from './helpers/gameplay'
-import { startTestServer, type RunningServer } from './helpers/server'
-import { waitForCondition } from './helpers/wait'
+import {
+  startTestServer,
+  startTestServerAtPort,
+  stopTestServer,
+  type RunningServer,
+} from './helpers/server'
+import { sleep, waitForCondition } from './helpers/wait'
 
 /**
  * Тесты клиентского приложения: настоящий клиентский GameService
@@ -469,5 +474,43 @@ describe('Клиентское приложение (GameService)', () => {
     await expect(unacknowledged).rejects.toThrow(
       'Соединение с сервером прервано'
     )
+  })
+
+  it('восстанавливает соединение после перезапуска сервера без перезагрузки страницы', async () => {
+    const port = 59876
+    let running: RunningServer | undefined
+    const clients: GameService[] = []
+
+    try {
+      running = await startTestServerAtPort(port)
+      const client = new GameService({ serverUrl: running.url })
+      clients.push(client)
+      client.connect()
+      await waitUntilConnected(client)
+
+      // Сервер засыпает: останавливаем его, клиент остаётся с разорванным сокетом.
+      await stopTestServer(running)
+      running = undefined
+      await waitForCondition(
+        () => !client.socket?.connected,
+        'сокет не отключился после остановки сервера',
+        15_000
+      )
+      expect(client.connectionPhase.value).toBe('reconnecting')
+
+      // Сервер просыпается на том же адресе: клиент восстанавливает соединение
+      // самостоятельно, без повторного вызова connect() (без перезагрузки страницы).
+      await sleep(300)
+      running = await startTestServerAtPort(port)
+      await waitForCondition(
+        () => Boolean(client.socket?.connected),
+        'клиент не восстановил соединение после перезапуска сервера',
+        20_000
+      )
+      expect(client.isConnected.value).toBe(true)
+    } finally {
+      for (const c of clients) c.disconnect()
+      if (running) await stopTestServer(running)
+    }
   })
 })
