@@ -145,7 +145,7 @@ const tileModules = import.meta.glob('../assets/tiles/**/*.{png,jpg}', {
   query: '?url',
   import: 'default',
   eager: true,
-}) as Record<string, string>
+})
 
 /** Кэш resolved URL тайлов: ключ — id тайла, значение — resolved URL. */
 const loadedTileUrls: Map<TileId, string> = new Map()
