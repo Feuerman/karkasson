@@ -311,7 +311,7 @@ describe('Финальный подсчёт полей', () => {
       [P1]: 3,
       [P2]: 3,
     })
-    expect(fieldActions[0]?.actionData.score.total).toBe(6)
+    expect(fieldActions[0]?.actionData.score.total).toBe(3)
   })
 
   it('большой подданный весит двоих и побеждает при равенстве фишек', () => {

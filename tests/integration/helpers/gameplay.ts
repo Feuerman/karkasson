@@ -666,7 +666,7 @@ function expectedObjectScore(
 ): ExpectedObjectScore {
   const players = scoringWinners(points, followers)
   return {
-    total: followers.length ? points * Object.keys(players).length : points,
+    total: points,
     players,
   }
 }

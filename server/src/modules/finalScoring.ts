@@ -285,18 +285,16 @@ export function scoreFields(state: ScoringBoard): void {
     const pointsPerLeader = pointsPerCity * cityIds.size
 
     const players: Partial<Record<PlayerId, number>> = {}
-    let total = 0
 
     for (const [playerId, weight] of weightByPlayer) {
       if (weight === maxWeight) {
         players[playerId] = pointsPerLeader
-        total += pointsPerLeader
         state.scores[playerId] = (state.scores[playerId] ?? 0) + pointsPerLeader
       }
     }
 
     const score: ScoreForObject = {
-      total,
+      total: pointsPerLeader,
       players,
       objectId: componentId,
     }
