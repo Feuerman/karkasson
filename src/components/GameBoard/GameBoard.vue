@@ -400,7 +400,7 @@ const focusCell = (rowIndex: number, tileIndex: number) => {
   const element = findTileElement(row, column)
   if (!element) return
   element.focus({ preventScroll: true })
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  element.scrollIntoView({ block: 'center', inline: 'center' })
 }
 
 const setHoveredTile = (point?: BoardCell | null) => {
