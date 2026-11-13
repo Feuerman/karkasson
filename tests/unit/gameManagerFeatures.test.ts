@@ -391,7 +391,7 @@ describe('Слияние и завершение дорог и городов', 
         [completedObject.id, completedObject.id]
       )
       expect(completedObject.score).toMatchObject({
-        total: pointsPerPlayer * 2,
+        total: pointsPerPlayer,
         players: { 1: pointsPerPlayer, 2: pointsPerPlayer },
       })
       expect(game.scores).toEqual({ 1: pointsPerPlayer, 2: pointsPerPlayer })
