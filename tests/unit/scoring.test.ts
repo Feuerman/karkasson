@@ -151,7 +151,7 @@ describe('calcRoadScore', () => {
     const scores = emptyScores()
     const result = calcRoadScore(board, road, scores)
 
-    expect(result.total).toBe(4) // 2 + 2 (каждому по полному score)
+    expect(result.total).toBe(2) // стоимость дороги (каждому по полному score)
     expect(result.players).toEqual({ 1: 2, 2: 2 })
     expect(scores[1]).toBe(2)
     expect(scores[2]).toBe(2)
@@ -241,7 +241,7 @@ describe('calcCityScore', () => {
     const result = calcCityScore(board, city, scores, true, true)
 
     expect(result.players).toEqual({ 1: 66, 2: 66, 3: 66 })
-    expect(result.total).toBe(198)
+    expect(result.total).toBe(66)
     expect(scores).toEqual({ 1: 66, 2: 66, 3: 66 })
   })
 
@@ -314,7 +314,7 @@ describe('calcCityScore', () => {
     const result = calcCityScore(board, city, scores)
 
     // 1 и 2 имеют по 1 фишке — оба лидеры, каждый получает полные очки
-    expect(result.total).toBe(4) // 2 + 2
+    expect(result.total).toBe(2) // стоимость города (каждому по полным очкам)
     expect(result.players).toEqual({ 1: 2, 2: 2 })
     expect(scores[1]).toBe(2)
     expect(scores[2]).toBe(2)

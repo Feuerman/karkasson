@@ -130,11 +130,7 @@ export const buildTurnSummary = (
           })
         }
 
-        const eventPoints =
-          Object.values(action.actionData.score.players ?? {}).reduce<number>(
-            (total, points) => total + (points ?? 0),
-            0
-          ) || action.actionData.score.total
+        const eventPoints = action.actionData.score.total
         if (eventPoints > 0) {
           scoreEvents.push({
             objectType: action.actionData.objectType,

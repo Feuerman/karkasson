@@ -61,17 +61,15 @@ export function distributeScore(
 
   const maxCount = Math.max(...Object.values(followersCountByPlayer))
   const players: Partial<Record<PlayerId, number>> = {}
-  let total = 0
 
   for (const [playerId, count] of Object.entries(followersCountByPlayer)) {
     if (count === maxCount) {
-      total += points
       players[playerId] = points
       scores[playerId] = (scores[playerId] ?? 0) + points
     }
   }
 
-  return { total, players }
+  return { total: points, players }
 }
 
 function countUniqueTiles(
