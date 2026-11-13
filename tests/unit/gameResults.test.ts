@@ -162,4 +162,45 @@ describe('buildGameResults', () => {
     expect(results[0].total).toBe(0)
     expect(results[0].breakdown.other).toBe(0)
   })
+
+  it('разбивка никогда не превышает итоговый счёт сервера', () => {
+    const history: GameAction[] = [
+      addingScores(ObjectTypes.CITY, { '1': 72 }),
+      addingScores(ObjectTypes.ROAD, { '1': 20 }),
+      addingScores(ObjectTypes.MONASTERY, { '1': 39 }),
+      addingScores(ObjectTypes.FIELD, { '1': 17 }),
+      addingScores(ObjectTypes.GARDEN, { '1': 15 }),
+    ]
+
+    const results = buildGameResults([player(1, 'Иван')], { '1': 105 }, history)
+
+    const breakdown = results[0].breakdown
+    const sum =
+      breakdown.cities +
+      breakdown.roads +
+      breakdown.monasteries +
+      breakdown.gardens +
+      breakdown.fields +
+      breakdown.other
+    expect(sum).toBe(105)
+    expect(results[0].total).toBe(105)
+  })
+
+  it('если истории мало, остаток уходит в «прочие»', () => {
+    const history: GameAction[] = [
+      addingScores(ObjectTypes.CITY, { '1': 48 }),
+      addingScores(ObjectTypes.ROAD, { '1': 16 }),
+    ]
+
+    const results = buildGameResults([player(1, 'Иван')], { '1': 105 }, history)
+
+    expect(results[0].breakdown.cities).toBe(48)
+    expect(results[0].breakdown.roads).toBe(16)
+    expect(results[0].breakdown.other).toBe(41)
+    const sum =
+      results[0].breakdown.cities +
+      results[0].breakdown.roads +
+      results[0].breakdown.other
+    expect(sum).toBe(105)
+  })
 })
