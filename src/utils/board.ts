@@ -59,7 +59,7 @@ export const cellsOfPoints = (
 const HIGHLIGHT_CLASS = 'tile-focus'
 const HIGHLIGHT_DURATION_PROPERTY = '--tile-focus-duration'
 const HIGHLIGHT_DELAY_PROPERTY = '--tile-focus-delay'
-const HIGHLIGHT_DURATION = 2600
+const HIGHLIGHT_DURATION = 4000
 /** Задержка между соседними клетками объекта: подсветка идёт вдоль дороги. */
 const HIGHLIGHT_STAGGER = 90
 
