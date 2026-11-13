@@ -69,6 +69,55 @@ export const buildScoreBreakdown = (
 }
 
 /**
+ * Приводит разбивку очков к итоговому счёту сервера.
+ *
+ * Очки по объектам берутся из истории начислений, а итог — от сервера
+ * (авторитетный). Сумма разбивки должна совпадать с итогом. Если история
+ * начисляет по объектам больше, чем итог сервера (расхождение исходных
+ * данных), значения по объектам сжимаются пропорционально до итога, а
+ * «прочие начисления» обнуляются — иначе детализация покажет сумму больше
+ * итогового счёта.
+ */
+const reconcileBreakdownToTotal = (
+  breakdown: ScoreBreakdown,
+  total: number
+): ScoreBreakdown => {
+  const objectKeys: (keyof ScoreBreakdown)[] = [
+    'cities',
+    'roads',
+    'monasteries',
+    'gardens',
+    'fields',
+  ]
+  const fromObjects = objectKeys.reduce((sum, key) => sum + breakdown[key], 0)
+
+  if (fromObjects <= total) {
+    return { ...breakdown, other: Math.max(0, total - fromObjects) }
+  }
+
+  const ratio = total / fromObjects
+  const scaled: ScoreBreakdown = { ...EMPTY_BREAKDOWN }
+  let sum = 0
+  for (const key of objectKeys) {
+    const value = Math.floor(breakdown[key] * ratio)
+    scaled[key] = value
+    sum += value
+  }
+
+  // Остаток от округления распределяем по крупнейшим вкладам, чтобы сумма
+  // сошлась с итоговым счётом ровно.
+  const ordered = objectKeys.slice().sort((a, b) => scaled[b] - scaled[a])
+  let index = 0
+  while (sum < total) {
+    scaled[ordered[index % ordered.length]] += 1
+    sum += 1
+    index += 1
+  }
+
+  return scaled
+}
+
+/**
  * Итоговая таблица партии.
  *
  * Порядок и места считаются по очкам сервера: при равном счёте игроки делят
@@ -83,12 +132,6 @@ export const buildGameResults = (
   const results: PlayerResult[] = players.map((player) => {
     const total = scores?.[player.id] ?? 0
     const breakdown = buildScoreBreakdown(actionsHistory, player.id)
-    const fromObjects =
-      breakdown.cities +
-      breakdown.roads +
-      breakdown.monasteries +
-      breakdown.gardens +
-      breakdown.fields
 
     return {
       playerId: player.id,
@@ -99,7 +142,7 @@ export const buildGameResults = (
       isWinner: winnerPlayerIds.some(
         (winnerId) => String(winnerId) === String(player.id)
       ),
-      breakdown: { ...breakdown, other: Math.max(0, total - fromObjects) },
+      breakdown: reconcileBreakdownToTotal(breakdown, total),
     }
   })
 
