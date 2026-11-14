@@ -558,6 +558,7 @@ const connectionView = computed(() =>
     reconnectAttempt: GameService.reconnectAttempt.value,
     lastDisconnectReason: GameService.lastDisconnectReason.value,
     errorCode: GameService.connectionErrorCode.value,
+    hasEverConnected: GameService.hasEverConnected.value,
   })
 )
 

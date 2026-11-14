@@ -13,6 +13,8 @@ export interface ConnectionSnapshot {
   reconnectAttempt: number
   lastDisconnectReason: string | null
   errorCode: ConnectionErrorCode | null
+  /** Был ли когда-либо успешный коннект (отличает холодный старт от обрыва в игре). */
+  hasEverConnected: boolean
 }
 
 export type ConnectionTone = 'success' | 'warning' | 'error'
@@ -88,6 +90,18 @@ export function describeConnectionStatus(
     return {
       label: t('connection_connecting_label'),
       details: t('connection_connecting_details'),
+      tone: 'warning',
+      overlay: false,
+      canRetry: false,
+    }
+  }
+
+  // Холодный старт: сервер может долго не отвечать, пока не пробудится.
+  // Показываем только текст, без полноэкранного окна с кнопкой.
+  if (!snapshot.hasEverConnected && snapshot.phase === 'reconnecting') {
+    return {
+      label: t('connection_connecting_label'),
+      details: t('connection_first_connect_details'),
       tone: 'warning',
       overlay: false,
       canRetry: false,
