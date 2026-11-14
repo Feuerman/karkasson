@@ -11,6 +11,7 @@ const base: ConnectionSnapshot = {
   reconnectAttempt: 0,
   lastDisconnectReason: null,
   errorCode: null,
+  hasEverConnected: false,
 }
 
 describe('Состояние подключения клиента', () => {
@@ -41,6 +42,7 @@ describe('Состояние подключения клиента', () => {
       ...base,
       phase: 'reconnecting',
       errorCode: 'transport',
+      hasEverConnected: true,
     })
 
     expect(unavailable.label).toBe('Сервер недоступен')
@@ -56,12 +58,27 @@ describe('Состояние подключения клиента', () => {
     expect(view.canRetry).toBe(false)
   })
 
+  it('при первом подключении показывает только текст без полноэкранного окна', () => {
+    const view = describeConnectionStatus({
+      ...base,
+      phase: 'reconnecting',
+      errorCode: 'timeout',
+      reconnectAttempt: 1,
+    })
+
+    expect(view.label).toBe('Подключение…')
+    expect(view.details).toContain('минут')
+    expect(view.overlay).toBe(false)
+    expect(view.canRetry).toBe(false)
+  })
+
   it('объясняет закрытие соединения сервером и добавляет номер попытки', () => {
     const view = describeConnectionStatus({
       ...base,
       phase: 'reconnecting',
       lastDisconnectReason: 'io server disconnect',
       reconnectAttempt: 3,
+      hasEverConnected: true,
     })
 
     expect(view.label).toBe('Сервер закрыл соединение')
@@ -76,6 +93,7 @@ describe('Состояние подключения клиента', () => {
       phase: 'reconnecting',
       errorCode: 'timeout',
       reconnectAttempt: 2,
+      hasEverConnected: true,
     })
     expect(timeout.label).toBe('Сервер не отвечает')
     expect(timeout.details).toContain('Попытка 2')
@@ -84,6 +102,7 @@ describe('Состояние подключения клиента', () => {
       ...base,
       phase: 'reconnecting',
       errorCode: 'server',
+      hasEverConnected: true,
     })
     expect(server.label).toBe('Сервер недоступен')
 
@@ -91,6 +110,7 @@ describe('Состояние подключения клиента', () => {
       ...base,
       phase: 'reconnecting',
       errorCode: 'unknown',
+      hasEverConnected: true,
     })
     expect(unknown.label).toBe('Нет связи с сервером')
   })

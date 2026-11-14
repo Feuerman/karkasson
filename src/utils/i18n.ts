@@ -129,6 +129,8 @@ const messages: Record<Locale, Messages> = {
       'Проверьте подключение к интернету, затем попробуйте снова.',
     connection_connecting_label: 'Подключение…',
     connection_connecting_details: 'Устанавливаем соединение с сервером.',
+    connection_first_connect_details:
+      'Первое подключение может занять около минуты.',
     connection_server_closed_label: 'Сервер закрыл соединение',
     connection_server_closed_details: 'Переподключаемся к серверу.',
     connection_timeout_label: 'Сервер не отвечает',
@@ -605,6 +607,8 @@ const messages: Record<Locale, Messages> = {
       'Check your internet connection, then try again.',
     connection_connecting_label: 'Connecting…',
     connection_connecting_details: 'Establishing a connection to the server.',
+    connection_first_connect_details:
+      'First connection may take about a minute.',
     connection_server_closed_label: 'The server closed the connection',
     connection_server_closed_details: 'Reconnecting to the server.',
     connection_timeout_label: 'The server is not responding',
