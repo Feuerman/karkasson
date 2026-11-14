@@ -73,18 +73,20 @@ const toTileElements = (cells: readonly TileCoordinates[]): HTMLElement[] => {
 }
 
 /**
- * Подсвечивает клетки доски и прокручивает к первой из них. Возвращает
- * функцию отмены: она снимает выделение и отменяет отложенное снятие, чтобы
- * повторный клик по другой записи истории не остался без подсветки.
+ * Подсвечивает клетки доски и (опционально) прокручивает к первой из них.
+ * Возвращает функцию отмены: она снимает выделение и отменяет отложенное
+ * снятие, чтобы повторный клик по другой записи истории не остался без
+ * подсветки.
  */
 export const highlightCells = (
   cells: readonly TileCoordinates[],
-  duration: number = HIGHLIGHT_DURATION
+  duration: number = HIGHLIGHT_DURATION,
+  scroll: boolean = true
 ): (() => void) => {
   const elements = toTileElements(cells)
   if (!elements.length) return () => undefined
 
-  scrollToElement(elements[0])
+  if (scroll) scrollToElement(elements[0])
 
   elements.forEach((element, index) => {
     element.style.setProperty(HIGHLIGHT_DURATION_PROPERTY, `${duration}ms`)

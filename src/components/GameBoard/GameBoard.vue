@@ -70,6 +70,9 @@
                 ? 'tile-portal-selected'
                 : '',
               isLastActionCell(rowIndex, tileIndex) ? 'tile-last-action' : '',
+              targetCells.size > 0 && !isTargetCell(rowIndex, tileIndex)
+                ? 'tile-dimmed'
+                : '',
             ]"
             @click="handleTileClick(rowIndex, tileIndex)"
           >
@@ -234,12 +237,7 @@ import { errorMessage, notifyError, throttle } from '../../utils/common'
 import notificationService from '../../plugins/notification'
 import { boardCellTestId, TEST_IDS } from '../../data/testIds'
 import { rotateTile as rotateTileUtil, TILE_SIZE } from '../../utils/tiles'
-import {
-  cellOfPoint,
-  findTileElement,
-  highlightCells,
-  scrollToTile,
-} from '../../utils/board'
+import { cellOfPoint, findTileElement, highlightCells } from '../../utils/board'
 import { boardCellKey, buildAvailableCells } from '../../utils/availableCells'
 import { playerColorValue } from '../../utils/colors'
 import { t } from '../../utils/i18n'
@@ -363,6 +361,27 @@ watch(
 const hoveredTile = ref<BoardCell>({})
 
 /**
+ * Клетка, на которую кликнул игрок для подсветки цели (любой клик по доске:
+ * существующий тайл, объект, координаты). При выкладке нового тайла не
+ * используется — там работает обычный «призрак» без приглушения остальных.
+ */
+const targetCell = ref<BoardCell>({})
+
+/** Целевые клетки для подсветки при клике: только кликнутая клетка. */
+const targetCells = computed(() => {
+  const cells = new Set<string>()
+  const add = (rowIndex?: number, tileIndex?: number) => {
+    if (typeof rowIndex === 'number' && typeof tileIndex === 'number') {
+      cells.add(`${rowIndex}:${tileIndex}`)
+    }
+  }
+
+  add(targetCell.value.rowIndex, targetCell.value.tileIndex)
+
+  return cells
+})
+
+/**
  * Клетка, на которой стоит фокус.
  *
  * Клеток на доске сотни, поэтому с клавиатуры доступна только одна: стрелки
@@ -389,7 +408,11 @@ const cellLabel = (rowIndex: number, tileIndex: number): string => {
 }
 
 /** Ставит фокус на клетку и показывает её на экране. */
-const focusCell = (rowIndex: number, tileIndex: number) => {
+const focusCell = (
+  rowIndex: number,
+  tileIndex: number,
+  scroll: boolean = true
+) => {
   const rows = gridDimensions.value[1]
   const columns = gridDimensions.value[0]
   const row = Math.min(Math.max(rowIndex, 0), rows - 1)
@@ -400,7 +423,7 @@ const focusCell = (rowIndex: number, tileIndex: number) => {
   const element = findTileElement(row, column)
   if (!element) return
   element.focus({ preventScroll: true })
-  element.scrollIntoView({ block: 'center', inline: 'center' })
+  if (scroll) element.scrollIntoView({ block: 'center', inline: 'center' })
 }
 
 const setHoveredTile = (point?: BoardCell | null) => {
@@ -546,7 +569,14 @@ const updateSelectedPlacingPoint = throttle(
 
 const handleTileClick = (rowIndex: number, tileIndex: number) => {
   // Фокус идёт за выбором: с клавиатуры игрок продолжит с этой клетки.
-  focusCell(rowIndex, tileIndex)
+  // При выкладке нового тайла не центрируем поле.
+  focusCell(rowIndex, tileIndex, !canShowPlacementUi.value)
+
+  // Целевая клетка для подсветки: работает при клике на существующий тайл
+  // или объект, но не при выкладке нового тайла.
+  if (!canShowPlacementUi.value) {
+    targetCell.value = { rowIndex, tileIndex }
+  }
 
   if (gameBoard.value.isMyTurn) {
     if (gameBoard.value.dragonMove) {
@@ -590,6 +620,7 @@ const clearSelection = () => {
   placementConflicts.value = []
   clearPlacementError()
   setHoveredTile(null)
+  targetCell.value = {}
   boardRef.value?.focus()
 }
 
@@ -693,8 +724,7 @@ watch(
 
 const zoomToTile = ({ rowIndex, tileIndex }: BoardCell = {}) => {
   if (rowIndex === undefined || tileIndex === undefined) return
-  scrollToTile(rowIndex, tileIndex)
-  highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS)
+  highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS, false)
 }
 
 const { setZoomHandler, fairyTargetPreview, followerPlacementPreview } =
@@ -784,6 +814,10 @@ const placeTile = async (
 const isFairyTargetPreview = (rowIndex: number, tileIndex: number) =>
   fairyTargetPreview.value?.rowIndex === rowIndex &&
   fairyTargetPreview.value?.tileIndex === tileIndex
+
+/** Является ли клетка целевой при активной подсветке. */
+const isTargetCell = (rowIndex: number, tileIndex: number): boolean =>
+  targetCells.value.has(`${rowIndex}:${tileIndex}`)
 
 const followerPreviewForCell = (rowIndex: number, tileIndex: number) => {
   const preview = followerPlacementPreview.value

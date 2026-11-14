@@ -163,6 +163,8 @@ export class GameService implements IGameService {
   /** Есть ли следующая страница. */
   gamesListHasMore = false
   isConnected = ref(false)
+  /** Был ли когда-либо успешный коннект: отличает холодный старт от обрыва в игре. */
+  hasEverConnected = ref(false)
   /** Идентификатор текущего сокета: меняется при каждом переподключении. */
   socketId = ref<string | null>(null)
   /** Текущая фаза соединения для индикатора и экрана восстановления. */
@@ -522,6 +524,7 @@ export class GameService implements IGameService {
       logger.info('Connected to server')
       this.clearReconnectTimer()
       this.isConnected.value = true
+      this.hasEverConnected.value = true
       this.connectionPhase.value = 'connected'
       this.connectionErrorCode.value = null
       this.lastDisconnectReason.value = null
