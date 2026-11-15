@@ -39,9 +39,16 @@
             {{ result.place }}
           </span>
           <span
-            class="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/20"
+            class="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/20 relative"
             :class="playerBackgroundColorClass(result.color)"
-          ></span>
+          >
+            <img
+              v-if="result.avatarUrl"
+              :src="result.avatarUrl"
+              :alt="result.name"
+              class="h-3 w-3 rounded-full object-cover absolute inset-0"
+            />
+          </span>
           <span class="min-w-0 flex-1">
             <span class="flex items-center gap-1 text-body font-semibold">
               <span class="truncate">{{ result.name }}</span>

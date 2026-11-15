@@ -29,7 +29,10 @@ import type {
 import { createLogger } from '@/utils/logger'
 import { t, getLocale, type Locale } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
-import { signInWithGoogle } from '@/modules/firebaseAuth'
+import {
+  signInWithGoogle,
+  signOut as firebaseSignOut,
+} from '@/modules/firebaseAuth'
 import {
   classifyConnectError,
   type ConnectionErrorCode,
@@ -57,6 +60,10 @@ export interface IGameService {
   linkAccount: () => Promise<{ userId: string }>
   /** Восстановление доступа к играм пользователя по userId. */
   restoreAccount: (userId: string) => Promise<GameData[]>
+  /** Восстановление сессии при загрузке страницы. */
+  restoreSession: () => Promise<{ userId: string | null; games: GameData[] }>
+  /** Выход из аккаунта (Firebase signOut + серверное Logout). */
+  logout: () => Promise<void>
   /** Идентификатор привязанного пользователя Firebase Auth, или null. */
   userId: Ref<string | null>
 }
@@ -114,6 +121,7 @@ export interface CreateGameOptions {
 const DEFAULT_SERVER_URL =
   import.meta.env.VITE_SERVER_URL || 'https://karkasson.onrender.com'
 const SESSION_TOKEN_STORAGE_KEY = 'sessionToken'
+const USER_ID_STORAGE_KEY = 'userId'
 const SOCKET_ACK_TIMEOUT_MS = 15_000
 /** Версия протокола этого клиента: сверяется с ответом сервера. */
 const CLIENT_PROTOCOL_VERSION = PROTOCOL_VERSION
@@ -140,6 +148,30 @@ function storeSessionToken(token: string): void {
   } catch {
     // Приватный режим или переполненное хранилище: сессия проживёт до
     // перезагрузки страницы, но приложение не должно падать.
+  }
+}
+
+function readStoredUserId(): string | null {
+  try {
+    return localStorage.getItem(USER_ID_STORAGE_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
+function storeUserId(userId: string): void {
+  try {
+    localStorage.setItem(USER_ID_STORAGE_KEY, userId)
+  } catch {
+    // Приватный режим или переполненное хранилище.
+  }
+}
+
+function clearStoredUserId(): void {
+  try {
+    localStorage.removeItem(USER_ID_STORAGE_KEY)
+  } catch {
+    // Приватный режим или переполненное хранилище.
   }
 }
 
@@ -737,7 +769,62 @@ export class GameService implements IGameService {
       throw new Error(t('ui_error_account_link_failed'))
     }
     this.userId.value = user.uid
+    storeUserId(user.uid)
     return { userId: user.uid }
+  }
+
+  /**
+   * Восстанавливает авторизацию при загрузке страницы: отправляет серверу
+   * сохранённый токен сессии и userId из localStorage. Если пользователь
+   * был авторизован, сессия привязывается к аккаунту повторно.
+   */
+  async restoreSession(): Promise<{
+    userId: string | null
+    games: GameData[]
+  }> {
+    const storedUserId = readStoredUserId()
+    if (!storedUserId) {
+      return { userId: null, games: [] }
+    }
+
+    const response = await this.emitAck<{
+      success: boolean
+      games: GameData[]
+    }>(SocketEvents.RestoreAccount, { userId: storedUserId })
+    if (!response.success) {
+      clearStoredUserId()
+      this.userId.value = null
+      return { userId: null, games: [] }
+    }
+
+    this.userId.value = storedUserId
+    return { userId: storedUserId, games: response.games ?? [] }
+  }
+
+  /**
+   * Выходит из аккаунта: Firebase signOut, серверное Logout, очистка
+   * localStorage и сброс UI-состояния.
+   */
+  async logout(): Promise<void> {
+    const sessionId = this.sessionId.value
+
+    try {
+      await firebaseSignOut()
+    } catch {
+      // Firebase уже не авторизован — продолжаем очистку на стороне клиента.
+    }
+
+    if (sessionId) {
+      try {
+        await this.emitAck<{ success: boolean }>(SocketEvents.Logout, {})
+      } catch {
+        // Сервер недоступен — локальную сессию всё равно сбрасываем.
+      }
+    }
+
+    clearStoredUserId()
+    this.userId.value = null
+    this.sessionId.value = null
   }
 
   /**

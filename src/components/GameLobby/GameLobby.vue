@@ -42,6 +42,7 @@
             {{ t('lobby_create_game') }}
           </UButton>
           <UButton
+            v-if="!linkedUserId"
             color="secondary"
             :data-testid="TEST_IDS.lobbyGoogleLogin"
             class="min-h-11 cursor-pointer gap-2 rounded-lg px-6 py-2.5 text-base font-semibold shadow-soft"
@@ -53,6 +54,38 @@
             </template>
             {{ t('lobby_google_login') }}
           </UButton>
+
+          <div
+            v-else
+            class="flex items-center gap-2 rounded-lg border border-secondary-dark/40 bg-white/80 px-3 py-2 text-base font-semibold shadow-soft"
+          >
+            <img
+              v-if="currentUser?.photoURL"
+              :src="currentUser.photoURL"
+              :alt="currentUser?.displayName ?? ''"
+              class="w-6 h-6 rounded-full"
+            />
+            <span
+              v-else
+              class="w-6 h-6 rounded-full bg-secondary-dark/20 flex items-center justify-center"
+            >
+              <UIcon name="i-lucide-user" class="h-4 w-4" />
+            </span>
+            <span class="truncate max-w-[140px]">
+              {{
+                currentUser?.displayName || currentUser?.email || linkedUserId
+              }}
+            </span>
+            <UButton
+              color="error"
+              size="xs"
+              class="px-2 py-1.5"
+              :loading="isGoogleLoginPending"
+              @click="logout"
+            >
+              {{ t('ui_account_logout') }}
+            </UButton>
+          </div>
         </div>
 
         <label
@@ -240,9 +273,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import GameService from '@/modules/GameService'
+import { onAuthStateChanged, getCurrentUser } from '@/modules/firebaseAuth'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
 import type { IGame, LobbyGame } from '@/types/game'
@@ -339,6 +373,8 @@ const isCreateGameModalOpen = ref(false)
 const roomCodeSearch = ref('')
 const roomCodePassword = ref('')
 const isGoogleLoginPending = ref(false)
+const linkedUserId = computed(() => GameService.userId.value)
+const currentUser = computed(() => getCurrentUser())
 const { copied: inviteLinkCopied, copy: copyInviteLinkFn } =
   useCopyToClipboard()
 
@@ -396,6 +432,33 @@ onMounted(() => {
   if (room && /^\d{6}$/.test(room)) {
     roomCodeSearch.value = room
   }
+
+  // Отслеживаем изменение состояния авторизации Firebase (включая выход в другой вкладке).
+  const unsubscribeAuth = onAuthStateChanged((user) => {
+    if (user) {
+      GameService.userId.value = user.uid
+    } else if (linkedUserId.value) {
+      GameService.userId.value = null
+    }
+  })
+
+  // При уже существующей сессии Firebase восстанавливаем userId без повторного входа.
+  const user = getCurrentUser()
+  if (user && !linkedUserId.value) {
+    GameService.userId.value = user.uid
+  }
+
+  watch(
+    () => GameService.sessionReady.value,
+    (ready) => {
+      if (ready) {
+        void GameService.restoreSession()
+      }
+    },
+    { immediate: true }
+  )
+
+  return () => unsubscribeAuth()
 })
 
 function joinByRoomCode() {
@@ -419,6 +482,14 @@ async function loginWithGoogle() {
     notifyError(error)
   } finally {
     isGoogleLoginPending.value = false
+  }
+}
+
+async function logout() {
+  try {
+    await GameService.logout()
+  } catch (error) {
+    notifyError(error)
   }
 }
 

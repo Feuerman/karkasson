@@ -6,6 +6,7 @@ import {
   STALE_GAMES_CHECK_MS,
   validateProductionEnvironment,
 } from './config'
+import { saveSessionsNow } from './modules/userSessions'
 import { createGameServer } from './app'
 import { createInstanceLock } from './modules/instanceLock'
 import {
@@ -90,6 +91,7 @@ async function shutdown(exitCode: number): Promise<void> {
     }
   }
   await lock.release()
+  saveSessionsNow()
   process.exit(exitCode)
 }
 

@@ -4,11 +4,13 @@ import type { GameOptions } from '../../modules/types'
 import type { SocketHandlerContext } from '../types'
 import { SocketEvents } from '../../modules/types'
 import { CommonErrors, LobbyErrors } from '../../modules/errors'
+import { verifyIdToken } from '../../modules/firebaseAdmin'
 import {
   parseCreateGame,
   parseGameRequest,
   parseGetGamesList,
   parseLinkAccount,
+  parseLogout,
   parseRestoreAccount,
   parseSpectatorRequest,
   payloadAndCallback,
@@ -270,12 +272,77 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           return
         }
 
-        const ok = service.linkSessionToUser(sessionId, request.userId)
+        const verified = await verifyIdToken(request.idToken)
+        if (!verified) {
+          const error = CommonErrors.InvalidRequest
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+
+        // Реальный userId берётся из верифицированного токена, а не из
+        // клиентского запроса: клиент не может подделать чужой аккаунт.
+        const userId = verified.uid
+
+        const ok = service.linkSessionToUser(sessionId, userId)
         if (!ok) {
           callback?.(errorResponse(CommonErrors.TooManyRequests))
           return
         }
 
+        // Сохраняем профиль (имя, аватар) из токена для подстановки в игру.
+        service.setUserProfile(userId, {
+          displayName: verified.name ?? null,
+          photoURL: verified.picture ?? null,
+        })
+
+        callback?.({ success: true, userId })
+      })
+    }
+  )
+
+  socket.on(SocketEvents.Logout, async (first: unknown, second: unknown) => {
+    const { payload, callback } = payloadAndCallback(first, second)
+    const request = parseLogout(payload)
+    if (!request) {
+      callback?.(errorResponse(CommonErrors.InvalidRequest))
+      return
+    }
+
+    await runLobbyCommand(callback, async () => {
+      const sessionId = service.getSessionBySocketId(socket.id)
+      if (!sessionId) {
+        const error = CommonErrors.SessionRequired
+        emitSocketError(socket, service, error)
+        callback?.(errorResponse(error))
+        return
+      }
+
+      service.unlinkSessionFromUser(sessionId)
+      callback?.({ success: true })
+    })
+  })
+
+  socket.on(
+    SocketEvents.UnlinkAccount,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseLogout(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const sessionId = service.getSessionBySocketId(socket.id)
+        if (!sessionId) {
+          const error = CommonErrors.SessionRequired
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
+
+        service.unlinkSessionFromUser(sessionId)
         callback?.({ success: true })
       })
     }

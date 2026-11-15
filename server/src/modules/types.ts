@@ -175,6 +175,10 @@ export interface PlayerView {
   score: number
   sessionId: string | null
   isConnected: boolean
+  /** Firebase Auth uid, если сессия привязана к аккаунту. */
+  userId: string | null
+  /** URL аватара из профиля Firebase (photoURL). */
+  avatarUrl: string | null
 }
 
 /** Внутреннее состояние игрока: `socketId` — только серверу. */
@@ -247,6 +251,8 @@ export const SocketEvents = {
   SetLocale: 'setLocale',
   LinkAccount: 'linkAccount',
   RestoreAccount: 'restoreAccount',
+  Logout: 'logout',
+  UnlinkAccount: 'unlinkAccount',
 } as const
 
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]
