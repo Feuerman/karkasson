@@ -89,6 +89,8 @@ describe('Схема сохранения игры', () => {
           score: 0,
           socketId: null,
           sessionId: null,
+          userId: null,
+          avatarUrl: null,
         },
       ],
       innsAndCathedralsEnabled: true,
@@ -121,6 +123,8 @@ describe('Схема сохранения игры', () => {
           score: 0,
           socketId: 'socket-alice',
           sessionId: null,
+          userId: null,
+          avatarUrl: null,
         },
       ],
     })
@@ -388,6 +392,8 @@ describe('Схема сохранения игры', () => {
           score: 0,
           socketId: null,
           sessionId: null,
+          userId: null,
+          avatarUrl: null,
         },
       ],
     })
@@ -582,6 +588,8 @@ describe('Схема сохранения игры', () => {
             score: 0,
             socketId: null,
             sessionId: null,
+            userId: null,
+            avatarUrl: null,
           },
         ],
       })

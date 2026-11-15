@@ -313,7 +313,7 @@ npx firebase-tools deploy --only database --project <firebase-project-id>
 - Локальный запуск с заполненным `server/.env` (Node.js 20+):
 
   ```sh
-  node --env-file=server/.env server/dist/index.js
+  node --env-file=server/.env.local server/dist/index.js
   ```
 
 - В production переменные задаются в панели хостинга (например, Render →

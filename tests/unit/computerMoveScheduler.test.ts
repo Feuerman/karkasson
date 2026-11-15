@@ -12,6 +12,8 @@ const computer: Player = {
   score: 0,
   socketId: null,
   sessionId: null,
+  userId: null,
+  avatarUrl: null,
 }
 
 function computerGame(id: string): GameManager {
