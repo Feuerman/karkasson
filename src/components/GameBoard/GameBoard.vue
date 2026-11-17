@@ -572,12 +572,6 @@ const handleTileClick = (rowIndex: number, tileIndex: number) => {
   // При выкладке нового тайла не центрируем поле.
   focusCell(rowIndex, tileIndex, !canShowPlacementUi.value)
 
-  // Целевая клетка для подсветки: работает при клике на существующий тайл
-  // или объект, но не при выкладке нового тайла.
-  if (!canShowPlacementUi.value) {
-    targetCell.value = { rowIndex, tileIndex }
-  }
-
   if (gameBoard.value.isMyTurn) {
     if (gameBoard.value.dragonMove) {
       void GameService.moveDragon({ rowIndex, tileIndex }).catch((error) => {

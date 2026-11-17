@@ -14,6 +14,8 @@ const currentPlayer: Player = {
   score: 0,
   socketId: 'socket-1',
   sessionId: 'device-1',
+  userId: null,
+  avatarUrl: null,
 }
 
 function follower(playerId: number, objectId: string): ObjectFollower {

@@ -474,6 +474,8 @@ describe('Правила дополнения «Принцесса и драко
         score: 0,
         socketId: 'socket-3',
         sessionId: 'device-3',
+        userId: null,
+        avatarUrl: null,
       },
     ]
     const game = new GameManager({

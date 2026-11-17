@@ -41,6 +41,8 @@ async function restartWithComputerGame(): Promise<RunningServer> {
         score: 0,
         socketId: null,
         sessionId: null,
+        userId: null,
+        avatarUrl: null,
       },
     ],
   })
@@ -207,6 +209,8 @@ describe('Сохранение данных лобби', () => {
         score: 0,
         socketId: null,
         sessionId: aliceSessionId,
+        userId: null,
+        avatarUrl: null,
       },
       {
         id: 2,
@@ -215,6 +219,8 @@ describe('Сохранение данных лобби', () => {
         score: 0,
         socketId: null,
         sessionId: bobSessionId,
+        userId: null,
+        avatarUrl: null,
       },
       {
         id: 3,
@@ -223,6 +229,8 @@ describe('Сохранение данных лобби', () => {
         score: 0,
         socketId: null,
         sessionId: null,
+        userId: null,
+        avatarUrl: null,
       },
     ]
     const game = new GameManager({ players })
@@ -347,6 +355,8 @@ describe('Сохранение данных лобби', () => {
           score: 0,
           socketId: null,
           sessionId: null,
+          userId: null,
+          avatarUrl: null,
         },
       ],
       innsAndCathedralsEnabled: true,
