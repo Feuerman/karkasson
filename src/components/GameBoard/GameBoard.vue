@@ -262,6 +262,7 @@ const {
   zoomIn,
   zoomOut,
   resetZoom,
+  setZoom,
   onMouseDown,
   onClickCapture,
 } = useBoardPan()
@@ -718,6 +719,19 @@ watch(
 
 const zoomToTile = ({ rowIndex, tileIndex }: BoardCell = {}) => {
   if (rowIndex === undefined || tileIndex === undefined) return
+  const element = findTileElement(rowIndex, tileIndex)
+  if (!element) return
+  // Центрируем только что выложенную клетку в окне просмотра, затем
+  // приближаем доску, удерживая клетку в центре.
+  element.scrollIntoView({
+    behavior: 'auto',
+    block: 'center',
+    inline: 'center',
+  })
+  const board = boardRef.value
+  if (!board) return
+  const rect = board.getBoundingClientRect()
+  setZoom(Math.max(zoom.value, ZOOM_FOCUS), rect.width / 2, rect.height / 2)
   highlightCells([{ rowIndex, tileIndex }], LAST_ACTION_DURATION_MS, false)
 }
 
@@ -821,6 +835,8 @@ const followerPreviewForCell = (rowIndex: number, tileIndex: number) => {
 }
 
 const LAST_ACTION_DURATION_MS = 3200
+/** Масштаб, до которого доска приближается при следовании за новым тайлом. */
+const ZOOM_FOCUS = 1.25
 const lastActionCell = ref<BoardCell>({})
 const lastActionColor = ref<string | null>(null)
 const lastActionVisible = ref(false)
