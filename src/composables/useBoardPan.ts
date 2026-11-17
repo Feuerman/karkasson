@@ -376,6 +376,7 @@ export const useBoardPan = (options: BoardPanOptions = {}) => {
     zoomOut,
     getZoom,
     resetZoom,
+    setZoom,
     onMouseDown,
     onClickCapture,
   }
