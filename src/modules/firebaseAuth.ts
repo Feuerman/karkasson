@@ -7,6 +7,7 @@
  * ошибку.
  */
 
+import { createLogger } from '@/utils/logger'
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
 import {
   getAuth,
@@ -17,6 +18,8 @@ import {
   type User,
   type Auth,
 } from 'firebase/auth'
+
+const logger = createLogger('firebaseAuth')
 
 const requiredEnv = [
   'VITE_FIREBASE_API_KEY',
@@ -35,8 +38,20 @@ function isConfigured(): boolean {
   )
 }
 
+export function getFirebaseAuthConfigStatus(): Record<string, boolean> {
+  return Object.fromEntries(
+    requiredEnv.map((key) => [key, Boolean(import.meta.env[key])])
+  )
+}
+
 export function initFirebaseAuth(): { app: FirebaseApp; auth: Auth } | null {
-  if (!isConfigured()) return null
+  if (!isConfigured()) {
+    logger.debug(
+      'Firebase Auth не сконфигурирован: задайте VITE_FIREBASE_* переменные',
+      getFirebaseAuthConfigStatus()
+    )
+    return null
+  }
   if (getApps().length > 0) {
     app = getApps()[0]
   } else {

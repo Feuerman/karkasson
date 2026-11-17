@@ -89,6 +89,12 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Prepare client env
+        run: |
+          printf 'VITE_FIREBASE_API_KEY=%s\n' '${{ secrets.VITE_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}' > .env
+          printf 'VITE_FIREBASE_AUTH_DOMAIN=%s\n' '${{ secrets.VITE_FIREBASE_AUTH_DOMAIN || vars.VITE_FIREBASE_AUTH_DOMAIN }}' >> .env
+          printf 'VITE_FIREBASE_PROJECT_ID=%s\n' '${{ secrets.VITE_FIREBASE_PROJECT_ID || vars.VITE_FIREBASE_PROJECT_ID }}' >> .env
+          printf 'VITE_SERVER_URL=%s\n' '${{ secrets.VITE_SERVER_URL || vars.VITE_SERVER_URL || 'https://karkasson.onrender.com' }}' >> .env
       - run: pnpm run build
       - run: pnpm --filter server run build
       - run: node -e "const fs=require('fs');fs.writeFileSync('version.txt',require('./package.json').version+'\n')"

@@ -33,6 +33,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare client env
+        run: |
+          printf 'VITE_FIREBASE_API_KEY=%s\n' '${{ secrets.VITE_FIREBASE_API_KEY || vars.VITE_FIREBASE_API_KEY }}' > .env
+          printf 'VITE_FIREBASE_AUTH_DOMAIN=%s\n' '${{ secrets.VITE_FIREBASE_AUTH_DOMAIN || vars.VITE_FIREBASE_AUTH_DOMAIN }}' >> .env
+          printf 'VITE_FIREBASE_PROJECT_ID=%s\n' '${{ secrets.VITE_FIREBASE_PROJECT_ID || vars.VITE_FIREBASE_PROJECT_ID }}' >> .env
+          printf 'VITE_SERVER_URL=%s\n' '${{ secrets.VITE_SERVER_URL || vars.VITE_SERVER_URL || 'https://karkasson.onrender.com' }}' >> .env
+
       - name: Build
         run: pnpm run build
 
