@@ -19,6 +19,8 @@ const player = (id: number, name: string): PlayerView => ({
   score: 0,
   sessionId: `session-${id}`,
   isConnected: true,
+  userId: null,
+  avatarUrl: null,
 })
 
 const addingScores = (

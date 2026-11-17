@@ -493,6 +493,10 @@ const messages: Record<Locale, Messages> = {
     ui_account_restored:
       'Доступ восстановлен: {count} активных партий, к которым можно вернуться',
     ui_account_linked: 'Аккаунт привязан',
+    ui_account_logout: 'Выйти',
+    ui_account_profile: 'Профиль',
+    ui_error_account_logout_failed: 'Не удалось выйти. Попробуйте снова',
+    ui_error_account_not_linked: 'Сначала привяжите аккаунт через Google',
   },
   en: {
     ui_your_turn: 'Your turn',
@@ -958,6 +962,10 @@ const messages: Record<Locale, Messages> = {
     ui_account_restore_button: 'Restore',
     ui_account_restored: 'Access restored: {count} active games you can rejoin',
     ui_account_linked: 'Account linked',
+    ui_account_logout: 'Sign out',
+    ui_account_profile: 'Profile',
+    ui_error_account_logout_failed: 'Failed to sign out. Try again',
+    ui_error_account_not_linked: 'Link your account via Google first',
   },
 }
 

@@ -34,6 +34,8 @@ const players: PlayerView[] = [
     score: 0,
     sessionId: null,
     isConnected: false,
+    userId: null,
+    avatarUrl: null,
   },
   {
     id: 42,
@@ -42,6 +44,8 @@ const players: PlayerView[] = [
     score: 0,
     sessionId: null,
     isConnected: false,
+    userId: null,
+    avatarUrl: null,
   },
 ]
 

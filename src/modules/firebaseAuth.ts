@@ -11,6 +11,8 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
 import {
   getAuth,
   signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged as firebaseOnAuthStateChanged,
   GoogleAuthProvider,
   type User,
   type Auth,
@@ -69,4 +71,35 @@ export async function signInWithGoogle(): Promise<{
   const user = result.user
   const idToken = await user.getIdToken()
   return { user, idToken }
+}
+
+/** Выход из Firebase Auth. */
+export async function signOut(): Promise<void> {
+  const authInstance = getFirebaseAuth() ?? initFirebaseAuth()?.auth
+  if (!authInstance) {
+    throw new Error(
+      'Firebase Auth не сконфигурирован: задайте VITE_FIREBASE_* переменные'
+    )
+  }
+  await firebaseSignOut(authInstance)
+}
+
+/**
+ * Подписывается на изменения состояния авторизации Firebase.
+ * Возвращает функцию отписки.
+ */
+export function onAuthStateChanged(
+  callback: (user: User | null) => void
+): () => void {
+  const authInstance = getFirebaseAuth() ?? initFirebaseAuth()?.auth
+  if (!authInstance) {
+    callback(null)
+    return () => undefined
+  }
+  return firebaseOnAuthStateChanged(authInstance, callback)
+}
+
+/** Текущий авторизованный пользователь Firebase (или null). */
+export function getCurrentUser(): User | null {
+  return auth?.currentUser ?? null
 }

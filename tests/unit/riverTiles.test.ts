@@ -160,6 +160,8 @@ describe('Тайлы дополнения «Река»', () => {
           score: 0,
           socketId: 's1',
           sessionId: 'd1',
+          userId: null,
+          avatarUrl: null,
         },
       ],
     })
@@ -195,6 +197,8 @@ describe('Тайлы дополнения «Река»', () => {
             score: 0,
             socketId: 's1',
             sessionId: 'd1',
+            userId: null,
+            avatarUrl: null,
           },
         ],
       })
