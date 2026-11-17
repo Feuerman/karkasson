@@ -19,6 +19,8 @@ export function makePlayerViews(): PlayerView[] {
   return makePlayers().map(({ socketId, ...player }) => ({
     ...player,
     isConnected: Boolean(socketId),
+    userId: player.userId ?? null,
+    avatarUrl: player.avatarUrl ?? null,
   }))
 }
 
@@ -31,6 +33,8 @@ export function makePlayers(): Player[] {
     score: 0,
     socketId: `socket-${id}`,
     sessionId: `session-${id}`,
+    userId: null,
+    avatarUrl: null,
   }))
 }
 

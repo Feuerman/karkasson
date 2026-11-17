@@ -6,10 +6,15 @@ import App from './App.vue'
 import { createLogger } from './utils/logger'
 import { initLocale } from './utils/i18n'
 import { setCriticalError } from './modules/criticalError'
+import { initFirebaseAuth } from './modules/firebaseAuth'
 
 // Язык определяется до монтирования приложения, чтобы первые рендеры
 // компонентов уже использовали выбранную локаль.
 initLocale()
+
+// Firebase Auth инициализируется при загрузке, чтобы состояние авторизации
+// отслеживалось через onAuthStateChanged без задержек при входе.
+initFirebaseAuth()
 
 const logger = createLogger('client')
 

@@ -18,6 +18,7 @@ export interface PlayerResult {
   playerId: PlayerId
   name: string
   color: string | null
+  avatarUrl: string | null
   total: number
   /** Место в итоговой таблице: при равенстве очков места совпадают. */
   place: number
@@ -137,6 +138,7 @@ export const buildGameResults = (
       playerId: player.id,
       name: player.name ?? '',
       color: player.color ?? null,
+      avatarUrl: player.avatarUrl ?? null,
       total,
       place: 0,
       isWinner: winnerPlayerIds.some(
