@@ -80,7 +80,6 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
       return
     }
     const requestedName = normalized.name
-    const effectiveName = requestedName ?? playerNameForIndex(index)
 
     await runLobbyCommand(callback, async () => {
       const sessionId = service.getSessionBySocketId(socket.id)
@@ -88,6 +87,14 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
         callback?.(errorResponse(CommonErrors.SessionRequired))
         return
       }
+
+      // Авторизованный пользователь: подставляем его профиль (имя/аватар),
+      // если клиент не ввёл своё имя.
+      const userId = service.getUserIdBySession(sessionId)
+      const profile = userId ? service.getUserProfile(userId) : null
+      const effectiveName =
+        requestedName ?? profile?.displayName ?? playerNameForIndex(index)
+
       await editSlot(
         gameId,
         index,
@@ -97,6 +104,8 @@ export function registerSlotHandlers(context: SocketHandlerContext) {
             name: requestedName,
             socketId: socket.id,
             sessionId,
+            userId,
+            avatarUrl: profile?.photoURL ?? null,
           })
         },
         () =>

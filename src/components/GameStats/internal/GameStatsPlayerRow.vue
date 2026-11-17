@@ -11,7 +11,14 @@
     <span
       class="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/20"
       :class="playerBackgroundColorClass(entry.player.color)"
-    ></span>
+    >
+      <img
+        v-if="entry.player.avatarUrl"
+        :src="entry.player.avatarUrl"
+        :alt="entry.player.name ?? ''"
+        class="h-3 w-3 rounded-full object-cover"
+      />
+    </span>
     <span
       :title="entry.player.name ?? ''"
       class="min-w-0 flex-1 truncate text-body font-semibold text-text"

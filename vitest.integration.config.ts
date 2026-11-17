@@ -20,6 +20,9 @@ export default defineConfig({
     env: {
       // В тестах ходы компьютера срабатывают быстро
       COMPUTER_MOVE_DELAY_MS: '100',
+      // Логгеры в тестах выводят JSON, как в production
+      LOG_FORMAT: 'json',
+      VITE_LOG_FORMAT: 'json',
     },
     coverage: {
       provider: 'v8',

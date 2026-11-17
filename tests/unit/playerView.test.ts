@@ -13,6 +13,8 @@ describe('toPlayerView', () => {
       score: player.score,
       sessionId: player.sessionId,
       isConnected: true,
+      userId: null,
+      avatarUrl: null,
     })
     expect(toPlayerView(player)).not.toHaveProperty('socketId')
   })

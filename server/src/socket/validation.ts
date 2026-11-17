@@ -87,11 +87,14 @@ export interface SpectatorRequest extends GameRequest {}
 
 export interface LinkAccountRequest {
   userId: string
+  idToken: string
 }
 
 export interface RestoreAccountRequest {
   userId: string
 }
+
+export interface LogoutRequest {}
 
 export interface CallbackRequest {
   payload: unknown
@@ -420,7 +423,16 @@ export function parseLinkAccount(
   if (!record) return undefined
   const userId = readUserId(record.userId)
   if (!userId) return undefined
-  return { userId }
+  const idToken = readIdentifier(record.idToken, 4096)
+  if (!idToken) return undefined
+  return { userId, idToken }
+}
+
+export function parseLogout(value: unknown): LogoutRequest | undefined {
+  if (value === undefined || value === null) return {}
+  const record = asRecord(value)
+  if (!record) return undefined
+  return {}
 }
 
 export function parseRestoreAccount(

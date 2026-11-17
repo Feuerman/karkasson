@@ -13,5 +13,7 @@ export function toPlayerView(player: Player): PlayerView {
     score: player.score,
     sessionId: player.sessionId ?? null,
     isConnected: Boolean(player.socketId),
+    userId: player.userId ?? null,
+    avatarUrl: player.avatarUrl ?? null,
   }
 }

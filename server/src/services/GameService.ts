@@ -48,7 +48,14 @@ import {
   getSessionUserId,
   getUserSessions,
   removeUserSession,
+  setUserProfile,
+  getUserProfile,
 } from '../modules/userSessions'
+import {
+  recordGameResults,
+  getUserStats,
+  getLeaderboard,
+} from '../modules/userStats'
 
 export type { GameData } from './gameView'
 export type {
@@ -328,6 +335,10 @@ export class GameService {
         await this.saveGame(gameId)
       } catch (error) {
         throw new GameSaveError(gameId, error)
+      }
+      // Если партия завершилась этим ходом — обновляем статистику пользователей.
+      if (game.gameIsEnded) {
+        this.recordGameFinished(gameId)
       }
       publish?.(game, result)
       return result
@@ -707,6 +718,8 @@ export class GameService {
       name: i === 0 ? playerNameForIndex(i) : '',
       color: playerColorForIndex(i),
       score: 0,
+      userId: null,
+      avatarUrl: null,
     }))
 
     const game = new GameManager({
@@ -733,18 +746,28 @@ export class GameService {
   addPlayer(
     gameId: string,
     index: number,
-    params: { name: string | null; socketId: string; sessionId: string }
+    params: {
+      name: string | null
+      socketId: string
+      sessionId: string
+      userId?: string | null
+      avatarUrl?: string | null
+    }
   ) {
     const player = this.games[gameId]?.players[index]
     if (!player) return
 
+    const profile = params.userId ? this.getUserProfile(params.userId) : null
+    const effectiveName =
+      params.name ?? profile?.displayName ?? playerNameForIndex(index)
+
+    player.name = effectiveName
     if (params.name) {
-      player.name = params.name
       player.socketId = params.socketId
       player.sessionId = params.sessionId
-    } else {
-      player.name = playerNameForIndex(index)
     }
+    player.userId = params.userId ?? null
+    player.avatarUrl = params.avatarUrl ?? null
   }
 
   /** Занято ли имя другим слотом; сравнение без учёта регистра и «ё». */
@@ -1074,6 +1097,63 @@ export class GameService {
   /** userId по sessionId, или null если сессия не привязана к аккаунту. */
   getUserIdBySession(sessionId: string): string | null {
     return getSessionUserId(sessionId)
+  }
+
+  /** Профиль пользователя (displayName, photoURL) или null. */
+  getUserProfile(
+    userId: string
+  ): { displayName: string | null; photoURL: string | null } | null {
+    return getUserProfile(userId)
+  }
+
+  /** Сохраняет профиль пользователя из верифицированного Firebase ID token. */
+  setUserProfile(
+    userId: string,
+    profile: { displayName: string | null; photoURL: string | null }
+  ): void {
+    setUserProfile(userId, profile)
+  }
+
+  /** Статистика пользователя: игры, победы, поражения, сумма очков. */
+  getUserStats(userId: string): ReturnType<typeof getUserStats> {
+    return getUserStats(userId)
+  }
+
+  /** Топ пользователей по победам и очкам. */
+  getLeaderboard(limit?: number): ReturnType<typeof getLeaderboard> {
+    return getLeaderboard(limit)
+  }
+
+  /**
+   * Регистрирует завершённую партию в статистике пользователей.
+   * Вызывается после сохранения хода, если партия завершилась.
+   */
+  recordGameFinished(gameId: string): void {
+    const game = this.games[gameId]
+    if (!game || !game.gameIsEnded) return
+
+    const placements: { userId: string; score: number; place: number }[] =
+      game.players
+        .filter((p): p is Player & { userId: string } => Boolean(p.userId))
+        .map((p) => ({
+          userId: p.userId,
+          score: game.scores[p.id] ?? 0,
+          place: 0,
+        }))
+
+    // Места по убыванию счёта; при равенстве — одинаковое место.
+    placements.sort((a, b) => b.score - a.score)
+    let place = 0
+    let previousScore: number | null = null
+    placements.forEach((p, index) => {
+      if (previousScore === null || p.score !== previousScore) {
+        place = index + 1
+        previousScore = p.score
+      }
+      p.place = place
+    })
+
+    recordGameResults(placements)
   }
 
   /**
