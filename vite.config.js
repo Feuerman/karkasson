@@ -53,6 +53,21 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const serverUrl = env.VITE_SERVER_URL || DEFAULT_SERVER_URL
 
+  const firebaseKeys = [
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_PROJECT_ID',
+  ]
+  const firebaseStatus = Object.fromEntries(
+    firebaseKeys.map((key) => [key, Boolean(env[key])])
+  )
+  // Отладочная информация о подхвате клиентских переменных при сборке.
+  // Значения не выводятся — только факт присутствия, чтобы не светить secrets в логи CI.
+  console.log(
+    `[vite build] mode=${mode} cwd=${process.cwd()} VITE_FIREBASE_* presence=`,
+    firebaseStatus
+  )
+
   return {
     base: '/karkasson/',
     plugins: [
