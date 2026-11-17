@@ -33,7 +33,7 @@ const CONSOLE_METHOD: Record<LogLevel, (...args: unknown[]) => void> = {
 }
 
 function useJson(): boolean {
-  return import.meta.env.PROD
+  return import.meta.env.PROD || import.meta.env.VITE_LOG_FORMAT === 'json'
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
