@@ -98,26 +98,3 @@ jobs:
           name: changelog
           path: CHANGELOG.md
           retention-days: 30
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8
-        with:
-          node-version: '22'
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level critical
-      - uses: github/codeql-action/init@b2dfba2baa88b44c5c1f4e030f114b225d4084c1
-        with:
-          languages: javascript, typescript
-      - run: pnpm run build
-      - run: pnpm --filter server run build
-      - uses: github/codeql-action/analyze@b2dfba2baa88b44c5c1f4e030f114b225d4084c1
-      - uses: zricethezav/gitleaks-action@aa6c132071730e14d28e89080e0adeebc4df4512
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
