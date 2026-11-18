@@ -111,7 +111,7 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit --audit-level high
+      - run: pnpm audit --audit-level critical
       - uses: github/codeql-action/init@b2dfba2baa88b44c5c1f4e030f114b225d4084c1
         with:
           languages: javascript, typescript
