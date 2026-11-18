@@ -26,7 +26,7 @@ function contentSecurityPolicy(serverUrl, authDomain) {
     .join(' ')
   const directives = [
     "default-src 'self'",
-    "script-src 'self' https://apis.google.com",
+    "script-src 'self' 'unsafe-inline' https://apis.google.com",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "img-src 'self' data: blob:",
