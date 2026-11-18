@@ -82,7 +82,17 @@ export async function signInWithGoogle(): Promise<{
   }
 
   const provider = new GoogleAuthProvider()
-  const result = await signInWithPopup(authInstance, provider)
+  let result
+  try {
+    result = await signInWithPopup(authInstance, provider)
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string }
+    logger.warn('Ошибка входа через Google OAuth', {
+      code: firebaseError.code,
+      message: firebaseError.message,
+    })
+    throw error
+  }
   const user = result.user
   const idToken = await user.getIdToken()
   return { user, idToken }
