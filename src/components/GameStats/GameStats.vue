@@ -98,7 +98,7 @@ const leaderPlayerIds = computed(() => props.gameBoard.winnerPlayerIds ?? [])
 const leaderPlayers = computed(() =>
   leaderPlayerIds.value
     .map((id) =>
-      props.gameBoard.players.find((p) => String(p.id) === String(id))
+      props.gameBoard.players?.find((p) => String(p.id) === String(id))
     )
     .filter((player): player is PlayerView => Boolean(player))
 )

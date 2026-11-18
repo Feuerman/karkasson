@@ -452,7 +452,7 @@ onMounted(() => {
     () => GameService.sessionReady.value,
     (ready) => {
       if (ready) {
-        void GameService.restoreSession()
+        void GameService.restoreSession().catch((error) => notifyError(error))
       }
     },
     { immediate: true }

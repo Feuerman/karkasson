@@ -372,7 +372,7 @@ const panelTitle = computed(() =>
 )
 
 function fairyTargetDescription(target: FairyFollowerRef): string {
-  const player = props.gameBoard.players.find(
+  const player = props.gameBoard.players?.find(
     ({ id }) => String(id) === String(target.playerId)
   )
   const playerName = player?.name ?? t('fairy_target_unknown_player')
