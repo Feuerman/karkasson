@@ -276,7 +276,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import type { CreateGameOptions } from '@/modules/GameService'
 import GameService from '@/modules/GameService'
-import { onAuthStateChanged, getCurrentUser } from '@/modules/firebaseAuth'
+import {
+  onAuthStateChanged,
+  getCurrentUser,
+  getGoogleRedirectResult,
+} from '@/modules/firebaseAuth'
 import { TEST_IDS } from '@/data/testIds'
 import { pendingActionKeys } from '@/composables/usePendingActions'
 import type { IGame, LobbyGame } from '@/types/game'
@@ -296,6 +300,7 @@ import RoomCodeCopy from './internal/RoomCodeCopy.vue'
 import { buildGameRules, isRejoinable } from './internal/helpers'
 import { t } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
+import notificationService from '@/plugins/notification'
 import { useCopyToClipboard } from '@/composables/useCopyToClipboard'
 
 const props = withDefaults(
@@ -457,6 +462,24 @@ onMounted(() => {
     },
     { immediate: true }
   )
+
+  // Завершаем привязку аккаунта после возврата из Google OAuth (редирект).
+  // Popup-окно не работает внутри iframe; редирект возвращается на эту страницу,
+  // где getGoogleRedirectResult извлекает токен и привязывает сессию.
+  void (async () => {
+    const redirectResult = await getGoogleRedirectResult()
+    if (redirectResult) {
+      try {
+        await GameService.completeLinkAccount(
+          redirectResult.user.uid,
+          redirectResult.idToken
+        )
+        notificationService.success(t('ui_account_linked'))
+      } catch (error) {
+        notifyError(error)
+      }
+    }
+  })()
 
   return () => unsubscribeAuth()
 })
