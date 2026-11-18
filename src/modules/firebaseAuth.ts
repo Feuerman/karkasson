@@ -12,6 +12,8 @@ import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   GoogleAuthProvider,
@@ -96,6 +98,38 @@ export async function signInWithGoogle(): Promise<{
   const user = result.user
   const idToken = await user.getIdToken()
   return { user, idToken }
+}
+
+/** Вход через Google OAuth с редиректом (надёжнее в iframe, не блокируется поп-ап-блокерами). */
+export async function signInWithGoogleRedirect(): Promise<void> {
+  const authInstance = getFirebaseAuth() ?? initFirebaseAuth()?.auth
+  if (!authInstance) {
+    throw new Error(
+      'Firebase Auth не сконфигурирован: задайте VITE_FIREBASE_* переменные'
+    )
+  }
+  const provider = new GoogleAuthProvider()
+  await signInWithRedirect(authInstance, provider)
+}
+
+/**
+ * Получить результат Google OAuth после возврата со страницы Google (редирект).
+ * Возвращает null, если редирект-входа не было или результат уже обработан.
+ */
+export async function getGoogleRedirectResult(): Promise<{
+  user: User
+  idToken: string
+} | null> {
+  const authInstance = getFirebaseAuth() ?? initFirebaseAuth()?.auth
+  if (!authInstance) {
+    return null
+  }
+  const result = await getRedirectResult(authInstance)
+  if (!result?.user) {
+    return null
+  }
+  const idToken = await result.user.getIdToken()
+  return { user: result.user, idToken }
 }
 
 /** Выход из Firebase Auth. */
