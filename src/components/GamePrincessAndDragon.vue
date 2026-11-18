@@ -79,7 +79,7 @@ function princessChoiceLabel(cityId: string, point: Point) {
       placed.point.y === point.y &&
       placed.point.direction === point.direction
   )
-  const player = props.gameBoard.players.find(
+  const player = props.gameBoard.players?.find(
     ({ id }) => id === follower?.playerId
   )
   const kind = follower?.isBigFollower

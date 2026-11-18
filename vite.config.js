@@ -8,9 +8,15 @@ const DEFAULT_SERVER_URL = 'https://karkasson.onrender.com'
 
 function contentSecurityPolicy(serverUrl, authDomain) {
   const websocketUrl = serverUrl.replace(/^http/, 'ws')
-  const connectSources = [...new Set(["'self'", serverUrl, websocketUrl])].join(
-    ' '
-  )
+  const connectSources = [
+    "'self'",
+    serverUrl,
+    websocketUrl,
+    'https://identitytoolkit.googleapis.com',
+    'https://securetoken.googleapis.com',
+  ]
+    .filter(Boolean)
+    .join(' ')
   const frameSources = [
     "'self'",
     'https://apis.google.com',
