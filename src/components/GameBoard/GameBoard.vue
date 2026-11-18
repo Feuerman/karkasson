@@ -542,7 +542,7 @@ const isFairyCell = (rowIndex: number, tileIndex: number): boolean =>
 const fairyLabel = computed(() => {
   const follower = gameBoard.value.fairy?.follower
   if (!follower) return t('board_fairy_unbound')
-  const player = gameBoard.value.players.find(
+  const player = gameBoard.value.players?.find(
     ({ id }) => String(id) === String(follower.playerId)
   )
   return t('board_fairy_at_player', { name: player?.name ?? '' })
