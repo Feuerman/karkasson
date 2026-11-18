@@ -6,11 +6,18 @@ import ui from '@nuxt/ui/vite'
 
 const DEFAULT_SERVER_URL = 'https://karkasson.onrender.com'
 
-function contentSecurityPolicy(serverUrl) {
+function contentSecurityPolicy(serverUrl, authDomain) {
   const websocketUrl = serverUrl.replace(/^http/, 'ws')
   const connectSources = [...new Set(["'self'", serverUrl, websocketUrl])].join(
     ' '
   )
+  const frameSources = [
+    "'self'",
+    'https://apis.google.com',
+    authDomain && `https://${authDomain}`,
+  ]
+    .filter(Boolean)
+    .join(' ')
   const directives = [
     "default-src 'self'",
     "script-src 'self' https://apis.google.com",
@@ -18,6 +25,7 @@ function contentSecurityPolicy(serverUrl) {
     "font-src 'self'",
     "img-src 'self' data: blob:",
     `connect-src ${connectSources}`,
+    `frame-src ${frameSources}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -87,7 +95,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       ...(mode === 'production' ? [] : [vueDevTools()]),
-      contentSecurityPolicy(serverUrl),
+      contentSecurityPolicy(serverUrl, env.VITE_FIREBASE_AUTH_DOMAIN),
     ],
     resolve: {
       alias: {
