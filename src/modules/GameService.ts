@@ -30,8 +30,7 @@ import { createLogger } from '@/utils/logger'
 import { t, getLocale, type Locale } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
 import {
-  signInWithGoogleRedirect,
-  getGoogleRedirectResult,
+  signInWithGoogle,
   signOut as firebaseSignOut,
 } from '@/modules/firebaseAuth'
 import {
@@ -325,12 +324,12 @@ export class GameService implements IGameService {
           const callback = (response: SocketAck) => {
             clearTimeout(timeout)
             this.pendingAcks.delete(cancel)
-            if (!response || response.error) {
+            if (response.error) {
               reject(
                 new SocketAckError(
-                  response?.error ?? t('ui_error_generic'),
+                  response.error,
                   response.conflicts ?? [],
-                  response?.code
+                  response.code
                 )
               )
             } else {
@@ -760,42 +759,21 @@ export class GameService implements IGameService {
    * к пользователю. После этого сессия переживает потерю localStorage:
    * пользователь может войти снова и восстановить доступ к своим партиям.
    *
-   * Использует OAuth-редирект вместо popup: popup-окно не работает внутри
-   * iframe и закрывается с ошибкой «Could not establish connection»,
-   * редирект — надёжный способ прохождения OAuth во встроенных окнах.
+   * Использует OAuth-попап: открывает окно входа через Google, получает ID
+   * токен и привязывает сессию к аккаунту.
    */
   async linkAccount(): Promise<{ userId: string }> {
-    // Если мы вернулись со страницы Google после редиректа — завершаем привязку.
-    const redirectResult = await getGoogleRedirectResult()
-    if (redirectResult) {
-      return this.completeLinkAccount(
-        redirectResult.user.uid,
-        redirectResult.idToken
-      )
-    }
-    // Иначе initiates OAuth-редирект (работает в iframe, не блокируется поп-ап-блокерами).
-    await signInWithGoogleRedirect()
-    throw new Error(t('ui_error_account_link_failed'))
-  }
-
-  /**
-   * Привязывает текущую сессию к аккаунту Firebase по userId и ID-токену.
-   * Используется после завершения OAuth-редиректа (когда popup недоступен).
-   */
-  async completeLinkAccount(
-    userId: string,
-    idToken: string
-  ): Promise<{ userId: string }> {
+    const { user, idToken } = await signInWithGoogle()
     const response = await this.emitAck<{ success: boolean }>(
       SocketEvents.LinkAccount,
-      { userId, idToken }
+      { userId: user.uid, idToken }
     )
     if (!response.success) {
       throw new Error(t('ui_error_account_link_failed'))
     }
-    this.userId.value = userId
-    storeUserId(userId)
-    return { userId }
+    this.userId.value = user.uid
+    storeUserId(user.uid)
+    return { userId: user.uid }
   }
 
   /**
