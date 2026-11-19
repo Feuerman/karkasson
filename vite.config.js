@@ -29,7 +29,7 @@ function contentSecurityPolicy(serverUrl, authDomain) {
     "script-src 'self' https://apis.google.com",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com",
     `connect-src ${connectSources}`,
     `frame-src ${frameSources}`,
     "object-src 'none'",
