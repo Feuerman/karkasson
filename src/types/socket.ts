@@ -109,3 +109,43 @@ export interface GameErrorPayload {
 export interface SetLocalePayload {
   locale: 'ru' | 'en'
 }
+
+/** Статистика одного пользователя (сервер → клиент). */
+export interface UserStatsRecord {
+  gamesPlayed: number
+  wins: number
+  losses: number
+  totalScore: number
+  lastGameAt: number
+}
+
+/** Ответ на GetUserStats. */
+export interface UserStatsResponse extends SocketAckBase {
+  stats?: UserStatsRecord
+}
+
+/** Запись таблицы лидеров. */
+export interface LeaderboardEntry {
+  userId: string
+  gamesPlayed: number
+  wins: number
+  losses: number
+  totalScore: number
+  lastGameAt: number
+}
+
+/** Ответ на GetLeaderboard. */
+export interface LeaderboardResponse extends SocketAckBase {
+  leaderboard?: LeaderboardEntry[]
+}
+
+/** Профиль пользователя (сервер → клиент). */
+export interface UserProfile {
+  displayName: string | null
+  photoURL: string | null
+}
+
+/** Ответ на GetUserProfile. */
+export interface UserProfileResponse extends SocketAckBase {
+  profile?: UserProfile
+}
