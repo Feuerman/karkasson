@@ -12,6 +12,9 @@ import {
   parseLinkAccount,
   parseLogout,
   parseRestoreAccount,
+  parseGetUserStats,
+  parseGetLeaderboard,
+  parseGetUserProfile,
   parseSpectatorRequest,
   payloadAndCallback,
 } from '../validation'
@@ -376,6 +379,57 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           .map((game) => formatGameData(game))
 
         callback?.({ success: true, games })
+      })
+    }
+  )
+
+  socket.on(
+    SocketEvents.GetUserStats,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGetUserStats(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const stats = service.getUserStats(request.userId)
+        callback?.({ success: true, stats })
+      })
+    }
+  )
+
+  socket.on(
+    SocketEvents.GetLeaderboard,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGetLeaderboard(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const leaderboard = service.getLeaderboard(request.limit)
+        callback?.({ success: true, leaderboard })
+      })
+    }
+  )
+
+  socket.on(
+    SocketEvents.GetUserProfile,
+    async (first: unknown, second: unknown) => {
+      const { payload, callback } = payloadAndCallback(first, second)
+      const request = parseGetUserProfile(payload)
+      if (!request) {
+        callback?.(errorResponse(CommonErrors.InvalidRequest))
+        return
+      }
+
+      await runLobbyCommand(callback, async () => {
+        const profile = service.getUserProfile(request.userId)
+        callback?.({ success: true, profile })
       })
     }
   )

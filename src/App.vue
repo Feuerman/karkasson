@@ -77,6 +77,11 @@
         :open="showSettings"
         @update:open="showSettings = $event"
       />
+      <AccountPanel
+        v-if="showAccount"
+        :open="showAccount"
+        @update:open="showAccount = $event"
+      />
       <RulesPanel
         v-if="rulesDocument"
         v-model:open="showRules"
@@ -138,6 +143,10 @@ const SettingsPanel = defineAsyncComponent(
   () => import('./components/SettingsPanel.vue')
 )
 
+const AccountPanel = defineAsyncComponent(
+  () => import('./components/account/AccountPanel.vue')
+)
+
 const GameResultPanel = defineAsyncComponent(
   () => import('./components/GameResultPanel.vue')
 )
@@ -168,6 +177,7 @@ watch(
 const showLobby = ref(true)
 const isLayoutEditMode = ref(false)
 const showSettings = ref(false)
+const showAccount = ref(false)
 const { soundEnabled, toggleSound } = useSettings()
 
 /**
@@ -594,6 +604,11 @@ const menuItems = computed<GameMenuItem[]>(() => {
       icon: 'i-lucide-settings',
     },
     {
+      id: 'account',
+      label: t('ui_menu_account'),
+      icon: 'i-lucide-user',
+    },
+    {
       id: 'language',
       label: languageLabel.value,
       icon: 'i-lucide-globe',
@@ -643,6 +658,10 @@ const onResetLayout = () => {
 const onMenuSelect = async (id: string) => {
   if (id === 'settings') {
     showSettings.value = true
+    return
+  }
+  if (id === 'account') {
+    showAccount.value = true
     return
   }
   if (id === 'language') {

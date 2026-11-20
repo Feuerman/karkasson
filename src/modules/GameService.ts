@@ -25,6 +25,9 @@ import type {
   GameDeletedPayload,
   GameErrorPayload,
   SpectatorResponse,
+  UserStatsResponse,
+  LeaderboardResponse,
+  UserProfileResponse,
 } from '@/types/socket'
 import { createLogger } from '@/utils/logger'
 import { t, getLocale, type Locale } from '@/utils/i18n'
@@ -786,22 +789,30 @@ export class GameService implements IGameService {
     games: GameData[]
   }> {
     const storedUserId = readStoredUserId()
-    if (!storedUserId) {
+    const currentUserId = this.userId.value
+    const userIdToRestore = storedUserId ?? currentUserId
+    if (!userIdToRestore) {
       return { userId: null, games: [] }
+    }
+
+    // Если userId задан из Firebase, но не сохранён в localStorage — сохраняем,
+    // чтобы RestoreAccount дошёл до сервера и сессия привязалась к пользователю.
+    if (!storedUserId && currentUserId) {
+      storeUserId(currentUserId)
     }
 
     const response = await this.emitAck<{
       success: boolean
       games: GameData[]
-    }>(SocketEvents.RestoreAccount, { userId: storedUserId })
+    }>(SocketEvents.RestoreAccount, { userId: userIdToRestore })
     if (!response.success) {
       clearStoredUserId()
       this.userId.value = null
       return { userId: null, games: [] }
     }
 
-    this.userId.value = storedUserId
-    return { userId: storedUserId, games: response.games ?? [] }
+    this.userId.value = userIdToRestore
+    return { userId: userIdToRestore, games: response.games ?? [] }
   }
 
   /**
@@ -845,6 +856,49 @@ export class GameService implements IGameService {
     }
     this.userId.value = userId
     return response.games ?? []
+  }
+
+  /**
+   * Запрашивает у сервера статистику пользователя (игры, победы, поражения,
+   * сумма очков). Требует привязанного аккаунта.
+   */
+  async getUserStats(userId: string): Promise<UserStatsResponse> {
+    const response = await this.emitAck<UserStatsResponse>(
+      SocketEvents.GetUserStats,
+      { userId }
+    )
+    if (!response.success) {
+      throw new Error(t('ui_error_stats_fetch_failed'))
+    }
+    return response
+  }
+
+  /**
+   * Запрашивает у сервера таблицу лидеров пользователей (по умолчанию топ-10).
+   */
+  async getLeaderboard(limit?: number): Promise<LeaderboardResponse> {
+    const response = await this.emitAck<LeaderboardResponse>(
+      SocketEvents.GetLeaderboard,
+      { limit }
+    )
+    if (!response.success) {
+      throw new Error(t('ui_error_leaderboard_fetch_failed'))
+    }
+    return response
+  }
+
+  /**
+   * Запрашивает у сервера профиль пользователя (имя, аватар) по userId.
+   */
+  async getUserProfile(userId: string): Promise<UserProfileResponse> {
+    const response = await this.emitAck<UserProfileResponse>(
+      SocketEvents.GetUserProfile,
+      { userId }
+    )
+    if (!response.success) {
+      throw new Error(t('ui_error_profile_fetch_failed'))
+    }
+    return response
   }
 
   onGameUpdated(callback: (game: GameData) => void) {
