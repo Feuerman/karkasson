@@ -60,9 +60,9 @@
             class="flex items-center gap-2 rounded-lg border border-secondary-dark/40 bg-white/80 px-3 py-2 text-base font-semibold shadow-soft"
           >
             <img
-              v-if="currentUser?.photoURL"
-              :src="currentUser.photoURL"
-              :alt="currentUser?.displayName ?? ''"
+              v-if="photoUrl"
+              :src="photoUrl"
+              :alt="displayName ?? ''"
               class="w-6 h-6 rounded-full"
             />
             <span
@@ -72,9 +72,7 @@
               <UIcon name="i-lucide-user" class="h-4 w-4" />
             </span>
             <span class="truncate max-w-[140px]">
-              {{
-                currentUser?.displayName || currentUser?.email || linkedUserId
-              }}
+              {{ displayName ?? linkedUserId }}
             </span>
             <UButton
               color="error"
@@ -374,7 +372,31 @@ const roomCodeSearch = ref('')
 const roomCodePassword = ref('')
 const isGoogleLoginPending = ref(false)
 const linkedUserId = computed(() => GameService.userId.value)
-const currentUser = computed(() => getCurrentUser())
+const displayName = ref<string | null>(null)
+const photoUrl = ref<string | null>(null)
+
+const loadProfile = async () => {
+  if (!linkedUserId.value) {
+    displayName.value = null
+    photoUrl.value = null
+    return
+  }
+  try {
+    const response = await GameService.getUserProfile(linkedUserId.value)
+    const currentUser = getCurrentUser()
+    displayName.value =
+      response.profile?.displayName ??
+      currentUser?.displayName ??
+      linkedUserId.value
+    photoUrl.value = response.profile?.photoURL ?? currentUser?.photoURL ?? null
+  } catch {
+    const currentUser = getCurrentUser()
+    displayName.value = currentUser?.displayName ?? linkedUserId.value
+    photoUrl.value = currentUser?.photoURL ?? null
+  }
+}
+
+watch(linkedUserId, loadProfile, { immediate: true })
 const { copied: inviteLinkCopied, copy: copyInviteLinkFn } =
   useCopyToClipboard()
 

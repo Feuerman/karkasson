@@ -96,6 +96,18 @@ export interface RestoreAccountRequest {
 
 export interface LogoutRequest {}
 
+export interface GetUserStatsRequest {
+  userId: string
+}
+
+export interface GetLeaderboardRequest {
+  limit?: number
+}
+
+export interface GetUserProfileRequest {
+  userId: string
+}
+
 export interface CallbackRequest {
   payload: unknown
   callback: SocketCallback | undefined
@@ -438,6 +450,37 @@ export function parseLogout(value: unknown): LogoutRequest | undefined {
 export function parseRestoreAccount(
   value: unknown
 ): RestoreAccountRequest | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+  const userId = readUserId(record.userId)
+  if (!userId) return undefined
+  return { userId }
+}
+
+export function parseGetUserStats(
+  value: unknown
+): GetUserStatsRequest | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+  const userId = readUserId(record.userId)
+  if (!userId) return undefined
+  return { userId }
+}
+
+export function parseGetLeaderboard(
+  value: unknown
+): GetLeaderboardRequest | undefined {
+  const request: GetLeaderboardRequest = {}
+  const record = asRecord(value)
+  if (!record) return request
+  const limit = readOptionalInteger(record.limit, 1, 100)
+  if (limit !== undefined) request.limit = limit
+  return request
+}
+
+export function parseGetUserProfile(
+  value: unknown
+): GetUserProfileRequest | undefined {
   const record = asRecord(value)
   if (!record) return undefined
   const userId = readUserId(record.userId)

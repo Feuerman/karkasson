@@ -11,7 +11,11 @@
   "nodemonConfig": {
     "env": {
       "NODE_ENV": "development"
-    }
+    },
+    "ignore": [
+      "data/*",
+      "dist/*"
+    ]
   },
   "keywords": [],
   "author": "",
