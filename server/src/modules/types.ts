@@ -253,6 +253,9 @@ export const SocketEvents = {
   RestoreAccount: 'restoreAccount',
   Logout: 'logout',
   UnlinkAccount: 'unlinkAccount',
+  GetUserStats: 'getUserStats',
+  GetLeaderboard: 'getLeaderboard',
+  GetUserProfile: 'getUserProfile',
 } as const
 
 export type SocketEvent = (typeof SocketEvents)[keyof typeof SocketEvents]
