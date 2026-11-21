@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { errorToString } from '../utils/common'
 
 /**
  * Необработанная ошибка приложения: показывается экран «что-то пошло не так»
@@ -14,12 +15,7 @@ export const criticalError = ref<CriticalError | null>(null)
 
 export function setCriticalError(error: unknown, code?: string): void {
   criticalError.value = {
-    message:
-      error instanceof Error
-        ? error.message
-        : typeof error === 'string'
-          ? error
-          : String(error),
+    message: errorToString(error),
     code,
   }
 }

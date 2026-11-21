@@ -1,6 +1,18 @@
 import notificationService from '@/plugins/notification'
 import { t, tError } from './i18n'
 
+/** Plain object: не null, не массив, typeof === 'object'. */
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/** Преобразует любую ошибку в строку: Error → message, строка → как есть, иначе String(). */
+export const errorToString = (error: unknown): string =>
+  error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : String(error)
+
 /**
  * Текст ошибки для показа игроку.
  *

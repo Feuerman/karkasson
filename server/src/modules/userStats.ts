@@ -9,6 +9,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { createLogger } from '../utils/logger'
+import { isRecord } from '../utils/common'
 
 const logger = createLogger('userStats')
 
@@ -32,14 +33,10 @@ function readSnapshot(): StatsSnapshot {
     if (!existsSync(STATS_FILE)) return { userStats: {} }
     const raw = readFileSync(STATS_FILE, 'utf8')
     const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return { userStats: {} }
-    const record = parsed as Record<string, unknown>
+    if (!isRecord(parsed)) return { userStats: {} }
+    const record = parsed
     const userStats = record.userStats
-    if (
-      !userStats ||
-      typeof userStats !== 'object' ||
-      Array.isArray(userStats)
-    ) {
+    if (!isRecord(userStats)) {
       return { userStats: {} }
     }
     return { userStats: userStats as Record<string, UserStatsRecord> }

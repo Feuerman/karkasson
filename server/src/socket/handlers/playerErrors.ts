@@ -18,7 +18,7 @@ import {
   errorCodeForMessage,
   translateErrorMessage,
 } from '../../modules/errors'
-import { getErrorMessage } from '../../utils/common'
+import { getErrorMessage, isRecord } from '../../utils/common'
 import { type PlacementConflict } from '../../modules/types'
 import {
   PLACEMENT_FAILURE_MESSAGE,
@@ -46,10 +46,10 @@ export function toPlayerErrorMessage(error: unknown): string {
 
 /** Извлекает конфликты размещения из деталей ошибки, если они там есть. */
 function placementConflicts(error: unknown): PlacementConflict[] | undefined {
-  if (error === null || typeof error !== 'object') return undefined
-  const details = (error as Record<string, unknown>).details
-  if (details && typeof details === 'object' && !Array.isArray(details)) {
-    const conflicts = (details as Record<string, unknown>).conflicts
+  if (!isRecord(error)) return undefined
+  const details = error.details
+  if (isRecord(details)) {
+    const conflicts = details.conflicts
     if (Array.isArray(conflicts)) return conflicts as PlacementConflict[]
   }
   return undefined

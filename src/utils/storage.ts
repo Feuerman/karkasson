@@ -7,7 +7,8 @@
  * сохранятся до перезагрузки.
  */
 
-const getStorage = (): Storage | null => {
+/** Хранилище браузера; в тестах и серверной сборке его может не быть. */
+export const getStorage = (): Storage | null => {
   try {
     return typeof localStorage === 'undefined' ? null : localStorage
   } catch {
