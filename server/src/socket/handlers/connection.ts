@@ -3,6 +3,7 @@ import type { GameManager } from '../../modules/GameManager'
 import { SocketEvents, PROTOCOL_VERSION } from '../../modules/types'
 import { CommonErrors } from '../../modules/errors'
 import { createLogger } from '../../utils/logger'
+import { isRecord } from '../../utils/common'
 import {
   parseGameRequest,
   parseRegisterSession,
@@ -176,10 +177,7 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
   })
 
   socket.on(SocketEvents.SetLocale, (payload: unknown) => {
-    const record =
-      typeof payload === 'object' && payload !== null && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>)
-        : undefined
+    const record = isRecord(payload) ? payload : undefined
     const locale = record?.locale
     if (locale === 'ru' || locale === 'en') {
       service.setSessionLocale(socket.id, locale)

@@ -1,5 +1,6 @@
 import { createPrivateKey } from 'node:crypto'
 import { createLogger } from './utils/logger'
+import { isRecord } from './utils/common'
 
 export const PORT = Number(process.env.PORT) || 3001
 
@@ -316,11 +317,11 @@ function parseServiceAccount(raw: string): FirebaseServiceAccount {
     throw new Error('FIREBASE_SERVICE_ACCOUNT must contain valid JSON')
   }
 
-  if (!parsed || typeof parsed !== 'object') {
+  if (!isRecord(parsed)) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT must contain a JSON object')
   }
 
-  const record = parsed as Record<string, unknown>
+  const record = parsed
   const projectId = readStringValue(record.project_id)
   const clientEmail = readStringValue(record.client_email)
   const privateKey = readStringValue(record.private_key)

@@ -16,6 +16,7 @@ import { hasControlOrFormatCharacters } from '../modules/text'
 import { MAX_SESSION_TOKEN_LENGTH } from '../services/sessionToken'
 import type { SocketCallback } from './types'
 import type { GamesListFilter } from '../services/gameSummary'
+import { isRecord } from '../utils/common'
 
 const MAX_GAME_ID_LENGTH = 64
 const MAX_IDENTIFIER_LENGTH = 128
@@ -136,9 +137,7 @@ export function payloadAndCallback(
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
+  return isRecord(value) ? value : undefined
 }
 
 function readIdentifier(value: unknown, maxLength: number): string | undefined {
