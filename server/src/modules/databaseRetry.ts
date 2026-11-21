@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from 'node:timers/promises'
+import { isRecord } from '../utils/common'
 
 export interface DatabaseRetryOptions {
   attempts: number
@@ -32,7 +33,7 @@ const NON_RETRYABLE_CODES = [
 ]
 
 function errorCode(error: unknown): string | undefined {
-  if (typeof error !== 'object' || error === null) return undefined
+  if (!isRecord(error)) return undefined
   const code = (error as { code?: unknown }).code
   return typeof code === 'string' ? code.toLowerCase() : undefined
 }

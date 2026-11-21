@@ -75,6 +75,6 @@ describe('Раскладка окон', () => {
     expect(() =>
       writePanelPosition('player-stats', { x: 1, y: 2 }, null)
     ).not.toThrow()
-    expect(() => clearPanelLayout(null)).not.toThrow()
+    expect(() => clearPanelLayout()).not.toThrow()
   })
 })
