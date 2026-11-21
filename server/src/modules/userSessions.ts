@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { createLogger } from '../utils/logger'
+import { isRecord } from '../utils/common'
 
 const logger = createLogger('userSessions')
 
@@ -39,23 +40,14 @@ function readSnapshot(): SessionsSnapshot {
       return { userToSessions: {}, userProfiles: {} }
     const raw = readFileSync(SESSIONS_FILE, 'utf8')
     const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object')
-      return { userToSessions: {}, userProfiles: {} }
-    const record = parsed as Record<string, unknown>
+    if (!isRecord(parsed)) return { userToSessions: {}, userProfiles: {} }
+    const record = parsed
     const userToSessions = record.userToSessions
-    if (
-      !userToSessions ||
-      typeof userToSessions !== 'object' ||
-      Array.isArray(userToSessions)
-    ) {
+    if (!isRecord(userToSessions)) {
       return { userToSessions: {}, userProfiles: {} }
     }
     const userProfiles = record.userProfiles
-    if (
-      !userProfiles ||
-      typeof userProfiles !== 'object' ||
-      Array.isArray(userProfiles)
-    ) {
+    if (!isRecord(userProfiles)) {
       return {
         userToSessions: userToSessions as Record<string, string[]>,
         userProfiles: {},

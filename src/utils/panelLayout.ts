@@ -7,6 +7,14 @@
  * поэтому все операции безопасны: при ошибке раскладка просто не сохраняется.
  */
 
+import { isRecord } from './common'
+import {
+  getStorage,
+  readStorageItem,
+  removeStorageItem,
+  writeStorageItem,
+} from './storage'
+
 export interface PanelPosition {
   x: number
   y: number
@@ -25,37 +33,9 @@ const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
 const isPanelPosition = (value: unknown): value is PanelPosition => {
-  if (typeof value !== 'object' || value === null) return false
+  if (!isRecord(value)) return false
   const position = value as Partial<PanelPosition>
   return isFiniteNumber(position.x) && isFiniteNumber(position.y)
-}
-
-/** Хранилище браузера; в тестах и серверной сборке его может не быть. */
-const getStorage = (): Storage | null => {
-  try {
-    return typeof localStorage === 'undefined' ? null : localStorage
-  } catch {
-    return null
-  }
-}
-
-const readRaw = (storage: Storage | null): unknown => {
-  if (!storage) return null
-  try {
-    const raw = storage.getItem(PANEL_LAYOUT_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-const writeRaw = (storage: Storage | null, state: PanelLayoutState): void => {
-  if (!storage) return
-  try {
-    storage.setItem(PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(state))
-  } catch {
-    // Хранилище переполнено или запрещено: раскладка просто не сохранится.
-  }
 }
 
 /**
@@ -67,12 +47,20 @@ const writeRaw = (storage: Storage | null, state: PanelLayoutState): void => {
 export const readPanelLayout = (
   storage: Storage | null = getStorage()
 ): PanelLayoutState => {
-  const raw = readRaw(storage)
-  if (typeof raw !== 'object' || raw === null) {
+  const raw = readStorageItem(PANEL_LAYOUT_STORAGE_KEY)
+  if (!storage || !raw) {
+    return { positions: {}, collapsed: {} }
+  }
+  let source: unknown
+  try {
+    source = JSON.parse(raw)
+  } catch {
+    return { positions: {}, collapsed: {} }
+  }
+  if (!isRecord(source)) {
     return { positions: {}, collapsed: {} }
   }
 
-  const source = raw as Partial<PanelLayoutState>
   const positions: Record<string, PanelPosition> = {}
   const collapsed: Record<string, boolean> = {}
 
@@ -95,7 +83,7 @@ export const writePanelPosition = (
 ): void => {
   const state = readPanelLayout(storage)
   state.positions[id] = { x: position.x, y: position.y }
-  writeRaw(storage, state)
+  writeStorageItem(PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(state))
 }
 
 /** Сохраняет признак свёрнутости окна. */
@@ -106,17 +94,10 @@ export const writePanelCollapsed = (
 ): void => {
   const state = readPanelLayout(storage)
   state.collapsed[id] = collapsed
-  writeRaw(storage, state)
+  writeStorageItem(PANEL_LAYOUT_STORAGE_KEY, JSON.stringify(state))
 }
 
 /** Убирает сохранённую раскладку: окна возвращаются к исходным местам. */
-export const clearPanelLayout = (
-  storage: Storage | null = getStorage()
-): void => {
-  if (!storage) return
-  try {
-    storage.removeItem(PANEL_LAYOUT_STORAGE_KEY)
-  } catch {
-    // Хранилище недоступно: сброс просто не сохранится.
-  }
+export const clearPanelLayout = (): void => {
+  removeStorageItem(PANEL_LAYOUT_STORAGE_KEY)
 }

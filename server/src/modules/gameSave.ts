@@ -10,8 +10,8 @@
 import { pickGameState, type IGameState } from './gameState'
 import type { GameSummaryRecord } from './Database'
 import { SaveErrors } from './errors'
+import { isRecord } from '../utils/common'
 import {
-  isRecord,
   migrateLegacyGameState,
   parseJsonValue,
   validateOutgoingState,

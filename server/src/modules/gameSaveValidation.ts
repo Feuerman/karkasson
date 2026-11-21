@@ -15,6 +15,7 @@
 import { GameManager } from './GameManager'
 import { pickGameState, type IGameState } from './gameState'
 import { allTileIds } from '../data/tileCatalog'
+import { isRecord } from '../utils/common'
 import {
   DRAGON_TOTAL_STEPS,
   PointDirection,
@@ -23,10 +24,6 @@ import {
   type GameRules,
 } from './types'
 import { SaveErrors } from './errors'
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 /** Необязательный булев флаг: отсутствие означает «выключено». */
 function isOptionalBoolean(candidate: unknown): boolean {
