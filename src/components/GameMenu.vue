@@ -17,12 +17,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { t } from '@/utils/i18n'
+import type { MenuItemId } from '@/types/socket'
 import UDropdownMenu from '@nuxt/ui/components/DropdownMenu.vue'
 import UButton from '@nuxt/ui/components/Button.vue'
 import type { DropdownMenuItem } from '@nuxt/ui/components/DropdownMenu.vue'
 
 export interface GameMenuItem {
-  id: string
+  id: MenuItemId
   label: string
   icon?: string
 }
@@ -34,7 +35,9 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits<{
+  select: [id: MenuItemId]
+}>()
 
 const dropdownItems = computed<DropdownMenuItem[]>(() =>
   props.items.map((item) => ({
