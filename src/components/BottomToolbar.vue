@@ -56,6 +56,7 @@
 import UButton from '@nuxt/ui/components/Button.vue'
 import GameMenu, { type GameMenuItem } from './GameMenu.vue'
 import { t } from '@/utils/i18n'
+import type { MenuItemId } from '@/types/socket'
 import { TEST_IDS } from '@/data/testIds'
 
 defineProps<{
@@ -66,7 +67,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [id: string]
+  select: [id: MenuItemId]
   toggleLayoutEdit: []
   resetLayout: []
   toggleSound: []

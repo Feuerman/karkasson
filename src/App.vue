@@ -130,7 +130,7 @@ import ErrorScreen from './components/ErrorScreen.vue'
 import type { IGame, IGameBoard, LobbyGame } from './types/game'
 import type { GameSummary } from '@server/services/GameService'
 import { SocketEvents, type PlayerView } from '@server/modules/types'
-import type { GameDeletedPayload } from './types/socket'
+import { MenuItemId, type GameDeletedPayload } from './types/socket'
 import type { RulesDocument } from './rules/types'
 
 const RulesPanel = defineAsyncComponent(
@@ -450,7 +450,7 @@ const leaveGame = async () => {
       await GameService.leaveGame()
       forgetLastGame()
       clearSession()
-      getGamesList()
+      await getGamesList()
     } catch (error) {
       notifyError(error)
     }
@@ -469,7 +469,7 @@ const goInLobby = async () => {
       isSpectator.value = false
       showLobby.value = true
       gameState.value = {} as IGameBoard
-      getGamesList()
+      await getGamesList()
     } catch (error) {
       notifyError(error)
     }
@@ -597,19 +597,23 @@ const rulesDocument = ref<RulesDocument | null>(null)
 /** Пункты меню: итоги партии появляются, когда партия закончилась. */
 const menuItems = computed<GameMenuItem[]>(() => {
   const items: GameMenuItem[] = [
-    { id: 'rules', label: t('ui_menu_rules'), icon: 'i-lucide-circle-help' },
     {
-      id: 'settings',
+      id: MenuItemId.Rules,
+      label: t('ui_menu_rules'),
+      icon: 'i-lucide-circle-help',
+    },
+    {
+      id: MenuItemId.Settings,
       label: t('ui_settings'),
       icon: 'i-lucide-settings',
     },
     {
-      id: 'account',
+      id: MenuItemId.Account,
       label: t('ui_menu_account'),
       icon: 'i-lucide-user',
     },
     {
-      id: 'language',
+      id: MenuItemId.Language,
       label: languageLabel.value,
       icon: 'i-lucide-globe',
     },
@@ -617,7 +621,7 @@ const menuItems = computed<GameMenuItem[]>(() => {
 
   if (gameState.value.gameIsEnded) {
     items.push({
-      id: 'result',
+      id: MenuItemId.Result,
       label: t('ui_menu_result'),
       icon: 'i-lucide-trophy',
     })
@@ -655,31 +659,29 @@ const onResetLayout = () => {
   notificationService.info(t('ui_layout_reset'))
 }
 
-const onMenuSelect = async (id: string) => {
-  if (id === 'settings') {
-    showSettings.value = true
-    return
-  }
-  if (id === 'account') {
-    showAccount.value = true
-    return
-  }
-  if (id === 'language') {
-    await toggleLanguage()
-    return
-  }
-  if (id === 'result') {
-    showResultPanel.value = true
-    return
-  }
-
-  if (id === 'rules') {
-    try {
-      const { getBaseGameRules } = await import('./rules/baseGame')
-      rulesDocument.value = getBaseGameRules()
-      showRules.value = true
-    } catch (error: unknown) {
-      notifyError(error)
+const onMenuSelect = async (id: MenuItemId) => {
+  switch (id) {
+    case MenuItemId.Settings:
+      showSettings.value = true
+      return
+    case MenuItemId.Account:
+      showAccount.value = true
+      return
+    case MenuItemId.Language:
+      await toggleLanguage()
+      return
+    case MenuItemId.Result:
+      showResultPanel.value = true
+      return
+    case MenuItemId.Rules: {
+      try {
+        const { getBaseGameRules } = await import('./rules/baseGame')
+        rulesDocument.value = getBaseGameRules()
+        showRules.value = true
+      } catch (error: unknown) {
+        notifyError(error)
+      }
+      return
     }
   }
 }

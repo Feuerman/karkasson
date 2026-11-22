@@ -23,37 +23,14 @@
 
         <div class="border-t border-secondary-dark/30" />
 
-        <div class="flex justify-center gap-1">
-          <UButton
-            :class="[
-              'flex-1 max-w-md text-center',
-              activeTab === 'my'
-                ? 'bg-primary text-white'
-                : 'bg-surface-50 text-text-muted hover:bg-surface-100',
-            ]"
-            variant="outline"
-            size="sm"
-            @click="switchTab('my')"
-          >
-            {{ t('ui_stats_my_stats') }}
-          </UButton>
-          <UButton
-            :class="[
-              'flex-1 max-w-md text-center',
-              activeTab === 'leaderboard'
-                ? 'bg-primary text-white'
-                : 'bg-surface-50 text-text-muted hover:bg-surface-100',
-            ]"
-            variant="outline"
-            size="sm"
-            @click="switchTab('leaderboard')"
-          >
-            {{ t('ui_stats_leaderboard') }}
-          </UButton>
-        </div>
+        <AccountTabs
+          :tabs="tabs"
+          :active-tab="activeTab"
+          @update:active-tab="switchTab"
+        />
 
         <AccountStats
-          v-if="activeTab === 'my'"
+          v-if="activeTab === AccountTab.My"
           :user-stats="userStats"
           :stats-loading="statsLoading"
           :stats-error="statsError"
@@ -90,13 +67,18 @@ import GameService from '@/modules/GameService'
 import { t } from '@/utils/i18n'
 import { notifyError } from '@/utils/common'
 import { getCurrentUser } from '@/modules/firebaseAuth'
-import type { LeaderboardEntry, UserStatsRecord } from '@/types/socket'
-import UButton from '@nuxt/ui/components/Button.vue'
+import {
+  AccountTab,
+  type LeaderboardEntry,
+  type UserStatsRecord,
+} from '@/types/socket'
+import { useTabs } from '@/composables/useTabs'
 import UModal from '@nuxt/ui/components/Modal.vue'
 import AccountHeader from './AccountHeader.vue'
 import AccountRestore from './AccountRestore.vue'
 import AccountStats from './AccountStats.vue'
 import AccountLeaderboard from './AccountLeaderboard.vue'
+import AccountTabs from './AccountTabs.vue'
 
 withDefaults(
   defineProps<{
@@ -111,7 +93,12 @@ const emit = defineEmits<{
 
 const linkedUserId = GameService.userId
 
-const activeTab = ref<'my' | 'leaderboard'>('my')
+const { activeTab, switchTab: setActiveTab } = useTabs(AccountTab.My)
+
+const tabs: { value: AccountTab; labelKey: string }[] = [
+  { value: AccountTab.My, labelKey: 'ui_stats_my_stats' },
+  { value: AccountTab.Leaderboard, labelKey: 'ui_stats_leaderboard' },
+]
 
 const userStats = ref<UserStatsRecord | null>(null)
 const statsLoading = ref(false)
@@ -228,12 +215,12 @@ const loadLeaderboard = async () => {
   }
 }
 
-const switchTab = (value: 'my' | 'leaderboard') => {
-  activeTab.value = value
-  if (value === 'my' && !userStats.value) {
+const switchTab = (value: AccountTab) => {
+  setActiveTab(value)
+  if (value === AccountTab.My && !userStats.value) {
     loadStats()
   }
-  if (value === 'leaderboard' && leaderboard.value.length === 0) {
+  if (value === AccountTab.Leaderboard && leaderboard.value.length === 0) {
     loadLeaderboard()
   }
 }

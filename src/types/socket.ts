@@ -110,6 +110,21 @@ export interface SetLocalePayload {
   locale: 'ru' | 'en'
 }
 
+/** Вкладка панели аккаунта. */
+export enum AccountTab {
+  My = 'my',
+  Leaderboard = 'leaderboard',
+}
+
+/** Идентификатор пункта меню главного окна. */
+export enum MenuItemId {
+  Rules = 'rules',
+  Settings = 'settings',
+  Account = 'account',
+  Language = 'language',
+  Result = 'result',
+}
+
 /** Статистика одного пользователя (сервер → клиент). */
 export interface UserStatsRecord {
   gamesPlayed: number
