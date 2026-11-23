@@ -267,6 +267,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (!guard.tryConsumeCommand(socket.id, ip).allowed) {
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
         const sessionId = service.getSessionBySocketId(socket.id)
         if (!sessionId) {
           const error = CommonErrors.SessionRequired
@@ -321,6 +328,7 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
         return
       }
 
+      service.revokeSessionBySessionId(sessionId)
       service.unlinkSessionFromUser(sessionId)
       callback?.({ success: true })
     })
@@ -362,6 +370,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (!guard.tryConsumeCommand(socket.id, ip).allowed) {
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
         const sessionId = service.getSessionBySocketId(socket.id)
         if (!sessionId) {
           const error = CommonErrors.SessionRequired
@@ -370,9 +385,21 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
           return
         }
 
-        service.linkSessionToUser(sessionId, request.userId)
+        const verified = await verifyIdToken(request.idToken)
+        if (!verified) {
+          const error = CommonErrors.InvalidRequest
+          emitSocketError(socket, service, error)
+          callback?.(errorResponse(error))
+          return
+        }
 
-        const gameIds = service.getUserGames(request.userId)
+        // userId берётся из верифицированного Firebase ID token, а не из
+        // клиентского запроса — клиент не может подделать чужой аккаунт.
+        const userId = verified.uid
+
+        service.linkSessionToUser(sessionId, userId)
+
+        const gameIds = service.getUserGames(userId)
         const games = gameIds
           .map((id) => service.getGame(id))
           .filter((game): game is GameManager => Boolean(game))
@@ -394,6 +421,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (!guard.tryConsumeCommand(socket.id, ip).allowed) {
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
         const stats = service.getUserStats(request.userId)
         callback?.({ success: true, stats })
       })
@@ -411,6 +445,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (!guard.tryConsumeCommand(socket.id, ip).allowed) {
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
         const leaderboard = service.getLeaderboard(request.limit)
         callback?.({ success: true, leaderboard })
       })
@@ -428,6 +469,13 @@ export function registerLobbyHandlers(context: SocketHandlerContext) {
       }
 
       await runLobbyCommand(callback, async () => {
+        const ip = guard.clientIp(socket)
+        if (!guard.tryConsumeCommand(socket.id, ip).allowed) {
+          emitSocketError(socket, service, CommonErrors.TooManyRequests)
+          callback?.(errorResponse(CommonErrors.TooManyRequests))
+          return
+        }
+
         const profile = service.getUserProfile(request.userId)
         callback?.({ success: true, profile })
       })

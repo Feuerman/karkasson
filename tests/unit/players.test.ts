@@ -24,7 +24,6 @@ const player = (
   score: 0,
   sessionId: `session-${id}`,
   isConnected: true,
-  userId: null,
   avatarUrl: null,
   ...overrides,
 })

@@ -175,15 +175,15 @@ export interface PlayerView {
   score: number
   sessionId: string | null
   isConnected: boolean
-  /** Firebase Auth uid, если сессия привязана к аккаунту. */
-  userId: string | null
   /** URL аватара из профиля Firebase (photoURL). */
   avatarUrl: string | null
 }
 
-/** Внутреннее состояние игрока: `socketId` — только серверу. */
+/** Внутреннее состояние игрока: `socketId` и `userId` — только серверу. */
 export interface Player extends Omit<PlayerView, 'isConnected'> {
   socketId: string | null
+  /** Firebase Auth uid, если сессия привязана к аккаунту. Не отдаётся клиенту. */
+  userId: string | null
 }
 
 export interface Point {

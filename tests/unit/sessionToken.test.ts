@@ -21,7 +21,9 @@ describe('sessionToken', () => {
     expect(session.token.startsWith(`v1.${sessionId}.1700000000000.`)).toBe(
       true
     )
-    expect(verifySessionToken(session.token, secret)).toBe(sessionId)
+    expect(verifySessionToken(session.token, secret, 1700000000000)).toBe(
+      sessionId
+    )
   })
 
   it('отклоняет токен с другой подписью', () => {

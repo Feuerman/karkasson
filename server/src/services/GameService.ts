@@ -205,6 +205,10 @@ export class GameService {
   private saveFailureCount = 0
   /** Зрители активных партий: gameId → множество sessionId. Живёт только в памяти инстанса. */
   private readonly spectators = new Map<string, Set<string>>()
+  /** Отозванные сессионные токены (logout, подозрительная активность). */
+  private readonly revokedSessionTokens = new Set<string>()
+  /** sessionId → выданный токен, нужен для отзыва по сессии при logout. */
+  private readonly sessionIdToToken = new Map<string, string>()
   private readonly limits: GameServiceLimits
 
   constructor(
@@ -419,10 +423,12 @@ export class GameService {
     sessionId: string
     isNew: boolean
   } {
-    const sessionId = token
-      ? verifySessionToken(token, this.sessionSecret)
-      : undefined
-    if (sessionId) return { token: token as string, sessionId, isNew: false }
+    if (token) {
+      const sessionId = verifySessionToken(token, this.sessionSecret)
+      if (sessionId && !this.revokedSessionTokens.has(token)) {
+        return { token, sessionId, isNew: false }
+      }
+    }
 
     const issued = createSessionToken(this.sessionSecret)
     return { ...issued, isNew: true }
@@ -447,7 +453,8 @@ export class GameService {
   registerSession(
     sessionId: string,
     socketId: string,
-    locale?: string
+    locale?: string,
+    token?: string
   ): string | undefined {
     const previousSocketId = this.sessionToSocketMap.get(sessionId)
     if (previousSocketId && previousSocketId !== socketId) {
@@ -458,6 +465,7 @@ export class GameService {
     this.socketToSessionMap[socketId] = sessionId
     this.sessionToSocketMap.set(sessionId, socketId)
     if (locale) this.sessionToLocale.set(sessionId, locale)
+    if (token) this.sessionIdToToken.set(sessionId, token)
     return previousSocketId === socketId ? undefined : previousSocketId
   }
 
@@ -488,6 +496,18 @@ export class GameService {
       if (this.sessionToSocketMap.get(sessionId) === socketId) {
         this.sessionToSocketMap.delete(sessionId)
       }
+    }
+  }
+
+  /**
+   * Отзывает сессию по sessionId: токен добавляется в чёрный список,
+   * чтобы старый токен больше не принимался при resolveSession.
+   */
+  revokeSessionBySessionId(sessionId: string): void {
+    const token = this.sessionIdToToken.get(sessionId)
+    if (token) {
+      this.revokedSessionTokens.add(token)
+      this.sessionIdToToken.delete(sessionId)
     }
   }
 

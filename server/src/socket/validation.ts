@@ -93,6 +93,7 @@ export interface LinkAccountRequest {
 
 export interface RestoreAccountRequest {
   userId: string
+  idToken: string
 }
 
 export interface LogoutRequest {}
@@ -452,8 +453,9 @@ export function parseRestoreAccount(
   const record = asRecord(value)
   if (!record) return undefined
   const userId = readUserId(record.userId)
-  if (!userId) return undefined
-  return { userId }
+  const idToken = readIdentifier(record.idToken, 4096)
+  if (!userId || !idToken) return undefined
+  return { userId, idToken }
 }
 
 export function parseGetUserStats(

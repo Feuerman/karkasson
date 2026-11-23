@@ -160,7 +160,8 @@ export function registerConnectionHandlers(context: SocketHandlerContext) {
     const replacedSocketId = service.registerSession(
       session.sessionId,
       socket.id,
-      request.locale
+      request.locale,
+      session.token
     )
     if (replacedSocketId) {
       const previousSocket = io.sockets.sockets.get(replacedSocketId)

@@ -15,6 +15,8 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 const TOKEN_VERSION = 'v1'
 /** Верхняя граница длины токена: защищает от разбора произвольно больших строк. */
 export const MAX_SESSION_TOKEN_LENGTH = 512
+/** Жизнь сессионного токена: 30 дней. Старшие токены отзываются сервером. */
+export const MAX_SESSION_AGE_SECONDS = 30 * 24 * 60 * 60
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const ISSUED_AT_PATTERN = /^\d{1,16}$/
@@ -47,7 +49,8 @@ export function createSessionToken(
  */
 export function verifySessionToken(
   token: string,
-  secret: string
+  secret: string,
+  now: number = Date.now()
 ): string | undefined {
   if (token.length === 0 || token.length > MAX_SESSION_TOKEN_LENGTH) {
     return undefined
@@ -60,6 +63,10 @@ export function verifySessionToken(
   if (version !== TOKEN_VERSION) return undefined
   if (!SESSION_ID_PATTERN.test(sessionId)) return undefined
   if (!ISSUED_AT_PATTERN.test(issuedAt)) return undefined
+
+  const issuedAtMs = Number(issuedAt)
+  if (now - issuedAtMs > MAX_SESSION_AGE_SECONDS * 1_000) return undefined
+  if (issuedAtMs > now + 60_000) return undefined
 
   const expected = Buffer.from(
     sign(`${version}.${sessionId}.${issuedAt}`, secret)

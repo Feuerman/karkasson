@@ -79,9 +79,9 @@ describe('parseLogout', () => {
 
 describe('parseRestoreAccount', () => {
   it('разбирает корректный запрос', () => {
-    expect(parseRestoreAccount({ userId: 'user-1' })).toEqual({
-      userId: 'user-1',
-    })
+    expect(
+      parseRestoreAccount({ userId: 'user-1', idToken: 'token-1' })
+    ).toEqual({ userId: 'user-1', idToken: 'token-1' })
   })
 
   it.each([undefined, null, 'string', {}, { userId: '' }])(
